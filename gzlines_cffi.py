@@ -10,9 +10,21 @@ ffi.cdef("""
 C = ffi.verify("""#include <zlib.h>""", libraries=["z"])
 Z = 128 * 1024
 
+_gzclosemaybe_done = set()
+@ffi.callback("void(gzFile)")
+def _gzclosemaybe(fh):
+	i = intptr(fh)
+	if i in _gzclosemaybe_done:
+		_gzclosemaybe_done.remove(i)
+	else:
+		C.gzclose(fh)
+
+def intptr(ptr):
+	return int(ffi.cast("intptr_t", ptr))
+
 class gzlines:
 	def __init__(self, fn):
-		self.fh = ffi.gc(C.gzopen(fn, "rb"), C.gzclose)
+		self.fh = ffi.gc(C.gzopen(fn, "rb"), _gzclosemaybe)
 		if not self.fh:
 			raise IOError("gzopen " + fn)
 		self.cbuf = ffi.new("char[]", Z)
@@ -36,7 +48,7 @@ class gzlines:
 		return True
 	
 	def close(self):
-		return # nope, ffi.gc calls it again -> boom!
+		_gzclosemaybe_done.add(intptr(self.fh))
 		C.gzclose(self.fh)
 		self.fh = self.cbuf = None
 	
