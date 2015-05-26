@@ -4,6 +4,8 @@
 #include <unistd.h>
 #include <string.h>
 
+
+// Must be a multiple of the largest fixed size type
 #define Z (128 * 1024)
 
 
@@ -101,6 +103,18 @@ static PyObject *gzlines_iternext(GzLines *self)
 	return PyString_FromStringAndSize(ptr, linelen);
 }
 
+static PyObject *GzFloat_iternext(GzLines *self)
+{
+	if (!self->fh) return err_closed();
+	if (self->pos >= self->len) {
+		if (gzlines_read_(self)) return 0;
+	}
+	// Z is a multiple of 8, so this never overruns.
+	const double res = *(double *)(self->buf + self->pos);
+	self->pos += 8;
+	return PyFloat_FromDouble(res);
+}
+
 static PyObject *gzlines_exit(PyObject *self, PyObject *args)
 {
 	PyObject *ret = PyObject_CallMethod(self, "close", NULL);
@@ -116,58 +130,66 @@ static PyMethodDef gzlines_methods[] = {
 	{NULL, NULL, 0, NULL}
 };
 
-static PyTypeObject gzlines_Type = {
-	PyVarObject_HEAD_INIT(NULL, 0)
-	"gzlines",                      /*tp_name*/
-	sizeof(GzLines),                /*tp_basicsize*/
-	0,                              /*tp_itemsize*/
-	(destructor)gzlines_dealloc,    /*tp_dealloc*/
-	0,                              /*tp_print*/
-	0,                              /*tp_getattr*/
-	0,                              /*tp_setattr*/
-	0,                              /*tp_compare*/
-	0,                              /*tp_repr*/
-	0,                              /*tp_as_number*/
-	0,                              /*tp_as_sequence*/
-	0,                              /*tp_as_mapping*/
-	0,                              /*tp_hash*/
-	0,                              /*tp_call*/
-	0,                              /*tp_str*/
-	0,                              /*tp_getattro*/
-	0,                              /*tp_setattro*/
-	0,                              /*tp_as_buffer*/
-	Py_TPFLAGS_DEFAULT,             /*tp_flags*/
-	0,                              /*tp_doc*/
-	0,                              /*tp_traverse*/
-	0,                              /*tp_clear*/
-	0,                              /*tp_richcompare*/
-	0,                              /*tp_weaklistoffset*/
-	(getiterfunc)gzlines_self,      /*tp_iter*/
-	(iternextfunc)gzlines_iternext, /*tp_iternext*/
-	gzlines_methods,                /*tp_methods*/
-	0,                              /*tp_members*/
-	0,                              /*tp_getset*/
-	0,                              /*tp_base*/
-	0,                              /*tp_dict*/
-	0,                              /*tp_descr_get*/
-	0,                              /*tp_descr_set*/
-	0,                              /*tp_dictoffset*/
-	gzlines_init,                   /*tp_init*/
-	PyType_GenericAlloc,            /*tp_alloc*/
-	PyType_GenericNew,              /*tp_new*/
-	PyObject_Del,                   /*tp_free*/
-	0,                              /*tp_is_gc*/
-};
+#define MKTYPE(name)                                                 	\
+	static PyTypeObject name ## _Type = {                        	\
+		PyVarObject_HEAD_INIT(NULL, 0)                       	\
+		#name,                          /*tp_name          */	\
+		sizeof(GzLines),                /*tp_basicsize     */	\
+		0,                              /*tp_itemsize      */	\
+		(destructor)gzlines_dealloc,    /*tp_dealloc       */	\
+		0,                              /*tp_print         */	\
+		0,                              /*tp_getattr       */	\
+		0,                              /*tp_setattr       */	\
+		0,                              /*tp_compare       */	\
+		0,                              /*tp_repr          */	\
+		0,                              /*tp_as_number     */	\
+		0,                              /*tp_as_sequence   */	\
+		0,                              /*tp_as_mapping    */	\
+		0,                              /*tp_hash          */	\
+		0,                              /*tp_call          */	\
+		0,                              /*tp_str           */	\
+		0,                              /*tp_getattro      */	\
+		0,                              /*tp_setattro      */	\
+		0,                              /*tp_as_buffer     */	\
+		Py_TPFLAGS_DEFAULT,             /*tp_flags         */	\
+		0,                              /*tp_doc           */	\
+		0,                              /*tp_traverse      */	\
+		0,                              /*tp_clear         */	\
+		0,                              /*tp_richcompare   */	\
+		0,                              /*tp_weaklistoffset*/	\
+		(getiterfunc)gzlines_self,      /*tp_iter          */	\
+		(iternextfunc)name ## _iternext,/*tp_iternext      */	\
+		gzlines_methods,                /*tp_methods       */	\
+		0,                              /*tp_members       */	\
+		0,                              /*tp_getset        */	\
+		0,                              /*tp_base          */	\
+		0,                              /*tp_dict          */	\
+		0,                              /*tp_descr_get     */	\
+		0,                              /*tp_descr_set     */	\
+		0,                              /*tp_dictoffset    */	\
+		gzlines_init,                   /*tp_init          */	\
+		PyType_GenericAlloc,            /*tp_alloc         */	\
+		PyType_GenericNew,              /*tp_new           */	\
+		PyObject_Del,                   /*tp_free          */	\
+		0,                              /*tp_is_gc         */	\
+	}
+MKTYPE(gzlines);
+MKTYPE(GzFloat);
 
 static PyMethodDef module_methods[] = {
 	{NULL, NULL, 0, NULL}
 };
 
+#define INIT(name) do {                                              	\
+	if (PyType_Ready(&name ## _Type) < 0) return;                	\
+	Py_INCREF(&name ## _Type);                                   	\
+	PyModule_AddObject(m, #name, (PyObject *) &name ## _Type);   	\
+} while (0)
+
 PyMODINIT_FUNC initgzlines(void)
 {
-	if (PyType_Ready(&gzlines_Type) < 0) return;
 	PyObject *m = Py_InitModule3("gzlines", module_methods, NULL);
 	if (!m) return;
-	Py_INCREF(&gzlines_Type);
-	PyModule_AddObject(m, "gzlines", (PyObject *) &gzlines_Type);
+	INIT(gzlines);
+	INIT(GzFloat);
 }
