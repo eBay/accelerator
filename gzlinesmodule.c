@@ -12,12 +12,10 @@ typedef struct gzlines {
 	gzFile fh;
 	int pos, len;
 	char buf[Z + 1];
-} gzlines;
-
-static PyTypeObject gzlines_Type;
+} GzLines;
 
 
-static int gzlines_close_(gzlines *self)
+static int gzlines_close_(GzLines *self)
 {
 	if (self->fh) {
 		gzclose(self->fh);
@@ -30,7 +28,7 @@ static int gzlines_close_(gzlines *self)
 static int gzlines_init(PyObject *self_, PyObject *args, PyObject *kwds)
 {
 	static char *kwlist[] = {"name", 0};
-	gzlines *self = (gzlines *)self_;
+	GzLines *self = (GzLines *)self_;
 	char *name = NULL;
 	if (!PyArg_ParseTupleAndKeywords(args, kwds, "et", kwlist, Py_FileSystemDefaultEncoding, &name)) return -1;
 	gzlines_close_(self);
@@ -43,7 +41,7 @@ static int gzlines_init(PyObject *self_, PyObject *args, PyObject *kwds)
 	return 0;
 }
 
-static void gzlines_dealloc(gzlines *self)
+static void gzlines_dealloc(GzLines *self)
 {
 	gzlines_close_(self);
 	PyObject_Del(self);
@@ -55,20 +53,20 @@ static PyObject *err_closed(void)
 	return 0;
 }
 
-static PyObject *gzlines_close(gzlines *self)
+static PyObject *gzlines_close(GzLines *self)
 {
 	if (gzlines_close_(self)) return err_closed();
 	Py_RETURN_NONE;
 }
 
-static PyObject *gzlines_self(gzlines *self)
+static PyObject *gzlines_self(GzLines *self)
 {
 	if (!self->fh) return err_closed();
 	Py_INCREF(self);
 	return (PyObject *)self;
 }
 
-static int gzlines_read_(gzlines *self)
+static int gzlines_read_(GzLines *self)
 {
 	self->len = gzread(self->fh, self->buf, Z);
 	if (self->len <= 0) return 1;
@@ -77,7 +75,7 @@ static int gzlines_read_(gzlines *self)
 	return 0;
 }
 
-static PyObject *gzlines_iternext(gzlines *self)
+static PyObject *gzlines_iternext(GzLines *self)
 {
 	if (!self->fh) return err_closed();
 	if (self->pos >= self->len) {
@@ -121,7 +119,7 @@ static PyMethodDef gzlines_methods[] = {
 static PyTypeObject gzlines_Type = {
 	PyVarObject_HEAD_INIT(NULL, 0)
 	"gzlines",                      /*tp_name*/
-	sizeof(gzlines),                /*tp_basicsize*/
+	sizeof(GzLines),                /*tp_basicsize*/
 	0,                              /*tp_itemsize*/
 	(destructor)gzlines_dealloc,    /*tp_dealloc*/
 	0,                              /*tp_print*/
