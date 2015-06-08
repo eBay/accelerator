@@ -235,6 +235,8 @@ PyMODINIT_FUNC initgzlines(void)
 	INIT(GzFloat32);
 	INIT(GzInt64);
 	INIT(GzInt32);
+	PyObject *version = Py_BuildValue("(iii)", 1, 0, 0);
+	PyModule_AddObject(m, "version", version);
 	// old name for compat
 	Py_INCREF(&GzLines_Type);
 	PyModule_AddObject(m, "gzlines", (PyObject *) &GzLines_Type);
