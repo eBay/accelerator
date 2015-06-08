@@ -78,7 +78,7 @@ static int gzlines_read_(GzLines *self)
 	return 0;
 }
 
-static PyObject *gzlines_iternext(GzLines *self)
+static PyObject *GzLines_iternext(GzLines *self)
 {
 	if (!self->fh) return err_closed();
 	if (self->pos >= self->len) {
@@ -210,7 +210,7 @@ static PyMethodDef gzlines_methods[] = {
 		PyObject_Del,                   /*tp_free          */	\
 		0,                              /*tp_is_gc         */	\
 	}
-MKTYPE(gzlines);
+MKTYPE(GzLines);
 MKTYPE(GzFloat64);
 MKTYPE(GzFloat32);
 MKTYPE(GzInt64);
@@ -230,9 +230,12 @@ PyMODINIT_FUNC initgzlines(void)
 {
 	PyObject *m = Py_InitModule3("gzlines", module_methods, NULL);
 	if (!m) return;
-	INIT(gzlines);
+	INIT(GzLines);
 	INIT(GzFloat64);
 	INIT(GzFloat32);
 	INIT(GzInt64);
 	INIT(GzInt32);
+	// old name for compat
+	Py_INCREF(&GzLines_Type);
+	PyModule_AddObject(m, "gzlines", (PyObject *) &GzLines_Type);
 }
