@@ -3,6 +3,7 @@
 #include <zlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <stdint.h>
 
 
 // Must be a multiple of the largest fixed size type
@@ -134,7 +135,7 @@ static PyObject *GzInt64_iternext(GzLines *self)
 		if (gzlines_read_(self)) return 0;
 	}
 	// Z is a multiple of 8, so this never overruns.
-	const long res = *(long *)(self->buf + self->pos);
+	const int64_t res = *(int64_t *)(self->buf + self->pos);
 	self->pos += 8;
 	return PyInt_FromLong(res);
 }
@@ -146,7 +147,7 @@ static PyObject *GzInt32_iternext(GzLines *self)
 		if (gzlines_read_(self)) return 0;
 	}
 	// Z is a multiple of 4, so this never overruns.
-	const int res = *(int *)(self->buf + self->pos);
+	const int32_t res = *(int32_t *)(self->buf + self->pos);
 	self->pos += 4;
 	return PyInt_FromLong(res);
 }
