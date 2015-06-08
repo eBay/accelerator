@@ -123,6 +123,7 @@ MKITER(GzInt64  , int64_t , PyInt_FromLong)
 MKITER(GzInt32  , int32_t , PyInt_FromLong)
 MKITER(GzUInt64 , uint64_t, PyLong_FromUnsignedLong)
 MKITER(GzUInt32 , uint32_t, PyLong_FromUnsignedLong)
+MKITER(GzBool   , uint8_t , PyBool_FromLong)
 
 static PyObject *gzlines_exit(PyObject *self, PyObject *args)
 {
@@ -189,6 +190,7 @@ MKTYPE(GzInt64);
 MKTYPE(GzInt32);
 MKTYPE(GzUInt64);
 MKTYPE(GzUInt32);
+MKTYPE(GzBool);
 
 static PyMethodDef module_methods[] = {
 	{NULL, NULL, 0, NULL}
@@ -211,6 +213,7 @@ PyMODINIT_FUNC initgzlines(void)
 	INIT(GzInt32);
 	INIT(GzUInt64);
 	INIT(GzUInt32);
+	INIT(GzBool);
 	PyObject *version = Py_BuildValue("(iii)", 1, 1, 0);
 	PyModule_AddObject(m, "version", version);
 	// old name for compat
