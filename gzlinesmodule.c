@@ -115,6 +115,42 @@ static PyObject *GzFloat_iternext(GzLines *self)
 	return PyFloat_FromDouble(res);
 }
 
+static PyObject *GzFloat32_iternext(GzLines *self)
+{
+	if (!self->fh) return err_closed();
+	if (self->pos >= self->len) {
+		if (gzlines_read_(self)) return 0;
+	}
+	// Z is a multiple of 4, so this never overruns.
+	const float res = *(float *)(self->buf + self->pos);
+	self->pos += 4;
+	return PyFloat_FromDouble(res);
+}
+
+static PyObject *GzInt_iternext(GzLines *self)
+{
+	if (!self->fh) return err_closed();
+	if (self->pos >= self->len) {
+		if (gzlines_read_(self)) return 0;
+	}
+	// Z is a multiple of 8, so this never overruns.
+	const long res = *(long *)(self->buf + self->pos);
+	self->pos += 8;
+	return PyInt_FromLong(res);
+}
+
+static PyObject *GzInt32_iternext(GzLines *self)
+{
+	if (!self->fh) return err_closed();
+	if (self->pos >= self->len) {
+		if (gzlines_read_(self)) return 0;
+	}
+	// Z is a multiple of 4, so this never overruns.
+	const int res = *(int *)(self->buf + self->pos);
+	self->pos += 4;
+	return PyInt_FromLong(res);
+}
+
 static PyObject *gzlines_exit(PyObject *self, PyObject *args)
 {
 	PyObject *ret = PyObject_CallMethod(self, "close", NULL);
@@ -175,6 +211,9 @@ static PyMethodDef gzlines_methods[] = {
 	}
 MKTYPE(gzlines);
 MKTYPE(GzFloat);
+MKTYPE(GzFloat32);
+MKTYPE(GzInt);
+MKTYPE(GzInt32);
 
 static PyMethodDef module_methods[] = {
 	{NULL, NULL, 0, NULL}
@@ -192,4 +231,7 @@ PyMODINIT_FUNC initgzlines(void)
 	if (!m) return;
 	INIT(gzlines);
 	INIT(GzFloat);
+	INIT(GzFloat32);
+	INIT(GzInt);
+	INIT(GzInt32);
 }
