@@ -104,53 +104,25 @@ static PyObject *GzLines_iternext(GzLines *self)
 	return PyString_FromStringAndSize(ptr, linelen);
 }
 
-static PyObject *GzFloat64_iternext(GzLines *self)
-{
-	if (!self->fh) return err_closed();
-	if (self->pos >= self->len) {
-		if (gzlines_read_(self)) return 0;
+#define MKITER(name, T, conv)                                                	\
+	static PyObject * name ## _iternext(GzLines *self)                   	\
+	{                                                                    	\
+		if (!self->fh) return err_closed();                          	\
+		if (self->pos >= self->len) {                                	\
+			if (gzlines_read_(self)) return 0;                   	\
+		}                                                            	\
+		/* Z is a multiple of sizeof(T), so this never overruns. */  	\
+		const T res = *(T *)(self->buf + self->pos);                 	\
+		self->pos += sizeof(T);                                      	\
+		return conv(res);                                            	\
 	}
-	// Z is a multiple of 8, so this never overruns.
-	const double res = *(double *)(self->buf + self->pos);
-	self->pos += 8;
-	return PyFloat_FromDouble(res);
-}
 
-static PyObject *GzFloat32_iternext(GzLines *self)
-{
-	if (!self->fh) return err_closed();
-	if (self->pos >= self->len) {
-		if (gzlines_read_(self)) return 0;
-	}
-	// Z is a multiple of 4, so this never overruns.
-	const float res = *(float *)(self->buf + self->pos);
-	self->pos += 4;
-	return PyFloat_FromDouble(res);
-}
-
-static PyObject *GzInt64_iternext(GzLines *self)
-{
-	if (!self->fh) return err_closed();
-	if (self->pos >= self->len) {
-		if (gzlines_read_(self)) return 0;
-	}
-	// Z is a multiple of 8, so this never overruns.
-	const int64_t res = *(int64_t *)(self->buf + self->pos);
-	self->pos += 8;
-	return PyInt_FromLong(res);
-}
-
-static PyObject *GzInt32_iternext(GzLines *self)
-{
-	if (!self->fh) return err_closed();
-	if (self->pos >= self->len) {
-		if (gzlines_read_(self)) return 0;
-	}
-	// Z is a multiple of 4, so this never overruns.
-	const int32_t res = *(int32_t *)(self->buf + self->pos);
-	self->pos += 4;
-	return PyInt_FromLong(res);
-}
+MKITER(GzFloat64, double  , PyFloat_FromDouble)
+MKITER(GzFloat32, float   , PyFloat_FromDouble)
+MKITER(GzInt64  , int64_t , PyInt_FromLong)
+MKITER(GzInt32  , int32_t , PyInt_FromLong)
+MKITER(GzUInt64 , uint64_t, PyLong_FromUnsignedLong)
+MKITER(GzUInt32 , uint32_t, PyLong_FromUnsignedLong)
 
 static PyObject *gzlines_exit(PyObject *self, PyObject *args)
 {
@@ -215,6 +187,8 @@ MKTYPE(GzFloat64);
 MKTYPE(GzFloat32);
 MKTYPE(GzInt64);
 MKTYPE(GzInt32);
+MKTYPE(GzUInt64);
+MKTYPE(GzUInt32);
 
 static PyMethodDef module_methods[] = {
 	{NULL, NULL, 0, NULL}
@@ -235,7 +209,9 @@ PyMODINIT_FUNC initgzlines(void)
 	INIT(GzFloat32);
 	INIT(GzInt64);
 	INIT(GzInt32);
-	PyObject *version = Py_BuildValue("(iii)", 1, 0, 0);
+	INIT(GzUInt64);
+	INIT(GzUInt32);
+	PyObject *version = Py_BuildValue("(iii)", 1, 1, 0);
 	PyModule_AddObject(m, "version", version);
 	// old name for compat
 	Py_INCREF(&GzLines_Type);
