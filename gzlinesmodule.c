@@ -1,4 +1,5 @@
 #include <Python.h>
+#include <datetime.h>
 
 #include <zlib.h>
 #include <unistd.h>
@@ -78,12 +79,17 @@ static int gzlines_read_(GzLines *self)
 	return 0;
 }
 
+#define ITERPROLOGUE                                         	\
+	do {                                                 	\
+		if (!self->fh) return err_closed();          	\
+		if (self->pos >= self->len) {                	\
+			if (gzlines_read_(self)) return 0;   	\
+		}                                            	\
+	} while (0)
+
 static PyObject *GzLines_iternext(GzLines *self)
 {
-	if (!self->fh) return err_closed();
-	if (self->pos >= self->len) {
-		if (gzlines_read_(self)) return 0;
-	}
+	ITERPROLOGUE;
 	char *ptr = self->buf + self->pos;
 	char *end = strchr(ptr, '\n');
 	if (!end) {
@@ -107,10 +113,7 @@ static PyObject *GzLines_iternext(GzLines *self)
 #define MKITER(name, T, conv)                                                	\
 	static PyObject * name ## _iternext(GzLines *self)                   	\
 	{                                                                    	\
-		if (!self->fh) return err_closed();                          	\
-		if (self->pos >= self->len) {                                	\
-			if (gzlines_read_(self)) return 0;                   	\
-		}                                                            	\
+		ITERPROLOGUE;                                                	\
 		/* Z is a multiple of sizeof(T), so this never overruns. */  	\
 		const T res = *(T *)(self->buf + self->pos);                 	\
 		self->pos += sizeof(T);                                      	\
@@ -124,6 +127,49 @@ MKITER(GzInt32  , int32_t , PyInt_FromLong)
 MKITER(GzUInt64 , uint64_t, PyLong_FromUnsignedLong)
 MKITER(GzUInt32 , uint32_t, PyLong_FromUnsignedLong)
 MKITER(GzBool   , uint8_t , PyBool_FromLong)
+
+static PyObject *GzDateTime_iternext(GzLines *self)
+{
+	ITERPROLOGUE;
+	/* Z is a multiple of 8, so this never overruns. */
+	const uint32_t i0 = *(uint32_t *)(self->buf + self->pos);
+	const uint32_t i1 = *(uint32_t *)(self->buf + self->pos + 4);
+	self->pos += 8;
+	const int Y = i0 >> 14;
+	const int m = i0 >> 10 & 0x0f;
+	const int d = i0 >> 5 & 0x1f;
+	const int H = i0 & 0x1f;
+	const int M = i1 >> 26 & 0x3f;
+	const int S = i1 >> 20 & 0x3f;
+	const int u = i1 & 0xfffff;
+	return PyDateTime_FromDateAndTime(Y, m, d, H, M, S, u);
+}
+
+static PyObject *GzDate_iternext(GzLines *self)
+{
+	ITERPROLOGUE;
+	/* Z is a multiple of 4, so this never overruns. */
+	const uint32_t i0 = *(uint32_t *)(self->buf + self->pos);
+	self->pos += 4;
+	const int Y = i0 >> 9;
+	const int m = i0 >> 5 & 0x0f;
+	const int d = i0 & 0x1f;
+	return PyDate_FromDate(Y, m, d);
+}
+
+static PyObject *GzTime_iternext(GzLines *self)
+{
+	ITERPROLOGUE;
+	/* Z is a multiple of 8, so this never overruns. */
+	const uint32_t i0 = *(uint32_t *)(self->buf + self->pos);
+	const uint32_t i1 = *(uint32_t *)(self->buf + self->pos + 4);
+	self->pos += 8;
+	const int H = i0 & 0x1f;
+	const int M = i1 >> 26 & 0x3f;
+	const int S = i1 >> 20 & 0x3f;
+	const int u = i1 & 0xfffff;
+	return PyTime_FromTime(H, M, S, u);
+}
 
 static PyObject *gzlines_exit(PyObject *self, PyObject *args)
 {
@@ -191,6 +237,9 @@ MKTYPE(GzInt32);
 MKTYPE(GzUInt64);
 MKTYPE(GzUInt32);
 MKTYPE(GzBool);
+MKTYPE(GzDateTime);
+MKTYPE(GzDate);
+MKTYPE(GzTime);
 
 static PyMethodDef module_methods[] = {
 	{NULL, NULL, 0, NULL}
@@ -204,6 +253,7 @@ static PyMethodDef module_methods[] = {
 
 PyMODINIT_FUNC initgzlines(void)
 {
+	PyDateTime_IMPORT;
 	PyObject *m = Py_InitModule3("gzlines", module_methods, NULL);
 	if (!m) return;
 	INIT(GzLines);
@@ -214,7 +264,10 @@ PyMODINIT_FUNC initgzlines(void)
 	INIT(GzUInt64);
 	INIT(GzUInt32);
 	INIT(GzBool);
-	PyObject *version = Py_BuildValue("(iii)", 1, 1, 0);
+	INIT(GzDateTime);
+	INIT(GzDate);
+	INIT(GzTime);
+	PyObject *version = Py_BuildValue("(iii)", 1, 2, 0);
 	PyModule_AddObject(m, "version", version);
 	// old name for compat
 	Py_INCREF(&GzLines_Type);
