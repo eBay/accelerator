@@ -1,5 +1,5 @@
 from collections import defaultdict
-from bottle import route, run, request, abort
+from bottle import route, run, request, abort, auth_basic
 from threading import Lock
 
 
@@ -7,6 +7,17 @@ TIMEFMT = '%Y%m%d_%H%M%S'
 
 lock = Lock()
 
+class DotDict(dict):
+    """Like a dict, but with d.foo as well as d['foo'].
+    d.foo returns '' for unset values.
+    The normal dict.f (get, items, ...) still return the functions.
+    """
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
+    def __getattr__(self, name):
+        if name[0] == "_":
+            raise AttributeError(name)
+        return self.get(name, '')
 
 # user/automata
 
@@ -54,22 +65,19 @@ def auth(user, passphrase):
 	return authdict.get(user) == passphrase
 
 
-@route('latest/<user>/<automata>')
+@route('/latest/<user>/<automata>')
 def latest(user, automata):
 	return db.latest(user + '/' + automata)
 
 
 
-@route('add')
+@route('/add', method='POST')
+@auth_basic(auth)
 def add():
 	# data = {user:string, automata:string, timestamp:string, deplist:list, joblist:JobList,}
-	data = request.json or {}
-	if auth(data.get('user'), request.query.get('passphrase')):
-		result = db.add(data)
-		return result
-	else:
-		#return HTTPError(403)
-		abort(403, 'authorization failure')
+	data = DotDict(request.json or {})
+	result = db.add(data)
+	return result
 
 
 #(setq indent-tabs-mode t)
