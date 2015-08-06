@@ -70,7 +70,7 @@ class DB:
 			db = self.db['%s/%s' % (data.user, data.automata)]
 			if data.timestamp in db:
 				new = False
-				changed = db[data.timestamp] == data
+				changed = db[data.timestamp] != data
 			else:
 				new = True
 			db[data.timestamp] = data
