@@ -41,6 +41,8 @@ class DB:
 		return db[max(db)]
 
 
+def auth(user, passphrase):
+	return authdict.get(user) == passphrase
 
 
 def latest(key):
@@ -52,8 +54,9 @@ def latest(key):
 
 def add(data):
 	# data = {user:string, automata:string, timestamp:string, deplist:list, joblist:JobList,}
-	if auth(data['user']):
-		result = db.add(data)  # {exists, exists_and_updated, new}
+	data = request.json or {}
+	if auth(data.get('user'), request.query.get('passphrase')):
+		result = db.add(data)
 		return result
 	else:
 		return HTTPError(403)
@@ -61,6 +64,17 @@ def add(data):
 
 
 #(setq indent-tabs-mode t)
+
+def readauth(filename):
+	d = {}
+	with open(filename) as fh:
+		for line in fh:
+			if line.startswith('#'):  continue
+			line = line.rstrip('\n').split(':')
+			if line and len(line) == 2:
+				d[line[0]] = line[1]
+	return d
+
 
 
 if __name__ == "__main__":
