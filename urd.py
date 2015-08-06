@@ -1,4 +1,4 @@
-from collections import namedtuple
+from collections import defaultdict
 from threading import Lock
 
 
@@ -16,8 +16,16 @@ class DB:
 		self._fh = None
 		self.db = defaultdict(dict)
 		for line in open(path):
-			...
+			key, ts, data = self._parse(line)
+			self.db[key][ts] = data
 		self._fh = open(path, 'a')
+
+	def _parse(self, line):
+		return 'a', 'b', 'c'
+
+
+	def _serialise(self, data):
+		return 'rs232'
 
 	def add(self, data):
 		with lock:
@@ -34,7 +42,7 @@ class DB:
 
 	def log(self, data):
 		if self._fh:
-			self._fh.write(...serialise(data)...)
+			self._fh.write(self._serialise(data))
 
 	def latest(self, key):
 		db = self.db[key]
