@@ -80,7 +80,8 @@ class DB:
 
 	def log(self, data):
 		if self._fh:
-			self._fh.write(self._serialise(data))
+			self._fh.write(self._serialise(data) + '\n')
+			self._fh.flush()
 
 	def latest(self, key):
 		db = self.db[key]
