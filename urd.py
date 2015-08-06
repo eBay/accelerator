@@ -78,7 +78,14 @@ def readauth(filename):
 
 
 if __name__ == "__main__":
-	path = argv..
-	authfile = argv..
-	db = DB(path)
-	pass
+	from argparse import ArgumentParser
+	import os.path
+	parser = ArgumentParser(description='pelle')
+	parser.add_argument('--port', type=int, default=8080, help='server port')
+	parser.add_argument('--path', type=str, default='./', help='database directory')
+	args = parser.parse_args()
+	print '-'*79
+	print args
+	print
+	authdict = readauth(os.path.join(args.path, 'passwd'))
+	db = DB(os.path.join(args.path, 'database'))
