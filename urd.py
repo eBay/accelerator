@@ -1,8 +1,10 @@
 from collections import namedtuple
+from threading import Lock
 
 
 TIMEFMT = '%Y%m%d_%H%M%S'
 
+lock = Lock()
 
 
 # user/automata
@@ -17,19 +19,18 @@ class DB:
 			...
 		self._fh = open(path, 'a')
 
-	@Lock(...)
 	def add(self, data):
-		#store to file
-		db = self.db['%s/%s' % (data.user, data.automata)]
-		if data.timestamp in db:
-			new = False
-			changed = db[data.timestamp] == data
-		else:
-			new = True
-		db[data.timestamp] = data
-		if new or changed:
-			self.log(data)
-		return 'new' if new else 'updated' if changed else 'unchanged'
+		with lock:
+			db = self.db['%s/%s' % (data.user, data.automata)]
+			if data.timestamp in db:
+				new = False
+				changed = db[data.timestamp] == data
+			else:
+				new = True
+			db[data.timestamp] = data
+			if new or changed:
+				self.log(data)
+			return 'new' if new else 'updated' if changed else 'unchanged'
 
 	def log(self, data):
 		if self._fh:
