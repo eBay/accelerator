@@ -27,9 +27,12 @@ class DB:
 	def __init__(self, path):
 		self._fh = None
 		self.db = defaultdict(dict)
-		for line in open(path):
-			key, ts, data = self._parse(line)
-			self.db[key][ts] = data
+		if os.path.isfile(path):
+			for line in open(path):
+				key, ts, data = self._parse(line)
+				self.db[key][ts] = data
+		else:
+			print "Creating \"%s\." % (path,)
 		self._fh = open(path, 'a')
 
 	def _parse(self, line):
