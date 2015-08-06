@@ -1,4 +1,5 @@
 from collections import defaultdict
+from bottle import route, run, request, abort
 from threading import Lock
 
 
@@ -53,22 +54,22 @@ def auth(user, passphrase):
 	return authdict.get(user) == passphrase
 
 
-def latest(key):
-	# key = user/automata
-	data = db.latest(key)
-	return data
+@route('latest/<user>/<automata>')
+def latest(user, automata):
+	return db.latest(user + '/' + automata)
 
 
 
-def add(data):
+@route('add')
+def add():
 	# data = {user:string, automata:string, timestamp:string, deplist:list, joblist:JobList,}
 	data = request.json or {}
 	if auth(data.get('user'), request.query.get('passphrase')):
 		result = db.add(data)
 		return result
 	else:
-		return HTTPError(403)
-
+		#return HTTPError(403)
+		abort(403, 'authorization failure')
 
 
 #(setq indent-tabs-mode t)
@@ -97,3 +98,5 @@ if __name__ == "__main__":
 	print
 	authdict = readauth(os.path.join(args.path, 'passwd'))
 	db = DB(os.path.join(args.path, 'database'))
+
+	run(host='localhost', port=args.port, debug=False, quiet=False)
