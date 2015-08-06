@@ -1,7 +1,7 @@
 from collections import defaultdict
 from bottle import route, run, request, abort, auth_basic
 from threading import Lock
-
+import json
 
 TIMEFMT = '%Y%m%d_%H%M%S'
 
@@ -19,7 +19,18 @@ class DotDict(dict):
             raise AttributeError(name)
         return self.get(name, '')
 
-# user/automata
+
+""" unicode -> utf-8 """
+def bytify(input):
+	if isinstance(input, dict):
+		return {bytify(key): bytify(value) for key, value in input.iteritems()}
+	elif isinstance(input, list):
+		return [bytify(value) for value in input]
+	elif isinstance(input, unicode):
+		return input.encode('utf-8')
+	else:
+		return input
+
 
 
 
@@ -36,11 +47,23 @@ class DB:
 		self._fh = open(path, 'a')
 
 	def _parse(self, line):
-		return 'a', 'b', 'c'
+		line = line.rstrip('\n').split('|')
+		print line
+		key = line[1]
+		user, automata = key.split('/')
+		data = DotDict(dict(timestamp=line[0],
+				    user=user,
+				    automata=automata,
+				    deplist=json.loads(line[2], object_hook=bytify),
+				    joblist=json.loads(line[3], object_hook=bytify),
+			    ))
+		return key, data.timestamp, data
 
 
 	def _serialise(self, data):
-		return 'rs232'
+		s = '|'.join([data.timestamp, "%s/%s" % (data.user, data.automata), json.dumps(data.deplist), json.dumps(data.joblist)])
+		print 'serialise', s
+		return s
 
 	def add(self, data):
 		with lock:
@@ -78,7 +101,7 @@ def latest(user, automata):
 @auth_basic(auth)
 def add():
 	# data = {user:string, automata:string, timestamp:string, deplist:list, joblist:JobList,}
-	data = DotDict(request.json or {})
+	data = DotDict(bytify(request.json) or {})
 	result = db.add(data)
 	return result
 
