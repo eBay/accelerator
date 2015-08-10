@@ -1,3 +1,5 @@
+#!/usr/bin/env python2.7
+
 from __future__ import unicode_literals
 from collections import defaultdict
 from bottle import route, request, abort, auth_basic
