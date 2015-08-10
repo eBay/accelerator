@@ -1,3 +1,4 @@
+from __future__ import unicode_literals
 from collections import defaultdict
 from bottle import route, run, request, abort, auth_basic
 from threading import Lock
@@ -19,17 +20,6 @@ class DotDict(dict):
             raise AttributeError(name)
         return self.get(name, '')
 
-
-""" unicode -> utf-8 """
-def bytify(input):
-	if isinstance(input, dict):
-		return {bytify(key): bytify(value) for key, value in input.iteritems()}
-	elif isinstance(input, list):
-		return [bytify(value) for value in input]
-	elif isinstance(input, unicode):
-		return input.encode('utf-8')
-	else:
-		return input
 
 
 
@@ -54,8 +44,8 @@ class DB:
 		data = DotDict(dict(timestamp=line[0],
 				    user=user,
 				    automata=automata,
-				    deplist=json.loads(line[2], object_hook=bytify),
-				    joblist=json.loads(line[3], object_hook=bytify),
+				    deplist=json.loads(line[2]),
+				    joblist=json.loads(line[3]),
 			    ))
 		return key, data.timestamp, data
 
@@ -102,7 +92,7 @@ def latest(user, automata):
 @auth_basic(auth)
 def add():
 	# data = {user:string, automata:string, timestamp:string, deplist:list, joblist:JobList,}
-	data = DotDict(bytify(request.json) or {})
+	data = DotDict(request.json or {})
 	result = db.add(data)
 	return result
 
