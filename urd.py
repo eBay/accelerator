@@ -1,6 +1,7 @@
 from __future__ import unicode_literals
 from collections import defaultdict
-from bottle import route, run, request, abort, auth_basic
+from bottle import route, request, abort, auth_basic
+import bottle
 from threading import Lock
 import json
 
@@ -110,6 +111,14 @@ def readauth(filename):
 	return d
 
 
+def jsonify(callback):
+	def func(*a, **kw):
+		res = callback(*a, **kw)
+		if isinstance(res, (bottle.BaseResponse, bottle.BottleException)):
+			return res
+		return json.dumps(res)
+	return func
+
 
 if __name__ == "__main__":
 	from argparse import ArgumentParser
@@ -124,4 +133,5 @@ if __name__ == "__main__":
 	authdict = readauth(os.path.join(args.path, 'passwd'))
 	db = DB(os.path.join(args.path, 'database'))
 
-	run(host='localhost', port=args.port, debug=False, quiet=False)
+	bottle.install(jsonify)
+	bottle.run(host='localhost', port=args.port, debug=False, reloader=True, quiet=False)
