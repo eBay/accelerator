@@ -77,8 +77,9 @@ class DB:
 			self._fh.flush()
 
 	def latest(self, key):
-		db = self.db[key]
-		return db[max(db)]
+		if key in self.db:
+			db = self.db[key]
+			return db[max(db)]
 
 
 def auth(user, passphrase):
