@@ -106,10 +106,11 @@ def readauth(filename):
 	d = {}
 	with open(filename) as fh:
 		for line in fh:
-			if line.startswith('#'):  continue
-			line = line.rstrip('\n').split(':')
-			if line and len(line) == 2:
-				d[line[0]] = line[1]
+			line = line.strip()
+			if not line or line.startswith('#'):  continue
+			line = line.split(':')
+			assert len(line) == 2, "Parse error in \"" + filename + "\" " +  ':'.join(line)
+			d[line[0]] = line[1]
 	return d
 
 
