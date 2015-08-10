@@ -6,6 +6,7 @@ from bottle import route, request, abort, auth_basic
 import bottle
 from threading import Lock
 import json
+import re
 
 TIMEFMT = '%Y%m%d_%H%M%S'
 
@@ -21,10 +22,17 @@ class DotDict(dict):
     def __getattr__(self, name):
         if name[0] == "_":
             raise AttributeError(name)
-        return self.get(name, '')
+        return self[name]
 
 
-
+def joblistlike(jl):
+	assert isinstance(jl, list)
+	for v in jl:
+		assert isinstance(v, (list, tuple)), v
+		assert len(v) == 2, v
+		for s in v:
+			assert isinstance(s, unicode), s
+	return True
 
 
 class DB:
@@ -44,31 +52,56 @@ class DB:
 		print line
 		key = line[1]
 		user, automata = key.split('/')
-		data = DotDict(dict(timestamp=line[0],
-				    user=user,
-				    automata=automata,
-				    deplist=json.loads(line[2]),
-				    joblist=json.loads(line[3]),
-			    ))
+		data = DotDict(timestamp=line[0],
+			       user=user,
+			       automata=automata,
+			       deps=json.loads(line[2]),
+			       joblist=json.loads(line[3]),
+			       caption=line[4],
+		       )
+		self._validate_timestamp(data.timestamp)
 		return key, data.timestamp, data
 
+	def _validate_timestamp(self, timestamp):
+		assert re.match(r"\d{8}( \d\d(\d\d(\d\d)?)?)?", timestamp), timestamp
+
+	def _validate_data(self, data, with_deps=True):
+		if with_deps:
+			assert isinstance(data.deps, dict)
+			for v in data.deps.itervalues():
+				assert isinstance(v, dict)
+				self._validate_data(DotDict(v), False)
+		else:
+			assert 'deps' not in data
+		assert joblistlike(data.joblist), data.joblist
+		assert data.joblist
+		assert isinstance(data.user, unicode)
+		assert isinstance(data.automata, unicode)
+		assert isinstance(data.caption, unicode)
+		self._validate_timestamp(data.timestamp)
 
 	def _serialise(self, data):
-		s = '|'.join([data.timestamp, "%s/%s" % (data.user, data.automata), json.dumps(data.deplist), json.dumps(data.joblist)])
+		self._validate_data(data)
+		json_deps = json.dumps(data.deps)
+		json_joblist = json.dumps(data.joblist)
+		for s in json_deps, json_joblist, data.caption, data.user, data.automata, data.timestamp:
+			assert '|' not in s, s
+		s = '|'.join([data.timestamp, "%s/%s" % (data.user, data.automata), json_deps, json_joblist, data.caption,])
 		print 'serialise', s
 		return s
 
 	def add(self, data):
 		with lock:
 			db = self.db['%s/%s' % (data.user, data.automata)]
+			print db
 			if data.timestamp in db:
 				new = False
-				changed = db[data.timestamp] != data
+				changed = (db[data.timestamp] != data)
 			else:
 				new = True
-			db[data.timestamp] = data
 			if new or changed:
-				self.log(data)
+				self.log(data) # validates, too
+				db[data.timestamp] = data
 			return 'new' if new else 'updated' if changed else 'unchanged'
 
 	def log(self, data):
@@ -95,7 +128,6 @@ def latest(user, automata):
 @route('/add', method='POST')
 @auth_basic(auth)
 def add():
-	# data = {user:string, automata:string, timestamp:string, deplist:list, joblist:JobList,}
 	data = DotDict(request.json or {})
 	result = db.add(data)
 	return result
