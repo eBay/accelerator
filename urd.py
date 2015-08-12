@@ -9,6 +9,7 @@ import json
 import re
 
 TIMEFMT = '%Y%m%d_%H%M%S'
+LOGFILEVERSION = 0
 
 lock = Lock()
 
@@ -50,6 +51,8 @@ class DB:
 	def _parse(self, line):
 		line = line.rstrip('\n').split('|')
 		print line
+		assert int(line[0]) == 0   # LOGFILEVERSION
+		line = line[2:] # skip timestamp and logfileversion
 		key = line[1]
 		user, automata = key.split('/')
 		data = DotDict(timestamp=line[0],
@@ -84,9 +87,10 @@ class DB:
 		self._validate_data(data)
 		json_deps = json.dumps(data.deps)
 		json_joblist = json.dumps(data.joblist)
+		now = time.strftime("%Y%m%d %H%M%S")
 		for s in json_deps, json_joblist, data.caption, data.user, data.automata, data.timestamp:
 			assert '|' not in s, s
-		s = '|'.join([data.timestamp, "%s/%s" % (data.user, data.automata), json_deps, json_joblist, data.caption,])
+		s = '|'.join([LOGFILEVERSION, now, data.timestamp, "%s/%s" % (data.user, data.automata), json_deps, json_joblist, data.caption,])
 		print 'serialise', s
 		return s
 
