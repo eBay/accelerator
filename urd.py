@@ -9,7 +9,7 @@ import json
 import re
 
 TIMEFMT = '%Y%m%d_%H%M%S'
-LOGFILEVERSION = 0
+LOGFILEVERSION = '0'
 
 lock = Lock()
 
@@ -51,16 +51,16 @@ class DB:
 	def _parse(self, line):
 		line = line.rstrip('\n').split('|')
 		print line
-		assert int(line[0]) == 0   # LOGFILEVERSION
-		line = line[2:] # skip timestamp and logfileversion
-		key = line[1]
+		logfileversion, _writets = line[:2]
+		assert logfileversion == '0'
+		key = line[3]
 		user, automata = key.split('/')
-		data = DotDict(timestamp=line[0],
+		data = DotDict(timestamp=line[2],
 			       user=user,
 			       automata=automata,
-			       deps=json.loads(line[2]),
-			       joblist=json.loads(line[3]),
-			       caption=line[4],
+			       deps=json.loads(line[4]),
+			       joblist=json.loads(line[5]),
+			       caption=line[6],
 		       )
 		self._validate_timestamp(data.timestamp)
 		return key, data.timestamp, data
