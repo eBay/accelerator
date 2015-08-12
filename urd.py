@@ -70,16 +70,17 @@ class DB:
 
 	def _validate_data(self, data, with_deps=True):
 		if with_deps:
+			assert set(data) == {'timestamp', 'joblist', 'caption', 'user', 'automata', 'deps',}
+			assert isinstance(data.user, unicode)
+			assert isinstance(data.automata, unicode)
 			assert isinstance(data.deps, dict)
 			for v in data.deps.itervalues():
 				assert isinstance(v, dict)
 				self._validate_data(DotDict(v), False)
 		else:
-			assert 'deps' not in data
+			assert set(data) == {'timestamp', 'joblist', 'caption',}
 		assert joblistlike(data.joblist), data.joblist
 		assert data.joblist
-		assert isinstance(data.user, unicode)
-		assert isinstance(data.automata, unicode)
 		assert isinstance(data.caption, unicode)
 		self._validate_timestamp(data.timestamp)
 
