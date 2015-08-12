@@ -7,8 +7,8 @@ import bottle
 from threading import Lock
 import json
 import re
+import time
 
-TIMEFMT = '%Y%m%d_%H%M%S'
 LOGFILEVERSION = '0'
 
 lock = Lock()
