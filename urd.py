@@ -2,7 +2,7 @@
 
 from __future__ import unicode_literals
 from collections import defaultdict
-from bottle import route, request, abort, auth_basic
+from bottle import route, request, auth_basic
 import bottle
 from threading import Lock
 import json
@@ -98,7 +98,6 @@ class DB:
 	def add(self, data):
 		with lock:
 			db = self.db['%s/%s' % (data.user, data.automata)]
-			print db
 			if data.timestamp in db:
 				new = False
 				changed = (db[data.timestamp] != data)
