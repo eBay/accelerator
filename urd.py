@@ -124,20 +124,44 @@ class DB:
 			with open(os.path.join(path, data.automata + '.urd'), 'a') as fh:
 				fh.write(self._serialise(data) + '\n')
 
+	def get(self, key, timestamp):
+		if key in self.db:
+			db = self.db[key]
+			return db.get(timestamp)
+
+	def since(self, key, timestamp):
+		db = self.db.get(key, {})
+		return {k: v for k, v in db.iteritems() if k > timestamp}
+
 	def latest(self, key):
 		if key in self.db:
 			db = self.db[key]
 			return db[max(db)]
 
+	def first(self, key):
+		if key in self.db:
+			db = self.db[key]
+			return db[min(db)]
+
 
 def auth(user, passphrase):
 	return authdict.get(user) == passphrase
 
+@route('/<user>/<automata>/since/<timestamp>')
+def since(user, automata, timestamp):
+	return db.since(user + '/' + automata, timestamp)
 
 @route('/<user>/<automata>/latest')
 def latest(user, automata):
 	return db.latest(user + '/' + automata)
 
+@route('/<user>/<automata>/first')
+def first(user, automata):
+	return db.first(user + '/' + automata)
+
+@route('/<user>/<automata>/<timestamp>')
+def single(user, automata, timestamp):
+	return db.get(user + '/' + automata, timestamp)
 
 
 @route('/add', method='POST')
