@@ -1,6 +1,7 @@
 #!/usr/bin/env python2.7
 
 from __future__ import unicode_literals
+from glob import glob
 from collections import defaultdict
 from bottle import route, request, auth_basic
 import bottle
@@ -38,19 +39,24 @@ def joblistlike(jl):
 
 class DB:
 	def __init__(self, path):
-		self._fh = None
+		self._initialised = False
+		self.path = path
 		self.db = defaultdict(dict)
-		if os.path.isfile(path):
-			for line in open(path):
-				key, ts, data = self._parse(line)
-				self.db[key][ts] = data
+		if os.path.isdir(path):
+			files = glob(os.path.join(path, '*/*.urd'))
+			print 'init: ', files
+			for fn in files:
+				with open(fn) as fh:
+					for line in fh:
+						key, ts, data = self._parse(line)
+						self.db[key][ts] = data
 		else:
-			print "Creating \"%s\." % (path,)
-		self._fh = open(path, 'a')
+			print "Creating directory \"%s\"." % (path,)
+			os.makedirs(path)
+		self._initialised = True
 
 	def _parse(self, line):
 		line = line.rstrip('\n').split('|')
-		print line
 		logfileversion, _writets = line[:2]
 		assert logfileversion == '0'
 		key = line[3]
@@ -109,9 +115,14 @@ class DB:
 			return 'new' if new else 'updated' if changed else 'unchanged'
 
 	def log(self, data):
-		if self._fh:
-			self._fh.write(self._serialise(data) + '\n')
-			self._fh.flush()
+		if self._initialised:
+			assert '/' not in data.user
+			assert '/' not in data.automata
+			path = os.path.join(self.path, data.user)
+			if not os.path.isdir(path):
+				os.makedirs(path)
+			with open(os.path.join(path, data.automata + '.urd'), 'a') as fh:
+				fh.write(self._serialise(data) + '\n')
 
 	def latest(self, key):
 		if key in self.db:
