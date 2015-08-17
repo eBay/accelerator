@@ -15,16 +15,16 @@ LOGFILEVERSION = '0'
 lock = Lock()
 
 class DotDict(dict):
-    """Like a dict, but with d.foo as well as d['foo'].
-    d.foo returns '' for unset values.
-    The normal dict.f (get, items, ...) still return the functions.
-    """
-    __setattr__ = dict.__setitem__
-    __delattr__ = dict.__delitem__
-    def __getattr__(self, name):
-        if name[0] == "_":
-            raise AttributeError(name)
-        return self[name]
+	"""Like a dict, but with d.foo as well as d['foo'].
+	d.foo returns '' for unset values.
+	The normal dict.f (get, items, ...) still return the functions.
+	"""
+	__setattr__ = dict.__setitem__
+	__delattr__ = dict.__delitem__
+	def __getattr__(self, name):
+		if name[0] == "_":
+			raise AttributeError(name)
+		return self[name]
 
 
 def joblistlike(jl):
@@ -62,12 +62,12 @@ class DB:
 		key = line[3]
 		user, automata = key.split('/')
 		data = DotDict(timestamp=line[2],
-			       user=user,
-			       automata=automata,
-			       deps=json.loads(line[4]),
-			       joblist=json.loads(line[5]),
-			       caption=line[6],
-		       )
+			user=user,
+			automata=automata,
+			deps=json.loads(line[4]),
+			joblist=json.loads(line[5]),
+			caption=line[6],
+		)
 		self._validate_timestamp(data.timestamp)
 		return key, data.timestamp, data
 
