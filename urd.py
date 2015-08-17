@@ -3,7 +3,7 @@
 from __future__ import unicode_literals
 from glob import glob
 from collections import defaultdict
-from bottle import route, request, auth_basic
+from bottle import route, request, auth_basic, abort
 import bottle
 from threading import Lock
 import json
@@ -144,6 +144,8 @@ def latest(user, automata):
 @auth_basic(auth)
 def add():
 	data = DotDict(request.json or {})
+	if data.user != request.auth[0]:
+		abort(401, "Error:  user does not match authentication!")
 	result = db.add(data)
 	return result
 
