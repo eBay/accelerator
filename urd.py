@@ -187,4 +187,4 @@ if __name__ == "__main__":
 	db = DB(os.path.join(args.path, 'database'))
 
 	bottle.install(jsonify)
-	bottle.run(host='localhost', port=args.port, debug=False, reloader=True, quiet=False)
+	bottle.run(host='localhost', port=args.port, debug=False, reloader=False, quiet=False)
