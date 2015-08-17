@@ -143,6 +143,9 @@ class DB:
 			db = self.db[key]
 			return db[min(db)]
 
+	def keys(self):
+		return self.db.keys()
+
 
 def auth(user, passphrase):
 	return authdict.get(user) == passphrase
@@ -175,6 +178,10 @@ def add():
 
 
 #(setq indent-tabs-mode t)
+@route('/list')
+def slash_list():
+	return db.keys()
+
 
 def readauth(filename):
 	d = {}
