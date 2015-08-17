@@ -134,7 +134,7 @@ def auth(user, passphrase):
 	return authdict.get(user) == passphrase
 
 
-@route('/latest/<user>/<automata>')
+@route('/<user>/<automata>/latest')
 def latest(user, automata):
 	return db.latest(user + '/' + automata)
 
