@@ -52,10 +52,12 @@ class DB:
 		if os.path.isdir(path):
 			files = glob(os.path.join(path, '*/*.urd'))
 			print 'init: ', files
+			self._parsed = {}
 			for fn in files:
 				with open(fn) as fh:
 					for line in fh:
 						self._parse(line)
+			self._playback_parsed()
 		else:
 			print "Creating directory \"%s\"." % (path,)
 			os.makedirs(path)
@@ -63,23 +65,24 @@ class DB:
 
 	def _parse(self, line):
 		line = line.rstrip('\n').split('|')
-		logfileversion, _writets = line[:2]
+		logfileversion, writets = line[:2]
 		assert logfileversion in '01'
+		assert writets not in self._parsed
 		if logfileversion == '0':
-			action = 'add'
-			line = line[2:]
-		elif logfileversion == '1':
-			action = line[2]
-			line = line[3:]
+			self._parsed[writets] = ['add'] + line[2:]
 		else:
-			assert "can't happen"
-		assert action in ('add', 'truncate',)
-		if action == 'add':
-			self._parse_add(line)
-		elif action == 'truncate':
-			self._parse_truncate(line)
-		else:
-			assert "can't happen"
+			self._parsed[writets] = line[2:]
+
+	def _playback_parsed(self):
+		for _writets, line in sorted(self._parsed.iteritems()):
+			action = line.pop(0)
+			assert action in ('add', 'truncate',)
+			if action == 'add':
+				self._parse_add(line)
+			elif action == 'truncate':
+				self._parse_truncate(line)
+			else:
+				assert "can't happen"
 
 	def _parse_add(self, line):
 		key = line[1]
