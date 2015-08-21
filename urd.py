@@ -48,6 +48,7 @@ class DB:
 		self._initialised = False
 		self.path = path
 		self.db = defaultdict(dict)
+		self.ghost_db = defaultdict(lambda: defaultdict(list))
 		if os.path.isdir(path):
 			files = glob(os.path.join(path, '*/*.urd'))
 			print 'init: ', files
@@ -134,26 +135,61 @@ class DB:
 		print 'serialise', s
 		return s
 
+	def _is_ghost(self, data):
+		for key, data in data.deps.iteritems():
+			full_data = self.db[key].get(data['timestamp'])
+			for k, v in data.iteritems():
+				if full_data.get(k) != v:
+					return True
+
 	@locked
 	def add(self, data):
-		db = self.db['%s/%s' % (data.user, data.automata)]
-		if data.timestamp in db:
-			new = False
-			changed = (db[data.timestamp] != data)
+		key = '%s/%s' % (data.user, data.automata)
+		is_ghost = self._is_ghost(data)
+		if is_ghost:
+			db = self.ghost_db[key]
+			if data.timestamp in db:
+				new = False
+				changed = (data not in db[data.timestamp])
+			else:
+				new = True
 		else:
-			new = True
+			db = self.db[key]
+			if data.timestamp in db:
+				new = False
+				changed = (db[data.timestamp] != data)
+			else:
+				new = True
 		if new or changed:
 			self.log('add', data) # validates, too
-			db[data.timestamp] = data
-		return 'new' if new else 'updated' if changed else 'unchanged'
+			if is_ghost:
+				db[data.timestamp].append(data)
+			else:
+				if not new:
+					ghost_data = db[data.timestamp]
+					self.ghost_db[key][data.timestamp].append(ghost_data)
+				db[data.timestamp] = data
+		res = 'new' if new else 'updated' if changed else 'unchanged'
+		if is_ghost:
+			res = 'ghost/' + res
+		return res
 
 	@locked
 	def truncate(self, key, timestamp):
 		old = self.db[key]
-		new = {ts: data for ts, data in old.iteritems() if ts < timestamp}
+		new = {}
+		ghost = {}
+		for ts, data in old.iteritems():
+			if ts < timestamp:
+				new[ts] = data
+			else:
+				ghost[ts] = data
 		self.log('truncate', DotDict(key=key, timestamp=timestamp))
 		self.db[key] = new
-		return {'count': len(old) - len(new)}
+		ghost_db = self.ghost_db[key]
+		for ts, data in ghost.iteritems():
+			ghost_db[ts].append(data)
+		return {'count': len(ghost)}
 
 	def log(self, action, data):
 		if self._initialised:
