@@ -137,9 +137,12 @@ class DB:
 
 	def _is_ghost(self, data):
 		for key, data in data.deps.iteritems():
-			full_data = self.db[key].get(data['timestamp'])
+			db = self.db[key]
+			ts = data['timestamp']
+			if ts not in db:
+				return True
 			for k, v in data.iteritems():
-				if full_data.get(k) != v:
+				if db[ts].get(k) != v:
 					return True
 
 	@locked
@@ -174,6 +177,24 @@ class DB:
 			res = 'ghost/' + res
 		return res
 
+	def _update_ghosts(self):
+		def inner():
+			count = 0
+			for key, db in self.db.iteritems():
+				for ts, data in sorted(db.items()):
+					if self._is_ghost(data):
+						count += 1
+						del db[ts]
+						self.ghost_db[key][ts].append(data)
+			return count
+		res = 0
+		while True:
+			count = inner()
+			if not count:
+				break
+			res += count
+		return res
+
 	@locked
 	def truncate(self, key, timestamp):
 		old = self.db[key]
@@ -189,7 +210,11 @@ class DB:
 		ghost_db = self.ghost_db[key]
 		for ts, data in ghost.iteritems():
 			ghost_db[ts].append(data)
-		return {'count': len(ghost)}
+		if ghost:
+			deps = self._update_ghosts()
+		else:
+			deps = 0
+		return {'count': len(ghost), 'deps': deps}
 
 	def log(self, action, data):
 		if self._initialised:
