@@ -10,7 +10,7 @@ import json
 import re
 import time
 
-LOGFILEVERSION = '0'
+LOGFILEVERSION = '1'
 
 lock = Lock()
 
@@ -48,8 +48,7 @@ class DB:
 			for fn in files:
 				with open(fn) as fh:
 					for line in fh:
-						key, ts, data = self._parse(line)
-						self.db[key][ts] = data
+						self._parse(line)
 		else:
 			print "Creating directory \"%s\"." % (path,)
 			os.makedirs(path)
@@ -58,18 +57,38 @@ class DB:
 	def _parse(self, line):
 		line = line.rstrip('\n').split('|')
 		logfileversion, _writets = line[:2]
-		assert logfileversion == '0'
-		key = line[3]
+		assert logfileversion in '01'
+		if logfileversion == '0':
+			action = 'add'
+			line = line[2:]
+		elif logfileversion == '1':
+			action = line[2]
+			line = line[3:]
+		else:
+			assert "can't happen"
+		assert action in ('add', 'truncate',)
+		if action == 'add':
+			self._parse_add(line)
+		elif action == 'truncate':
+			self._parse_truncate(line)
+		else:
+			assert "can't happen"
+
+	def _parse_add(self, line):
+		key = line[1]
 		user, automata = key.split('/')
-		data = DotDict(timestamp=line[2],
+		data = DotDict(timestamp=line[0],
 			user=user,
 			automata=automata,
-			deps=json.loads(line[4]),
-			joblist=json.loads(line[5]),
-			caption=line[6],
+			deps=json.loads(line[2]),
+			joblist=json.loads(line[3]),
+			caption=line[4],
 		)
-		self._validate_timestamp(data.timestamp)
-		return key, data.timestamp, data
+		self.add(data)
+
+	def _parse_truncate(self, line):
+		timestamp, key = line
+		self.truncate(key, timestamp)
 
 	def _validate_timestamp(self, timestamp):
 		assert re.match(r"\d{8}( \d\d(\d\d(\d\d)?)?)?", timestamp), timestamp
@@ -90,14 +109,22 @@ class DB:
 		assert isinstance(data.caption, unicode)
 		self._validate_timestamp(data.timestamp)
 
-	def _serialise(self, data):
-		self._validate_data(data)
-		json_deps = json.dumps(data.deps)
-		json_joblist = json.dumps(data.joblist)
+	def _serialise(self, action, data):
+		if action == 'add':
+			self._validate_data(data)
+			json_deps = json.dumps(data.deps)
+			json_joblist = json.dumps(data.joblist)
+			key = '%s/%s' % (data.user, data.automata,)
+			for s in json_deps, json_joblist, data.caption, data.user, data.automata, data.timestamp:
+				assert '|' not in s, s
+			logdata = [json_deps, json_joblist, data.caption,]
+		elif action == 'truncate':
+			key = data.key
+			logdata = []
+		else:
+			assert "can't happen"
 		now = time.strftime("%Y%m%d %H%M%S")
-		for s in json_deps, json_joblist, data.caption, data.user, data.automata, data.timestamp:
-			assert '|' not in s, s
-		s = '|'.join([LOGFILEVERSION, now, data.timestamp, "%s/%s" % (data.user, data.automata), json_deps, json_joblist, data.caption,])
+		s = '|'.join([LOGFILEVERSION, now, action, data.timestamp, key,] + logdata)
 		print 'serialise', s
 		return s
 
@@ -110,19 +137,31 @@ class DB:
 			else:
 				new = True
 			if new or changed:
-				self.log(data) # validates, too
+				self.log('add', data) # validates, too
 				db[data.timestamp] = data
 			return 'new' if new else 'updated' if changed else 'unchanged'
 
-	def log(self, data):
+	def truncate(self, key, timestamp):
+		with lock:
+			old = self.db[key]
+			new = {ts: data for ts, data in old.iteritems() if ts < timestamp}
+			self.log('truncate', DotDict(key=key, timestamp=timestamp))
+			self.db[key] = new
+		return {'count': len(old) - len(new)}
+
+	def log(self, action, data):
 		if self._initialised:
-			assert '/' not in data.user
-			assert '/' not in data.automata
-			path = os.path.join(self.path, data.user)
+			if action == 'truncate':
+				user, automata = data.key.split('/')
+			else:
+				user, automata = data.user, data.automata
+			assert '/' not in user
+			assert '/' not in automata
+			path = os.path.join(self.path, user)
 			if not os.path.isdir(path):
 				os.makedirs(path)
-			with open(os.path.join(path, data.automata + '.urd'), 'a') as fh:
-				fh.write(self._serialise(data) + '\n')
+			with open(os.path.join(path, automata + '.urd'), 'a') as fh:
+				fh.write(self._serialise(action, data) + '\n')
 
 	def get(self, key, timestamp):
 		if key in self.db:
@@ -175,6 +214,14 @@ def add():
 		abort(401, "Error:  user does not match authentication!")
 	result = db.add(data)
 	return result
+
+
+@route('/truncate/<user>/<automata>/<timestamp>', method='POST')
+@auth_basic(auth)
+def truncate(user, automata, timestamp):
+	if user != request.auth[0]:
+		abort(401, "Error:  user does not match authentication!")
+	return db.truncate(user + '/' + automata, timestamp)
 
 
 #(setq indent-tabs-mode t)
