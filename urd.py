@@ -172,20 +172,24 @@ class DB:
 			with open(os.path.join(path, automata + '.urd'), 'a') as fh:
 				fh.write(self._serialise(action, data) + '\n')
 
+	@locked
 	def get(self, key, timestamp):
 		if key in self.db:
 			db = self.db[key]
 			return db.get(timestamp)
 
+	@locked
 	def since(self, key, timestamp):
 		db = self.db.get(key, {})
 		return {k: v for k, v in db.iteritems() if k > timestamp}
 
+	@locked
 	def latest(self, key):
 		if key in self.db:
 			db = self.db[key]
 			return db[max(db)]
 
+	@locked
 	def first(self, key):
 		if key in self.db:
 			db = self.db[key]
