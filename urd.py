@@ -14,6 +14,12 @@ LOGFILEVERSION = '1'
 
 lock = Lock()
 
+def locked(func):
+	def inner(*a, **kw):
+		with lock:
+			return func(*a, **kw)
+	return inner
+
 class DotDict(dict):
 	"""Like a dict, but with d.foo as well as d['foo'].
 	d.foo returns '' for unset values.
@@ -128,25 +134,28 @@ class DB:
 		print 'serialise', s
 		return s
 
+	@locked
 	def add(self, data):
-		with lock:
-			db = self.db['%s/%s' % (data.user, data.automata)]
-			if data.timestamp in db:
-				new = False
-				changed = (db[data.timestamp] != data)
-			else:
-				new = True
-			if new or changed:
-				self.log('add', data) # validates, too
-				db[data.timestamp] = data
-			return 'new' if new else 'updated' if changed else 'unchanged'
+		db = self.db['%s/%s' % (data.user, data.automata)]
+		if data.timestamp in db:
+			new = False
+			changed = (db[data.timestamp] != data)
+		else:
+			new = True
+		if new or changed:
+			self.log('add', data) # validates, too
+			db[data.timestamp] = data
+		return 'new' if new else 'updated' if changed else 'unchanged'
 
+	@locked
 	def truncate(self, key, timestamp):
-		with lock:
-			old = self.db[key]
-			new = {ts: data for ts, data in old.iteritems() if ts < timestamp}
-			self.log('truncate', DotDict(key=key, timestamp=timestamp))
+		old = self.db[key]
+		new = {ts: data for ts, data in old.iteritems() if ts < timestamp}
+		self.log('truncate', DotDict(key=key, timestamp=timestamp))
+		if new:
 			self.db[key] = new
+		else:
+			del self.db[key]
 		return {'count': len(old) - len(new)}
 
 	def log(self, action, data):
