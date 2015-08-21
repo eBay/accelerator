@@ -152,10 +152,7 @@ class DB:
 		old = self.db[key]
 		new = {ts: data for ts, data in old.iteritems() if ts < timestamp}
 		self.log('truncate', DotDict(key=key, timestamp=timestamp))
-		if new:
-			self.db[key] = new
-		else:
-			del self.db[key]
+		self.db[key] = new
 		return {'count': len(old) - len(new)}
 
 	def log(self, action, data):
@@ -174,25 +171,24 @@ class DB:
 
 	@locked
 	def get(self, key, timestamp):
-		if key in self.db:
-			db = self.db[key]
-			return db.get(timestamp)
+		db = self.db[key]
+		return db.get(timestamp)
 
 	@locked
 	def since(self, key, timestamp):
-		db = self.db.get(key, {})
+		db = self.db[key]
 		return {k: v for k, v in db.iteritems() if k > timestamp}
 
 	@locked
 	def latest(self, key):
-		if key in self.db:
-			db = self.db[key]
+		db = self.db[key]
+		if db:
 			return db[max(db)]
 
 	@locked
 	def first(self, key):
-		if key in self.db:
-			db = self.db[key]
+		db = self.db[key]
+		if db:
 			return db[min(db)]
 
 	def keys(self):
