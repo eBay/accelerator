@@ -349,6 +349,47 @@ static PyObject *gzwrite_write_GzWriteLines(GzWrite *self, PyObject *args)
 	return gzwrite_write_(self, "\n", 1);
 }
 
+#define MKWRITER(name, T, fmt)                                                	\
+	static PyObject *gzwrite_write_ ## name(GzWrite *self, PyObject *args)	\
+	{                                                                     	\
+		T value;                                                      	\
+		if (!PyArg_ParseTuple(args, fmt, &value)) return 0;           	\
+		return gzwrite_write_(self, (char *)&value, sizeof(value));   	\
+	}
+MKWRITER(GzWriteFloat64, double  , "d");
+MKWRITER(GzWriteFloat32, float   , "f");
+MKWRITER(GzWriteInt64  , int64_t , "l");
+MKWRITER(GzWriteInt32  , int32_t , "i");
+MKWRITER(GzWriteBool   , char    , "b");
+
+static PyObject *gzwrite_write_GzWriteUInt32(GzWrite *self, PyObject *args)
+{
+	int64_t passed_value;
+	if (!PyArg_ParseTuple(args, "l", &passed_value)) return 0;
+	uint32_t value = passed_value;
+	if (passed_value != value) {
+		PyErr_SetString(PyExc_OverflowError, "Value doesn't fit in 32 bits");
+		return 0;
+	}
+	return gzwrite_write_(self, (char *)&value, sizeof(value));
+}
+
+static PyObject *gzwrite_write_GzWriteUInt64(GzWrite *self, PyObject *args)
+{
+	PyObject *passed_value;
+	unsigned long value;
+	if (!PyArg_ParseTuple(args, "O", &passed_value)) return 0;
+	if (PyInt_Check(passed_value) || PyLong_Check(passed_value)) {
+		PyErr_Clear();
+		value = PyLong_AsUnsignedLong(passed_value);
+		if (PyErr_Occurred()) return 0;
+	} else {
+		PyErr_SetString(PyExc_TypeError, "integer argument expected");
+		return 0;
+	}
+	return gzwrite_write_(self, (char *)&value, sizeof(value));
+}
+
 static PyObject *gzwrite_exit(PyObject *self, PyObject *args)
 {
 	PyObject *ret = PyObject_CallMethod(self, "close", NULL);
@@ -411,6 +452,13 @@ static PyObject *gzwrite_exit(PyObject *self, PyObject *args)
 	}
 MKWTYPE(GzWrite);
 MKWTYPE(GzWriteLines);
+MKWTYPE(GzWriteFloat64);
+MKWTYPE(GzWriteFloat32);
+MKWTYPE(GzWriteInt64);
+MKWTYPE(GzWriteInt32);
+MKWTYPE(GzWriteUInt64);
+MKWTYPE(GzWriteUInt32);
+MKWTYPE(GzWriteBool);
 
 
 #define INIT(name) do {                                              	\
@@ -437,6 +485,13 @@ PyMODINIT_FUNC initgzlines(void)
 	INIT(GzTime);
 	INIT(GzWrite);
 	INIT(GzWriteLines);
+	INIT(GzWriteFloat64);
+	INIT(GzWriteFloat32);
+	INIT(GzWriteInt64);
+	INIT(GzWriteInt32);
+	INIT(GzWriteUInt64);
+	INIT(GzWriteUInt32);
+	INIT(GzWriteBool);
 	PyObject *version = Py_BuildValue("(iii)", 1, 3, 0);
 	PyModule_AddObject(m, "version", version);
 	// old name for compat
