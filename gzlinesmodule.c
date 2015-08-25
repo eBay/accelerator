@@ -250,6 +250,7 @@ static PyMethodDef module_methods[] = {
 typedef struct gzwrite {
 	PyObject_HEAD
 	gzFile fh;
+	void *default_value;
 	int len;
 	char buf[Z];
 } GzWrite;
@@ -277,7 +278,7 @@ static int gzwrite_close_(GzWrite *self)
 	return 1;
 }
 
-static int gzwrite_init(PyObject *self_, PyObject *args, PyObject *kwds)
+static int gzwrite_init_GzWrite(PyObject *self_, PyObject *args, PyObject *kwds)
 {
 	static char *kwlist[] = {"name", 0};
 	GzWrite *self = (GzWrite *)self_;
@@ -293,6 +294,7 @@ static int gzwrite_init(PyObject *self_, PyObject *args, PyObject *kwds)
 	self->len = 0;
 	return 0;
 }
+#define gzwrite_init_GzWriteLines gzwrite_init_GzWrite
 
 static void gzwrite_dealloc(GzWrite *self)
 {
@@ -351,46 +353,93 @@ static PyObject *gzwrite_write_GzWriteLines(GzWrite *self, PyObject *args)
 	return gzwrite_write_(self, "\n", 1);
 }
 
-#define MKWRITER(name, T, fmt)                                                	\
-	static PyObject *gzwrite_write_ ## name(GzWrite *self, PyObject *args)	\
-	{                                                                     	\
-		T value;                                                      	\
-		if (!PyArg_ParseTuple(args, fmt, &value)) return 0;           	\
-		return gzwrite_write_(self, (char *)&value, sizeof(value));   	\
+#define MKWRITER(name, T, conv) \
+	static int gzwrite_init_ ## name(PyObject *self_, PyObject *args, PyObject *kwds)	\
+	{                                                                                	\
+		static char *kwlist[] = {"name", "default", 0};                          	\
+		GzWrite *self = (GzWrite *)self_;                                        	\
+		char *name = NULL;                                                       	\
+		PyObject *default_value = NULL;                                          	\
+		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|O", kwlist, Py_FileSystemDefaultEncoding, &name, &default_value)) return -1; \
+		gzwrite_close_(self);                                                    	\
+		if (default_value) {                                                     	\
+			PyErr_Clear();                                                   	\
+			T value = conv(default_value);                                   	\
+			if (PyErr_Occurred()) goto err;                                  	\
+			self->default_value = malloc(sizeof(T));                         	\
+			if (!self->default_value) {                                      	\
+				PyErr_NoMemory();                                        	\
+				goto err;                                                	\
+			}                                                                	\
+			memcpy(self->default_value, &value, sizeof(T));                  	\
+		} else {                                                                 	\
+			self->default_value = 0;                                         	\
+		}                                                                        	\
+		self->fh = gzopen(name, "wb");                                           	\
+		if (!self->fh) {                                                         	\
+			PyErr_SetString(PyExc_IOError, "Open failed");                   	\
+			goto err;                                                        	\
+		}                                                                        	\
+		PyMem_Free(name);                                                        	\
+		self->len = 0;                                                           	\
+		return 0;                                                                	\
+err:                                                                                     	\
+		PyMem_Free(name);                                                        	\
+		return -1;                                                               	\
+	}                                                                                	\
+	static PyObject *gzwrite_write_ ## name(GzWrite *self, PyObject *args)           	\
+	{                                                                                	\
+		PyObject *obj;                                                           	\
+		if (!PyArg_ParseTuple(args, "O", &obj)) return 0;                        	\
+		PyErr_Clear();                                                           	\
+		T value = conv(obj);                                                     	\
+		if (PyErr_Occurred()) {                                                  	\
+			if (!self->default_value) return 0;                              	\
+			value = *(T *)self->default_value;                               	\
+		}                                                                        	\
+		return gzwrite_write_(self, (char *)&value, sizeof(value));              	\
 	}
-MKWRITER(GzWriteFloat64, double  , "d");
-MKWRITER(GzWriteFloat32, float   , "f");
-MKWRITER(GzWriteInt64  , int64_t , "l");
-MKWRITER(GzWriteInt32  , int32_t , "i");
-MKWRITER(GzWriteBool   , char    , "b");
-
-static PyObject *gzwrite_write_GzWriteUInt32(GzWrite *self, PyObject *args)
+static uint64_t pylong_asuint64_t(PyObject *l)
 {
-	int64_t passed_value;
-	if (!PyArg_ParseTuple(args, "l", &passed_value)) return 0;
-	uint32_t value = passed_value;
-	if (passed_value != value) {
+	uint64_t value = PyLong_AsUnsignedLong(l);
+	if (value == (uint64_t)-1 && PyErr_Occurred()) {
+		PyErr_SetString(PyExc_OverflowError, "Value doesn't fit in 64 bits");
+	}
+	return value;
+}
+static int32_t pylong_asint32_t(PyObject *l)
+{
+	int64_t value = PyLong_AsLong(l);
+	int32_t real_value = value;
+	if (value != real_value) {
 		PyErr_SetString(PyExc_OverflowError, "Value doesn't fit in 32 bits");
-		return 0;
 	}
-	return gzwrite_write_(self, (char *)&value, sizeof(value));
+	return value;
 }
-
-static PyObject *gzwrite_write_GzWriteUInt64(GzWrite *self, PyObject *args)
+static uint32_t pylong_asuint32_t(PyObject *l)
 {
-	PyObject *passed_value;
-	unsigned long value;
-	if (!PyArg_ParseTuple(args, "O", &passed_value)) return 0;
-	if (PyInt_Check(passed_value) || PyLong_Check(passed_value)) {
-		PyErr_Clear();
-		value = PyLong_AsUnsignedLong(passed_value);
-		if (PyErr_Occurred()) return 0;
-	} else {
-		PyErr_SetString(PyExc_TypeError, "integer argument expected");
-		return 0;
+	uint64_t value = pylong_asuint64_t(l);
+	uint32_t real_value = value;
+	if (value != real_value) {
+		PyErr_SetString(PyExc_OverflowError, "Value doesn't fit in 32 bits");
 	}
-	return gzwrite_write_(self, (char *)&value, sizeof(value));
+	return value;
 }
+static char pylong_asbool(PyObject *l)
+{
+	long value = PyLong_AsLong(l);
+	if (value != 0 && value != 1) {
+		PyErr_SetString(PyExc_OverflowError, "Value is not 0 or 1");
+	}
+	return value;
+}
+MKWRITER(GzWriteFloat64, double  , PyFloat_AsDouble);
+MKWRITER(GzWriteFloat32, float   , PyFloat_AsDouble);
+MKWRITER(GzWriteInt64  , int64_t , PyLong_AsLong);
+MKWRITER(GzWriteInt32  , int32_t , pylong_asint32_t);
+MKWRITER(GzWriteUInt64 , uint64_t, pylong_asuint64_t);
+MKWRITER(GzWriteUInt32 , uint32_t, pylong_asuint32_t);
+MKWRITER(GzWriteBool   , char    , pylong_asbool);
 
 static PyObject *gzwrite_exit(PyObject *self, PyObject *args)
 {
@@ -446,7 +495,7 @@ static PyObject *gzwrite_exit(PyObject *self, PyObject *args)
 		0,                              /*tp_descr_get*/     	\
 		0,                              /*tp_descr_set*/     	\
 		0,                              /*tp_dictoffset*/    	\
-		gzwrite_init,                   /*tp_init*/          	\
+		gzwrite_init_ ## name,          /*tp_init*/          	\
 		PyType_GenericAlloc,            /*tp_alloc*/         	\
 		PyType_GenericNew,              /*tp_new*/           	\
 		PyObject_Del,                   /*tp_free*/          	\
@@ -494,7 +543,7 @@ PyMODINIT_FUNC initgzlines(void)
 	INIT(GzWriteUInt64);
 	INIT(GzWriteUInt32);
 	INIT(GzWriteBool);
-	PyObject *version = Py_BuildValue("(iii)", 1, 3, 0);
+	PyObject *version = Py_BuildValue("(iii)", 1, 4, 0);
 	PyModule_AddObject(m, "version", version);
 	// old name for compat
 	Py_INCREF(&GzLines_Type);
