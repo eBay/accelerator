@@ -37,6 +37,7 @@ static int gzlines_init(PyObject *self_, PyObject *args, PyObject *kwds)
 	if (!PyArg_ParseTupleAndKeywords(args, kwds, "et", kwlist, Py_FileSystemDefaultEncoding, &name)) return -1;
 	gzlines_close_(self);
 	self->fh = gzopen(name, "rb");
+	PyMem_Free(name);
 	if (!self->fh) {
 		PyErr_SetString(PyExc_IOError, "Open failed");
 		return -1;
@@ -284,6 +285,7 @@ static int gzwrite_init(PyObject *self_, PyObject *args, PyObject *kwds)
 	if (!PyArg_ParseTupleAndKeywords(args, kwds, "et", kwlist, Py_FileSystemDefaultEncoding, &name)) return -1;
 	gzwrite_close_(self);
 	self->fh = gzopen(name, "wb");
+	PyMem_Free(name);
 	if (!self->fh) {
 		PyErr_SetString(PyExc_IOError, "Open failed");
 		return -1;
