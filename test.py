@@ -22,6 +22,7 @@ for name, data, bad_cnt, res_data in (
 	("Int32"  , ["0", int, 0x80000000, 0.1, 0x7fffffff, -5L], 3, [0, 0x7fffffff, -5]),
 	("UInt32" , ["0", int, -5L, -5, 0.1, 0x80000000, 0x7fffffff, 0x80000000L], 5, [0x80000000, 0x7fffffff, 0x80000000]),
 	("Bool"   , ["0", bool, 0.0, True, False, 0, 1L], 2, [False, True, False, False, True]),
+	("Lines"  , [42, str, "a", "foo bar baz"], 2, ["a", "foo bar baz"]),
 ):
 	print(name)
 	r_typ = getattr(gzlines, "Gz" + name)
@@ -38,6 +39,8 @@ for name, data, bad_cnt, res_data in (
 		res = list(fh)
 		assert res == res_data, res
 	# Data comes back as expected.
+	if name == "Lines":
+		continue # no default support
 	for ix, default in enumerate(data):
 		# Verify that defaults are accepted where expected
 		try:
