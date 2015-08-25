@@ -280,12 +280,13 @@ static int gzwrite_close_(GzWrite *self)
 
 static int gzwrite_init_GzWrite(PyObject *self_, PyObject *args, PyObject *kwds)
 {
-	static char *kwlist[] = {"name", 0};
+	static char *kwlist[] = {"name", "mode", 0};
 	GzWrite *self = (GzWrite *)self_;
 	char *name = NULL;
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "et", kwlist, Py_FileSystemDefaultEncoding, &name)) return -1;
+	const char *mode = "wb";
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|s", kwlist, Py_FileSystemDefaultEncoding, &name, &mode)) return -1;
 	gzwrite_close_(self);
-	self->fh = gzopen(name, "wb");
+	self->fh = gzopen(name, mode);
 	PyMem_Free(name);
 	if (!self->fh) {
 		PyErr_SetString(PyExc_IOError, "Open failed");
@@ -356,11 +357,12 @@ static PyObject *gzwrite_write_GzWriteLines(GzWrite *self, PyObject *args)
 #define MKWRITER(name, T, conv) \
 	static int gzwrite_init_ ## name(PyObject *self_, PyObject *args, PyObject *kwds)	\
 	{                                                                                	\
-		static char *kwlist[] = {"name", "default", 0};                          	\
+		static char *kwlist[] = {"name", "mode", "default", 0};                  	\
 		GzWrite *self = (GzWrite *)self_;                                        	\
 		char *name = NULL;                                                       	\
+		const char *mode = "wb";                                                 	\
 		PyObject *default_value = NULL;                                          	\
-		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|O", kwlist, Py_FileSystemDefaultEncoding, &name, &default_value)) return -1; \
+		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|sO", kwlist, Py_FileSystemDefaultEncoding, &name, &mode, &default_value)) return -1; \
 		gzwrite_close_(self);                                                    	\
 		if (default_value) {                                                     	\
 			PyErr_Clear();                                                   	\
@@ -375,7 +377,7 @@ static PyObject *gzwrite_write_GzWriteLines(GzWrite *self, PyObject *args)
 		} else {                                                                 	\
 			self->default_value = 0;                                         	\
 		}                                                                        	\
-		self->fh = gzopen(name, "wb");                                           	\
+		self->fh = gzopen(name, mode);                                           	\
 		if (!self->fh) {                                                         	\
 			PyErr_SetString(PyExc_IOError, "Open failed");                   	\
 			goto err;                                                        	\

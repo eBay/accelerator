@@ -38,7 +38,7 @@ for name, data, bad_cnt, default, res_data in (
 		res = list(fh)
 		assert res == res_data, res
 	# Data comes back as expected.
-	with w_typ(TMP_FN, default) as fh:
+	with w_typ(TMP_FN, default=default) as fh:
 		for value in data:
 			try:
 				fh.write(value)
