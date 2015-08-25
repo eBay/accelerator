@@ -58,3 +58,12 @@ for name, data, bad_cnt, res_data in (
 				res = list(fh)
 				assert res == [res_data[ix - bad_cnt]] * bad_cnt + res_data, res
 			# Great, all default values came out right in the file!
+
+print("Append test")
+# And finally verify appending works as expected.
+with gzlines.GzWriteInt64(TMP_FN) as fh:
+	fh.write(42)
+with gzlines.GzWriteInt64(TMP_FN, mode="a") as fh:
+	fh.write(18)
+with gzlines.GzInt64(TMP_FN) as fh:
+	assert list(fh) == [42, 18]
