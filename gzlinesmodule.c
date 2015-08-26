@@ -255,7 +255,7 @@ typedef struct gzwrite {
 	char buf[Z];
 } GzWrite;
 
-static int gzwrite_flush(GzWrite *self)
+static int gzwrite_flush_(GzWrite *self)
 {
 	if (!self->len) return 0;
 	const int len = self->len;
@@ -267,13 +267,20 @@ static int gzwrite_flush(GzWrite *self)
 	return 0;
 }
 
+static PyObject *gzwrite_flush(GzWrite *self)
+{
+	if (!self->fh) return err_closed();
+	if (gzwrite_flush_(self)) return 0;
+	Py_RETURN_NONE;
+}
+
 static int gzwrite_close_(GzWrite *self)
 {
 	if (self->fh) {
-		gzwrite_flush(self);
-		gzclose(self->fh);
+		int err = gzwrite_flush_(self);
+		err |= gzclose(self->fh);
 		self->fh = 0;
-		return 0;
+		return err;
 	}
 	return 1;
 }
@@ -305,7 +312,7 @@ static void gzwrite_dealloc(GzWrite *self)
 
 static PyObject *gzwrite_close(GzWrite *self)
 {
-	if (gzwrite_flush(self)) return 0;
+	if (gzwrite_flush_(self)) return 0;
 	if (gzwrite_close_(self)) return err_closed();
 	Py_RETURN_NONE;
 }
@@ -320,7 +327,7 @@ static PyObject *gzwrite_self(GzWrite *self)
 static PyObject *gzwrite_write_(GzWrite *self, const char *data, int len)
 {
 	if (len + self->len > Z) {
-		if (gzwrite_flush(self)) return 0;
+		if (gzwrite_flush_(self)) return 0;
 	}
 	while (len > Z) {
 		if (gzwrite(self->fh, data, Z) != Z) {
@@ -598,7 +605,7 @@ PyMODINIT_FUNC initgzlines(void)
 	INIT(GzWriteDateTime);
 	INIT(GzWriteDate);
 	INIT(GzWriteTime);
-	PyObject *version = Py_BuildValue("(iii)", 1, 5, 0);
+	PyObject *version = Py_BuildValue("(iii)", 1, 5, 1);
 	PyModule_AddObject(m, "version", version);
 	// old name for compat
 	Py_INCREF(&GzLines_Type);
