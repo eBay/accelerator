@@ -442,6 +442,53 @@ MKWRITER(GzWriteInt32  , int32_t , pylong_asint32_t);
 MKWRITER(GzWriteUInt64 , uint64_t, pylong_asuint64_t);
 MKWRITER(GzWriteUInt32 , uint32_t, pylong_asuint32_t);
 MKWRITER(GzWriteBool   , char    , pylong_asbool);
+static uint64_t fmt_datetime(PyObject *dt)
+{
+	if (!PyDateTime_Check(dt)) {
+		PyErr_SetString(PyExc_ValueError, "datetime object expected");
+		return 0;
+	}
+	const int32_t Y = PyDateTime_GET_YEAR(dt);
+	const int32_t m = PyDateTime_GET_MONTH(dt);
+	const int32_t d = PyDateTime_GET_DAY(dt);
+	const int32_t H = PyDateTime_DATE_GET_HOUR(dt);
+	const int32_t M = PyDateTime_DATE_GET_MINUTE(dt);
+	const int32_t S = PyDateTime_DATE_GET_SECOND(dt);
+	const int32_t u = PyDateTime_DATE_GET_MICROSECOND(dt);
+	union { struct { int32_t i0, i1; } i; uint64_t res; } r;
+	r.i.i0 = (Y << 14) | (m << 10) | (d << 5) | H;
+	r.i.i1 = (M << 26) | (S << 20) | u;
+	return r.res;
+}
+static uint32_t fmt_date(PyObject *dt)
+{
+	if (!PyDate_Check(dt)) {
+		PyErr_SetString(PyExc_ValueError, "date object expected");
+		return 0;
+	}
+	const int32_t Y = PyDateTime_GET_YEAR(dt);
+	const int32_t m = PyDateTime_GET_MONTH(dt);
+	const int32_t d = PyDateTime_GET_DAY(dt);
+	return (Y << 9) | (m << 5) | d;
+}
+static uint64_t fmt_time(PyObject *dt)
+{
+	if (!PyTime_Check(dt)) {
+		PyErr_SetString(PyExc_ValueError, "time object expected");
+		return 0;
+	}
+	const int32_t H = PyDateTime_TIME_GET_HOUR(dt);
+	const int32_t M = PyDateTime_TIME_GET_MINUTE(dt);
+	const int32_t S = PyDateTime_TIME_GET_SECOND(dt);
+	const int32_t u = PyDateTime_TIME_GET_MICROSECOND(dt);
+	union { struct { int32_t i0, i1; } i; uint64_t res; } r;
+	r.i.i0 = 32277536 | H; // 1970 if read as DateTime
+	r.i.i1 = (M << 26) | (S << 20) | u;
+	return r.res;
+}
+MKWRITER(GzWriteDateTime, uint64_t, fmt_datetime);
+MKWRITER(GzWriteDate    , uint32_t, fmt_date);
+MKWRITER(GzWriteTime    , uint64_t, fmt_time);
 
 static PyObject *gzwrite_exit(PyObject *self, PyObject *args)
 {
@@ -512,6 +559,9 @@ MKWTYPE(GzWriteInt32);
 MKWTYPE(GzWriteUInt64);
 MKWTYPE(GzWriteUInt32);
 MKWTYPE(GzWriteBool);
+MKWTYPE(GzWriteDateTime);
+MKWTYPE(GzWriteDate);
+MKWTYPE(GzWriteTime);
 
 
 #define INIT(name) do {                                              	\
@@ -545,7 +595,10 @@ PyMODINIT_FUNC initgzlines(void)
 	INIT(GzWriteUInt64);
 	INIT(GzWriteUInt32);
 	INIT(GzWriteBool);
-	PyObject *version = Py_BuildValue("(iii)", 1, 4, 0);
+	INIT(GzWriteDateTime);
+	INIT(GzWriteDate);
+	INIT(GzWriteTime);
+	PyObject *version = Py_BuildValue("(iii)", 1, 5, 0);
 	PyModule_AddObject(m, "version", version);
 	// old name for compat
 	Py_INCREF(&GzLines_Type);
