@@ -88,6 +88,12 @@ static int gzlines_read_(GzLines *self)
 		}                                            	\
 	} while (0)
 
+static inline PyObject *mkstr(const char *ptr, int len)
+{
+	if (len && ptr[len - 1] == '\r') len--;
+	return PyString_FromStringAndSize(ptr, len);
+}
+
 static PyObject *GzLines_iternext(GzLines *self)
 {
 	ITERPROLOGUE;
@@ -98,17 +104,17 @@ static PyObject *GzLines_iternext(GzLines *self)
 		char line[Z + linelen];
 		memcpy(line, self->buf + self->pos, linelen);
 		if (gzlines_read_(self)) {
-			return PyString_FromStringAndSize(line, linelen);
+			return mkstr(line, linelen);
 		}
 		end = strchr(self->buf + self->pos, '\n');
 		if (!end) end = self->buf + self->len;
 		self->pos = end - self->buf + 1;
 		memcpy(line + linelen, self->buf, self->pos - 1);
-		return PyString_FromStringAndSize(line, linelen + self->pos - 1);
+		return mkstr(line, linelen + self->pos - 1);
 	}
 	int linelen = end - ptr;
 	self->pos += linelen + 1;
-	return PyString_FromStringAndSize(ptr, linelen);
+	return mkstr(ptr, linelen);
 }
 
 #define MKITER(name, T, conv)                                                	\
@@ -605,7 +611,7 @@ PyMODINIT_FUNC initgzlines(void)
 	INIT(GzWriteDateTime);
 	INIT(GzWriteDate);
 	INIT(GzWriteTime);
-	PyObject *version = Py_BuildValue("(iii)", 1, 5, 1);
+	PyObject *version = Py_BuildValue("(iii)", 1, 5, 2);
 	PyModule_AddObject(m, "version", version);
 	// old name for compat
 	Py_INCREF(&GzLines_Type);
