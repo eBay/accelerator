@@ -61,6 +61,7 @@ class DB:
 		else:
 			print "Creating directory \"%s\"." % (path,)
 			os.makedirs(path)
+		self._lasttime = None
 		self._initialised = True
 
 	def _parse(self, line):
@@ -133,7 +134,10 @@ class DB:
 			logdata = []
 		else:
 			assert "can't happen"
-		now = time.strftime("%Y%m%d %H%M%S")
+		while True: # paranoia
+			now = time.strftime("%Y%m%d %H%M%S")
+			if now != self._lasttime: break
+		self._lasttime = now
 		s = '|'.join([LOGFILEVERSION, now, action, data.timestamp, key,] + logdata)
 		print 'serialise', s
 		return s
