@@ -8,7 +8,7 @@ import bottle
 from threading import Lock
 import json
 import re
-import time
+from datetime import datetime
 
 LOGFILEVERSION = '1'
 
@@ -135,7 +135,7 @@ class DB:
 		else:
 			assert "can't happen"
 		while True: # paranoia
-			now = time.strftime("%Y%m%d %H%M%S")
+			now = datetime.utcnow().strftime("%Y%m%d %H%M%S.%f")
 			if now != self._lasttime: break
 		self._lasttime = now
 		s = '|'.join([LOGFILEVERSION, now, action, data.timestamp, key,] + logdata)
