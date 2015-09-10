@@ -244,8 +244,7 @@ class DB:
 
 	@locked
 	def since(self, key, timestamp):
-		db = self.db[key]
-		return {k: v for k, v in db.iteritems() if k > timestamp}
+		return sorted(k for k in self.db[key] if k > timestamp)
 
 	@locked
 	def latest(self, key):
