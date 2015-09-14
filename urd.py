@@ -10,7 +10,7 @@ import json
 import re
 from datetime import datetime
 
-LOGFILEVERSION = '1'
+LOGFILEVERSION = '2'
 
 lock = Lock()
 
@@ -67,12 +67,9 @@ class DB:
 	def _parse(self, line):
 		line = line.rstrip('\n').split('|')
 		logfileversion, writets = line[:2]
-		assert logfileversion in '01'
+		assert logfileversion == '2'
 		assert writets not in self._parsed
-		if logfileversion == '0':
-			self._parsed[writets] = ['add'] + line[2:]
-		else:
-			self._parsed[writets] = line[2:]
+		self._parsed[writets] = line[2:]
 
 	def _playback_parsed(self):
 		for _writets, line in sorted(self._parsed.iteritems()):
@@ -88,12 +85,14 @@ class DB:
 	def _parse_add(self, line):
 		key = line[1]
 		user, automata = key.split('/')
+		flags = line[4].split(',') if line[4] else []
 		data = DotDict(timestamp=line[0],
 			user=user,
 			automata=automata,
 			deps=json.loads(line[2]),
 			joblist=json.loads(line[3]),
-			caption=line[4],
+			flags=flags,
+			caption=line[5],
 		)
 		self.add(data)
 
@@ -106,7 +105,7 @@ class DB:
 
 	def _validate_data(self, data, with_deps=True):
 		if with_deps:
-			assert set(data) == {'timestamp', 'joblist', 'caption', 'user', 'automata', 'deps',}
+			assert set(data) == {'timestamp', 'joblist', 'caption', 'user', 'automata', 'deps', 'flags',}
 			assert isinstance(data.user, unicode)
 			assert isinstance(data.automata, unicode)
 			assert isinstance(data.deps, dict)
@@ -126,9 +125,10 @@ class DB:
 			json_deps = json.dumps(data.deps)
 			json_joblist = json.dumps(data.joblist)
 			key = '%s/%s' % (data.user, data.automata,)
-			for s in json_deps, json_joblist, data.caption, data.user, data.automata, data.timestamp:
+			flags = ','.join(data.flags)
+			for s in json_deps, json_joblist, data.caption, data.user, data.automata, data.timestamp, flags:
 				assert '|' not in s, s
-			logdata = [json_deps, json_joblist, data.caption,]
+			logdata = [json_deps, json_joblist, flags, data.caption,]
 		elif action == 'truncate':
 			key = data.key
 			logdata = []
@@ -151,10 +151,14 @@ class DB:
 			for k, v in data.iteritems():
 				if db[ts].get(k) != v:
 					return True
+		return False
 
 	@locked
 	def add(self, data):
 		key = '%s/%s' % (data.user, data.automata)
+		new = False
+		changed = False
+		ghosted = 0
 		is_ghost = self._is_ghost(data)
 		if is_ghost:
 			db = self.ghost_db[key]
@@ -170,20 +174,28 @@ class DB:
 				changed = (db[data.timestamp] != data)
 			else:
 				new = True
+		flags = data.get('flags', [])
+		assert flags in ([], ['update']), 'Unknown flags: %r' % (flags,)
+		if changed and 'update' not in flags:
+			assert self._initialised, 'Log updates without update flag: %r' % (data,)
+			bottle.response.status = 409
+			return {'error': 'would update'}
 		if new or changed:
+			data.flags = flags
 			self.log('add', data) # validates, too
+			del data.flags
 			if is_ghost:
 				db[data.timestamp].append(data)
 			else:
-				if not new:
+				if changed:
 					ghost_data = db[data.timestamp]
 					self.ghost_db[key][data.timestamp].append(ghost_data)
 				db[data.timestamp] = data
-				if not new:
-					self._update_ghosts()
-		res = 'new' if new else 'updated' if changed else 'unchanged'
-		if is_ghost:
-			res = 'ghost/' + res
+				if changed:
+					ghosted = self._update_ghosts()
+		res = dict(new=new, changed=changed, is_ghost=is_ghost)
+		if changed:
+			res['deps'] = ghosted
 		return res
 
 	def _update_ghosts(self):
