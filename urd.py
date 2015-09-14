@@ -179,6 +179,8 @@ class DB:
 					ghost_data = db[data.timestamp]
 					self.ghost_db[key][data.timestamp].append(ghost_data)
 				db[data.timestamp] = data
+				if not new:
+					self._update_ghosts()
 		res = 'new' if new else 'updated' if changed else 'unchanged'
 		if is_ghost:
 			res = 'ghost/' + res
