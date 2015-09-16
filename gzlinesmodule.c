@@ -98,7 +98,7 @@ static PyObject *GzLines_iternext(GzLines *self)
 {
 	ITERPROLOGUE;
 	char *ptr = self->buf + self->pos;
-	char *end = strchr(ptr, '\n');
+	char *end = memchr(ptr, '\n', self->len - self->pos);
 	if (!end) {
 		int linelen = self->len - self->pos;
 		char line[Z + linelen];
@@ -106,7 +106,7 @@ static PyObject *GzLines_iternext(GzLines *self)
 		if (gzlines_read_(self)) {
 			return mkstr(line, linelen);
 		}
-		end = strchr(self->buf + self->pos, '\n');
+		end = memchr(self->buf + self->pos, '\n', self->len - self->pos);
 		if (!end) end = self->buf + self->len;
 		self->pos = end - self->buf + 1;
 		memcpy(line + linelen, self->buf, self->pos - 1);
@@ -611,7 +611,7 @@ PyMODINIT_FUNC initgzlines(void)
 	INIT(GzWriteDateTime);
 	INIT(GzWriteDate);
 	INIT(GzWriteTime);
-	PyObject *version = Py_BuildValue("(iii)", 1, 5, 2);
+	PyObject *version = Py_BuildValue("(iii)", 1, 5, 3);
 	PyModule_AddObject(m, "version", version);
 	// old name for compat
 	Py_INCREF(&GzLines_Type);
