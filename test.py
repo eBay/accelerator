@@ -59,6 +59,8 @@ for name, data, bad_cnt, res_data in (
 			with w_typ(TMP_FN, default=default) as fh:
 				pass
 			assert ix >= bad_cnt, repr(default)
+		except AssertionError:
+			raise
 		except Exception:
 			assert ix < bad_cnt, repr(default)
 		if ix >= bad_cnt:
