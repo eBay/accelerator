@@ -90,6 +90,9 @@ static int gzlines_read_(GzLines *self)
 
 static inline PyObject *mkstr(const char *ptr, int len)
 {
+	if (len == 1 && *ptr == 0) {
+		Py_RETURN_NONE;
+	}
 	if (len && ptr[len - 1] == '\r') len--;
 	return PyString_FromStringAndSize(ptr, len);
 }
@@ -117,23 +120,41 @@ static PyObject *GzLines_iternext(GzLines *self)
 	return mkstr(ptr, linelen);
 }
 
-#define MKITER(name, T, conv)                                                	\
+// These are signaling NaNs with extra DEADness in the significand
+static const unsigned char noneval_double[8] = {0xde, 0xad, 0xde, 0xad, 0xde, 0xad, 0xf0, 0xff};
+static const unsigned char noneval_float[4] = {0xde, 0xad, 0x80, 0xff};
+
+// The smallest value is one less than -biggest, so that seems like a good signal value.
+static const int64_t noneval_int64_t = INT64_MIN;
+static const int32_t noneval_int32_t = INT32_MIN;
+
+// The uint types don't support None, but the datetime types do.
+static const uint64_t noneval_uint64_t = 0;
+static const uint32_t noneval_uint32_t = 0;
+
+// This is bool
+static const uint8_t noneval_uint8_t = 255;
+
+#define MKITER(name, T, conv, withnone)                                      	\
 	static PyObject * name ## _iternext(GzLines *self)                   	\
 	{                                                                    	\
 		ITERPROLOGUE;                                                	\
 		/* Z is a multiple of sizeof(T), so this never overruns. */  	\
 		const T res = *(T *)(self->buf + self->pos);                 	\
 		self->pos += sizeof(T);                                      	\
+		if (withnone && !memcmp(&res, &noneval_ ## T, sizeof(T))) {  	\
+			Py_RETURN_NONE;                                      	\
+		}                                                            	\
 		return conv(res);                                            	\
 	}
 
-MKITER(GzFloat64, double  , PyFloat_FromDouble)
-MKITER(GzFloat32, float   , PyFloat_FromDouble)
-MKITER(GzInt64  , int64_t , PyInt_FromLong)
-MKITER(GzInt32  , int32_t , PyInt_FromLong)
-MKITER(GzUInt64 , uint64_t, PyLong_FromUnsignedLong)
-MKITER(GzUInt32 , uint32_t, PyLong_FromUnsignedLong)
-MKITER(GzBool   , uint8_t , PyBool_FromLong)
+MKITER(GzFloat64, double  , PyFloat_FromDouble     , 1)
+MKITER(GzFloat32, float   , PyFloat_FromDouble     , 1)
+MKITER(GzInt64  , int64_t , PyInt_FromLong         , 1)
+MKITER(GzInt32  , int32_t , PyInt_FromLong         , 1)
+MKITER(GzUInt64 , uint64_t, PyLong_FromUnsignedLong, 0)
+MKITER(GzUInt32 , uint32_t, PyLong_FromUnsignedLong, 0)
+MKITER(GzBool   , uint8_t , PyBool_FromLong        , 1)
 
 static PyObject *GzDateTime_iternext(GzLines *self)
 {
@@ -142,6 +163,7 @@ static PyObject *GzDateTime_iternext(GzLines *self)
 	const uint32_t i0 = *(uint32_t *)(self->buf + self->pos);
 	const uint32_t i1 = *(uint32_t *)(self->buf + self->pos + 4);
 	self->pos += 8;
+	if (!i0) Py_RETURN_NONE;
 	const int Y = i0 >> 14;
 	const int m = i0 >> 10 & 0x0f;
 	const int d = i0 >> 5 & 0x1f;
@@ -158,6 +180,7 @@ static PyObject *GzDate_iternext(GzLines *self)
 	/* Z is a multiple of 4, so this never overruns. */
 	const uint32_t i0 = *(uint32_t *)(self->buf + self->pos);
 	self->pos += 4;
+	if (!i0) Py_RETURN_NONE;
 	const int Y = i0 >> 9;
 	const int m = i0 >> 5 & 0x0f;
 	const int d = i0 & 0x1f;
@@ -171,6 +194,7 @@ static PyObject *GzTime_iternext(GzLines *self)
 	const uint32_t i0 = *(uint32_t *)(self->buf + self->pos);
 	const uint32_t i1 = *(uint32_t *)(self->buf + self->pos + 4);
 	self->pos += 8;
+	if (!i0) Py_RETURN_NONE;
 	const int H = i0 & 0x1f;
 	const int M = i1 >> 26 & 0x3f;
 	const int S = i1 >> 20 & 0x3f;
@@ -360,6 +384,9 @@ static PyObject *gzwrite_write_GzWriteLines(GzWrite *self, PyObject *args)
 {
 	const char *data;
 	int len;
+	if (PyTuple_GET_SIZE(args) == 1 && PyTuple_GET_ITEM(args, 0) == Py_None) {
+		return gzwrite_write_(self, "\x00\n", 2);
+	}
 	if (!PyArg_ParseTuple(args, "s#", &data, &len)) return 0;
 	PyObject *ret = gzwrite_write_(self, data, len);
 	if (!ret) return 0;
@@ -367,7 +394,7 @@ static PyObject *gzwrite_write_GzWriteLines(GzWrite *self, PyObject *args)
 	return gzwrite_write_(self, "\n", 1);
 }
 
-#define MKWRITER(name, T, conv) \
+#define MKWRITER(name, T, conv, withnone) \
 	static int gzwrite_init_ ## name(PyObject *self_, PyObject *args, PyObject *kwds)	\
 	{                                                                                	\
 		static char *kwlist[] = {"name", "mode", "default", 0};                  	\
@@ -379,8 +406,17 @@ static PyObject *gzwrite_write_GzWriteLines(GzWrite *self, PyObject *args)
 		gzwrite_close_(self);                                                    	\
 		if (default_value) {                                                     	\
 			PyErr_Clear();                                                   	\
-			T value = conv(default_value);                                   	\
-			if (PyErr_Occurred()) goto err;                                  	\
+			T value;                                                         	\
+			if (withnone && default_value == Py_None) {                      	\
+				memcpy(&value, &noneval_ ## T, sizeof(T));               	\
+			} else {                                                         	\
+				value = conv(default_value);                             	\
+				if (PyErr_Occurred()) goto err;                          	\
+				if (withnone && !memcmp(&value, &noneval_ ## T, sizeof(T))) {	\
+					PyErr_SetString(PyExc_OverflowError, "Default value becomes None-marker"); \
+					goto err;                                        	\
+				}                                                        	\
+			}                                                                	\
 			self->default_value = malloc(sizeof(T));                         	\
 			if (!self->default_value) {                                      	\
 				PyErr_NoMemory();                                        	\
@@ -406,8 +442,16 @@ err:                                                                            
 	{                                                                                	\
 		PyObject *obj;                                                           	\
 		if (!PyArg_ParseTuple(args, "O", &obj)) return 0;                        	\
+		if (withnone && obj == Py_None) {                                        	\
+			return gzwrite_write_(self, (char *)&noneval_ ## T, sizeof(T));  	\
+		}                                                                        	\
 		PyErr_Clear();                                                           	\
 		T value = conv(obj);                                                     	\
+		if (withnone && !PyErr_Occurred() &&                                     	\
+		    !memcmp(&value, &noneval_ ## T, sizeof(T))                           	\
+		   ) {                                                                   	\
+			PyErr_SetString(PyExc_OverflowError, "Value becomes None-marker");	\
+		}                                                                        	\
 		if (PyErr_Occurred()) {                                                  	\
 			if (!self->default_value) return 0;                              	\
 			value = *(T *)self->default_value;                               	\
@@ -440,7 +484,7 @@ static uint32_t pylong_asuint32_t(PyObject *l)
 	}
 	return value;
 }
-static char pylong_asbool(PyObject *l)
+static uint8_t pylong_asbool(PyObject *l)
 {
 	long value = PyLong_AsLong(l);
 	if (value != 0 && value != 1) {
@@ -448,13 +492,13 @@ static char pylong_asbool(PyObject *l)
 	}
 	return value;
 }
-MKWRITER(GzWriteFloat64, double  , PyFloat_AsDouble);
-MKWRITER(GzWriteFloat32, float   , PyFloat_AsDouble);
-MKWRITER(GzWriteInt64  , int64_t , PyLong_AsLong);
-MKWRITER(GzWriteInt32  , int32_t , pylong_asint32_t);
-MKWRITER(GzWriteUInt64 , uint64_t, pylong_asuint64_t);
-MKWRITER(GzWriteUInt32 , uint32_t, pylong_asuint32_t);
-MKWRITER(GzWriteBool   , char    , pylong_asbool);
+MKWRITER(GzWriteFloat64, double  , PyFloat_AsDouble , 1);
+MKWRITER(GzWriteFloat32, float   , PyFloat_AsDouble , 1);
+MKWRITER(GzWriteInt64  , int64_t , PyLong_AsLong    , 1);
+MKWRITER(GzWriteInt32  , int32_t , pylong_asint32_t , 1);
+MKWRITER(GzWriteUInt64 , uint64_t, pylong_asuint64_t, 0);
+MKWRITER(GzWriteUInt32 , uint32_t, pylong_asuint32_t, 0);
+MKWRITER(GzWriteBool   , uint8_t , pylong_asbool    , 1);
 static uint64_t fmt_datetime(PyObject *dt)
 {
 	if (!PyDateTime_Check(dt)) {
@@ -499,9 +543,9 @@ static uint64_t fmt_time(PyObject *dt)
 	r.i.i1 = (M << 26) | (S << 20) | u;
 	return r.res;
 }
-MKWRITER(GzWriteDateTime, uint64_t, fmt_datetime);
-MKWRITER(GzWriteDate    , uint32_t, fmt_date);
-MKWRITER(GzWriteTime    , uint64_t, fmt_time);
+MKWRITER(GzWriteDateTime, uint64_t, fmt_datetime, 1);
+MKWRITER(GzWriteDate    , uint32_t, fmt_date,     1);
+MKWRITER(GzWriteTime    , uint64_t, fmt_time,     1);
 
 static PyObject *gzwrite_exit(PyObject *self, PyObject *args)
 {
@@ -611,7 +655,7 @@ PyMODINIT_FUNC initgzlines(void)
 	INIT(GzWriteDateTime);
 	INIT(GzWriteDate);
 	INIT(GzWriteTime);
-	PyObject *version = Py_BuildValue("(iii)", 1, 5, 3);
+	PyObject *version = Py_BuildValue("(iii)", 1, 6, 0);
 	PyModule_AddObject(m, "version", version);
 	// old name for compat
 	Py_INCREF(&GzLines_Type);

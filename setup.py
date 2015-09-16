@@ -2,4 +2,4 @@ from distutils.core import setup, Extension
 
 gzlinesmodule = Extension("gzlines", sources = ["gzlinesmodule.c"], libraries=["z"])
 
-setup(name="gzlines", version="1.5.3", description="Read lines from gz files", ext_modules=[gzlinesmodule])
+setup(name="gzlines", version="1.6.0", description="Read/write values from/to gz files", ext_modules=[gzlinesmodule])
