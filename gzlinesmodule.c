@@ -88,37 +88,39 @@ static int gzlines_read_(GzLines *self)
 		}                                            	\
 	} while (0)
 
-static inline PyObject *mkstr(const char *ptr, int len)
-{
-	if (len == 1 && *ptr == 0) {
-		Py_RETURN_NONE;
+#define MKLINEITER(name, typename) \
+	static inline PyObject *mk ## typename(const char *ptr, int len)                 	\
+	{                                                                                	\
+		if (len == 1 && *ptr == 0) {                                             	\
+			Py_RETURN_NONE;                                                  	\
+		}                                                                        	\
+		if (len && ptr[len - 1] == '\r') len--;                                  	\
+		return Py ## typename ## _FromStringAndSize(ptr, len);                   	\
+	}                                                                                	\
+	static PyObject *name ## _iternext(GzLines *self)                                	\
+	{                                                                                	\
+		ITERPROLOGUE;                                                            	\
+		char *ptr = self->buf + self->pos;                                       	\
+		char *end = memchr(ptr, '\n', self->len - self->pos);                    	\
+		if (!end) {                                                              	\
+			int linelen = self->len - self->pos;                             	\
+			char line[Z + linelen];                                          	\
+			memcpy(line, self->buf + self->pos, linelen);                    	\
+			if (gzlines_read_(self)) {                                       	\
+				return mk ## typename(line, linelen);                    	\
+			}                                                                	\
+			end = memchr(self->buf + self->pos, '\n', self->len - self->pos);	\
+			if (!end) end = self->buf + self->len;                           	\
+			self->pos = end - self->buf + 1;                                 	\
+			memcpy(line + linelen, self->buf, self->pos - 1);                	\
+			return mk ## typename(line, linelen + self->pos - 1);            	\
+		}                                                                        	\
+		int linelen = end - ptr;                                                 	\
+		self->pos += linelen + 1;                                                	\
+		return mk ## typename(ptr, linelen);                                     	\
 	}
-	if (len && ptr[len - 1] == '\r') len--;
-	return PyString_FromStringAndSize(ptr, len);
-}
-
-static PyObject *GzLines_iternext(GzLines *self)
-{
-	ITERPROLOGUE;
-	char *ptr = self->buf + self->pos;
-	char *end = memchr(ptr, '\n', self->len - self->pos);
-	if (!end) {
-		int linelen = self->len - self->pos;
-		char line[Z + linelen];
-		memcpy(line, self->buf + self->pos, linelen);
-		if (gzlines_read_(self)) {
-			return mkstr(line, linelen);
-		}
-		end = memchr(self->buf + self->pos, '\n', self->len - self->pos);
-		if (!end) end = self->buf + self->len;
-		self->pos = end - self->buf + 1;
-		memcpy(line + linelen, self->buf, self->pos - 1);
-		return mkstr(line, linelen + self->pos - 1);
-	}
-	int linelen = end - ptr;
-	self->pos += linelen + 1;
-	return mkstr(ptr, linelen);
-}
+MKLINEITER(GzLines , String);
+MKLINEITER(GzULines, Unicode);
 
 // These are signaling NaNs with extra DEADness in the significand
 static const unsigned char noneval_double[8] = {0xde, 0xad, 0xde, 0xad, 0xde, 0xad, 0xf0, 0xff};
@@ -261,6 +263,7 @@ static PyMethodDef gzlines_methods[] = {
 		0,                              /*tp_is_gc         */	\
 	}
 MKTYPE(GzLines);
+MKTYPE(GzULines);
 MKTYPE(GzFloat64);
 MKTYPE(GzFloat32);
 MKTYPE(GzInt64);
@@ -333,6 +336,7 @@ static int gzwrite_init_GzWrite(PyObject *self_, PyObject *args, PyObject *kwds)
 	return 0;
 }
 #define gzwrite_init_GzWriteLines gzwrite_init_GzWrite
+#define gzwrite_init_GzWriteULines gzwrite_init_GzWrite
 
 static void gzwrite_dealloc(GzWrite *self)
 {
@@ -389,6 +393,21 @@ static PyObject *gzwrite_write_GzWriteLines(GzWrite *self, PyObject *args)
 	}
 	if (!PyArg_ParseTuple(args, "s#", &data, &len)) return 0;
 	PyObject *ret = gzwrite_write_(self, data, len);
+	if (!ret) return 0;
+	Py_DECREF(ret);
+	return gzwrite_write_(self, "\n", 1);
+}
+
+static PyObject *gzwrite_write_GzWriteULines(GzWrite *self, PyObject *args)
+{
+	char *data = 0;
+	int len;
+	if (PyTuple_GET_SIZE(args) == 1 && PyTuple_GET_ITEM(args, 0) == Py_None) {
+		return gzwrite_write_(self, "\x00\n", 2);
+	}
+	if (!PyArg_ParseTuple(args, "es#", "utf-8", &data, &len)) return 0;
+	PyObject *ret = gzwrite_write_(self, data, len);
+	PyMem_Free(data);
 	if (!ret) return 0;
 	Py_DECREF(ret);
 	return gzwrite_write_(self, "\n", 1);
@@ -609,6 +628,7 @@ static PyObject *gzwrite_exit(PyObject *self, PyObject *args)
 	}
 MKWTYPE(GzWrite);
 MKWTYPE(GzWriteLines);
+MKWTYPE(GzWriteULines);
 MKWTYPE(GzWriteFloat64);
 MKWTYPE(GzWriteFloat32);
 MKWTYPE(GzWriteInt64);
@@ -633,6 +653,7 @@ PyMODINIT_FUNC initgzlines(void)
 	PyObject *m = Py_InitModule3("gzlines", module_methods, NULL);
 	if (!m) return;
 	INIT(GzLines);
+	INIT(GzULines);
 	INIT(GzFloat64);
 	INIT(GzFloat32);
 	INIT(GzInt64);
@@ -645,6 +666,7 @@ PyMODINIT_FUNC initgzlines(void)
 	INIT(GzTime);
 	INIT(GzWrite);
 	INIT(GzWriteLines);
+	INIT(GzWriteULines);
 	INIT(GzWriteFloat64);
 	INIT(GzWriteFloat32);
 	INIT(GzWriteInt64);
@@ -655,7 +677,7 @@ PyMODINIT_FUNC initgzlines(void)
 	INIT(GzWriteDateTime);
 	INIT(GzWriteDate);
 	INIT(GzWriteTime);
-	PyObject *version = Py_BuildValue("(iii)", 1, 6, 0);
+	PyObject *version = Py_BuildValue("(iii)", 1, 7, 0);
 	PyModule_AddObject(m, "version", version);
 	// old name for compat
 	Py_INCREF(&GzLines_Type);
