@@ -24,17 +24,17 @@ tm1 = time(2, 42, 0, 3)
 tm2 = time(23, 59, 59, 999999)
 
 for name, data, bad_cnt, res_data in (
-	("Float64" , ["0", float, 0 , 4.2, -0.01, 1e42, inf, ninf], 2, [0.0, 4.2, -0.01, 1e42, inf, ninf]),
-	("Float32" , ["0", float, 0L, 4.2, -0.01, 1e42, inf, ninf], 2, [0.0, 4.199999809265137, -0.009999999776482582, inf , inf, ninf]),
-	("Int64"   , ["0", int, 0x8000000000000000, 0.1, 0x7fffffffffffffff, -5L], 3, [0, 0x7fffffffffffffff, -5]),
-	("UInt64"  , ["0", int, -5L, -5, 0.1, 0x8000000000000000, 0x7fffffffffffffff, 0x8000000000000000L], 5, [0x8000000000000000, 0x7fffffffffffffff, 0x8000000000000000]),
-	("Int32"   , ["0", int, 0x80000000, 0.1, 0x7fffffff, -5L], 3, [0, 0x7fffffff, -5]),
-	("UInt32"  , ["0", int, -5L, -5, 0.1, 0x80000000, 0x7fffffff, 0x80000000L], 5, [0x80000000, 0x7fffffff, 0x80000000]),
-	("Bool"    , ["0", bool, 0.0, True, False, 0, 1L], 2, [False, True, False, False, True]),
-	("Lines"   , [42, str, "a", "foo bar baz"], 2, ["a", "foo bar baz"]),
-	("DateTime", [42, "now", tm0, dttm0, dttm1, dttm2], 3, [dttm0, dttm1, dttm2]),
-	("Date"    , [42, "now", tm0, dttm0, dttm1, dttm2, dt0], 3, [dttm0.date(), dttm1.date(), dttm2.date(), dt0]),
-	("Time"    , [42, "now", dttm0, tm0, tm1, tm2], 3, [tm0, tm1, tm2]),
+	("Float64" , ["0", float, 0 , 4.2, -0.01, 1e42, inf, ninf, None], 2, [0.0, 4.2, -0.01, 1e42, inf, ninf, None]),
+	("Float32" , ["0", float, 0L, 4.2, -0.01, 1e42, inf, ninf, None], 2, [0.0, 4.199999809265137, -0.009999999776482582, inf , inf, ninf, None]),
+	("Int64"   , ["0", int, 0x8000000000000000, -0x8000000000000000, 0.1, 0x7fffffffffffffff, -5L, None], 4, [0, 0x7fffffffffffffff, -5, None]),
+	("UInt64"  , ["0", int, None, -5L, -5, 0.1, 0x8000000000000000, 0x7fffffffffffffff, 0x8000000000000000L], 6, [0x8000000000000000, 0x7fffffffffffffff, 0x8000000000000000]),
+	("Int32"   , ["0", int, 0x80000000, -0x80000000, 0.1, 0x7fffffff, -5L, None], 4, [0, 0x7fffffff, -5, None]),
+	("UInt32"  , ["0", int, None, -5L, -5, 0.1, 0x80000000, 0x7fffffff, 0x80000000L], 6, [0x80000000, 0x7fffffff, 0x80000000]),
+	("Bool"    , ["0", bool, 0.0, True, False, 0, 1L, None], 2, [False, True, False, False, True, None]),
+	("Lines"   , [42, str, "\n", "a", "foo bar baz", None], 3, ["a", "foo bar baz", None]),
+	("DateTime", [42, "now", tm0, dttm0, dttm1, dttm2, None], 3, [dttm0, dttm1, dttm2, None]),
+	("Date"    , [42, "now", tm0, dttm0, dttm1, dttm2, dt0, None], 3, [dttm0.date(), dttm1.date(), dttm2.date(), dt0, None]),
+	("Time"    , [42, "now", dttm0, tm0, tm1, tm2, None], 3, [tm0, tm1, tm2, None]),
 ):
 	print(name)
 	r_typ = getattr(gzlines, "Gz" + name)
