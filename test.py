@@ -31,7 +31,8 @@ for name, data, bad_cnt, res_data in (
 	("Int32"   , ["0", int, 0x80000000, -0x80000000, 0.1, 0x7fffffff, -5L, None], 4, [0, 0x7fffffff, -5, None]),
 	("UInt32"  , ["0", int, None, -5L, -5, 0.1, 0x80000000, 0x7fffffff, 0x80000000L], 6, [0x80000000, 0x7fffffff, 0x80000000]),
 	("Bool"    , ["0", bool, 0.0, True, False, 0, 1L, None], 2, [False, True, False, False, True, None]),
-	("Lines"   , [42, str, "\n", "a", "foo bar baz", None], 3, ["a", "foo bar baz", None]),
+	("Lines"   , [42, str, "\n", u"a", "a", "foo bar baz", None], 4, ["a", "foo bar baz", None]),
+	("ULines"  , [42, str, u"\n", "a", u"a", u"foo bar baz", None], 4, [u"a", u"foo bar baz", None]),
 	("DateTime", [42, "now", tm0, dttm0, dttm1, dttm2, None], 3, [dttm0, dttm1, dttm2, None]),
 	("Date"    , [42, "now", tm0, dttm0, dttm1, dttm2, dt0, None], 3, [dttm0.date(), dttm1.date(), dttm2.date(), dt0, None]),
 	("Time"    , [42, "now", dttm0, tm0, tm1, tm2, None], 3, [tm0, tm1, tm2, None]),
@@ -51,7 +52,7 @@ for name, data, bad_cnt, res_data in (
 		res = list(fh)
 		assert res == res_data, res
 	# Data comes back as expected.
-	if name == "Lines":
+	if name in ("Lines", "ULines",):
 		continue # no default support
 	for ix, default in enumerate(data):
 		# Verify that defaults are accepted where expected
