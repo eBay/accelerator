@@ -399,15 +399,35 @@ static PyObject *gzwrite_write_GzWrite(GzWrite *self, PyObject *args)
 		PyErr_SetString(PyExc_TypeError, msg);                                	\
 		return 0;                                                             	\
 	}
+#define WRITELINEDO(cleanup) \
+	if (len == 1 && *data == 0) {                                                 	\
+		cleanup;                                                              	\
+		PyErr_SetString(PyExc_ValueError, "Value becomes None-marker");       	\
+		return 0;                                                             	\
+	}                                                                             	\
+	if (memchr(data, '\n', len)) {                                                	\
+		cleanup;                                                              	\
+		PyErr_SetString(PyExc_ValueError, "Value must not contain \\n");      	\
+		return 0;                                                             	\
+	}                                                                             	\
+	if (data[len - 1] == '\r') {                                                  	\
+		cleanup;                                                              	\
+		PyErr_SetString(PyExc_ValueError, "Value must not end with \\r");     	\
+		return 0;                                                             	\
+	}                                                                             	\
+	PyObject *ret = gzwrite_write_(self, data, len);                              	\
+	cleanup;                                                                      	\
+	if (!ret) return 0;                                                           	\
+	Py_DECREF(ret);
 
 static PyObject *gzwrite_write_GzWriteLines(GzWrite *self, PyObject *args)
 {
 	WRITELINEPROLOGUE(String, "str");
-	const char *data = PyString_AS_STRING(obj);
 	const int len = PyString_GET_SIZE(obj);
-	PyObject *ret = gzwrite_write_(self, data, len);
-	if (!ret) return 0;
-	Py_DECREF(ret);
+	if (len) {
+		const char *data = PyString_AS_STRING(obj);
+		WRITELINEDO((void)data);
+	}
 	return gzwrite_write_(self, "\n", 1);
 }
 
@@ -416,12 +436,11 @@ static PyObject *gzwrite_write_GzWriteULines(GzWrite *self, PyObject *args)
 	WRITELINEPROLOGUE(Unicode, "unicode");
 	PyObject *strobj = PyUnicode_AsUTF8String(obj);
 	if (!strobj) return 0;
-	const char *data = PyString_AS_STRING(strobj);
-	const int len = PyString_GET_SIZE(strobj);
-	PyObject *ret = gzwrite_write_(self, data, len);
-	Py_DECREF(strobj);
-	if (!ret) return 0;
-	Py_DECREF(ret);
+	if (PyUnicode_GET_SIZE(obj)) {
+		const char *data = PyString_AS_STRING(strobj);
+		const int len = PyString_GET_SIZE(strobj);
+		WRITELINEDO(Py_DECREF(strobj));
+	}
 	return gzwrite_write_(self, "\n", 1);
 }
 
@@ -689,7 +708,7 @@ PyMODINIT_FUNC initgzlines(void)
 	INIT(GzWriteDateTime);
 	INIT(GzWriteDate);
 	INIT(GzWriteTime);
-	PyObject *version = Py_BuildValue("(iii)", 1, 7, 1);
+	PyObject *version = Py_BuildValue("(iii)", 1, 7, 2);
 	PyModule_AddObject(m, "version", version);
 	// old name for compat
 	Py_INCREF(&GzLines_Type);
