@@ -384,14 +384,27 @@ static PyObject *gzwrite_write_GzWrite(GzWrite *self, PyObject *args)
 	return gzwrite_write_(self, data, len);
 }
 
+#define WRITELINEPROLOGUE(checktype, errname) \
+	if (PyTuple_GET_SIZE(args) != 1) {                                            	\
+		PyErr_SetString(PyExc_TypeError, "function takes exactly 1 argument");	\
+		return 0;                                                             	\
+	}                                                                             	\
+	PyObject *obj = PyTuple_GET_ITEM(args, 0);                                    	\
+	if (obj == Py_None) {                                                         	\
+		return gzwrite_write_(self, "\x00\n", 2);                             	\
+	}                                                                             	\
+	if (!Py ## checktype ## _Check(obj)) {                                        	\
+		const char *msg = "For your protection, only " errname                	\
+		                  " objects are accepted";                            	\
+		PyErr_SetString(PyExc_TypeError, msg);                                	\
+		return 0;                                                             	\
+	}
+
 static PyObject *gzwrite_write_GzWriteLines(GzWrite *self, PyObject *args)
 {
-	const char *data;
-	int len;
-	if (PyTuple_GET_SIZE(args) == 1 && PyTuple_GET_ITEM(args, 0) == Py_None) {
-		return gzwrite_write_(self, "\x00\n", 2);
-	}
-	if (!PyArg_ParseTuple(args, "s#", &data, &len)) return 0;
+	WRITELINEPROLOGUE(String, "str");
+	const char *data = PyString_AS_STRING(obj);
+	const int len = PyString_GET_SIZE(obj);
 	PyObject *ret = gzwrite_write_(self, data, len);
 	if (!ret) return 0;
 	Py_DECREF(ret);
@@ -400,14 +413,13 @@ static PyObject *gzwrite_write_GzWriteLines(GzWrite *self, PyObject *args)
 
 static PyObject *gzwrite_write_GzWriteULines(GzWrite *self, PyObject *args)
 {
-	char *data = 0;
-	int len;
-	if (PyTuple_GET_SIZE(args) == 1 && PyTuple_GET_ITEM(args, 0) == Py_None) {
-		return gzwrite_write_(self, "\x00\n", 2);
-	}
-	if (!PyArg_ParseTuple(args, "es#", "utf-8", &data, &len)) return 0;
+	WRITELINEPROLOGUE(Unicode, "unicode");
+	PyObject *strobj = PyUnicode_AsUTF8String(obj);
+	if (!strobj) return 0;
+	const char *data = PyString_AS_STRING(strobj);
+	const int len = PyString_GET_SIZE(strobj);
 	PyObject *ret = gzwrite_write_(self, data, len);
-	PyMem_Free(data);
+	Py_DECREF(strobj);
 	if (!ret) return 0;
 	Py_DECREF(ret);
 	return gzwrite_write_(self, "\n", 1);
@@ -677,7 +689,7 @@ PyMODINIT_FUNC initgzlines(void)
 	INIT(GzWriteDateTime);
 	INIT(GzWriteDate);
 	INIT(GzWriteTime);
-	PyObject *version = Py_BuildValue("(iii)", 1, 7, 0);
+	PyObject *version = Py_BuildValue("(iii)", 1, 7, 1);
 	PyModule_AddObject(m, "version", version);
 	// old name for compat
 	Py_INCREF(&GzLines_Type);
