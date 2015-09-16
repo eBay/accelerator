@@ -309,6 +309,10 @@ static PyObject *gzwrite_flush(GzWrite *self)
 
 static int gzwrite_close_(GzWrite *self)
 {
+	if (self->default_value) {
+		free(self->default_value);
+		self->default_value = 0;
+	}
 	if (self->fh) {
 		int err = gzwrite_flush_(self);
 		err |= gzclose(self->fh);
@@ -708,7 +712,7 @@ PyMODINIT_FUNC initgzlines(void)
 	INIT(GzWriteDateTime);
 	INIT(GzWriteDate);
 	INIT(GzWriteTime);
-	PyObject *version = Py_BuildValue("(iii)", 1, 7, 2);
+	PyObject *version = Py_BuildValue("(iii)", 1, 7, 3);
 	PyModule_AddObject(m, "version", version);
 	// old name for compat
 	Py_INCREF(&GzLines_Type);
