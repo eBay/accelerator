@@ -459,7 +459,6 @@ static PyObject *gzwrite_write_GzWriteULines(GzWrite *self, PyObject *args)
 		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|sO", kwlist, Py_FileSystemDefaultEncoding, &name, &mode, &default_value)) return -1; \
 		gzwrite_close_(self);                                                    	\
 		if (default_value) {                                                     	\
-			PyErr_Clear();                                                   	\
 			T value;                                                         	\
 			if (withnone && default_value == Py_None) {                      	\
 				memcpy(&value, &noneval_ ## T, sizeof(T));               	\
@@ -499,7 +498,6 @@ err:                                                                            
 		if (withnone && obj == Py_None) {                                        	\
 			return gzwrite_write_(self, (char *)&noneval_ ## T, sizeof(T));  	\
 		}                                                                        	\
-		PyErr_Clear();                                                           	\
 		T value = conv(obj);                                                     	\
 		if (withnone && !PyErr_Occurred() &&                                     	\
 		    !memcmp(&value, &noneval_ ## T, sizeof(T))                           	\
@@ -508,6 +506,7 @@ err:                                                                            
 		}                                                                        	\
 		if (PyErr_Occurred()) {                                                  	\
 			if (!self->default_value) return 0;                              	\
+			PyErr_Clear();                                                   	\
 			value = *(T *)self->default_value;                               	\
 		}                                                                        	\
 		return gzwrite_write_(self, (char *)&value, sizeof(value));              	\
@@ -712,7 +711,7 @@ PyMODINIT_FUNC initgzlines(void)
 	INIT(GzWriteDateTime);
 	INIT(GzWriteDate);
 	INIT(GzWriteTime);
-	PyObject *version = Py_BuildValue("(iii)", 1, 7, 3);
+	PyObject *version = Py_BuildValue("(iii)", 1, 7, 4);
 	PyModule_AddObject(m, "version", version);
 	// old name for compat
 	Py_INCREF(&GzLines_Type);
