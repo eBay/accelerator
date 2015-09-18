@@ -29,6 +29,11 @@ static int gzlines_close_(GzLines *self)
 	return 1;
 }
 
+// Stupid forward declarations
+static int gzlines_read_(GzLines *self);
+static PyTypeObject GzLines_Type;
+static PyTypeObject GzULines_Type;
+
 static int gzlines_init(PyObject *self_, PyObject *args, PyObject *kwds)
 {
 	static char *kwlist[] = {"name", 0};
@@ -43,6 +48,13 @@ static int gzlines_init(PyObject *self_, PyObject *args, PyObject *kwds)
 		return -1;
 	}
 	self->pos = self->len = 0;
+	if (PyObject_TypeCheck(self_, &GzLines_Type) || PyObject_TypeCheck(self_, &GzULines_Type)) {
+		// For the text based types we strip the BOM if it's there.
+		gzlines_read_(self);
+		if (self->len >= 3 && !memcmp(self->buf, "\xef\xbb\xbf", 3)) {
+			self->pos = 3;
+		}
+	}
 	return 0;
 }
 
@@ -711,7 +723,7 @@ PyMODINIT_FUNC initgzlines(void)
 	INIT(GzWriteDateTime);
 	INIT(GzWriteDate);
 	INIT(GzWriteTime);
-	PyObject *version = Py_BuildValue("(iii)", 1, 7, 4);
+	PyObject *version = Py_BuildValue("(iii)", 1, 7, 5);
 	PyModule_AddObject(m, "version", version);
 	// old name for compat
 	Py_INCREF(&GzLines_Type);

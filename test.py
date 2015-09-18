@@ -77,6 +77,13 @@ for name, data, bad_cnt, res_data in (
 				assert res == [res_data[ix - bad_cnt]] * bad_cnt + res_data, res
 			# Great, all default values came out right in the file!
 
+print("BOM test")
+with open(TMP_FN, "wb") as fh:
+	fh.write("\xef\xbb\xbfa\n\xef\xbb\xbfb")
+with gzlines.GzLines(TMP_FN) as fh:
+	data = list(fh)
+	assert data == ["a", "\xef\xbb\xbfb"], data
+
 print("Append test")
 # And finally verify appending works as expected.
 with gzlines.GzWriteInt64(TMP_FN) as fh:
