@@ -612,6 +612,23 @@ MKWRITER(GzWriteDateTime, uint64_t, fmt_datetime, 1);
 MKWRITER(GzWriteDate    , uint32_t, fmt_date,     1);
 MKWRITER(GzWriteTime    , uint64_t, fmt_time,     1);
 
+#define MKPARSED(name, T, inner, conv, withnone)                     	\
+	static T parse ## name(PyObject *obj)                        	\
+	{                                                            	\
+		PyObject *parsed = inner(obj);                       	\
+		if (!parsed) return 0;                               	\
+		T res = conv(parsed);                                	\
+		Py_DECREF(parsed);                                   	\
+		return res;                                          	\
+	}                                                            	\
+	MKWRITER(GzWriteParsed ## name, T , parse ## name, withnone)
+MKPARSED(Float64, double  , PyNumber_Float, PyFloat_AsDouble , 1);
+MKPARSED(Float32, float   , PyNumber_Float, PyFloat_AsDouble , 1);
+MKPARSED(Int64  , int64_t , PyNumber_Int  , PyLong_AsLong    , 1);
+MKPARSED(Int32  , int32_t , PyNumber_Int  , pylong_asint32_t , 1);
+MKPARSED(UInt64 , uint64_t, PyNumber_Int  , pylong_asuint64_t, 0);
+MKPARSED(UInt32 , uint32_t, PyNumber_Int  , pylong_asuint32_t, 0);
+
 static PyObject *gzwrite_exit(PyObject *self, PyObject *args)
 {
 	PyObject *ret = PyObject_CallMethod(self, "close", NULL);
@@ -686,6 +703,12 @@ MKWTYPE(GzWriteDateTime);
 MKWTYPE(GzWriteDate);
 MKWTYPE(GzWriteTime);
 
+MKWTYPE(GzWriteParsedFloat64);
+MKWTYPE(GzWriteParsedFloat32);
+MKWTYPE(GzWriteParsedInt64);
+MKWTYPE(GzWriteParsedInt32);
+MKWTYPE(GzWriteParsedUInt64);
+MKWTYPE(GzWriteParsedUInt32);
 
 #define INIT(name) do {                                              	\
 	if (PyType_Ready(&name ## _Type) < 0) return;                	\
@@ -723,7 +746,13 @@ PyMODINIT_FUNC initgzlines(void)
 	INIT(GzWriteDateTime);
 	INIT(GzWriteDate);
 	INIT(GzWriteTime);
-	PyObject *version = Py_BuildValue("(iii)", 1, 7, 5);
+	INIT(GzWriteParsedFloat64);
+	INIT(GzWriteParsedFloat32);
+	INIT(GzWriteParsedInt64);
+	INIT(GzWriteParsedInt32);
+	INIT(GzWriteParsedUInt64);
+	INIT(GzWriteParsedUInt32);
+	PyObject *version = Py_BuildValue("(iii)", 1, 8, 0);
 	PyModule_AddObject(m, "version", version);
 	// old name for compat
 	Py_INCREF(&GzLines_Type);

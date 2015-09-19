@@ -36,9 +36,16 @@ for name, data, bad_cnt, res_data in (
 	("DateTime", [42, "now", tm0, dttm0, dttm1, dttm2, None], 3, [dttm0, dttm1, dttm2, None]),
 	("Date"    , [42, "now", tm0, dttm0, dttm1, dttm2, dt0, None], 3, [dttm0.date(), dttm1.date(), dttm2.date(), dt0, None]),
 	("Time"    , [42, "now", dttm0, tm0, tm1, tm2, None], 3, [tm0, tm1, tm2, None]),
+	("ParsedFloat64" , [float, "1 thing", "", "0", " 4.2", -0.01, "1e42 ", " inf", "-inf ", None], 3, [0.0, 4.2, -0.01, 1e42, inf, ninf, None]),
+	("ParsedFloat32" , [float, "1 thing", "", "0", " 4.2", -0.01, "1e42 ", " inf", "-inf ", None], 3, [0.0, 4.199999809265137, -0.009999999776482582, inf , inf, ninf, None]),
+	("ParsedInt64"   , [int, "", "9223372036854775808", -0x8000000000000000, "0.1", 1, 0.1, "9223372036854775807", " - 5 ", None], 5, [1, 0, 0x7fffffffffffffff, -5, None]),
+	("ParsedUInt64"  , [int, "", None, -5L, "-5", 0.1, " 9223372036854775808", "9223372036854775807 ", "0", 1], 5, [0, 0x8000000000000000, 0x7fffffffffffffff, 0, 1]),
+	("ParsedInt32"   , [int, "", 0x80000000, -0x80000000, "0.1", 0.1, "-7", "-0", "2147483647", " - 5 ", None, 1], 5, [0, -7, 0, 0x7fffffff, -5, None, 1]),
+	("ParsedUInt32"  , [int, "", None, -5L, -5, 0.1, "2147483648", "2147483647", 0x80000000L, 1], 5, [0, 0x80000000, 0x7fffffff, 0x80000000, 1]),
 ):
 	print(name)
-	r_typ = getattr(gzlines, "Gz" + name)
+	r_name = "Gz" + name[6:] if name.startswith("Parsed") else "Gz" + name
+	r_typ = getattr(gzlines, r_name)
 	w_typ = getattr(gzlines, "GzWrite" + name)
 	with w_typ(TMP_FN) as fh:
 		for ix, value in enumerate(data):
