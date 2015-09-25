@@ -1,4 +1,6 @@
+#define PY_SSIZE_T_CLEAN 1
 #include <Python.h>
+#include <bytesobject.h>
 #include <datetime.h>
 
 #include <zlib.h>
@@ -29,10 +31,22 @@ static int gzlines_close_(GzLines *self)
 	return 1;
 }
 
+#if PY_MAJOR_VERSION < 3
+#  define BYTES_NAME      "str"
+#  define UNICODE_NAME    "unicode"
+#  define INITFUNC        initgzlines
+#else
+#  define BYTES_NAME      "bytes"
+#  define UNICODE_NAME    "str"
+#  define PyInt_FromLong  PyLong_FromLong
+#  define PyNumber_Int    PyNumber_Long
+#  define INITFUNC        PyInit_gzlines
+#endif
+
 // Stupid forward declarations
 static int gzlines_read_(GzLines *self);
-static PyTypeObject GzLines_Type;
-static PyTypeObject GzULines_Type;
+static PyTypeObject GzBytes_Type;
+static PyTypeObject GzUnicode_Type;
 
 static int gzlines_init(PyObject *self_, PyObject *args, PyObject *kwds)
 {
@@ -48,7 +62,7 @@ static int gzlines_init(PyObject *self_, PyObject *args, PyObject *kwds)
 		return -1;
 	}
 	self->pos = self->len = 0;
-	if (PyObject_TypeCheck(self_, &GzLines_Type) || PyObject_TypeCheck(self_, &GzULines_Type)) {
+	if (PyObject_TypeCheck(self_, &GzBytes_Type) || PyObject_TypeCheck(self_, &GzUnicode_Type)) {
 		// For the text based types we strip the BOM if it's there.
 		gzlines_read_(self);
 		if (self->len >= 3 && !memcmp(self->buf, "\xef\xbb\xbf", 3)) {
@@ -131,8 +145,8 @@ static int gzlines_read_(GzLines *self)
 		self->pos += linelen + 1;                                                	\
 		return mk ## typename(ptr, linelen);                                     	\
 	}
-MKLINEITER(GzLines , String);
-MKLINEITER(GzULines, Unicode);
+MKLINEITER(GzBytes  , Bytes);
+MKLINEITER(GzUnicode, Unicode);
 
 // These are signaling NaNs with extra DEADness in the significand
 static const unsigned char noneval_double[8] = {0xde, 0xad, 0xde, 0xad, 0xde, 0xad, 0xf0, 0xff};
@@ -274,8 +288,8 @@ static PyMethodDef gzlines_methods[] = {
 		PyObject_Del,                   /*tp_free          */	\
 		0,                              /*tp_is_gc         */	\
 	}
-MKTYPE(GzLines);
-MKTYPE(GzULines);
+MKTYPE(GzBytes);
+MKTYPE(GzUnicode);
 MKTYPE(GzFloat64);
 MKTYPE(GzFloat32);
 MKTYPE(GzInt64);
@@ -351,8 +365,8 @@ static int gzwrite_init_GzWrite(PyObject *self_, PyObject *args, PyObject *kwds)
 	self->len = 0;
 	return 0;
 }
-#define gzwrite_init_GzWriteLines gzwrite_init_GzWrite
-#define gzwrite_init_GzWriteULines gzwrite_init_GzWrite
+#define gzwrite_init_GzWriteBytes   gzwrite_init_GzWrite
+#define gzwrite_init_GzWriteUnicode gzwrite_init_GzWrite
 
 static void gzwrite_dealloc(GzWrite *self)
 {
@@ -374,7 +388,7 @@ static PyObject *gzwrite_self(GzWrite *self)
 	return (PyObject *)self;
 }
 
-static PyObject *gzwrite_write_(GzWrite *self, const char *data, int len)
+static PyObject *gzwrite_write_(GzWrite *self, const char *data, Py_ssize_t len)
 {
 	if (len + self->len > Z) {
 		if (gzwrite_flush_(self)) return 0;
@@ -395,7 +409,7 @@ static PyObject *gzwrite_write_(GzWrite *self, const char *data, int len)
 static PyObject *gzwrite_write_GzWrite(GzWrite *self, PyObject *args)
 {
 	const char *data;
-	int len;
+	Py_ssize_t len;
 	if (!PyArg_ParseTuple(args, "s#", &data, &len)) return 0;
 	return gzwrite_write_(self, data, len);
 }
@@ -436,26 +450,33 @@ static PyObject *gzwrite_write_GzWrite(GzWrite *self, PyObject *args)
 	if (!ret) return 0;                                                           	\
 	Py_DECREF(ret);
 
-static PyObject *gzwrite_write_GzWriteLines(GzWrite *self, PyObject *args)
+static PyObject *gzwrite_write_GzWriteBytes(GzWrite *self, PyObject *args)
 {
-	WRITELINEPROLOGUE(String, "str");
-	const int len = PyString_GET_SIZE(obj);
+	WRITELINEPROLOGUE(Bytes, BYTES_NAME);
+	const Py_ssize_t len = PyBytes_GET_SIZE(obj);
 	if (len) {
-		const char *data = PyString_AS_STRING(obj);
+		const char *data = PyBytes_AS_STRING(obj);
 		WRITELINEDO((void)data);
 	}
 	return gzwrite_write_(self, "\n", 1);
 }
 
-static PyObject *gzwrite_write_GzWriteULines(GzWrite *self, PyObject *args)
+static PyObject *gzwrite_write_GzWriteUnicode(GzWrite *self, PyObject *args)
 {
-	WRITELINEPROLOGUE(Unicode, "unicode");
-	PyObject *strobj = PyUnicode_AsUTF8String(obj);
-	if (!strobj) return 0;
+	WRITELINEPROLOGUE(Unicode, UNICODE_NAME);
 	if (PyUnicode_GET_SIZE(obj)) {
-		const char *data = PyString_AS_STRING(strobj);
-		const int len = PyString_GET_SIZE(strobj);
+#if PY_MAJOR_VERSION < 3
+		PyObject *strobj = PyUnicode_AsUTF8String(obj);
+		if (!strobj) return 0;
+		const char *data = PyBytes_AS_STRING(strobj);
+		const Py_ssize_t len = PyBytes_GET_SIZE(strobj);
 		WRITELINEDO(Py_DECREF(strobj));
+#else
+		Py_ssize_t len;
+		const char *data = PyUnicode_AsUTF8AndSize(obj, &len);
+		if (!data) return 0;
+		WRITELINEDO((void)data);
+#endif
 	}
 	return gzwrite_write_(self, "\n", 1);
 }
@@ -690,8 +711,8 @@ static PyObject *gzwrite_exit(PyObject *self, PyObject *args)
 		0,                              /*tp_is_gc*/         	\
 	}
 MKWTYPE(GzWrite);
-MKWTYPE(GzWriteLines);
-MKWTYPE(GzWriteULines);
+MKWTYPE(GzWriteBytes);
+MKWTYPE(GzWriteUnicode);
 MKWTYPE(GzWriteFloat64);
 MKWTYPE(GzWriteFloat32);
 MKWTYPE(GzWriteInt64);
@@ -710,19 +731,40 @@ MKWTYPE(GzWriteParsedInt32);
 MKWTYPE(GzWriteParsedUInt64);
 MKWTYPE(GzWriteParsedUInt32);
 
+#if PY_MAJOR_VERSION < 3
+#  define INITERR
+#else
+#  define INITERR 0
+static struct PyModuleDef moduledef = {
+	PyModuleDef_HEAD_INIT,
+	"gzlines",          /*m_name*/
+	0,                  /*m_doc*/
+	-1,                 /*m_size*/
+	module_methods,     /*m_methods*/
+	0,                  /*m_reload*/
+	0,                  /*m_traverse*/
+	0,                  /*m_clear*/
+	0,                  /*m_free*/
+};
+#endif
+
 #define INIT(name) do {                                              	\
-	if (PyType_Ready(&name ## _Type) < 0) return;                	\
+	if (PyType_Ready(&name ## _Type) < 0) return INITERR;        	\
 	Py_INCREF(&name ## _Type);                                   	\
 	PyModule_AddObject(m, #name, (PyObject *) &name ## _Type);   	\
 } while (0)
 
-PyMODINIT_FUNC initgzlines(void)
+PyMODINIT_FUNC INITFUNC(void)
 {
 	PyDateTime_IMPORT;
+#if PY_MAJOR_VERSION >= 3
+	PyObject *m = PyModule_Create(&moduledef);
+#else
 	PyObject *m = Py_InitModule3("gzlines", module_methods, NULL);
-	if (!m) return;
-	INIT(GzLines);
-	INIT(GzULines);
+#endif
+	if (!m) return INITERR;
+	INIT(GzBytes);
+	INIT(GzUnicode);
 	INIT(GzFloat64);
 	INIT(GzFloat32);
 	INIT(GzInt64);
@@ -734,8 +776,8 @@ PyMODINIT_FUNC initgzlines(void)
 	INIT(GzDate);
 	INIT(GzTime);
 	INIT(GzWrite);
-	INIT(GzWriteLines);
-	INIT(GzWriteULines);
+	INIT(GzWriteBytes);
+	INIT(GzWriteUnicode);
 	INIT(GzWriteFloat64);
 	INIT(GzWriteFloat32);
 	INIT(GzWriteInt64);
@@ -752,9 +794,15 @@ PyMODINIT_FUNC initgzlines(void)
 	INIT(GzWriteParsedInt32);
 	INIT(GzWriteParsedUInt64);
 	INIT(GzWriteParsedUInt32);
-	PyObject *version = Py_BuildValue("(iii)", 1, 8, 0);
+	PyObject *version = Py_BuildValue("(iii)", 2, 0, 0);
 	PyModule_AddObject(m, "version", version);
-	// old name for compat
-	Py_INCREF(&GzLines_Type);
-	PyModule_AddObject(m, "gzlines", (PyObject *) &GzLines_Type);
+#if PY_MAJOR_VERSION < 3
+	// old names for compat
+	Py_INCREF(&GzBytes_Type);
+	PyModule_AddObject(m, "gzlines", (PyObject *) &GzBytes_Type);
+	Py_INCREF(&GzBytes_Type);
+	PyModule_AddObject(m, "GzLines", (PyObject *) &GzBytes_Type);
+#else
+	return m;
+#endif
 }

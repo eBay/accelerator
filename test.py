@@ -2,14 +2,20 @@
 #
 # Verify general operation and a few corner cases.
 
-from __future__ import division, print_function
+from __future__ import division, print_function, unicode_literals
 
 from datetime import datetime, date, time
+from sys import version_info
 import gzlines
 
 TMP_FN = "_tmp_test.gz"
 
 inf, ninf = float("inf"), float("-inf")
+
+if version_info[0] > 2:
+	l = lambda i: i
+else:
+	l = long
 
 # The UInt types don't accept floats, the others Int types do.
 # This is not really intentional, but it's easier and not obviously wrong,
@@ -24,24 +30,24 @@ tm1 = time(2, 42, 0, 3)
 tm2 = time(23, 59, 59, 999999)
 
 for name, data, bad_cnt, res_data in (
-	("Float64" , ["0", float, 0 , 4.2, -0.01, 1e42, inf, ninf, None], 2, [0.0, 4.2, -0.01, 1e42, inf, ninf, None]),
-	("Float32" , ["0", float, 0L, 4.2, -0.01, 1e42, inf, ninf, None], 2, [0.0, 4.199999809265137, -0.009999999776482582, inf , inf, ninf, None]),
-	("Int64"   , ["0", int, 0x8000000000000000, -0x8000000000000000, 0.1, 0x7fffffffffffffff, -5L, None], 4, [0, 0x7fffffffffffffff, -5, None]),
-	("UInt64"  , ["0", int, None, -5L, -5, 0.1, 0x8000000000000000, 0x7fffffffffffffff, 0x8000000000000000L], 6, [0x8000000000000000, 0x7fffffffffffffff, 0x8000000000000000]),
-	("Int32"   , ["0", int, 0x80000000, -0x80000000, 0.1, 0x7fffffff, -5L, None], 4, [0, 0x7fffffff, -5, None]),
-	("UInt32"  , ["0", int, None, -5L, -5, 0.1, 0x80000000, 0x7fffffff, 0x80000000L], 6, [0x80000000, 0x7fffffff, 0x80000000]),
-	("Bool"    , ["0", bool, 0.0, True, False, 0, 1L, None], 2, [False, True, False, False, True, None]),
-	("Lines"   , [42, str, "\n", u"a", "a", "foo bar baz", None], 4, ["a", "foo bar baz", None]),
-	("ULines"  , [42, str, u"\n", "a", u"a", u"foo bar baz", None], 4, [u"a", u"foo bar baz", None]),
+	("Float64" , ["0", float, 0   , 4.2, -0.01, 1e42, inf, ninf, None], 2, [0.0, 4.2, -0.01, 1e42, inf, ninf, None]),
+	("Float32" , ["0", float, l(0), 4.2, -0.01, 1e42, inf, ninf, None], 2, [0.0, 4.199999809265137, -0.009999999776482582, inf , inf, ninf, None]),
+	("Int64"   , ["0", int, 0x8000000000000000, -0x8000000000000000, 0.1, 0x7fffffffffffffff, l(-5), None], 4, [0, 0x7fffffffffffffff, -5, None]),
+	("UInt64"  , ["0", int, None, l(-5), -5, 0.1, 0x8000000000000000, 0x7fffffffffffffff, l(0x8000000000000000)], 6, [0x8000000000000000, 0x7fffffffffffffff, 0x8000000000000000]),
+	("Int32"   , ["0", int, 0x80000000, -0x80000000, 0.1, 0x7fffffff, l(-5), None], 4, [0, 0x7fffffff, -5, None]),
+	("UInt32"  , ["0", int, None, l(-5), -5, 0.1, 0x80000000, 0x7fffffff, l(0x80000000)], 6, [0x80000000, 0x7fffffff, 0x80000000]),
+	("Bool"    , ["0", bool, 0.0, True, False, 0, l(1), None], 2, [False, True, False, False, True, None]),
+	("Bytes"   , [42, str, b"\n", u"a", b"a", b"foo bar baz", None], 4, [b"a", b"foo bar baz", None]),
+	("Unicode" , [42, str, u"\n", b"a", u"a", u"foo bar baz", None], 4, [u"a", u"foo bar baz", None]),
 	("DateTime", [42, "now", tm0, dttm0, dttm1, dttm2, None], 3, [dttm0, dttm1, dttm2, None]),
 	("Date"    , [42, "now", tm0, dttm0, dttm1, dttm2, dt0, None], 3, [dttm0.date(), dttm1.date(), dttm2.date(), dt0, None]),
 	("Time"    , [42, "now", dttm0, tm0, tm1, tm2, None], 3, [tm0, tm1, tm2, None]),
 	("ParsedFloat64" , [float, "1 thing", "", "0", " 4.2", -0.01, "1e42 ", " inf", "-inf ", None], 3, [0.0, 4.2, -0.01, 1e42, inf, ninf, None]),
 	("ParsedFloat32" , [float, "1 thing", "", "0", " 4.2", -0.01, "1e42 ", " inf", "-inf ", None], 3, [0.0, 4.199999809265137, -0.009999999776482582, inf , inf, ninf, None]),
-	("ParsedInt64"   , [int, "", "9223372036854775808", -0x8000000000000000, "0.1", 1, 0.1, "9223372036854775807", " - 5 ", None], 5, [1, 0, 0x7fffffffffffffff, -5, None]),
-	("ParsedUInt64"  , [int, "", None, -5L, "-5", 0.1, " 9223372036854775808", "9223372036854775807 ", "0", 1], 5, [0, 0x8000000000000000, 0x7fffffffffffffff, 0, 1]),
-	("ParsedInt32"   , [int, "", 0x80000000, -0x80000000, "0.1", 0.1, "-7", "-0", "2147483647", " - 5 ", None, 1], 5, [0, -7, 0, 0x7fffffff, -5, None, 1]),
-	("ParsedUInt32"  , [int, "", None, -5L, -5, 0.1, "2147483648", "2147483647", 0x80000000L, 1], 5, [0, 0x80000000, 0x7fffffff, 0x80000000, 1]),
+	("ParsedInt64"   , [int, "", "9223372036854775808", -0x8000000000000000, "0.1", 1, 0.1, "9223372036854775807", " -5 ", None], 5, [1, 0, 0x7fffffffffffffff, -5, None]),
+	("ParsedUInt64"  , [int, "", None, l(-5), "-5", 0.1, " 9223372036854775808", "9223372036854775807 ", "0", 1], 5, [0, 0x8000000000000000, 0x7fffffffffffffff, 0, 1]),
+	("ParsedInt32"   , [int, "", 0x80000000, -0x80000000, "0.1", 0.1, "-7", "-0", "2147483647", " -5 ", None, 1], 5, [0, -7, 0, 0x7fffffff, -5, None, 1]),
+	("ParsedUInt32"  , [int, "", None, l(-5), -5, 0.1, "2147483648", "2147483647", l(0x80000000), 1], 5, [0, 0x80000000, 0x7fffffff, 0x80000000, 1]),
 ):
 	print(name)
 	r_name = "Gz" + name[6:] if name.startswith("Parsed") else "Gz" + name
@@ -59,7 +65,7 @@ for name, data, bad_cnt, res_data in (
 		res = list(fh)
 		assert res == res_data, res
 	# Data comes back as expected.
-	if name in ("Lines", "ULines",):
+	if name in ("Bytes", "Unicode",):
 		continue # no default support
 	for ix, default in enumerate(data):
 		# Verify that defaults are accepted where expected
@@ -86,10 +92,10 @@ for name, data, bad_cnt, res_data in (
 
 print("BOM test")
 with open(TMP_FN, "wb") as fh:
-	fh.write("\xef\xbb\xbfa\n\xef\xbb\xbfb")
-with gzlines.GzLines(TMP_FN) as fh:
+	fh.write(b"\xef\xbb\xbfa\n\xef\xbb\xbfb")
+with gzlines.GzBytes(TMP_FN) as fh:
 	data = list(fh)
-	assert data == ["a", "\xef\xbb\xbfb"], data
+	assert data == [b"a", b"\xef\xbb\xbfb"], data
 
 print("Append test")
 # And finally verify appending works as expected.
