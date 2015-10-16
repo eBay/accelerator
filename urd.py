@@ -273,7 +273,7 @@ class DB:
 			return db[min(db)]
 
 	def keys(self):
-		return self.db.keys()
+		return filter(self.db.get, self.db)
 
 
 def auth(user, passphrase):
@@ -317,7 +317,7 @@ def truncate(user, automata, timestamp):
 #(setq indent-tabs-mode t)
 @route('/list')
 def slash_list():
-	return db.keys()
+	return sorted(db.keys())
 
 
 def readauth(filename):
