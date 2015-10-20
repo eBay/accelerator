@@ -180,8 +180,8 @@ MKITER(GzFloat64, double  , PyFloat_FromDouble     , 1)
 MKITER(GzFloat32, float   , PyFloat_FromDouble     , 1)
 MKITER(GzInt64  , int64_t , PyInt_FromLong         , 1)
 MKITER(GzInt32  , int32_t , PyInt_FromLong         , 1)
-MKITER(GzUInt64 , uint64_t, PyLong_FromUnsignedLong, 0)
-MKITER(GzUInt32 , uint32_t, PyLong_FromUnsignedLong, 0)
+MKITER(GzBits64 , uint64_t, PyLong_FromUnsignedLong, 0)
+MKITER(GzBits32 , uint32_t, PyLong_FromUnsignedLong, 0)
 MKITER(GzBool   , uint8_t , PyBool_FromLong        , 1)
 
 static PyObject *GzDateTime_iternext(GzLines *self)
@@ -294,8 +294,8 @@ MKTYPE(GzFloat64);
 MKTYPE(GzFloat32);
 MKTYPE(GzInt64);
 MKTYPE(GzInt32);
-MKTYPE(GzUInt64);
-MKTYPE(GzUInt32);
+MKTYPE(GzBits64);
+MKTYPE(GzBits32);
 MKTYPE(GzBool);
 MKTYPE(GzDateTime);
 MKTYPE(GzDate);
@@ -582,8 +582,8 @@ MKWRITER(GzWriteFloat64, double  , PyFloat_AsDouble , 1);
 MKWRITER(GzWriteFloat32, float   , PyFloat_AsDouble , 1);
 MKWRITER(GzWriteInt64  , int64_t , PyLong_AsLong    , 1);
 MKWRITER(GzWriteInt32  , int32_t , pylong_asint32_t , 1);
-MKWRITER(GzWriteUInt64 , uint64_t, pylong_asuint64_t, 0);
-MKWRITER(GzWriteUInt32 , uint32_t, pylong_asuint32_t, 0);
+MKWRITER(GzWriteBits64 , uint64_t, pylong_asuint64_t, 0);
+MKWRITER(GzWriteBits32 , uint32_t, pylong_asuint32_t, 0);
 MKWRITER(GzWriteBool   , uint8_t , pylong_asbool    , 1);
 static uint64_t fmt_datetime(PyObject *dt)
 {
@@ -647,8 +647,8 @@ MKPARSED(Float64, double  , PyNumber_Float, PyFloat_AsDouble , 1);
 MKPARSED(Float32, float   , PyNumber_Float, PyFloat_AsDouble , 1);
 MKPARSED(Int64  , int64_t , PyNumber_Int  , PyLong_AsLong    , 1);
 MKPARSED(Int32  , int32_t , PyNumber_Int  , pylong_asint32_t , 1);
-MKPARSED(UInt64 , uint64_t, PyNumber_Int  , pylong_asuint64_t, 0);
-MKPARSED(UInt32 , uint32_t, PyNumber_Int  , pylong_asuint32_t, 0);
+MKPARSED(Bits64 , uint64_t, PyNumber_Int  , pylong_asuint64_t, 0);
+MKPARSED(Bits32 , uint32_t, PyNumber_Int  , pylong_asuint32_t, 0);
 
 static PyObject *gzwrite_exit(PyObject *self, PyObject *args)
 {
@@ -717,8 +717,8 @@ MKWTYPE(GzWriteFloat64);
 MKWTYPE(GzWriteFloat32);
 MKWTYPE(GzWriteInt64);
 MKWTYPE(GzWriteInt32);
-MKWTYPE(GzWriteUInt64);
-MKWTYPE(GzWriteUInt32);
+MKWTYPE(GzWriteBits64);
+MKWTYPE(GzWriteBits32);
 MKWTYPE(GzWriteBool);
 MKWTYPE(GzWriteDateTime);
 MKWTYPE(GzWriteDate);
@@ -728,8 +728,8 @@ MKWTYPE(GzWriteParsedFloat64);
 MKWTYPE(GzWriteParsedFloat32);
 MKWTYPE(GzWriteParsedInt64);
 MKWTYPE(GzWriteParsedInt32);
-MKWTYPE(GzWriteParsedUInt64);
-MKWTYPE(GzWriteParsedUInt32);
+MKWTYPE(GzWriteParsedBits64);
+MKWTYPE(GzWriteParsedBits32);
 
 #if PY_MAJOR_VERSION < 3
 #  define INITERR
@@ -769,8 +769,8 @@ PyMODINIT_FUNC INITFUNC(void)
 	INIT(GzFloat32);
 	INIT(GzInt64);
 	INIT(GzInt32);
-	INIT(GzUInt64);
-	INIT(GzUInt32);
+	INIT(GzBits64);
+	INIT(GzBits32);
 	INIT(GzBool);
 	INIT(GzDateTime);
 	INIT(GzDate);
@@ -782,8 +782,8 @@ PyMODINIT_FUNC INITFUNC(void)
 	INIT(GzWriteFloat32);
 	INIT(GzWriteInt64);
 	INIT(GzWriteInt32);
-	INIT(GzWriteUInt64);
-	INIT(GzWriteUInt32);
+	INIT(GzWriteBits64);
+	INIT(GzWriteBits32);
 	INIT(GzWriteBool);
 	INIT(GzWriteDateTime);
 	INIT(GzWriteDate);
@@ -792,8 +792,8 @@ PyMODINIT_FUNC INITFUNC(void)
 	INIT(GzWriteParsedFloat32);
 	INIT(GzWriteParsedInt64);
 	INIT(GzWriteParsedInt32);
-	INIT(GzWriteParsedUInt64);
-	INIT(GzWriteParsedUInt32);
+	INIT(GzWriteParsedBits64);
+	INIT(GzWriteParsedBits32);
 	PyObject *version = Py_BuildValue("(iii)", 2, 0, 0);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION < 3
