@@ -29,18 +29,18 @@ tm1 = time(2, 42, 0, 3)
 tm2 = time(23, 59, 59, 999999)
 
 for name, data, bad_cnt, res_data in (
-	("Float64" , ["0", float, 0   , 4.2, -0.01, 1e42, inf, ninf, None], 2, [0.0, 4.2, -0.01, 1e42, inf, ninf, None]),
-	("Float32" , ["0", float, l(0), 4.2, -0.01, 1e42, inf, ninf, None], 2, [0.0, 4.199999809265137, -0.009999999776482582, inf , inf, ninf, None]),
-	("Int64"   , ["0", int, 0x8000000000000000, -0x8000000000000000, 0.1, 0x7fffffffffffffff, l(-5), None], 4, [0, 0x7fffffffffffffff, -5, None]),
-	("Bits64"  , ["0", int, None, l(-5), -5, 0.1, 0x8000000000000000, 0x7fffffffffffffff, l(0x8000000000000000)], 6, [0x8000000000000000, 0x7fffffffffffffff, 0x8000000000000000]),
-	("Int32"   , ["0", int, 0x80000000, -0x80000000, 0.1, 0x7fffffff, l(-5), None], 4, [0, 0x7fffffff, -5, None]),
-	("Bits32"  , ["0", int, None, l(-5), -5, 0.1, 0x80000000, 0x7fffffff, l(0x80000000)], 6, [0x80000000, 0x7fffffff, 0x80000000]),
-	("Bool"    , ["0", bool, 0.0, True, False, 0, l(1), None], 2, [False, True, False, False, True, None]),
-	("Bytes"   , [42, str, b"\n", u"a", b"a", b"foo bar baz", None], 4, [b"a", b"foo bar baz", None]),
-	("Unicode" , [42, str, u"\n", b"a", u"a", u"foo bar baz", None], 4, [u"a", u"foo bar baz", None]),
-	("DateTime", [42, "now", tm0, dttm0, dttm1, dttm2, None], 3, [dttm0, dttm1, dttm2, None]),
-	("Date"    , [42, "now", tm0, dttm0, dttm1, dttm2, dt0, None], 3, [dttm0.date(), dttm1.date(), dttm2.date(), dt0, None]),
-	("Time"    , [42, "now", dttm0, tm0, tm1, tm2, None], 3, [tm0, tm1, tm2, None]),
+	("Float64"       , ["0", float, 0   , 4.2, -0.01, 1e42, inf, ninf, None], 2, [0.0, 4.2, -0.01, 1e42, inf, ninf, None]),
+	("Float32"       , ["0", float, l(0), 4.2, -0.01, 1e42, inf, ninf, None], 2, [0.0, 4.199999809265137, -0.009999999776482582, inf , inf, ninf, None]),
+	("Int64"         , ["0", int, 0x8000000000000000, -0x8000000000000000, 0.1, 0x7fffffffffffffff, l(-5), None], 4, [0, 0x7fffffffffffffff, -5, None]),
+	("Bits64"        , ["0", int, None, l(-5), -5, 0.1, 0x8000000000000000, 0x7fffffffffffffff, l(0x8000000000000000)], 6, [0x8000000000000000, 0x7fffffffffffffff, 0x8000000000000000]),
+	("Int32"         , ["0", int, 0x80000000, -0x80000000, 0.1, 0x7fffffff, l(-5), None], 4, [0, 0x7fffffff, -5, None]),
+	("Bits32"        , ["0", int, None, l(-5), -5, 0.1, 0x80000000, 0x7fffffff, l(0x80000000)], 6, [0x80000000, 0x7fffffff, 0x80000000]),
+	("Bool"          , ["0", bool, 0.0, True, False, 0, l(1), None], 2, [False, True, False, False, True, None]),
+	("BytesLines"    , [42, str, b"\n", u"a", b"a", b"foo bar baz", None], 4, [b"a", b"foo bar baz", None]),
+	("UnicodeLines"  , [42, str, u"\n", b"a", u"a", u"foo bar baz", None], 4, [u"a", u"foo bar baz", None]),
+	("DateTime"      , [42, "now", tm0, dttm0, dttm1, dttm2, None], 3, [dttm0, dttm1, dttm2, None]),
+	("Date"          , [42, "now", tm0, dttm0, dttm1, dttm2, dt0, None], 3, [dttm0.date(), dttm1.date(), dttm2.date(), dt0, None]),
+	("Time"          , [42, "now", dttm0, tm0, tm1, tm2, None], 3, [tm0, tm1, tm2, None]),
 	("ParsedFloat64" , [float, "1 thing", "", "0", " 4.2", -0.01, "1e42 ", " inf", "-inf ", None], 3, [0.0, 4.2, -0.01, 1e42, inf, ninf, None]),
 	("ParsedFloat32" , [float, "1 thing", "", "0", " 4.2", -0.01, "1e42 ", " inf", "-inf ", None], 3, [0.0, 4.199999809265137, -0.009999999776482582, inf , inf, ninf, None]),
 	("ParsedInt64"   , [int, "", "9223372036854775808", -0x8000000000000000, "0.1", 1, 0.1, "9223372036854775807", " -5 ", None], 5, [1, 0, 0x7fffffffffffffff, -5, None]),
@@ -64,7 +64,7 @@ for name, data, bad_cnt, res_data in (
 		res = list(fh)
 		assert res == res_data, res
 	# Data comes back as expected.
-	if name in ("Bytes", "Unicode",):
+	if name.endswith("Lines"):
 		continue # no default support
 	for ix, default in enumerate(data):
 		# Verify that defaults are accepted where expected
@@ -92,7 +92,7 @@ for name, data, bad_cnt, res_data in (
 print("BOM test")
 with open(TMP_FN, "wb") as fh:
 	fh.write(b"\xef\xbb\xbfa\n\xef\xbb\xbfb")
-with gzlines.GzBytes(TMP_FN) as fh:
+with gzlines.GzBytesLines(TMP_FN) as fh:
 	data = list(fh)
 	assert data == [b"a", b"\xef\xbb\xbfb"], data
 

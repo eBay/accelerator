@@ -45,8 +45,8 @@ static int gzlines_close_(GzLines *self)
 
 // Stupid forward declarations
 static int gzlines_read_(GzLines *self);
-static PyTypeObject GzBytes_Type;
-static PyTypeObject GzUnicode_Type;
+static PyTypeObject GzBytesLines_Type;
+static PyTypeObject GzUnicodeLines_Type;
 
 static int gzlines_init(PyObject *self_, PyObject *args, PyObject *kwds)
 {
@@ -62,7 +62,7 @@ static int gzlines_init(PyObject *self_, PyObject *args, PyObject *kwds)
 		return -1;
 	}
 	self->pos = self->len = 0;
-	if (PyObject_TypeCheck(self_, &GzBytes_Type) || PyObject_TypeCheck(self_, &GzUnicode_Type)) {
+	if (PyObject_TypeCheck(self_, &GzBytesLines_Type) || PyObject_TypeCheck(self_, &GzUnicodeLines_Type)) {
 		// For the text based types we strip the BOM if it's there.
 		gzlines_read_(self);
 		if (self->len >= 3 && !memcmp(self->buf, "\xef\xbb\xbf", 3)) {
@@ -145,8 +145,8 @@ static int gzlines_read_(GzLines *self)
 		self->pos += linelen + 1;                                                	\
 		return mk ## typename(ptr, linelen);                                     	\
 	}
-MKLINEITER(GzBytes  , Bytes);
-MKLINEITER(GzUnicode, Unicode);
+MKLINEITER(GzBytesLines  , Bytes);
+MKLINEITER(GzUnicodeLines, Unicode);
 
 // These are signaling NaNs with extra DEADness in the significand
 static const unsigned char noneval_double[8] = {0xde, 0xad, 0xde, 0xad, 0xde, 0xad, 0xf0, 0xff};
@@ -288,8 +288,8 @@ static PyMethodDef gzlines_methods[] = {
 		PyObject_Del,                   /*tp_free          */	\
 		0,                              /*tp_is_gc         */	\
 	}
-MKTYPE(GzBytes);
-MKTYPE(GzUnicode);
+MKTYPE(GzBytesLines);
+MKTYPE(GzUnicodeLines);
 MKTYPE(GzFloat64);
 MKTYPE(GzFloat32);
 MKTYPE(GzInt64);
@@ -365,8 +365,8 @@ static int gzwrite_init_GzWrite(PyObject *self_, PyObject *args, PyObject *kwds)
 	self->len = 0;
 	return 0;
 }
-#define gzwrite_init_GzWriteBytes   gzwrite_init_GzWrite
-#define gzwrite_init_GzWriteUnicode gzwrite_init_GzWrite
+#define gzwrite_init_GzWriteBytesLines   gzwrite_init_GzWrite
+#define gzwrite_init_GzWriteUnicodeLines gzwrite_init_GzWrite
 
 static void gzwrite_dealloc(GzWrite *self)
 {
@@ -450,7 +450,7 @@ static PyObject *gzwrite_write_GzWrite(GzWrite *self, PyObject *args)
 	if (!ret) return 0;                                                           	\
 	Py_DECREF(ret);
 
-static PyObject *gzwrite_write_GzWriteBytes(GzWrite *self, PyObject *args)
+static PyObject *gzwrite_write_GzWriteBytesLines(GzWrite *self, PyObject *args)
 {
 	WRITELINEPROLOGUE(Bytes, BYTES_NAME);
 	const Py_ssize_t len = PyBytes_GET_SIZE(obj);
@@ -461,7 +461,7 @@ static PyObject *gzwrite_write_GzWriteBytes(GzWrite *self, PyObject *args)
 	return gzwrite_write_(self, "\n", 1);
 }
 
-static PyObject *gzwrite_write_GzWriteUnicode(GzWrite *self, PyObject *args)
+static PyObject *gzwrite_write_GzWriteUnicodeLines(GzWrite *self, PyObject *args)
 {
 	WRITELINEPROLOGUE(Unicode, UNICODE_NAME);
 	if (PyUnicode_GET_SIZE(obj)) {
@@ -711,8 +711,8 @@ static PyObject *gzwrite_exit(PyObject *self, PyObject *args)
 		0,                              /*tp_is_gc*/         	\
 	}
 MKWTYPE(GzWrite);
-MKWTYPE(GzWriteBytes);
-MKWTYPE(GzWriteUnicode);
+MKWTYPE(GzWriteBytesLines);
+MKWTYPE(GzWriteUnicodeLines);
 MKWTYPE(GzWriteFloat64);
 MKWTYPE(GzWriteFloat32);
 MKWTYPE(GzWriteInt64);
@@ -763,8 +763,8 @@ PyMODINIT_FUNC INITFUNC(void)
 	PyObject *m = Py_InitModule3("gzlines", module_methods, NULL);
 #endif
 	if (!m) return INITERR;
-	INIT(GzBytes);
-	INIT(GzUnicode);
+	INIT(GzBytesLines);
+	INIT(GzUnicodeLines);
 	INIT(GzFloat64);
 	INIT(GzFloat32);
 	INIT(GzInt64);
@@ -776,8 +776,8 @@ PyMODINIT_FUNC INITFUNC(void)
 	INIT(GzDate);
 	INIT(GzTime);
 	INIT(GzWrite);
-	INIT(GzWriteBytes);
-	INIT(GzWriteUnicode);
+	INIT(GzWriteBytesLines);
+	INIT(GzWriteUnicodeLines);
 	INIT(GzWriteFloat64);
 	INIT(GzWriteFloat32);
 	INIT(GzWriteInt64);
@@ -796,13 +796,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	INIT(GzWriteParsedBits32);
 	PyObject *version = Py_BuildValue("(iii)", 2, 0, 0);
 	PyModule_AddObject(m, "version", version);
-#if PY_MAJOR_VERSION < 3
-	// old names for compat
-	Py_INCREF(&GzBytes_Type);
-	PyModule_AddObject(m, "gzlines", (PyObject *) &GzBytes_Type);
-	Py_INCREF(&GzBytes_Type);
-	PyModule_AddObject(m, "GzLines", (PyObject *) &GzBytes_Type);
-#else
+#if PY_MAJOR_VERSION >= 3
 	return m;
 #endif
 }
