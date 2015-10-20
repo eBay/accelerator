@@ -1,5 +1,5 @@
 from distutils.core import setup, Extension
 
-gzlinesmodule = Extension("gzlines", sources = ["gzlinesmodule.c"], libraries=["z"])
+gzutilmodule = Extension("gzutil", sources = ["gzutilmodule.c"], libraries=["z"])
 
-setup(name="gzlines", version="2.0.0", description="Read/write values from/to gz files", ext_modules=[gzlinesmodule])
+setup(name="gzutil", version="2.0.0", description="Read/write values from/to gz files", ext_modules=[gzutilmodule])

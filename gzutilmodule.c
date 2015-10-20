@@ -13,15 +13,15 @@
 #define Z (128 * 1024)
 
 
-typedef struct gzlines {
+typedef struct gzread {
 	PyObject_HEAD
 	gzFile fh;
 	int pos, len;
 	char buf[Z + 1];
-} GzLines;
+} GzRead;
 
 
-static int gzlines_close_(GzLines *self)
+static int gzread_close_(GzRead *self)
 {
 	if (self->fh) {
 		gzclose(self->fh);
@@ -34,27 +34,27 @@ static int gzlines_close_(GzLines *self)
 #if PY_MAJOR_VERSION < 3
 #  define BYTES_NAME      "str"
 #  define UNICODE_NAME    "unicode"
-#  define INITFUNC        initgzlines
+#  define INITFUNC        initgzutil
 #else
 #  define BYTES_NAME      "bytes"
 #  define UNICODE_NAME    "str"
 #  define PyInt_FromLong  PyLong_FromLong
 #  define PyNumber_Int    PyNumber_Long
-#  define INITFUNC        PyInit_gzlines
+#  define INITFUNC        PyInit_gzutil
 #endif
 
 // Stupid forward declarations
-static int gzlines_read_(GzLines *self);
+static int gzread_read_(GzRead *self);
 static PyTypeObject GzBytesLines_Type;
 static PyTypeObject GzUnicodeLines_Type;
 
-static int gzlines_init(PyObject *self_, PyObject *args, PyObject *kwds)
+static int gzread_init(PyObject *self_, PyObject *args, PyObject *kwds)
 {
 	static char *kwlist[] = {"name", 0};
-	GzLines *self = (GzLines *)self_;
+	GzRead *self = (GzRead *)self_;
 	char *name = NULL;
 	if (!PyArg_ParseTupleAndKeywords(args, kwds, "et", kwlist, Py_FileSystemDefaultEncoding, &name)) return -1;
-	gzlines_close_(self);
+	gzread_close_(self);
 	self->fh = gzopen(name, "rb");
 	PyMem_Free(name);
 	if (!self->fh) {
@@ -64,7 +64,7 @@ static int gzlines_init(PyObject *self_, PyObject *args, PyObject *kwds)
 	self->pos = self->len = 0;
 	if (PyObject_TypeCheck(self_, &GzBytesLines_Type) || PyObject_TypeCheck(self_, &GzUnicodeLines_Type)) {
 		// For the text based types we strip the BOM if it's there.
-		gzlines_read_(self);
+		gzread_read_(self);
 		if (self->len >= 3 && !memcmp(self->buf, "\xef\xbb\xbf", 3)) {
 			self->pos = 3;
 		}
@@ -72,9 +72,9 @@ static int gzlines_init(PyObject *self_, PyObject *args, PyObject *kwds)
 	return 0;
 }
 
-static void gzlines_dealloc(GzLines *self)
+static void gzread_dealloc(GzRead *self)
 {
-	gzlines_close_(self);
+	gzread_close_(self);
 	PyObject_Del(self);
 }
 
@@ -84,20 +84,20 @@ static PyObject *err_closed(void)
 	return 0;
 }
 
-static PyObject *gzlines_close(GzLines *self)
+static PyObject *gzread_close(GzRead *self)
 {
-	if (gzlines_close_(self)) return err_closed();
+	if (gzread_close_(self)) return err_closed();
 	Py_RETURN_NONE;
 }
 
-static PyObject *gzlines_self(GzLines *self)
+static PyObject *gzread_self(GzRead *self)
 {
 	if (!self->fh) return err_closed();
 	Py_INCREF(self);
 	return (PyObject *)self;
 }
 
-static int gzlines_read_(GzLines *self)
+static int gzread_read_(GzRead *self)
 {
 	self->len = gzread(self->fh, self->buf, Z);
 	if (self->len <= 0) return 1;
@@ -110,7 +110,7 @@ static int gzlines_read_(GzLines *self)
 	do {                                                 	\
 		if (!self->fh) return err_closed();          	\
 		if (self->pos >= self->len) {                	\
-			if (gzlines_read_(self)) return 0;   	\
+			if (gzread_read_(self)) return 0;    	\
 		}                                            	\
 	} while (0)
 
@@ -123,7 +123,7 @@ static int gzlines_read_(GzLines *self)
 		if (len && ptr[len - 1] == '\r') len--;                                  	\
 		return Py ## typename ## _FromStringAndSize(ptr, len);                   	\
 	}                                                                                	\
-	static PyObject *name ## _iternext(GzLines *self)                                	\
+	static PyObject *name ## _iternext(GzRead *self)                                 	\
 	{                                                                                	\
 		ITERPROLOGUE;                                                            	\
 		char *ptr = self->buf + self->pos;                                       	\
@@ -132,7 +132,7 @@ static int gzlines_read_(GzLines *self)
 			int linelen = self->len - self->pos;                             	\
 			char line[Z + linelen];                                          	\
 			memcpy(line, self->buf + self->pos, linelen);                    	\
-			if (gzlines_read_(self)) {                                       	\
+			if (gzread_read_(self)) {                                        	\
 				return mk ## typename(line, linelen);                    	\
 			}                                                                	\
 			end = memchr(self->buf + self->pos, '\n', self->len - self->pos);	\
@@ -164,7 +164,7 @@ static const uint32_t noneval_uint32_t = 0;
 static const uint8_t noneval_uint8_t = 255;
 
 #define MKITER(name, T, conv, withnone)                                      	\
-	static PyObject * name ## _iternext(GzLines *self)                   	\
+	static PyObject * name ## _iternext(GzRead *self)                   	\
 	{                                                                    	\
 		ITERPROLOGUE;                                                	\
 		/* Z is a multiple of sizeof(T), so this never overruns. */  	\
@@ -184,7 +184,7 @@ MKITER(GzBits64 , uint64_t, PyLong_FromUnsignedLong, 0)
 MKITER(GzBits32 , uint32_t, PyLong_FromUnsignedLong, 0)
 MKITER(GzBool   , uint8_t , PyBool_FromLong        , 1)
 
-static PyObject *GzDateTime_iternext(GzLines *self)
+static PyObject *GzDateTime_iternext(GzRead *self)
 {
 	ITERPROLOGUE;
 	/* Z is a multiple of 8, so this never overruns. */
@@ -202,7 +202,7 @@ static PyObject *GzDateTime_iternext(GzLines *self)
 	return PyDateTime_FromDateAndTime(Y, m, d, H, M, S, u);
 }
 
-static PyObject *GzDate_iternext(GzLines *self)
+static PyObject *GzDate_iternext(GzRead *self)
 {
 	ITERPROLOGUE;
 	/* Z is a multiple of 4, so this never overruns. */
@@ -215,7 +215,7 @@ static PyObject *GzDate_iternext(GzLines *self)
 	return PyDate_FromDate(Y, m, d);
 }
 
-static PyObject *GzTime_iternext(GzLines *self)
+static PyObject *GzTime_iternext(GzRead *self)
 {
 	ITERPROLOGUE;
 	/* Z is a multiple of 8, so this never overruns. */
@@ -230,7 +230,7 @@ static PyObject *GzTime_iternext(GzLines *self)
 	return PyTime_FromTime(H, M, S, u);
 }
 
-static PyObject *gzlines_exit(PyObject *self, PyObject *args)
+static PyObject *gzany_exit(PyObject *self, PyObject *args)
 {
 	PyObject *ret = PyObject_CallMethod(self, "close", NULL);
 	if (!ret) return 0;
@@ -238,10 +238,10 @@ static PyObject *gzlines_exit(PyObject *self, PyObject *args)
 	Py_RETURN_NONE;
 }
 
-static PyMethodDef gzlines_methods[] = {
-	{"__enter__", (PyCFunction)gzlines_self, METH_NOARGS,  NULL},
-	{"__exit__",  (PyCFunction)gzlines_exit, METH_VARARGS, NULL},
-	{"close",     (PyCFunction)gzlines_close, METH_NOARGS,  NULL},
+static PyMethodDef gzread_methods[] = {
+	{"__enter__", (PyCFunction)gzread_self, METH_NOARGS,  NULL},
+	{"__exit__",  (PyCFunction)gzany_exit, METH_VARARGS, NULL},
+	{"close",     (PyCFunction)gzread_close, METH_NOARGS,  NULL},
 	{NULL, NULL, 0, NULL}
 };
 
@@ -249,9 +249,9 @@ static PyMethodDef gzlines_methods[] = {
 	static PyTypeObject name ## _Type = {                        	\
 		PyVarObject_HEAD_INIT(NULL, 0)                       	\
 		#name,                          /*tp_name          */	\
-		sizeof(GzLines),                /*tp_basicsize     */	\
+		sizeof(GzRead),                 /*tp_basicsize     */	\
 		0,                              /*tp_itemsize      */	\
-		(destructor)gzlines_dealloc,    /*tp_dealloc       */	\
+		(destructor)gzread_dealloc,     /*tp_dealloc       */	\
 		0,                              /*tp_print         */	\
 		0,                              /*tp_getattr       */	\
 		0,                              /*tp_setattr       */	\
@@ -272,9 +272,9 @@ static PyMethodDef gzlines_methods[] = {
 		0,                              /*tp_clear         */	\
 		0,                              /*tp_richcompare   */	\
 		0,                              /*tp_weaklistoffset*/	\
-		(getiterfunc)gzlines_self,      /*tp_iter          */	\
+		(getiterfunc)gzread_self,       /*tp_iter          */	\
 		(iternextfunc)name ## _iternext,/*tp_iternext      */	\
-		gzlines_methods,                /*tp_methods       */	\
+		gzread_methods,                 /*tp_methods       */	\
 		0,                              /*tp_members       */	\
 		0,                              /*tp_getset        */	\
 		0,                              /*tp_base          */	\
@@ -282,7 +282,7 @@ static PyMethodDef gzlines_methods[] = {
 		0,                              /*tp_descr_get     */	\
 		0,                              /*tp_descr_set     */	\
 		0,                              /*tp_dictoffset    */	\
-		gzlines_init,                   /*tp_init          */	\
+		gzread_init,                    /*tp_init          */	\
 		PyType_GenericAlloc,            /*tp_alloc         */	\
 		PyType_GenericNew,              /*tp_new           */	\
 		PyObject_Del,                   /*tp_free          */	\
@@ -650,18 +650,10 @@ MKPARSED(Int32  , int32_t , PyNumber_Int  , pylong_asint32_t , 1);
 MKPARSED(Bits64 , uint64_t, PyNumber_Int  , pylong_asuint64_t, 0);
 MKPARSED(Bits32 , uint32_t, PyNumber_Int  , pylong_asuint32_t, 0);
 
-static PyObject *gzwrite_exit(PyObject *self, PyObject *args)
-{
-	PyObject *ret = PyObject_CallMethod(self, "close", NULL);
-	if (!ret) return 0;
-	Py_DECREF(ret);
-	Py_RETURN_NONE;
-}
-
 #define MKWTYPE(name)                                                                  	\
 	static PyMethodDef name ## _methods[] = {                                      	\
 		{"__enter__", (PyCFunction)gzwrite_self, METH_NOARGS,  NULL},          	\
-		{"__exit__",  (PyCFunction)gzwrite_exit, METH_VARARGS, NULL},          	\
+		{"__exit__",  (PyCFunction)gzany_exit, METH_VARARGS, NULL},            	\
 		{"write",     (PyCFunction)gzwrite_write_ ## name, METH_VARARGS, NULL},	\
 		{"flush",     (PyCFunction)gzwrite_flush, METH_NOARGS, NULL},          	\
 		{"close",     (PyCFunction)gzwrite_close, METH_NOARGS, NULL},          	\
@@ -737,7 +729,7 @@ MKWTYPE(GzWriteParsedBits32);
 #  define INITERR 0
 static struct PyModuleDef moduledef = {
 	PyModuleDef_HEAD_INIT,
-	"gzlines",          /*m_name*/
+	"gzutil",           /*m_name*/
 	0,                  /*m_doc*/
 	-1,                 /*m_size*/
 	module_methods,     /*m_methods*/
@@ -760,7 +752,7 @@ PyMODINIT_FUNC INITFUNC(void)
 #if PY_MAJOR_VERSION >= 3
 	PyObject *m = PyModule_Create(&moduledef);
 #else
-	PyObject *m = Py_InitModule3("gzlines", module_methods, NULL);
+	PyObject *m = Py_InitModule3("gzutil", module_methods, NULL);
 #endif
 	if (!m) return INITERR;
 	INIT(GzBytesLines);

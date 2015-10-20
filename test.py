@@ -6,7 +6,7 @@ from __future__ import division, print_function, unicode_literals
 
 from datetime import datetime, date, time
 from sys import version_info
-import gzlines
+import gzutil
 
 TMP_FN = "_tmp_test.gz"
 
@@ -50,8 +50,8 @@ for name, data, bad_cnt, res_data in (
 ):
 	print(name)
 	r_name = "Gz" + name[6:] if name.startswith("Parsed") else "Gz" + name
-	r_typ = getattr(gzlines, r_name)
-	w_typ = getattr(gzlines, "GzWrite" + name)
+	r_typ = getattr(gzutil, r_name)
+	w_typ = getattr(gzutil, "GzWrite" + name)
 	with w_typ(TMP_FN) as fh:
 		for ix, value in enumerate(data):
 			try:
@@ -92,15 +92,15 @@ for name, data, bad_cnt, res_data in (
 print("BOM test")
 with open(TMP_FN, "wb") as fh:
 	fh.write(b"\xef\xbb\xbfa\n\xef\xbb\xbfb")
-with gzlines.GzBytesLines(TMP_FN) as fh:
+with gzutil.GzBytesLines(TMP_FN) as fh:
 	data = list(fh)
 	assert data == [b"a", b"\xef\xbb\xbfb"], data
 
 print("Append test")
 # And finally verify appending works as expected.
-with gzlines.GzWriteInt64(TMP_FN) as fh:
+with gzutil.GzWriteInt64(TMP_FN) as fh:
 	fh.write(42)
-with gzlines.GzWriteInt64(TMP_FN, mode="a") as fh:
+with gzutil.GzWriteInt64(TMP_FN, mode="a") as fh:
 	fh.write(18)
-with gzlines.GzInt64(TMP_FN) as fh:
+with gzutil.GzInt64(TMP_FN) as fh:
 	assert list(fh) == [42, 18]
