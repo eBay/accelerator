@@ -34,10 +34,12 @@ static int gzread_close_(GzRead *self)
 #if PY_MAJOR_VERSION < 3
 #  define BYTES_NAME      "str"
 #  define UNICODE_NAME    "unicode"
+#  define EITHER_NAME     "str or unicode"
 #  define INITFUNC        initgzutil
 #else
 #  define BYTES_NAME      "bytes"
 #  define UNICODE_NAME    "str"
+#  define EITHER_NAME     "str or bytes"
 #  define PyInt_FromLong  PyLong_FromLong
 #  define PyNumber_Int    PyNumber_Long
 #  define INITFUNC        PyInit_gzutil
@@ -146,6 +148,11 @@ static int gzread_read_(GzRead *self)
 		return mk ## typename(ptr, linelen);                                     	\
 	}
 MKLINEITER(GzBytesLines  , Bytes);
+#if PY_MAJOR_VERSION < 3
+#  define GzAsciiLines_iternext GzBytesLines_iternext
+#else
+#  define GzAsciiLines_iternext GzUnicodeLines_iternext
+#endif
 MKLINEITER(GzUnicodeLines, Unicode);
 
 // These are signaling NaNs with extra DEADness in the significand
@@ -289,6 +296,7 @@ static PyMethodDef gzread_methods[] = {
 		0,                              /*tp_is_gc         */	\
 	}
 MKTYPE(GzBytesLines);
+MKTYPE(GzAsciiLines);
 MKTYPE(GzUnicodeLines);
 MKTYPE(GzFloat64);
 MKTYPE(GzFloat32);
@@ -366,6 +374,7 @@ static int gzwrite_init_GzWrite(PyObject *self_, PyObject *args, PyObject *kwds)
 	return 0;
 }
 #define gzwrite_init_GzWriteBytesLines   gzwrite_init_GzWrite
+#define gzwrite_init_GzWriteAsciiLines   gzwrite_init_GzWrite
 #define gzwrite_init_GzWriteUnicodeLines gzwrite_init_GzWrite
 
 static void gzwrite_dealloc(GzWrite *self)
@@ -423,7 +432,7 @@ static PyObject *gzwrite_write_GzWrite(GzWrite *self, PyObject *args)
 	if (obj == Py_None) {                                                         	\
 		return gzwrite_write_(self, "\x00\n", 2);                             	\
 	}                                                                             	\
-	if (!Py ## checktype ## _Check(obj)) {                                        	\
+	if (checktype) {                                                              	\
 		const char *msg = "For your protection, only " errname                	\
 		                  " objects are accepted";                            	\
 		PyErr_SetString(PyExc_TypeError, msg);                                	\
@@ -449,10 +458,37 @@ static PyObject *gzwrite_write_GzWrite(GzWrite *self, PyObject *args)
 	cleanup;                                                                      	\
 	if (!ret) return 0;                                                           	\
 	Py_DECREF(ret);
+#define ASCIILINEDO(cleanup) \
+	const unsigned char * const data_ = (unsigned char *)data;                    	\
+	for (int i = 0; i < len; i++) {                                               	\
+		if (data_[i] > 127) {                                                 	\
+			cleanup;                                                      	\
+			PyErr_Format(PyExc_ValueError,                                	\
+			             "Value contains %d at position %d: %s",          	\
+			             data_[i], i, data);                              	\
+			return 0;                                                     	\
+		}                                                                     	\
+	}                                                                             	\
+	WRITELINEDO(cleanup);
+
+#if PY_MAJOR_VERSION < 3
+#  define UNICODELINE(WRITEMACRO) \
+	PyObject *strobj = PyUnicode_AsUTF8String(obj);              	\
+	if (!strobj) return 0;                                       	\
+	const char *data = PyBytes_AS_STRING(strobj);                	\
+	const Py_ssize_t len = PyBytes_GET_SIZE(strobj);             	\
+	WRITEMACRO(Py_DECREF(strobj));
+#else
+#  define UNICODELINE(WRITEMACRO) \
+	Py_ssize_t len;                                              	\
+	const char *data = PyUnicode_AsUTF8AndSize(obj, &len);       	\
+	if (!data) return 0;                                         	\
+	WRITEMACRO((void)data);
+#endif
 
 static PyObject *gzwrite_write_GzWriteBytesLines(GzWrite *self, PyObject *args)
 {
-	WRITELINEPROLOGUE(Bytes, BYTES_NAME);
+	WRITELINEPROLOGUE(!PyBytes_Check(obj), BYTES_NAME);
 	const Py_ssize_t len = PyBytes_GET_SIZE(obj);
 	if (len) {
 		const char *data = PyBytes_AS_STRING(obj);
@@ -461,22 +497,26 @@ static PyObject *gzwrite_write_GzWriteBytesLines(GzWrite *self, PyObject *args)
 	return gzwrite_write_(self, "\n", 1);
 }
 
+static PyObject *gzwrite_write_GzWriteAsciiLines(GzWrite *self, PyObject *args)
+{
+	WRITELINEPROLOGUE(!PyBytes_Check(obj) && !PyUnicode_Check(obj), EITHER_NAME);
+	if (PyBytes_Check(obj)) {
+		const Py_ssize_t len = PyBytes_GET_SIZE(obj);
+		if (len) {
+			const char *data = PyBytes_AS_STRING(obj);
+			ASCIILINEDO((void)data);
+		}
+	} else if (PyUnicode_GET_SIZE(obj)) { // Must be Unicode
+		UNICODELINE(ASCIILINEDO);
+	}
+	return gzwrite_write_(self, "\n", 1);
+}
+
 static PyObject *gzwrite_write_GzWriteUnicodeLines(GzWrite *self, PyObject *args)
 {
-	WRITELINEPROLOGUE(Unicode, UNICODE_NAME);
+	WRITELINEPROLOGUE(!PyUnicode_Check(obj), UNICODE_NAME);
 	if (PyUnicode_GET_SIZE(obj)) {
-#if PY_MAJOR_VERSION < 3
-		PyObject *strobj = PyUnicode_AsUTF8String(obj);
-		if (!strobj) return 0;
-		const char *data = PyBytes_AS_STRING(strobj);
-		const Py_ssize_t len = PyBytes_GET_SIZE(strobj);
-		WRITELINEDO(Py_DECREF(strobj));
-#else
-		Py_ssize_t len;
-		const char *data = PyUnicode_AsUTF8AndSize(obj, &len);
-		if (!data) return 0;
-		WRITELINEDO((void)data);
-#endif
+		UNICODELINE(WRITELINEDO);
 	}
 	return gzwrite_write_(self, "\n", 1);
 }
@@ -704,6 +744,7 @@ MKPARSED(Bits32 , uint32_t, PyNumber_Int  , pylong_asuint32_t, 0);
 	}
 MKWTYPE(GzWrite);
 MKWTYPE(GzWriteBytesLines);
+MKWTYPE(GzWriteAsciiLines);
 MKWTYPE(GzWriteUnicodeLines);
 MKWTYPE(GzWriteFloat64);
 MKWTYPE(GzWriteFloat32);
@@ -755,7 +796,17 @@ PyMODINIT_FUNC INITFUNC(void)
 	PyObject *m = Py_InitModule3("gzutil", module_methods, NULL);
 #endif
 	if (!m) return INITERR;
+	// "Ascii" is Bytes-like in py2, Unicode-like in py3.
+	// (Either way you can write both types (with suitable contents) to it.)
+#if PY_MAJOR_VERSION >= 3
+	GzAsciiLines_Type.tp_base = &GzUnicodeLines_Type;
+	GzWriteAsciiLines_Type.tp_base = &GzWriteUnicodeLines_Type;
+#else
+	GzAsciiLines_Type.tp_base = &GzBytesLines_Type;
+	GzWriteAsciiLines_Type.tp_base = &GzWriteBytesLines_Type;
+#endif
 	INIT(GzBytesLines);
+	INIT(GzAsciiLines);
 	INIT(GzUnicodeLines);
 	INIT(GzFloat64);
 	INIT(GzFloat32);
@@ -769,6 +820,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	INIT(GzTime);
 	INIT(GzWrite);
 	INIT(GzWriteBytesLines);
+	INIT(GzWriteAsciiLines);
 	INIT(GzWriteUnicodeLines);
 	INIT(GzWriteFloat64);
 	INIT(GzWriteFloat32);
