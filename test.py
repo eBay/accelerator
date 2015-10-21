@@ -95,6 +95,9 @@ with open(TMP_FN, "wb") as fh:
 	fh.write(b"\xef\xbb\xbfa\n\xef\xbb\xbfb")
 with gzutil.GzBytesLines(TMP_FN) as fh:
 	data = list(fh)
+	assert data == [b"\xef\xbb\xbfa", b"\xef\xbb\xbfb"], data
+with gzutil.GzBytesLines(TMP_FN, strip_bom=True) as fh:
+	data = list(fh)
 	assert data == [b"a", b"\xef\xbb\xbfb"], data
 
 print("Append test")

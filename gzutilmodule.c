@@ -52,11 +52,18 @@ static PyTypeObject GzUnicodeLines_Type;
 
 static int gzread_init(PyObject *self_, PyObject *args, PyObject *kwds)
 {
-	static char *kwlist[] = {"name", 0};
 	GzRead *self = (GzRead *)self_;
 	char *name = NULL;
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "et", kwlist, Py_FileSystemDefaultEncoding, &name)) return -1;
+	int strip_bom = 0;
 	gzread_close_(self);
+	if (self_->ob_type == &GzBytesLines_Type) {
+		static char *kwlist[] = {"name", "strip_bom", 0};
+		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|i", kwlist, Py_FileSystemDefaultEncoding, &name, &strip_bom)) return -1;
+	} else {
+		static char *kwlist[] = {"name", 0};
+		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et", kwlist, Py_FileSystemDefaultEncoding, &name)) return -1;
+		if (self_->ob_type == &GzUnicodeLines_Type) strip_bom = 1;
+	}
 	self->fh = gzopen(name, "rb");
 	PyMem_Free(name);
 	if (!self->fh) {
@@ -64,8 +71,7 @@ static int gzread_init(PyObject *self_, PyObject *args, PyObject *kwds)
 		return -1;
 	}
 	self->pos = self->len = 0;
-	if (PyObject_TypeCheck(self_, &GzBytesLines_Type) || PyObject_TypeCheck(self_, &GzUnicodeLines_Type)) {
-		// For the text based types we strip the BOM if it's there.
+	if (strip_bom) {
 		gzread_read_(self);
 		if (self->len >= 3 && !memcmp(self->buf, "\xef\xbb\xbf", 3)) {
 			self->pos = 3;
