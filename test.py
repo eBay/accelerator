@@ -101,6 +101,20 @@ def test_read_bom(num, prefix=""):
 	with gzutil.GzUnicodeLines(TMP_FN) as fh:
 		data = list(fh)
 		assert data == [prefix + "a", "\ufeffb"], (num, data)
+	with gzutil.GzUnicodeLines(TMP_FN, "latin-1") as fh:
+		data = list(fh)
+		assert data == [prefix.encode("utf-8").decode("latin-1") + u"\xef\xbb\xbfa", u"\xef\xbb\xbfb"], (num, data)
+	with gzutil.GzUnicodeLines(TMP_FN, "ascii", "ignore") as fh:
+		data = list(fh)
+		assert data == ["a", "b"], (num, data)
+	if version_info[0] > 2:
+		with gzutil.GzAsciiLines(TMP_FN) as fh:
+			try:
+				next(fh)
+				raise Exception("GzAsciiLines allowed non-ascii in python3")
+			except ValueError:
+				pass
+
 with open(TMP_FN, "wb") as fh:
 	fh.write(b"\xef\xbb\xbfa\n\xef\xbb\xbfb")
 test_read_bom(0)

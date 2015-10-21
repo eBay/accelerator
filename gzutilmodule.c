@@ -14,8 +14,12 @@
 
 #define BOM_STR "\xef\xbb\xbf"
 
+#define err1(v) if (v) goto err
+
 typedef struct gzread {
 	PyObject_HEAD
+	char *errors;
+	PyObject *(*decodefunc)(const char *, Py_ssize_t, const char *);
 	gzFile fh;
 	int pos, len;
 	char buf[Z + 1];
@@ -24,6 +28,8 @@ typedef struct gzread {
 
 static int gzread_close_(GzRead *self)
 {
+	PyMem_Free(self->errors);
+	self->errors = 0;
 	if (self->fh) {
 		gzclose(self->fh);
 		self->fh = 0;
@@ -49,37 +55,74 @@ static int gzread_close_(GzRead *self)
 // Stupid forward declarations
 static int gzread_read_(GzRead *self);
 static PyTypeObject GzBytesLines_Type;
+static PyTypeObject GzAsciiLines_Type;
 static PyTypeObject GzUnicodeLines_Type;
 static PyTypeObject GzWriteUnicodeLines_Type;
 
 static int gzread_init(PyObject *self_, PyObject *args, PyObject *kwds)
 {
+	int res = -1;
 	GzRead *self = (GzRead *)self_;
 	char *name = NULL;
+	char *encoding = NULL;
 	int strip_bom = 0;
 	gzread_close_(self);
 	if (self_->ob_type == &GzBytesLines_Type) {
 		static char *kwlist[] = {"name", "strip_bom", 0};
 		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|i", kwlist, Py_FileSystemDefaultEncoding, &name, &strip_bom)) return -1;
+	} else if (self_->ob_type == &GzUnicodeLines_Type) {
+		static char *kwlist[] = {"name", "encoding", "errors", 0};
+		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|etet", kwlist, Py_FileSystemDefaultEncoding, &name, "ascii", &encoding, "ascii", &self->errors)) return -1;
 	} else {
 		static char *kwlist[] = {"name", 0};
 		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et", kwlist, Py_FileSystemDefaultEncoding, &name)) return -1;
-		if (self_->ob_type == &GzUnicodeLines_Type) strip_bom = 1;
 	}
 	self->fh = gzopen(name, "rb");
-	PyMem_Free(name);
 	if (!self->fh) {
 		PyErr_SetString(PyExc_IOError, "Open failed");
-		return -1;
+		goto err;
 	}
 	self->pos = self->len = 0;
+	if (self_->ob_type == &GzAsciiLines_Type) {
+		self->decodefunc = PyUnicode_DecodeASCII;
+	}
+	if (self_->ob_type == &GzUnicodeLines_Type) {
+		if (encoding) {
+			PyObject *decoder = PyCodec_Decoder(encoding);
+			err1(!decoder);
+			self->decodefunc = 0;
+			PyObject *test_decoder;
+			test_decoder = PyCodec_Decoder("utf-8");
+			if (decoder == test_decoder) self->decodefunc = PyUnicode_DecodeUTF8;
+			Py_XDECREF(test_decoder);
+			test_decoder = PyCodec_Decoder("latin-1");
+			if (decoder == test_decoder) self->decodefunc = PyUnicode_DecodeLatin1;
+			Py_XDECREF(test_decoder);
+			test_decoder = PyCodec_Decoder("ascii");
+			if (decoder == test_decoder) self->decodefunc = PyUnicode_DecodeASCII;
+			Py_XDECREF(test_decoder);
+			Py_DECREF(decoder);
+			if (!self->decodefunc) {
+				PyErr_Format(PyExc_LookupError, "Unsupported encoding '%s'", encoding);
+				goto err;
+			}
+		} else {
+			self->decodefunc = PyUnicode_DecodeUTF8;
+		}
+		if (self->decodefunc == PyUnicode_DecodeUTF8) strip_bom = 1;
+	}
 	if (strip_bom) {
 		gzread_read_(self);
 		if (self->len >= 3 && !memcmp(self->buf, BOM_STR, 3)) {
 			self->pos = 3;
 		}
 	}
-	return 0;
+	res = 0;
+err:
+	PyMem_Free(name);
+	PyMem_Free(encoding);
+	if (res) gzread_close_(self);
+	return res;
 }
 
 static void gzread_dealloc(GzRead *self)
@@ -124,15 +167,30 @@ static int gzread_read_(GzRead *self)
 		}                                            	\
 	} while (0)
 
+static inline PyObject *mkBytes(GzRead *self, const char *ptr, int len)
+{
+	(void) self;
+	if (len == 1 && *ptr == 0) {
+		Py_RETURN_NONE;
+	}
+	if (len && ptr[len - 1] == '\r') len--;
+	return PyBytes_FromStringAndSize(ptr, len);
+}
+static inline PyObject *mkUnicode(GzRead *self, const char *ptr, int len)
+{
+	if (len == 1 && *ptr == 0) {
+		Py_RETURN_NONE;
+	}
+	if (len && ptr[len - 1] == '\r') len--;
+	return self->decodefunc(ptr, len, self->errors);
+}
+#if PY_MAJOR_VERSION < 3
+#  define mkAscii mkBytes
+#else
+#  define mkAscii mkUnicode
+#endif
+
 #define MKLINEITER(name, typename) \
-	static inline PyObject *mk ## typename(const char *ptr, int len)                 	\
-	{                                                                                	\
-		if (len == 1 && *ptr == 0) {                                             	\
-			Py_RETURN_NONE;                                                  	\
-		}                                                                        	\
-		if (len && ptr[len - 1] == '\r') len--;                                  	\
-		return Py ## typename ## _FromStringAndSize(ptr, len);                   	\
-	}                                                                                	\
 	static PyObject *name ## _iternext(GzRead *self)                                 	\
 	{                                                                                	\
 		ITERPROLOGUE;                                                            	\
@@ -143,17 +201,17 @@ static int gzread_read_(GzRead *self)
 			char line[Z + linelen];                                          	\
 			memcpy(line, self->buf + self->pos, linelen);                    	\
 			if (gzread_read_(self)) {                                        	\
-				return mk ## typename(line, linelen);                    	\
+				return mk ## typename(self, line, linelen);              	\
 			}                                                                	\
 			end = memchr(self->buf + self->pos, '\n', self->len - self->pos);	\
 			if (!end) end = self->buf + self->len;                           	\
 			self->pos = end - self->buf + 1;                                 	\
 			memcpy(line + linelen, self->buf, self->pos - 1);                	\
-			return mk ## typename(line, linelen + self->pos - 1);            	\
+			return mk ## typename(self, line, linelen + self->pos - 1);      	\
 		}                                                                        	\
 		int linelen = end - ptr;                                                 	\
 		self->pos += linelen + 1;                                                	\
-		return mk ## typename(ptr, linelen);                                     	\
+		return mk ## typename(self, ptr, linelen);                               	\
 	}
 MKLINEITER(GzBytesLines  , Bytes);
 #if PY_MAJOR_VERSION < 3
@@ -856,7 +914,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	INIT(GzWriteParsedInt32);
 	INIT(GzWriteParsedBits64);
 	INIT(GzWriteParsedBits32);
-	PyObject *version = Py_BuildValue("(iii)", 2, 0, 0);
+	PyObject *version = Py_BuildValue("(iii)", 2, 0, 1);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;
