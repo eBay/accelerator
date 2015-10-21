@@ -91,14 +91,27 @@ for name, data, bad_cnt, res_data in (
 			# Great, all default values came out right in the file!
 
 print("BOM test")
+def test_read_bom(num, prefix=""):
+	with gzutil.GzBytesLines(TMP_FN) as fh:
+		data = list(fh)
+		assert data == [prefix.encode("utf-8") + b"\xef\xbb\xbfa", b"\xef\xbb\xbfb"], (num, data)
+	with gzutil.GzBytesLines(TMP_FN, strip_bom=True) as fh:
+		data = list(fh)
+		assert data == [prefix.encode("utf-8") + b"a", b"\xef\xbb\xbfb"], (num, data)
+	with gzutil.GzUnicodeLines(TMP_FN) as fh:
+		data = list(fh)
+		assert data == [prefix + "a", "\ufeffb"], (num, data)
 with open(TMP_FN, "wb") as fh:
 	fh.write(b"\xef\xbb\xbfa\n\xef\xbb\xbfb")
-with gzutil.GzBytesLines(TMP_FN) as fh:
-	data = list(fh)
-	assert data == [b"\xef\xbb\xbfa", b"\xef\xbb\xbfb"], data
-with gzutil.GzBytesLines(TMP_FN, strip_bom=True) as fh:
-	data = list(fh)
-	assert data == [b"a", b"\xef\xbb\xbfb"], data
+test_read_bom(0)
+with gzutil.GzWriteUnicodeLines(TMP_FN) as fh:
+	fh.write("a")
+	fh.write("\ufeffb")
+test_read_bom(1)
+with gzutil.GzWriteUnicodeLines(TMP_FN) as fh:
+	fh.write("\ufeffa")
+	fh.write("\ufeffb")
+test_read_bom(2, "\ufeff")
 
 print("Append test")
 # And finally verify appending works as expected.

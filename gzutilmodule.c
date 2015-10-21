@@ -12,6 +12,7 @@
 // Must be a multiple of the largest fixed size type
 #define Z (128 * 1024)
 
+#define BOM_STR "\xef\xbb\xbf"
 
 typedef struct gzread {
 	PyObject_HEAD
@@ -49,6 +50,7 @@ static int gzread_close_(GzRead *self)
 static int gzread_read_(GzRead *self);
 static PyTypeObject GzBytesLines_Type;
 static PyTypeObject GzUnicodeLines_Type;
+static PyTypeObject GzWriteUnicodeLines_Type;
 
 static int gzread_init(PyObject *self_, PyObject *args, PyObject *kwds)
 {
@@ -73,7 +75,7 @@ static int gzread_init(PyObject *self_, PyObject *args, PyObject *kwds)
 	self->pos = self->len = 0;
 	if (strip_bom) {
 		gzread_read_(self);
-		if (self->len >= 3 && !memcmp(self->buf, "\xef\xbb\xbf", 3)) {
+		if (self->len >= 3 && !memcmp(self->buf, BOM_STR, 3)) {
 			self->pos = 3;
 		}
 	}
@@ -367,16 +369,26 @@ static int gzwrite_init_GzWrite(PyObject *self_, PyObject *args, PyObject *kwds)
 	static char *kwlist[] = {"name", "mode", 0};
 	GzWrite *self = (GzWrite *)self_;
 	char *name = NULL;
-	const char *mode = "wb";
+	char mode_buf[3] = {'w', 'b', 0};
+	const char *mode = mode_buf;
 	if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|s", kwlist, Py_FileSystemDefaultEncoding, &name, &mode)) return -1;
+	if ((mode[0] != 'w' && mode[0] != 'a') || (mode[1] != 'b' && mode[1] != 0)) {
+		PyMem_Free(name);
+		PyErr_Format(PyExc_IOError, "Bad mode '%s'", mode);
+	}
+	mode_buf[0] = mode[0]; // always [wa]b
 	gzwrite_close_(self);
-	self->fh = gzopen(name, mode);
+	self->fh = gzopen(name, mode_buf);
 	PyMem_Free(name);
 	if (!self->fh) {
 		PyErr_SetString(PyExc_IOError, "Open failed");
 		return -1;
 	}
 	self->len = 0;
+	if (mode[0] == 'w' && self_->ob_type == &GzWriteUnicodeLines_Type) {
+		memcpy(self->buf, BOM_STR, 3);
+		self->len = 3;
+	}
 	return 0;
 }
 #define gzwrite_init_GzWriteBytesLines   gzwrite_init_GzWrite
