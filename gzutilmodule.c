@@ -520,6 +520,13 @@ static PyObject *gzwrite_write_GzWrite(GzWrite *self, PyObject *args)
 		PyErr_SetString(PyExc_ValueError, "Value becomes None-marker");       	\
 		return 0;                                                             	\
 	}                                                                             	\
+	if (len >= Z) {                                                               	\
+		cleanup;                                                              	\
+		PyErr_Format(PyExc_ValueError,                                        	\
+		             "Value is %lld bytes, max %lld allowed",                 	\
+		             (long long)len, (long long)Z);                           	\
+		return 0;                                                             	\
+	}                                                                             	\
 	if (memchr(data, '\n', len)) {                                                	\
 		cleanup;                                                              	\
 		PyErr_SetString(PyExc_ValueError, "Value must not contain \\n");      	\
@@ -914,7 +921,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	INIT(GzWriteParsedInt32);
 	INIT(GzWriteParsedBits64);
 	INIT(GzWriteParsedBits32);
-	PyObject *version = Py_BuildValue("(iii)", 2, 0, 1);
+	PyObject *version = Py_BuildValue("(iii)", 2, 0, 2);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;
