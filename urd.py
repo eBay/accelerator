@@ -9,6 +9,7 @@ from threading import Lock
 import json
 import re
 from datetime import datetime
+import operator
 
 LOGFILEVERSION = '2'
 
@@ -261,6 +262,15 @@ class DB:
 		return sorted(k for k in self.db[key] if k > timestamp)
 
 	@locked
+	def limited_endpoint(self, key, timestamp, cmpfunc, minmaxfunc):
+		db = self.db[key]
+		try:
+			k = minmaxfunc(k for k in db if cmpfunc(k, timestamp))
+		except ValueError: # empty sequence
+			return None
+		return db[k]
+
+	@locked
 	def latest(self, key):
 		db = self.db[key]
 		if db:
@@ -293,7 +303,29 @@ def first(user, automata):
 
 @route('/<user>/<automata>/<timestamp>')
 def single(user, automata, timestamp):
-	return db.get(user + '/' + automata, timestamp)
+	key = user + '/' + automata
+	if len(timestamp) > 1 and timestamp[0] in '<>':
+		if timestamp[0] == '<':
+			minmaxfunc = max
+			if timestamp[1] == '=':
+				# we want 20140410 <= 201404 to be True
+				def cmpfunc(k, ts):
+					return k <= ts or k.startswith(ts)
+				timestamp = timestamp[2:]
+			else:
+				cmpfunc = operator.lt
+				timestamp = timestamp[1:]
+		else:
+			minmaxfunc = min
+			if timestamp[1] == '=':
+				cmpfunc = operator.ge
+				timestamp = timestamp[2:]
+			else:
+				cmpfunc = operator.gt
+				timestamp = timestamp[1:]
+		return db.limited_endpoint(key, timestamp, cmpfunc, minmaxfunc)
+	else:
+		return db.get(key, timestamp)
 
 
 @route('/add', method='POST')
