@@ -576,13 +576,12 @@ static PyObject *gzwrite_write_GzWrite(GzWrite *self, PyObject *args)
 }
 
 #define WRITELINEPROLOGUE(checktype, errname) \
-	if (PyTuple_GET_SIZE(args) != 1) {                                            	\
-		PyErr_SetString(PyExc_TypeError, "function takes exactly 1 argument");	\
-		return 0;                                                             	\
-	}                                                                             	\
-	PyObject *obj = PyTuple_GET_ITEM(args, 0);                                    	\
+	PyObject *obj;                                                                	\
+	int actually_write = 1;                                                       	\
+	if (!PyArg_ParseTuple(args, "O|i", &obj, &actually_write)) return 0;          	\
 	if (obj == Py_None) {                                                         	\
 		if (self->sliceno) Py_RETURN_FALSE;                                   	\
+		if (!actually_write) Py_RETURN_TRUE;                                  	\
 		self->count++;                                                        	\
 		return gzwrite_write_(self, "\x00\n", 2);                             	\
 	}                                                                             	\
@@ -627,6 +626,10 @@ static PyObject *gzwrite_write_GzWrite(GzWrite *self, PyObject *args)
 			cleanup;                                                      	\
 			Py_RETURN_FALSE;                                              	\
 		}                                                                     	\
+	}                                                                             	\
+	if (!actually_write) {                                                        	\
+		cleanup;                                                              	\
+		Py_RETURN_TRUE;                                                       	\
 	}                                                                             	\
 	PyObject *ret = gzwrite_write_(self, data, len);                              	\
 	cleanup;                                                                      	\
@@ -780,9 +783,11 @@ err:                                                                            
 	static PyObject *gzwrite_write_ ## name(GzWrite *self, PyObject *args)           	\
 	{                                                                                	\
 		PyObject *obj;                                                           	\
-		if (!PyArg_ParseTuple(args, "O", &obj)) return 0;                        	\
+		int actually_write = 1;                                                  	\
+		if (!PyArg_ParseTuple(args, "O|i", &obj, &actually_write)) return 0;     	\
 		if (withnone && obj == Py_None) {                                        	\
 			if (self->sliceno) Py_RETURN_FALSE;                              	\
+			if (!actually_write) Py_RETURN_TRUE;                             	\
 			self->count++;                                                   	\
 			return gzwrite_write_(self, (char *)&noneval_ ## T, sizeof(T));  	\
 		}                                                                        	\
@@ -803,6 +808,7 @@ err:                                                                            
 			const int sliceno = hash(&h_value, sizeof(h_value)) % self->slices;	\
 			if (sliceno != self->sliceno) Py_RETURN_FALSE;                   	\
 		}                                                                        	\
+		if (!actually_write) Py_RETURN_TRUE;                                     	\
 		if (obj && obj != Py_None) {                                             	\
 			T cmp_value = minmax_value(value);                               	\
 			if (!self->min_obj || (cmp_value < *(T *)&self->min_bin)) {      	\
@@ -1069,7 +1075,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	INIT(GzWriteParsedInt32);
 	INIT(GzWriteParsedBits64);
 	INIT(GzWriteParsedBits32);
-	PyObject *version = Py_BuildValue("(iii)", 2, 1, 0);
+	PyObject *version = Py_BuildValue("(iii)", 2, 1, 1);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;
