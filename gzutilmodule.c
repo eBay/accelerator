@@ -59,6 +59,16 @@ static PyTypeObject GzAsciiLines_Type;
 static PyTypeObject GzUnicodeLines_Type;
 static PyTypeObject GzWriteUnicodeLines_Type;
 
+int siphash(uint8_t *out, const uint8_t *in, uint64_t inlen, const uint8_t *k);
+static uint64_t hash(const void *ptr, const uint64_t len)
+{
+	static const uint8_t k[16] = {94, 70, 175, 255, 152, 30, 237, 97, 252, 125, 174, 76, 165, 112, 16, 9};
+	uint64_t res;
+	if (!len) return 0;
+	siphash((uint8_t *)&res, ptr, len, k);
+	return res;
+}
+
 static int gzread_init(PyObject *self_, PyObject *args, PyObject *kwds)
 {
 	int res = -1;
@@ -406,6 +416,8 @@ typedef struct gzwrite {
 	/* These are declated as double (biggest), but stored as whatever */
 	double   min_bin;
 	double   max_bin;
+	int sliceno;
+	int slices;
 	int len;
 	char buf[Z];
 } GzWrite;
@@ -456,29 +468,66 @@ static int gzwrite_init_GzWrite(PyObject *self_, PyObject *args, PyObject *kwds)
 	const char *mode = mode_buf;
 	if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|s", kwlist, Py_FileSystemDefaultEncoding, &name, &mode)) return -1;
 	if ((mode[0] != 'w' && mode[0] != 'a') || (mode[1] != 'b' && mode[1] != 0)) {
-		PyMem_Free(name);
 		PyErr_Format(PyExc_IOError, "Bad mode '%s'", mode);
+		goto err;
 	}
 	mode_buf[0] = mode[0]; // always [wa]b
 	gzwrite_close_(self);
 	self->fh = gzopen(name, mode_buf);
 	if (!self->fh) {
 		PyErr_SetFromErrnoWithFilename(PyExc_IOError, name);
-		PyMem_Free(name);
-		return -1;
+		goto err;
 	}
 	PyMem_Free(name);
 	self->count = 0;
 	self->len = 0;
+	return 0;
+err:
+	PyMem_Free(name);
+	return -1;
+}
+
+static int gzwrite_init_GzWriteLines(PyObject *self_, PyObject *args, PyObject *kwds)
+{
+	static char *kwlist[] = {"name", "mode", "hashfilter", 0};
+	GzWrite *self = (GzWrite *)self_;
+	char *name = NULL;
+	char mode_buf[3] = {'w', 'b', 0};
+	const char *mode = mode_buf;
+	int sliceno = 0, slices = 0;
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|s(ii)", kwlist, Py_FileSystemDefaultEncoding, &name, &mode, &sliceno, &slices)) return -1;
+	if ((mode[0] != 'w' && mode[0] != 'a') || (mode[1] != 'b' && mode[1] != 0)) {
+		PyErr_Format(PyExc_IOError, "Bad mode '%s'", mode);
+		goto err;
+	}
+	if ((sliceno || slices) && (sliceno < 0 || slices <= 0 || sliceno >= slices)) {
+		PyErr_Format(PyExc_ValueError, "Bad hashfilter (%d, %d)", sliceno, slices);
+		goto err;
+	}
+	mode_buf[0] = mode[0]; // always [wa]b
+	gzwrite_close_(self);
+	self->fh = gzopen(name, mode_buf);
+	if (!self->fh) {
+		PyErr_SetFromErrnoWithFilename(PyExc_IOError, name);
+		goto err;
+	}
+	PyMem_Free(name);
+	self->count = 0;
+	self->len = 0;
+	self->sliceno = sliceno;
+	self->slices = slices;
 	if (mode[0] == 'w' && self_->ob_type == &GzWriteUnicodeLines_Type) {
 		memcpy(self->buf, BOM_STR, 3);
 		self->len = 3;
 	}
 	return 0;
+err:
+	PyMem_Free(name);
+	return -1;
 }
-#define gzwrite_init_GzWriteBytesLines   gzwrite_init_GzWrite
-#define gzwrite_init_GzWriteAsciiLines   gzwrite_init_GzWrite
-#define gzwrite_init_GzWriteUnicodeLines gzwrite_init_GzWrite
+#define gzwrite_init_GzWriteBytesLines   gzwrite_init_GzWriteLines
+#define gzwrite_init_GzWriteAsciiLines   gzwrite_init_GzWriteLines
+#define gzwrite_init_GzWriteUnicodeLines gzwrite_init_GzWriteLines
 
 static void gzwrite_dealloc(GzWrite *self)
 {
@@ -515,7 +564,7 @@ static PyObject *gzwrite_write_(GzWrite *self, const char *data, Py_ssize_t len)
 	}
 	memcpy(self->buf + self->len, data, len);
 	self->len += len;
-	Py_RETURN_NONE;
+	Py_RETURN_TRUE;
 }
 
 static PyObject *gzwrite_write_GzWrite(GzWrite *self, PyObject *args)
@@ -533,6 +582,7 @@ static PyObject *gzwrite_write_GzWrite(GzWrite *self, PyObject *args)
 	}                                                                             	\
 	PyObject *obj = PyTuple_GET_ITEM(args, 0);                                    	\
 	if (obj == Py_None) {                                                         	\
+		if (self->sliceno) Py_RETURN_FALSE;                                   	\
 		self->count++;                                                        	\
 		return gzwrite_write_(self, "\x00\n", 2);                             	\
 	}                                                                             	\
@@ -572,6 +622,12 @@ static PyObject *gzwrite_write_GzWrite(GzWrite *self, PyObject *args)
 		             self->count + 1);                                        	\
 		return 0;                                                             	\
 	}                                                                             	\
+	if (self->slices) {                                                           	\
+		if (hash(data, len) % self->slices != self->sliceno) {                	\
+			cleanup;                                                      	\
+			Py_RETURN_FALSE;                                              	\
+		}                                                                     	\
+	}                                                                             	\
 	PyObject *ret = gzwrite_write_(self, data, len);                              	\
 	cleanup;                                                                      	\
 	if (!ret) return 0;                                                           	\
@@ -608,10 +664,8 @@ static PyObject *gzwrite_write_GzWriteBytesLines(GzWrite *self, PyObject *args)
 {
 	WRITELINEPROLOGUE(!PyBytes_Check(obj), BYTES_NAME);
 	const Py_ssize_t len = PyBytes_GET_SIZE(obj);
-	if (len) {
-		const char *data = PyBytes_AS_STRING(obj);
-		WRITELINEDO((void)data);
-	}
+	const char *data = PyBytes_AS_STRING(obj);
+	WRITELINEDO((void)data);
 	self->count++;
 	return gzwrite_write_(self, "\n", 1);
 }
@@ -621,11 +675,9 @@ static PyObject *gzwrite_write_GzWriteAsciiLines(GzWrite *self, PyObject *args)
 	WRITELINEPROLOGUE(!PyBytes_Check(obj) && !PyUnicode_Check(obj), EITHER_NAME);
 	if (PyBytes_Check(obj)) {
 		const Py_ssize_t len = PyBytes_GET_SIZE(obj);
-		if (len) {
-			const char *data = PyBytes_AS_STRING(obj);
-			ASCIILINEDO((void)data);
-		}
-	} else if (PyUnicode_GET_SIZE(obj)) { // Must be Unicode
+		const char *data = PyBytes_AS_STRING(obj);
+		ASCIILINEDO((void)data);
+	} else { // Must be Unicode
 		UNICODELINE(ASCIILINEDO);
 	}
 	self->count++;
@@ -635,9 +687,7 @@ static PyObject *gzwrite_write_GzWriteAsciiLines(GzWrite *self, PyObject *args)
 static PyObject *gzwrite_write_GzWriteUnicodeLines(GzWrite *self, PyObject *args)
 {
 	WRITELINEPROLOGUE(!PyUnicode_Check(obj), UNICODE_NAME);
-	if (PyUnicode_GET_SIZE(obj)) {
-		UNICODELINE(WRITELINEDO);
-	}
+	UNICODELINE(WRITELINEDO);
 	self->count++;
 	return gzwrite_write_(self, "\n", 1);
 }
@@ -676,15 +726,16 @@ MK_MINMAX_SET(DateTime, unfmt_datetime((*(uint64_t *)cmp_value) >> 32, *(uint64_
 MK_MINMAX_SET(Date    , unfmt_date(*(uint32_t *)cmp_value));
 MK_MINMAX_SET(Time    , unfmt_time((*(uint64_t *)cmp_value) >> 32, *(uint64_t *)cmp_value));
 
-#define MKWRITER(name, T, conv, withnone, minmax_value, minmax_set) \
+#define MKWRITER(name, T, HT, conv, withnone, minmax_value, minmax_set) \
 	static int gzwrite_init_ ## name(PyObject *self_, PyObject *args, PyObject *kwds)	\
 	{                                                                                	\
-		static char *kwlist[] = {"name", "mode", "default", 0};                  	\
+		static char *kwlist[] = {"name", "mode", "default", "hashfilter", 0};    	\
 		GzWrite *self = (GzWrite *)self_;                                        	\
 		char *name = NULL;                                                       	\
 		const char *mode = "wb";                                                 	\
+		int sliceno = 0, slices = 0;                                             	\
 		gzwrite_close_(self);                                                    	\
-		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|sO", kwlist, Py_FileSystemDefaultEncoding, &name, &mode, &self->default_obj)) return -1; \
+		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|sO(ii)", kwlist, Py_FileSystemDefaultEncoding, &name, &mode, &self->default_obj, &sliceno, &slices)) return -1; \
 		if (self->default_obj) {                                                 	\
 			T value;                                                         	\
 			Py_INCREF(self->default_obj);                                    	\
@@ -707,6 +758,12 @@ MK_MINMAX_SET(Time    , unfmt_time((*(uint64_t *)cmp_value) >> 32, *(uint64_t *)
 		} else {                                                                 	\
 			self->default_value = 0;                                         	\
 		}                                                                        	\
+		if ((sliceno || slices) && (sliceno < 0 || slices <= 0 || sliceno >= slices)) {	\
+			PyErr_Format(PyExc_ValueError, "Bad hashfilter (%d, %d)", sliceno, slices); \
+			goto err;                                                        	\
+		}                                                                        	\
+		self->sliceno = sliceno;                                                 	\
+		self->slices = slices;                                                   	\
 		self->fh = gzopen(name, mode);                                           	\
 		if (!self->fh) {                                                         	\
 			PyErr_SetFromErrnoWithFilename(PyExc_IOError, name);             	\
@@ -725,6 +782,7 @@ err:                                                                            
 		PyObject *obj;                                                           	\
 		if (!PyArg_ParseTuple(args, "O", &obj)) return 0;                        	\
 		if (withnone && obj == Py_None) {                                        	\
+			if (self->sliceno) Py_RETURN_FALSE;                              	\
 			self->count++;                                                   	\
 			return gzwrite_write_(self, (char *)&noneval_ ## T, sizeof(T));  	\
 		}                                                                        	\
@@ -739,6 +797,11 @@ err:                                                                            
 			PyErr_Clear();                                                   	\
 			value = *(T *)self->default_value;                               	\
 			obj = self->default_obj;                                         	\
+		}                                                                        	\
+		if (self->slices) {                                                      	\
+			const HT h_value = value;                                        	\
+			const int sliceno = hash(&h_value, sizeof(h_value)) % self->slices;	\
+			if (sliceno != self->sliceno) Py_RETURN_FALSE;                   	\
 		}                                                                        	\
 		if (obj && obj != Py_None) {                                             	\
 			T cmp_value = minmax_value(value);                               	\
@@ -786,13 +849,13 @@ static uint8_t pylong_asbool(PyObject *l)
 	}
 	return value;
 }
-MKWRITER(GzWriteFloat64, double  , PyFloat_AsDouble , 1, , minmax_set_default);
-MKWRITER(GzWriteFloat32, float   , PyFloat_AsDouble , 1, , minmax_set_Float32);
-MKWRITER(GzWriteInt64  , int64_t , PyLong_AsLong    , 1, , minmax_set_default);
-MKWRITER(GzWriteInt32  , int32_t , pylong_asint32_t , 1, , minmax_set_default);
-MKWRITER(GzWriteBits64 , uint64_t, pylong_asuint64_t, 0, , minmax_set_default);
-MKWRITER(GzWriteBits32 , uint32_t, pylong_asuint32_t, 0, , minmax_set_default);
-MKWRITER(GzWriteBool   , uint8_t , pylong_asbool    , 1, , minmax_set_Bool);
+MKWRITER(GzWriteFloat64, double  , double  , PyFloat_AsDouble , 1, , minmax_set_default);
+MKWRITER(GzWriteFloat32, float   , double  , PyFloat_AsDouble , 1, , minmax_set_Float32);
+MKWRITER(GzWriteInt64  , int64_t , int64_t , PyLong_AsLong    , 1, , minmax_set_default);
+MKWRITER(GzWriteInt32  , int32_t , int64_t , pylong_asint32_t , 1, , minmax_set_default);
+MKWRITER(GzWriteBits64 , uint64_t, uint64_t, pylong_asuint64_t, 0, , minmax_set_default);
+MKWRITER(GzWriteBits32 , uint32_t, uint64_t, pylong_asuint32_t, 0, , minmax_set_default);
+MKWRITER(GzWriteBool   , uint8_t , uint8_t , pylong_asbool    , 1, , minmax_set_Bool);
 static uint64_t fmt_datetime(PyObject *dt)
 {
 	if (!PyDateTime_Check(dt)) {
@@ -837,11 +900,11 @@ static uint64_t fmt_time(PyObject *dt)
 	r.i.i1 = (M << 26) | (S << 20) | u;
 	return r.res;
 }
-MKWRITER(GzWriteDateTime, uint64_t, fmt_datetime, 1, minmax_value_datetime, minmax_set_DateTime);
-MKWRITER(GzWriteDate    , uint32_t, fmt_date,     1,                      , minmax_set_Date);
-MKWRITER(GzWriteTime    , uint64_t, fmt_time,     1, minmax_value_datetime, minmax_set_Time);
+MKWRITER(GzWriteDateTime, uint64_t, uint64_t, fmt_datetime, 1, minmax_value_datetime, minmax_set_DateTime);
+MKWRITER(GzWriteDate    , uint32_t, uint32_t, fmt_date,     1,                      , minmax_set_Date);
+MKWRITER(GzWriteTime    , uint64_t, uint64_t, fmt_time,     1, minmax_value_datetime, minmax_set_Time);
 
-#define MKPARSED(name, T, inner, conv, withnone, minmax_set)         	\
+#define MKPARSED(name, T, HT, inner, conv, withnone, minmax_set)     	\
 	static T parse ## name(PyObject *obj)                        	\
 	{                                                            	\
 		PyObject *parsed = inner(obj);                       	\
@@ -850,13 +913,13 @@ MKWRITER(GzWriteTime    , uint64_t, fmt_time,     1, minmax_value_datetime, minm
 		Py_DECREF(parsed);                                   	\
 		return res;                                          	\
 	}                                                            	\
-	MKWRITER(GzWriteParsed ## name, T , parse ## name, withnone, , minmax_set)
-MKPARSED(Float64, double  , PyNumber_Float, PyFloat_AsDouble , 1, minmax_set_Float64);
-MKPARSED(Float32, float   , PyNumber_Float, PyFloat_AsDouble , 1, minmax_set_Float32);
-MKPARSED(Int64  , int64_t , PyNumber_Int  , PyLong_AsLong    , 1, minmax_set_Int64);
-MKPARSED(Int32  , int32_t , PyNumber_Int  , pylong_asint32_t , 1, minmax_set_Int32);
-MKPARSED(Bits64 , uint64_t, PyNumber_Int  , pylong_asuint64_t, 0, minmax_set_Bits64);
-MKPARSED(Bits32 , uint32_t, PyNumber_Int  , pylong_asuint32_t, 0, minmax_set_Bits32);
+	MKWRITER(GzWriteParsed ## name, T, HT, parse ## name, withnone, , minmax_set)
+MKPARSED(Float64, double  , double  , PyNumber_Float, PyFloat_AsDouble , 1, minmax_set_Float64);
+MKPARSED(Float32, float   , double  , PyNumber_Float, PyFloat_AsDouble , 1, minmax_set_Float32);
+MKPARSED(Int64  , int64_t , int64_t , PyNumber_Int  , PyLong_AsLong    , 1, minmax_set_Int64);
+MKPARSED(Int32  , int32_t , int64_t , PyNumber_Int  , pylong_asint32_t , 1, minmax_set_Int32);
+MKPARSED(Bits64 , uint64_t, uint64_t, PyNumber_Int  , pylong_asuint64_t, 0, minmax_set_Bits64);
+MKPARSED(Bits32 , uint32_t, uint64_t, PyNumber_Int  , pylong_asuint32_t, 0, minmax_set_Bits32);
 
 #define MKWTYPE(name)                                                                  	\
 	static PyMethodDef name ## _methods[] = {                                      	\
@@ -1006,7 +1069,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	INIT(GzWriteParsedInt32);
 	INIT(GzWriteParsedBits64);
 	INIT(GzWriteParsedBits32);
-	PyObject *version = Py_BuildValue("(iii)", 2, 0, 5);
+	PyObject *version = Py_BuildValue("(iii)", 2, 1, 0);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;
