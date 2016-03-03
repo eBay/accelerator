@@ -79,7 +79,7 @@ static int gzread_init(PyObject *self_, PyObject *args, PyObject *kwds)
 	}
 	self->fh = gzopen(name, "rb");
 	if (!self->fh) {
-		PyErr_SetString(PyExc_IOError, "Open failed");
+		PyErr_SetFromErrnoWithFilename(PyExc_IOError, name);
 		goto err;
 	}
 	self->pos = self->len = 0;
@@ -438,11 +438,12 @@ static int gzwrite_init_GzWrite(PyObject *self_, PyObject *args, PyObject *kwds)
 	mode_buf[0] = mode[0]; // always [wa]b
 	gzwrite_close_(self);
 	self->fh = gzopen(name, mode_buf);
-	PyMem_Free(name);
 	if (!self->fh) {
-		PyErr_SetString(PyExc_IOError, "Open failed");
+		PyErr_SetFromErrnoWithFilename(PyExc_IOError, name);
+		PyMem_Free(name);
 		return -1;
 	}
+	PyMem_Free(name);
 	self->count = 0;
 	self->len = 0;
 	if (mode[0] == 'w' && self_->ob_type == &GzWriteUnicodeLines_Type) {
@@ -508,36 +509,43 @@ static PyObject *gzwrite_write_GzWrite(GzWrite *self, PyObject *args)
 	}                                                                             	\
 	PyObject *obj = PyTuple_GET_ITEM(args, 0);                                    	\
 	if (obj == Py_None) {                                                         	\
-		self->count++;                                                     \
+		self->count++;                                                        	\
 		return gzwrite_write_(self, "\x00\n", 2);                             	\
 	}                                                                             	\
 	if (checktype) {                                                              	\
-		const char *msg = "For your protection, only " errname                	\
-		                  " objects are accepted";                            	\
-		PyErr_SetString(PyExc_TypeError, msg);                                	\
+		PyErr_Format(PyExc_TypeError,                                         	\
+		             "For your protection, only " errname                     	\
+		             " objects are accepted (line %ld)",                      	\
+		             self->count + 1);                                        	\
 		return 0;                                                             	\
 	}
 #define WRITELINEDO(cleanup) \
 	if (len == 1 && *data == 0) {                                                 	\
 		cleanup;                                                              	\
-		PyErr_SetString(PyExc_ValueError, "Value becomes None-marker");       	\
+		PyErr_Format(PyExc_ValueError,                                        	\
+		             "Value becomes None-marker (line %ld)",                  	\
+		             self->count + 1);                                        	\
 		return 0;                                                             	\
 	}                                                                             	\
 	if (len >= Z) {                                                               	\
 		cleanup;                                                              	\
 		PyErr_Format(PyExc_ValueError,                                        	\
-		             "Value is %lld bytes, max %lld allowed",                 	\
-		             (long long)len, (long long)Z);                           	\
+		             "Value is %lld bytes, max %lld allowed (line %ld)",      	\
+		             (long long)len, (long long)Z, self->count + 1);          	\
 		return 0;                                                             	\
 	}                                                                             	\
 	if (memchr(data, '\n', len)) {                                                	\
 		cleanup;                                                              	\
-		PyErr_SetString(PyExc_ValueError, "Value must not contain \\n");      	\
+		PyErr_Format(PyExc_ValueError,                                        	\
+		             "Value must not contain \\n (line %ld)",                 	\
+		             self->count + 1);                                        	\
 		return 0;                                                             	\
 	}                                                                             	\
 	if (data[len - 1] == '\r') {                                                  	\
 		cleanup;                                                              	\
-		PyErr_SetString(PyExc_ValueError, "Value must not end with \\r");     	\
+		PyErr_Format(PyExc_ValueError,                                        	\
+		             "Value must not end with \\r (line %ld)",                	\
+		             self->count + 1);                                        	\
 		return 0;                                                             	\
 	}                                                                             	\
 	PyObject *ret = gzwrite_write_(self, data, len);                              	\
@@ -550,8 +558,8 @@ static PyObject *gzwrite_write_GzWrite(GzWrite *self, PyObject *args)
 		if (data_[i] > 127) {                                                 	\
 			cleanup;                                                      	\
 			PyErr_Format(PyExc_ValueError,                                	\
-			             "Value contains %d at position %d: %s",          	\
-			             data_[i], i, data);                              	\
+			             "Value contains %d at position %d (line %ld): %s",	\
+			             data_[i], i, self->count + 1, data);             	\
 			return 0;                                                     	\
 		}                                                                     	\
 	}                                                                             	\
@@ -643,7 +651,7 @@ static PyObject *gzwrite_write_GzWriteUnicodeLines(GzWrite *self, PyObject *args
 		}                                                                        	\
 		self->fh = gzopen(name, mode);                                           	\
 		if (!self->fh) {                                                         	\
-			PyErr_SetString(PyExc_IOError, "Open failed");                   	\
+			PyErr_SetFromErrnoWithFilename(PyExc_IOError, name);             	\
 			goto err;                                                        	\
 		}                                                                        	\
 		PyMem_Free(name);                                                        	\
@@ -930,7 +938,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	INIT(GzWriteParsedInt32);
 	INIT(GzWriteParsedBits64);
 	INIT(GzWriteParsedBits32);
-	PyObject *version = Py_BuildValue("(iii)", 2, 0, 3);
+	PyObject *version = Py_BuildValue("(iii)", 2, 0, 4);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;
