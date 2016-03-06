@@ -1093,8 +1093,8 @@ PyMODINIT_FUNC INITFUNC(void)
 	GzWriteAsciiLines_Type.tp_base = &GzWriteBytesLines_Type;
 #endif
 	INIT(GzBytesLines);
-	INIT(GzAsciiLines);
 	INIT(GzUnicodeLines);
+	INIT(GzAsciiLines);
 	INIT(GzFloat64);
 	INIT(GzFloat32);
 	INIT(GzInt64);
@@ -1107,8 +1107,8 @@ PyMODINIT_FUNC INITFUNC(void)
 	INIT(GzTime);
 	INIT(GzWrite);
 	INIT(GzWriteBytesLines);
-	INIT(GzWriteAsciiLines);
 	INIT(GzWriteUnicodeLines);
+	INIT(GzWriteAsciiLines);
 	INIT(GzWriteFloat64);
 	INIT(GzWriteFloat32);
 	INIT(GzWriteInt64);
