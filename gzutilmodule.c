@@ -2,6 +2,7 @@
 #include <Python.h>
 #include <bytesobject.h>
 #include <datetime.h>
+#include <structmember.h>
 
 #include <zlib.h>
 #include <unistd.h>
@@ -18,6 +19,8 @@
 
 typedef struct gzread {
 	PyObject_HEAD
+	char *name;
+	char *encoding;
 	char *errors;
 	PyObject *(*decodefunc)(const char *, Py_ssize_t, const char *);
 	gzFile fh;
@@ -25,11 +28,13 @@ typedef struct gzread {
 	char buf[Z + 1];
 } GzRead;
 
+#define FREE(p) do { PyMem_Free(p); (p) = 0; } while (0)
 
 static int gzread_close_(GzRead *self)
 {
-	PyMem_Free(self->errors);
-	self->errors = 0;
+	FREE(self->name);
+	FREE(self->errors);
+	FREE(self->encoding);
 	if (self->fh) {
 		gzclose(self->fh);
 		self->fh = 0;
@@ -74,22 +79,21 @@ static int gzread_init(PyObject *self_, PyObject *args, PyObject *kwds)
 	int res = -1;
 	GzRead *self = (GzRead *)self_;
 	char *name = NULL;
-	char *encoding = NULL;
 	int strip_bom = 0;
 	gzread_close_(self);
 	if (self_->ob_type == &GzBytesLines_Type) {
 		static char *kwlist[] = {"name", "strip_bom", 0};
-		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|i", kwlist, Py_FileSystemDefaultEncoding, &name, &strip_bom)) return -1;
+		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|i", kwlist, Py_FileSystemDefaultEncoding, &self->name, &strip_bom)) return -1;
 	} else if (self_->ob_type == &GzUnicodeLines_Type) {
 		static char *kwlist[] = {"name", "encoding", "errors", 0};
-		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|etet", kwlist, Py_FileSystemDefaultEncoding, &name, "ascii", &encoding, "ascii", &self->errors)) return -1;
+		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|etet", kwlist, Py_FileSystemDefaultEncoding, &self->name, "ascii", &self->encoding, "ascii", &self->errors)) return -1;
 	} else {
 		static char *kwlist[] = {"name", 0};
-		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et", kwlist, Py_FileSystemDefaultEncoding, &name)) return -1;
+		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et", kwlist, Py_FileSystemDefaultEncoding, &self->name)) return -1;
 	}
-	self->fh = gzopen(name, "rb");
+	self->fh = gzopen(self->name, "rb");
 	if (!self->fh) {
-		PyErr_SetFromErrnoWithFilename(PyExc_IOError, name);
+		PyErr_SetFromErrnoWithFilename(PyExc_IOError, self->name);
 		goto err;
 	}
 	self->pos = self->len = 0;
@@ -97,8 +101,8 @@ static int gzread_init(PyObject *self_, PyObject *args, PyObject *kwds)
 		self->decodefunc = PyUnicode_DecodeASCII;
 	}
 	if (self_->ob_type == &GzUnicodeLines_Type) {
-		if (encoding) {
-			PyObject *decoder = PyCodec_Decoder(encoding);
+		if (self->encoding) {
+			PyObject *decoder = PyCodec_Decoder(self->encoding);
 			err1(!decoder);
 			self->decodefunc = 0;
 			PyObject *test_decoder;
@@ -113,11 +117,13 @@ static int gzread_init(PyObject *self_, PyObject *args, PyObject *kwds)
 			Py_XDECREF(test_decoder);
 			Py_DECREF(decoder);
 			if (!self->decodefunc) {
-				PyErr_Format(PyExc_LookupError, "Unsupported encoding '%s'", encoding);
+				PyErr_Format(PyExc_LookupError, "Unsupported encoding '%s'", self->encoding);
 				goto err;
 			}
 		} else {
 			self->decodefunc = PyUnicode_DecodeUTF8;
+			self->encoding = PyMem_Malloc(6);
+			strcpy(self->encoding, "utf-8");
 		}
 		if (self->decodefunc == PyUnicode_DecodeUTF8) strip_bom = 1;
 	}
@@ -129,8 +135,6 @@ static int gzread_init(PyObject *self_, PyObject *args, PyObject *kwds)
 	}
 	res = 0;
 err:
-	PyMem_Free(name);
-	PyMem_Free(encoding);
 	if (res) gzread_close_(self);
 	return res;
 }
@@ -343,7 +347,7 @@ static PyMethodDef gzread_methods[] = {
 	{NULL, NULL, 0, NULL}
 };
 
-#define MKTYPE(name)                                                 	\
+#define MKTYPE(name, members)                                        	\
 	static PyTypeObject name ## _Type = {                        	\
 		PyVarObject_HEAD_INIT(NULL, 0)                       	\
 		#name,                          /*tp_name          */	\
@@ -373,7 +377,7 @@ static PyMethodDef gzread_methods[] = {
 		(getiterfunc)gzread_self,       /*tp_iter          */	\
 		(iternextfunc)name ## _iternext,/*tp_iternext      */	\
 		gzread_methods,                 /*tp_methods       */	\
-		0,                              /*tp_members       */	\
+		members,                        /*tp_members       */	\
 		0,                              /*tp_getset        */	\
 		0,                              /*tp_base          */	\
 		0,                              /*tp_dict          */	\
@@ -386,19 +390,29 @@ static PyMethodDef gzread_methods[] = {
 		PyObject_Del,                   /*tp_free          */	\
 		0,                              /*tp_is_gc         */	\
 	}
-MKTYPE(GzBytesLines);
-MKTYPE(GzAsciiLines);
-MKTYPE(GzUnicodeLines);
-MKTYPE(GzFloat64);
-MKTYPE(GzFloat32);
-MKTYPE(GzInt64);
-MKTYPE(GzInt32);
-MKTYPE(GzBits64);
-MKTYPE(GzBits32);
-MKTYPE(GzBool);
-MKTYPE(GzDateTime);
-MKTYPE(GzDate);
-MKTYPE(GzTime);
+static PyMemberDef r_default_members[] = {
+	{"name"    , T_STRING, offsetof(GzRead, name    ), READONLY},
+	{0}
+};
+static PyMemberDef r_unicode_members[] = {
+	{"name"    , T_STRING, offsetof(GzRead, name    ), READONLY},
+	{"encoding", T_STRING, offsetof(GzRead, encoding), READONLY},
+	{"errors"  , T_STRING, offsetof(GzRead, errors  ), READONLY},
+	{0}
+};
+MKTYPE(GzBytesLines, r_default_members);
+MKTYPE(GzAsciiLines, r_default_members);
+MKTYPE(GzUnicodeLines, r_unicode_members);
+MKTYPE(GzFloat64, r_default_members);
+MKTYPE(GzFloat32, r_default_members);
+MKTYPE(GzInt64, r_default_members);
+MKTYPE(GzInt32, r_default_members);
+MKTYPE(GzBits64, r_default_members);
+MKTYPE(GzBits32, r_default_members);
+MKTYPE(GzBool, r_default_members);
+MKTYPE(GzDateTime, r_default_members);
+MKTYPE(GzDate, r_default_members);
+MKTYPE(GzTime, r_default_members);
 
 static PyMethodDef module_methods[] = {
 	{NULL, NULL, 0, NULL}
@@ -1100,7 +1114,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	INIT(GzWriteParsedInt32);
 	INIT(GzWriteParsedBits64);
 	INIT(GzWriteParsedBits32);
-	PyObject *version = Py_BuildValue("(iii)", 2, 1, 2);
+	PyObject *version = Py_BuildValue("(iii)", 2, 1, 3);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;
