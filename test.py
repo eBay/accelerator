@@ -54,12 +54,20 @@ for name, data, bad_cnt, res_data in (
 	r_typ = getattr(gzutil, r_name)
 	w_typ = getattr(gzutil, "GzWrite" + name)
 	with w_typ(TMP_FN) as fh:
+		count = 0
 		for ix, value in enumerate(data):
 			try:
 				fh.write(value)
+				count += 1
 				assert ix >= bad_cnt, repr(value)
 			except (ValueError, TypeError, OverflowError):
 				assert ix < bad_cnt, repr(value)
+		assert fh.count == count, "%s: %d lines written, claims %d" % (name, count, fh.count,)
+		if "Lines" not in name:
+			want_min = min(filter(lambda x: x is not None, res_data))
+			want_max = max(filter(lambda x: x is not None, res_data))
+			assert fh.min == want_min, "%s: claims min %r, not %r" % (name, fh.min, want_min,)
+			assert fh.max == want_max, "%s: claims max %r, not %r" % (name, fh.max, want_max,)
 	# Okay, errors look good
 	with r_typ(TMP_FN) as fh:
 		res = list(fh)
@@ -79,11 +87,14 @@ for name, data, bad_cnt, res_data in (
 			assert ix < bad_cnt, repr(default)
 		if ix >= bad_cnt:
 			with w_typ(TMP_FN, default=default) as fh:
+				count = 0
 				for value in data:
 					try:
 						fh.write(value)
+						count += 1
 					except (ValueError, TypeError, OverflowError):
 						assert 0, "No default: %r" % (value,)
+				assert fh.count == count, "%s: %d lines written, claims %d" % (name, count, fh.count,)
 			# No errors when there is a default
 			with r_typ(TMP_FN) as fh:
 				res = list(fh)
