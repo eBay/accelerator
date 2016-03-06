@@ -384,6 +384,7 @@ typedef struct gzwrite {
 	PyObject_HEAD
 	gzFile fh;
 	void *default_value;
+	unsigned long count;
 	int len;
 	char buf[Z];
 } GzWrite;
@@ -442,6 +443,7 @@ static int gzwrite_init_GzWrite(PyObject *self_, PyObject *args, PyObject *kwds)
 		PyErr_SetString(PyExc_IOError, "Open failed");
 		return -1;
 	}
+	self->count = 0;
 	self->len = 0;
 	if (mode[0] == 'w' && self_->ob_type == &GzWriteUnicodeLines_Type) {
 		memcpy(self->buf, BOM_STR, 3);
@@ -506,6 +508,7 @@ static PyObject *gzwrite_write_GzWrite(GzWrite *self, PyObject *args)
 	}                                                                             	\
 	PyObject *obj = PyTuple_GET_ITEM(args, 0);                                    	\
 	if (obj == Py_None) {                                                         	\
+		self->count++;                                                     \
 		return gzwrite_write_(self, "\x00\n", 2);                             	\
 	}                                                                             	\
 	if (checktype) {                                                              	\
@@ -577,6 +580,7 @@ static PyObject *gzwrite_write_GzWriteBytesLines(GzWrite *self, PyObject *args)
 		const char *data = PyBytes_AS_STRING(obj);
 		WRITELINEDO((void)data);
 	}
+	self->count++;
 	return gzwrite_write_(self, "\n", 1);
 }
 
@@ -592,6 +596,7 @@ static PyObject *gzwrite_write_GzWriteAsciiLines(GzWrite *self, PyObject *args)
 	} else if (PyUnicode_GET_SIZE(obj)) { // Must be Unicode
 		UNICODELINE(ASCIILINEDO);
 	}
+	self->count++;
 	return gzwrite_write_(self, "\n", 1);
 }
 
@@ -601,6 +606,7 @@ static PyObject *gzwrite_write_GzWriteUnicodeLines(GzWrite *self, PyObject *args
 	if (PyUnicode_GET_SIZE(obj)) {
 		UNICODELINE(WRITELINEDO);
 	}
+	self->count++;
 	return gzwrite_write_(self, "\n", 1);
 }
 
@@ -641,6 +647,7 @@ static PyObject *gzwrite_write_GzWriteUnicodeLines(GzWrite *self, PyObject *args
 			goto err;                                                        	\
 		}                                                                        	\
 		PyMem_Free(name);                                                        	\
+		self->count = 0;                                                         	\
 		self->len = 0;                                                           	\
 		return 0;                                                                	\
 err:                                                                                     	\
@@ -652,6 +659,7 @@ err:                                                                            
 		PyObject *obj;                                                           	\
 		if (!PyArg_ParseTuple(args, "O", &obj)) return 0;                        	\
 		if (withnone && obj == Py_None) {                                        	\
+			self->count++;                                                   	\
 			return gzwrite_write_(self, (char *)&noneval_ ## T, sizeof(T));  	\
 		}                                                                        	\
 		T value = conv(obj);                                                     	\
@@ -665,6 +673,7 @@ err:                                                                            
 			PyErr_Clear();                                                   	\
 			value = *(T *)self->default_value;                               	\
 		}                                                                        	\
+		self->count++;                                                           	\
 		return gzwrite_write_(self, (char *)&value, sizeof(value));              	\
 	}
 static uint64_t pylong_asuint64_t(PyObject *l)
@@ -921,7 +930,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	INIT(GzWriteParsedInt32);
 	INIT(GzWriteParsedBits64);
 	INIT(GzWriteParsedBits32);
-	PyObject *version = Py_BuildValue("(iii)", 2, 0, 2);
+	PyObject *version = Py_BuildValue("(iii)", 2, 0, 3);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;
