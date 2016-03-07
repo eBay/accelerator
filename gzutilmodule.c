@@ -81,15 +81,21 @@ static uint64_t hash_32bits(const void *ptr)
 {
 	return hash(ptr, 4);
 }
-static uint64_t hash_8bits(const void *ptr)
+static uint64_t hash_bool(const void *ptr)
 {
-	return hash(ptr, 1);
+	return !!*(uint8_t *)ptr;
+}
+static uint64_t hash_integer(const void *ptr)
+{
+	uint64_t i = *(uint64_t *)ptr;
+	if (!i) return 0;
+	return hash(ptr, 8);
 }
 static uint64_t hash_double(const void *ptr)
 {
 	double  d = *(double *)ptr;
 	int64_t i = d;
-	if (i == d) return hash(&i, sizeof(i));
+	if (i == d) return hash_integer(&i);
 	return hash(&d, sizeof(d));
 }
 
@@ -958,11 +964,11 @@ static uint8_t pylong_asbool(PyObject *l)
 }
 MKWRITER(GzWriteFloat64, double  , double  , PyFloat_AsDouble , 1, , minmax_set_Float64, hash_double);
 MKWRITER(GzWriteFloat32, float   , double  , PyFloat_AsDouble , 1, , minmax_set_Float32, hash_double);
-MKWRITER(GzWriteInt64  , int64_t , int64_t , PyLong_AsLong    , 1, , minmax_set_Int64  , hash_64bits);
-MKWRITER(GzWriteInt32  , int32_t , int64_t , pylong_asint32_t , 1, , minmax_set_Int32  , hash_64bits);
-MKWRITER(GzWriteBits64 , uint64_t, uint64_t, pylong_asuint64_t, 0, , minmax_set_Bits64 , hash_64bits);
-MKWRITER(GzWriteBits32 , uint32_t, uint64_t, pylong_asuint32_t, 0, , minmax_set_Bits32 , hash_64bits);
-MKWRITER(GzWriteBool   , uint8_t , uint8_t , pylong_asbool    , 1, , minmax_set_Bool   , hash_8bits);
+MKWRITER(GzWriteInt64  , int64_t , int64_t , PyLong_AsLong    , 1, , minmax_set_Int64  , hash_integer);
+MKWRITER(GzWriteInt32  , int32_t , int64_t , pylong_asint32_t , 1, , minmax_set_Int32  , hash_integer);
+MKWRITER(GzWriteBits64 , uint64_t, uint64_t, pylong_asuint64_t, 0, , minmax_set_Bits64 , hash_integer);
+MKWRITER(GzWriteBits32 , uint32_t, uint64_t, pylong_asuint32_t, 0, , minmax_set_Bits32 , hash_integer);
+MKWRITER(GzWriteBool   , uint8_t , uint8_t , pylong_asbool    , 1, , minmax_set_Bool   , hash_bool);
 static uint64_t fmt_datetime(PyObject *dt)
 {
 	if (!PyDateTime_Check(dt)) {
@@ -1023,10 +1029,10 @@ MKWRITER(GzWriteTime    , uint64_t, uint64_t, fmt_time,     1, minmax_value_date
 	MKWRITER(GzWriteParsed ## name, T, HT, parse ## name, withnone, , minmax_set, hash)
 MKPARSED(Float64, double  , double  , PyNumber_Float, PyFloat_AsDouble , 1, minmax_set_Float64, hash_double);
 MKPARSED(Float32, float   , double  , PyNumber_Float, PyFloat_AsDouble , 1, minmax_set_Float32, hash_double);
-MKPARSED(Int64  , int64_t , int64_t , PyNumber_Int  , PyLong_AsLong    , 1, minmax_set_Int64  , hash_64bits);
-MKPARSED(Int32  , int32_t , int64_t , PyNumber_Int  , pylong_asint32_t , 1, minmax_set_Int32  , hash_64bits);
-MKPARSED(Bits64 , uint64_t, uint64_t, PyNumber_Int  , pylong_asuint64_t, 0, minmax_set_Bits64 , hash_64bits);
-MKPARSED(Bits32 , uint32_t, uint64_t, PyNumber_Int  , pylong_asuint32_t, 0, minmax_set_Bits32 , hash_64bits);
+MKPARSED(Int64  , int64_t , int64_t , PyNumber_Int  , PyLong_AsLong    , 1, minmax_set_Int64  , hash_integer);
+MKPARSED(Int32  , int32_t , int64_t , PyNumber_Int  , pylong_asint32_t , 1, minmax_set_Int32  , hash_integer);
+MKPARSED(Bits64 , uint64_t, uint64_t, PyNumber_Int  , pylong_asuint64_t, 0, minmax_set_Bits64 , hash_integer);
+MKPARSED(Bits32 , uint32_t, uint64_t, PyNumber_Int  , pylong_asuint32_t, 0, minmax_set_Bits32 , hash_integer);
 
 static PyMemberDef w_lines_members[] = {
 	{"name"      , T_STRING   , offsetof(GzWrite, name       ), READONLY},
@@ -1235,7 +1241,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	INIT(GzWriteParsedInt32);
 	INIT(GzWriteParsedBits64);
 	INIT(GzWriteParsedBits32);
-	PyObject *version = Py_BuildValue("(iii)", 2, 2, 2);
+	PyObject *version = Py_BuildValue("(iii)", 2, 2, 3);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;
