@@ -109,8 +109,10 @@ for name, data, bad_cnt, res_data in (
 				count = 0
 				for ix, value in enumerate(data):
 					try:
-						count += fh.write(value)
+						wrote = fh.write(value)
+						count += wrote
 						assert ix >= bad_cnt, repr(value)
+						assert fh.hashcheck(value) == wrote, "Hashcheck disagrees with write"
 					except (ValueError, TypeError, OverflowError):
 						assert ix < bad_cnt, repr(value)
 				assert fh.count == count, "%s (%d, %d): %d lines written, claims %d" % (name, sliceno, slices, count, fh.count,)
