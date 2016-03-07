@@ -414,10 +414,6 @@ MKTYPE(GzDateTime, r_default_members);
 MKTYPE(GzDate, r_default_members);
 MKTYPE(GzTime, r_default_members);
 
-static PyMethodDef module_methods[] = {
-	{NULL, NULL, 0, NULL}
-};
-
 
 typedef struct gzwrite {
 	PyObject_HEAD
@@ -661,6 +657,18 @@ static PyObject *gzwrite_write_GzWrite(GzWrite *self, PyObject *args)
 		}                                                                     	\
 	}                                                                             	\
 	WRITELINEDO(cleanup);
+#define ASCIIHASHDO(cleanup) \
+	const unsigned char * const data_ = (unsigned char *)data;                    	\
+	for (int i = 0; i < len; i++) {                                               	\
+		if (data_[i] > 127) {                                                 	\
+			cleanup;                                                      	\
+			PyErr_Format(PyExc_ValueError,                                	\
+			             "Value contains %d at position %d: %s",          	\
+			             data_[i], i, data);                              	\
+			return 0;                                                     	\
+		}                                                                     	\
+	}                                                                             	\
+	HASHLINEDO(cleanup);
 
 #if PY_MAJOR_VERSION < 3
 #  define UNICODELINE(WRITEMACRO) \
@@ -677,12 +685,31 @@ static PyObject *gzwrite_write_GzWrite(GzWrite *self, PyObject *args)
 	WRITEMACRO((void)data);
 #endif
 
+#define HASHLINEPROLOGUE(checktype, errname) \
+	if (obj == Py_None) return PyInt_FromLong(0);                                         	\
+	if (checktype) {                                                                      	\
+		PyErr_SetString(PyExc_TypeError,                                              	\
+		                "For your protection, only " errname " objects are accepted");	\
+		return 0;                                                                     	\
+	}
+#define HASHLINEDO(cleanup) \
+	PyObject *res = PyLong_FromUnsignedLong(hash(data, len));    	\
+	cleanup;                                                     	\
+	return res;
+
 static PyObject *gzwrite_C_GzWriteBytesLines(GzWrite *self, PyObject *args, int actually_write)
 {
 	WRITELINEPROLOGUE(!PyBytes_Check(obj), BYTES_NAME);
 	const Py_ssize_t len = PyBytes_GET_SIZE(obj);
 	const char *data = PyBytes_AS_STRING(obj);
 	WRITELINEDO((void)data);
+}
+static PyObject *gzwrite_hash_GzWriteBytesLines(PyObject *dummy, PyObject *obj)
+{
+	HASHLINEPROLOGUE(!PyBytes_Check(obj), BYTES_NAME);
+	const Py_ssize_t len = PyBytes_GET_SIZE(obj);
+	const char *data = PyBytes_AS_STRING(obj);
+	HASHLINEDO((void)data);
 }
 
 static PyObject *gzwrite_C_GzWriteAsciiLines(GzWrite *self, PyObject *args, int actually_write)
@@ -696,12 +723,31 @@ static PyObject *gzwrite_C_GzWriteAsciiLines(GzWrite *self, PyObject *args, int 
 		UNICODELINE(ASCIILINEDO);
 	}
 }
+static PyObject *gzwrite_hash_GzWriteAsciiLines(PyObject *dummy, PyObject *obj)
+{
+	HASHLINEPROLOGUE(!PyBytes_Check(obj) && !PyUnicode_Check(obj), EITHER_NAME);
+	Py_ssize_t len;
+	const char *data;
+	if (PyBytes_Check(obj)) {
+		len = PyBytes_GET_SIZE(obj);
+		data = PyBytes_AS_STRING(obj);
+		ASCIIHASHDO((void)data);
+	} else { // Must be Unicode
+		UNICODELINE(ASCIIHASHDO);
+	}
+}
 
 static PyObject *gzwrite_C_GzWriteUnicodeLines(GzWrite *self, PyObject *args, int actually_write)
 {
 	WRITELINEPROLOGUE(!PyUnicode_Check(obj), UNICODE_NAME);
 	UNICODELINE(WRITELINEDO);
 }
+static PyObject *gzwrite_hash_GzWriteUnicodeLines(PyObject *dummy, PyObject *obj)
+{
+	HASHLINEPROLOGUE(!PyUnicode_Check(obj), UNICODE_NAME);
+	UNICODELINE(HASHLINEDO);
+}
+
 #define MKWLINE(name)                                                                               	\
 	static PyObject *gzwrite_write_GzWrite ## name ## Lines(GzWrite *self, PyObject *args)      	\
 	{                                                                                           	\
@@ -718,8 +764,6 @@ static PyObject *gzwrite_C_GzWriteUnicodeLines(GzWrite *self, PyObject *args, in
 MKWLINE(Bytes);
 MKWLINE(Ascii);
 MKWLINE(Unicode);
-// Will always give an error, but it's easier to have it than not.
-#define gzwrite_hashcheck_GzWrite gzwrite_hashcheck_GzWriteBytesLines
 
 static inline uint64_t minmax_value_datetime(uint64_t value) {
 	/* My choice to use 2x u32 comes back to bite me. */
@@ -853,6 +897,19 @@ err:                                                                            
 			return 0;                                                        	\
 		}                                                                        	\
 		return gzwrite_C_ ## tname(self, args, 0);                               	\
+	}                                                                                	\
+	static PyObject *gzwrite_hash_ ## tname(PyObject *dummy, PyObject *obj)          	\
+	{                                                                                	\
+		uint64_t h;                                                              	\
+		if (withnone && obj == Py_None) {                                        	\
+			h = 0;                                                           	\
+		} else {                                                                 	\
+			const T value = conv(obj);                                       	\
+			if (PyErr_Occurred()) return 0;                                  	\
+			const HT h_value = value;                                        	\
+			h = hash(&h_value, sizeof(h_value));                             	\
+		}                                                                        	\
+		return PyLong_FromUnsignedLong(h);                                       	\
 	}
 static uint64_t pylong_asuint64_t(PyObject *l)
 {
@@ -976,17 +1033,7 @@ static PyMemberDef w_default_members[] = {
 	{0}
 };
 
-#define MKWTYPE(name, members)                                                         	\
-	static PyMethodDef name ## _methods[] = {                                      	\
-		{"__enter__", (PyCFunction)gzwrite_self, METH_NOARGS,  NULL},          	\
-		{"__exit__",  (PyCFunction)gzany_exit, METH_VARARGS, NULL},            	\
-		{"write",     (PyCFunction)gzwrite_write_ ## name, METH_VARARGS, NULL},	\
-		{"flush",     (PyCFunction)gzwrite_flush, METH_NOARGS, NULL},          	\
-		{"close",     (PyCFunction)gzwrite_close, METH_NOARGS, NULL},          	\
-		{"hashcheck", (PyCFunction)gzwrite_hashcheck_ ## name, METH_VARARGS, NULL}, 	\
-		{NULL, NULL, 0, NULL}                                                  	\
-	};                                                                             	\
-	                                                                               	\
+#define MKWTYPE_i(name, methods, members)                            	\
 	static PyTypeObject name ## _Type = {                        	\
 		PyVarObject_HEAD_INIT(NULL, 0)                       	\
 		#name,                          /*tp_name*/          	\
@@ -1015,7 +1062,7 @@ static PyMemberDef w_default_members[] = {
 		0,                              /*tp_weaklistoffset*/	\
 		0,                              /*tp_iter*/          	\
 		0,                              /*tp_iternext*/      	\
-		name ## _methods,               /*tp_methods*/       	\
+		methods,                        /*tp_methods*/       	\
 		members,                        /*tp_members*/       	\
 		0,                              /*tp_getset*/        	\
 		0,                              /*tp_base*/          	\
@@ -1029,7 +1076,27 @@ static PyMemberDef w_default_members[] = {
 		PyObject_Del,                   /*tp_free*/          	\
 		0,                              /*tp_is_gc*/         	\
 	}
-MKWTYPE(GzWrite, 0);
+#define MKWTYPE(name, members)                                                                	\
+	static PyMethodDef name ## _methods[] = {                                             	\
+		{"__enter__", (PyCFunction)gzwrite_self, METH_NOARGS,  NULL},                 	\
+		{"__exit__",  (PyCFunction)gzany_exit, METH_VARARGS, NULL},                   	\
+		{"write",     (PyCFunction)gzwrite_write_ ## name, METH_VARARGS, NULL},       	\
+		{"flush",     (PyCFunction)gzwrite_flush, METH_NOARGS, NULL},                 	\
+		{"close",     (PyCFunction)gzwrite_close, METH_NOARGS, NULL},                 	\
+		{"hashcheck", (PyCFunction)gzwrite_hashcheck_ ## name, METH_VARARGS, NULL},   	\
+		{"hash"     , (PyCFunction)gzwrite_hash_## name, METH_STATIC | METH_O, NULL}, 	\
+		{0}                                                                           	\
+	};                                                                                    	\
+	MKWTYPE_i(name, name ## _methods, w_default_members);
+static PyMethodDef GzWrite_methods[] = {
+	{"__enter__", (PyCFunction)gzwrite_self, METH_NOARGS,  NULL},
+	{"__exit__",  (PyCFunction)gzany_exit, METH_VARARGS, NULL},
+	{"write",     (PyCFunction)gzwrite_write_GzWrite, METH_VARARGS, NULL},
+	{"flush",     (PyCFunction)gzwrite_flush, METH_NOARGS, NULL},
+	{"close",     (PyCFunction)gzwrite_close, METH_NOARGS, NULL},
+	{0}
+};
+MKWTYPE_i(GzWrite, GzWrite_methods, 0);
 MKWTYPE(GzWriteBytesLines, w_lines_members);
 MKWTYPE(GzWriteAsciiLines, w_lines_members);
 MKWTYPE(GzWriteUnicodeLines, w_lines_members);
@@ -1050,6 +1117,29 @@ MKWTYPE(GzWriteParsedInt64, w_default_members);
 MKWTYPE(GzWriteParsedInt32, w_default_members);
 MKWTYPE(GzWriteParsedBits64, w_default_members);
 MKWTYPE(GzWriteParsedBits32, w_default_members);
+
+static PyObject *generic_hash(PyObject *dummy, PyObject *obj)
+{
+	if (obj == Py_None)        return PyInt_FromLong(0);
+	if (PyBytes_Check(obj))    return gzwrite_hash_GzWriteBytesLines(0, obj);
+	if (PyUnicode_Check(obj))  return gzwrite_hash_GzWriteUnicodeLines(0, obj);
+	if (PyFloat_Check(obj))    return gzwrite_hash_GzWriteFloat64(0, obj);
+	if (PyBool_Check(obj))     return gzwrite_hash_GzWriteBool(0, obj);
+#if PY_MAJOR_VERSION < 3
+	if (PyInt_Check(obj))      return gzwrite_hash_GzWriteInt64(0, obj);
+#endif
+	if (PyLong_Check(obj))     return gzwrite_hash_GzWriteInt64(0, obj);
+	if (PyDateTime_Check(obj)) return gzwrite_hash_GzWriteDateTime(0, obj);
+	if (PyDate_Check(obj))     return gzwrite_hash_GzWriteDate(0, obj);
+	if (PyTime_Check(obj))     return gzwrite_hash_GzWriteTime(0, obj);
+	PyErr_Format(PyExc_ValueError, "Unknown type %s", obj->ob_type->tp_name);
+	return 0;
+}
+
+static PyMethodDef module_methods[] = {
+	{"hash", generic_hash, METH_O, 0},
+	{0}
+};
 
 #if PY_MAJOR_VERSION < 3
 #  define INITERR
