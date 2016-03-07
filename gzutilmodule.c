@@ -1136,10 +1136,19 @@ static PyObject *generic_hash(PyObject *dummy, PyObject *obj)
 	if (PyUnicode_Check(obj))  return gzwrite_hash_GzWriteUnicodeLines(0, obj);
 	if (PyFloat_Check(obj))    return gzwrite_hash_GzWriteFloat64(0, obj);
 	if (PyBool_Check(obj))     return gzwrite_hash_GzWriteBool(0, obj);
+	if (
 #if PY_MAJOR_VERSION < 3
-	if (PyInt_Check(obj))      return gzwrite_hash_GzWriteInt64(0, obj);
+	    PyInt_Check(obj) ||
 #endif
-	if (PyLong_Check(obj))     return gzwrite_hash_GzWriteInt64(0, obj);
+	    PyLong_Check(obj)
+	   ) {
+		PyObject *res = gzwrite_hash_GzWriteInt64(0, obj);
+		if (!res && PyErr_ExceptionMatches(PyExc_OverflowError)) {
+			PyErr_Clear();
+			res = gzwrite_hash_GzWriteBits64(0, obj);
+		}
+		return res;
+	}
 	if (PyDateTime_Check(obj)) return gzwrite_hash_GzWriteDateTime(0, obj);
 	if (PyDate_Check(obj))     return gzwrite_hash_GzWriteDate(0, obj);
 	if (PyTime_Check(obj))     return gzwrite_hash_GzWriteTime(0, obj);
@@ -1226,7 +1235,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	INIT(GzWriteParsedInt32);
 	INIT(GzWriteParsedBits64);
 	INIT(GzWriteParsedBits32);
-	PyObject *version = Py_BuildValue("(iii)", 2, 2, 1);
+	PyObject *version = Py_BuildValue("(iii)", 2, 2, 2);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;
