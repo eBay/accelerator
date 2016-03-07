@@ -791,14 +791,6 @@ static inline uint64_t minmax_value_datetime(uint64_t value) {
 	return ((uint64_t)tmp.i0 << 32) | tmp.i1;
 }
 
-static inline void minmax_set_default(PyObject **ref_obj, PyObject *obj, void *ref_value, void *cmp_value, size_t z)
-{
-	Py_XDECREF(*ref_obj);
-	Py_INCREF(obj);
-	*ref_obj = obj;
-	memcpy(ref_value, cmp_value, z);
-}
-
 #define MK_MINMAX_SET(name, parse)                                                       	\
 	static inline void minmax_set_ ## name                                           	\
 	(PyObject **ref_obj, PyObject *obj, void *ref_value, void *cmp_value, size_t z)  	\
@@ -964,12 +956,12 @@ static uint8_t pylong_asbool(PyObject *l)
 	}
 	return value;
 }
-MKWRITER(GzWriteFloat64, double  , double  , PyFloat_AsDouble , 1, , minmax_set_default, hash_double);
+MKWRITER(GzWriteFloat64, double  , double  , PyFloat_AsDouble , 1, , minmax_set_Float64, hash_double);
 MKWRITER(GzWriteFloat32, float   , double  , PyFloat_AsDouble , 1, , minmax_set_Float32, hash_double);
-MKWRITER(GzWriteInt64  , int64_t , int64_t , PyLong_AsLong    , 1, , minmax_set_default, hash_64bits);
-MKWRITER(GzWriteInt32  , int32_t , int64_t , pylong_asint32_t , 1, , minmax_set_default, hash_64bits);
-MKWRITER(GzWriteBits64 , uint64_t, uint64_t, pylong_asuint64_t, 0, , minmax_set_default, hash_64bits);
-MKWRITER(GzWriteBits32 , uint32_t, uint64_t, pylong_asuint32_t, 0, , minmax_set_default, hash_64bits);
+MKWRITER(GzWriteInt64  , int64_t , int64_t , PyLong_AsLong    , 1, , minmax_set_Int64  , hash_64bits);
+MKWRITER(GzWriteInt32  , int32_t , int64_t , pylong_asint32_t , 1, , minmax_set_Int32  , hash_64bits);
+MKWRITER(GzWriteBits64 , uint64_t, uint64_t, pylong_asuint64_t, 0, , minmax_set_Bits64 , hash_64bits);
+MKWRITER(GzWriteBits32 , uint32_t, uint64_t, pylong_asuint32_t, 0, , minmax_set_Bits32 , hash_64bits);
 MKWRITER(GzWriteBool   , uint8_t , uint8_t , pylong_asbool    , 1, , minmax_set_Bool   , hash_8bits);
 static uint64_t fmt_datetime(PyObject *dt)
 {
@@ -1234,7 +1226,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	INIT(GzWriteParsedInt32);
 	INIT(GzWriteParsedBits64);
 	INIT(GzWriteParsedBits32);
-	PyObject *version = Py_BuildValue("(iii)", 2, 2, 0);
+	PyObject *version = Py_BuildValue("(iii)", 2, 2, 1);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;
