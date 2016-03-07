@@ -601,17 +601,18 @@ static PyObject *gzwrite_write_(GzWrite *self, const char *data, Py_ssize_t len)
 	Py_RETURN_TRUE;
 }
 
-static PyObject *gzwrite_write_GzWrite(GzWrite *self, PyObject *args)
+static PyObject *gzwrite_write_GzWrite(GzWrite *self, PyObject *obj)
 {
-	const char *data;
-	Py_ssize_t len;
-	if (!PyArg_ParseTuple(args, "s#", &data, &len)) return 0;
+	if (!PyBytes_Check(obj)) {
+		PyErr_SetString(PyExc_ValueError, "Only " BYTES_NAME " can be written");
+		return 0;
+	}
+	const Py_ssize_t len = PyBytes_GET_SIZE(obj);
+	const char *data = PyBytes_AS_STRING(obj);
 	return gzwrite_write_(self, data, len);
 }
 
 #define WRITELINEPROLOGUE(checktype, errname) \
-	PyObject *obj;                                                                	\
-	if (!PyArg_ParseTuple(args, "O", &obj)) return 0;                             	\
 	if (obj == Py_None) {                                                         	\
 		if (self->sliceno) Py_RETURN_FALSE;                                   	\
 		if (!actually_write) Py_RETURN_TRUE;                                  	\
@@ -722,7 +723,7 @@ static PyObject *gzwrite_write_GzWrite(GzWrite *self, PyObject *args)
 	cleanup;                                                     	\
 	return res;
 
-static PyObject *gzwrite_C_GzWriteBytesLines(GzWrite *self, PyObject *args, int actually_write)
+static PyObject *gzwrite_C_GzWriteBytesLines(GzWrite *self, PyObject *obj, int actually_write)
 {
 	WRITELINEPROLOGUE(!PyBytes_Check(obj), BYTES_NAME);
 	const Py_ssize_t len = PyBytes_GET_SIZE(obj);
@@ -737,7 +738,7 @@ static PyObject *gzwrite_hash_GzWriteBytesLines(PyObject *dummy, PyObject *obj)
 	HASHLINEDO((void)data);
 }
 
-static PyObject *gzwrite_C_GzWriteAsciiLines(GzWrite *self, PyObject *args, int actually_write)
+static PyObject *gzwrite_C_GzWriteAsciiLines(GzWrite *self, PyObject *obj, int actually_write)
 {
 	WRITELINEPROLOGUE(!PyBytes_Check(obj) && !PyUnicode_Check(obj), EITHER_NAME);
 	if (PyBytes_Check(obj)) {
@@ -762,7 +763,7 @@ static PyObject *gzwrite_hash_GzWriteAsciiLines(PyObject *dummy, PyObject *obj)
 	}
 }
 
-static PyObject *gzwrite_C_GzWriteUnicodeLines(GzWrite *self, PyObject *args, int actually_write)
+static PyObject *gzwrite_C_GzWriteUnicodeLines(GzWrite *self, PyObject *obj, int actually_write)
 {
 	WRITELINEPROLOGUE(!PyUnicode_Check(obj), UNICODE_NAME);
 	UNICODELINE(WRITELINEDO);
@@ -774,17 +775,17 @@ static PyObject *gzwrite_hash_GzWriteUnicodeLines(PyObject *dummy, PyObject *obj
 }
 
 #define MKWLINE(name)                                                                               	\
-	static PyObject *gzwrite_write_GzWrite ## name ## Lines(GzWrite *self, PyObject *args)      	\
+	static PyObject *gzwrite_write_GzWrite ## name ## Lines(GzWrite *self, PyObject *obj)       	\
 	{                                                                                           	\
-		return gzwrite_C_GzWrite ## name ## Lines(self, args, 1);                           	\
+		return gzwrite_C_GzWrite ## name ## Lines(self, obj, 1);                            	\
 	}                                                                                           	\
-	static PyObject *gzwrite_hashcheck_GzWrite ## name ## Lines(GzWrite *self, PyObject *args)  	\
+	static PyObject *gzwrite_hashcheck_GzWrite ## name ## Lines(GzWrite *self, PyObject *obj)   	\
 	{                                                                                           	\
 		if (!self->slices) {                                                                	\
 			PyErr_SetString(PyExc_ValueError, "No hashfilter set");                     	\
 			return 0;                                                                   	\
 		}                                                                                   	\
-		return gzwrite_C_GzWrite ## name ## Lines(self, args, 0);                           	\
+		return gzwrite_C_GzWrite ## name ## Lines(self, obj, 0);                            	\
 	}
 MKWLINE(Bytes);
 MKWLINE(Ascii);
@@ -863,10 +864,8 @@ MK_MINMAX_SET(Time    , unfmt_time((*(uint64_t *)cmp_value) >> 32, *(uint64_t *)
 err:                                                                                     	\
 		return -1;                                                               	\
 	}                                                                                	\
-	static PyObject *gzwrite_C_ ## tname(GzWrite *self, PyObject *args, int actually_write)	\
+	static PyObject *gzwrite_C_ ## tname(GzWrite *self, PyObject *obj, int actually_write)	\
 	{                                                                                	\
-		PyObject *obj;                                                           	\
-		if (!PyArg_ParseTuple(args, "O", &obj)) return 0;                        	\
 		if (withnone && obj == Py_None) {                                        	\
 			if (self->sliceno) Py_RETURN_FALSE;                              	\
 			if (!actually_write) Py_RETURN_TRUE;                             	\
@@ -903,17 +902,17 @@ err:                                                                            
 		self->count++;                                                           	\
 		return gzwrite_write_(self, (char *)&value, sizeof(value));              	\
 	}                                                                                	\
-	static PyObject *gzwrite_write_ ## tname(GzWrite *self, PyObject *args)          	\
+	static PyObject *gzwrite_write_ ## tname(GzWrite *self, PyObject *obj)           	\
 	{                                                                                	\
-		return gzwrite_C_ ## tname(self, args, 1);                               	\
+		return gzwrite_C_ ## tname(self, obj, 1);                                	\
 	}                                                                                	\
-	static PyObject *gzwrite_hashcheck_ ## tname(GzWrite *self, PyObject *args)      	\
+	static PyObject *gzwrite_hashcheck_ ## tname(GzWrite *self, PyObject *obj)       	\
 	{                                                                                	\
 		if (!self->slices) {                                                     	\
 			PyErr_SetString(PyExc_ValueError, "No hashfilter set");          	\
 			return 0;                                                        	\
 		}                                                                        	\
-		return gzwrite_C_ ## tname(self, args, 0);                               	\
+		return gzwrite_C_ ## tname(self, obj, 0);                                	\
 	}                                                                                	\
 	static PyObject *gzwrite_hash_ ## tname(PyObject *dummy, PyObject *obj)          	\
 	{                                                                                	\
@@ -1097,10 +1096,10 @@ static PyMemberDef w_default_members[] = {
 	static PyMethodDef name ## _methods[] = {                                             	\
 		{"__enter__", (PyCFunction)gzwrite_self, METH_NOARGS,  NULL},                 	\
 		{"__exit__",  (PyCFunction)gzany_exit, METH_VARARGS, NULL},                   	\
-		{"write",     (PyCFunction)gzwrite_write_ ## name, METH_VARARGS, NULL},       	\
+		{"write",     (PyCFunction)gzwrite_write_ ## name, METH_O, NULL},             	\
 		{"flush",     (PyCFunction)gzwrite_flush, METH_NOARGS, NULL},                 	\
 		{"close",     (PyCFunction)gzwrite_close, METH_NOARGS, NULL},                 	\
-		{"hashcheck", (PyCFunction)gzwrite_hashcheck_ ## name, METH_VARARGS, NULL},   	\
+		{"hashcheck", (PyCFunction)gzwrite_hashcheck_ ## name, METH_O, NULL},         	\
 		{"hash"     , (PyCFunction)gzwrite_hash_## name, METH_STATIC | METH_O, NULL}, 	\
 		{0}                                                                           	\
 	};                                                                                    	\
@@ -1108,7 +1107,7 @@ static PyMemberDef w_default_members[] = {
 static PyMethodDef GzWrite_methods[] = {
 	{"__enter__", (PyCFunction)gzwrite_self, METH_NOARGS,  NULL},
 	{"__exit__",  (PyCFunction)gzany_exit, METH_VARARGS, NULL},
-	{"write",     (PyCFunction)gzwrite_write_GzWrite, METH_VARARGS, NULL},
+	{"write",     (PyCFunction)gzwrite_write_GzWrite, METH_O, NULL},
 	{"flush",     (PyCFunction)gzwrite_flush, METH_NOARGS, NULL},
 	{"close",     (PyCFunction)gzwrite_close, METH_NOARGS, NULL},
 	{0}
@@ -1241,7 +1240,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	INIT(GzWriteParsedInt32);
 	INIT(GzWriteParsedBits64);
 	INIT(GzWriteParsedBits32);
-	PyObject *version = Py_BuildValue("(iii)", 2, 2, 3);
+	PyObject *version = Py_BuildValue("(iii)", 2, 2, 4);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;
