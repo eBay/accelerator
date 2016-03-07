@@ -100,6 +100,42 @@ for name, data, bad_cnt, res_data in (
 				res = list(fh)
 				assert res == [res_data[ix - bad_cnt]] * bad_cnt + res_data, res
 			# Great, all default values came out right in the file!
+	# Verify hashing and slicing
+	for slices in range(1, 24):
+		res = []
+		total_count = 0
+		for sliceno in range(slices):
+			with w_typ(TMP_FN, hashfilter=(sliceno, slices)) as fh:
+				count = 0
+				for ix, value in enumerate(data):
+					try:
+						count += fh.write(value)
+						assert ix >= bad_cnt, repr(value)
+					except (ValueError, TypeError, OverflowError):
+						assert ix < bad_cnt, repr(value)
+				assert fh.count == count, "%s (%d, %d): %d lines written, claims %d" % (name, sliceno, slices, count, fh.count,)
+				if "Lines" not in name:
+					got_min, got_max = fh.min, fh.max
+			total_count += count
+			with r_typ(TMP_FN) as fh:
+				tmp = list(fh)
+			assert len(tmp) == count, "%s (%d, %d): %d lines written, claims %d" % (name, sliceno, slices, len(tmp), count,)
+			for v in tmp:
+				assert w_typ.hash(v) % slices == sliceno, "Bad hash for %r" % (v,)
+				assert w_typ.hash(v) == gzutil.hash(v), "Inconsistent hash for %r" % (v,)
+			res.extend(tmp)
+			if "Lines" not in name:
+				tmp = list(filter(lambda x: x is not None, tmp))
+				if tmp:
+					want_min = min(tmp)
+					want_max = max(tmp)
+					assert got_min == want_min, "%s (%d, %d): claims min %r, not %r" % (name, sliceno, slices, got_min, want_min,)
+					assert got_max == want_max, "%s (%d, %d): claims max %r, not %r" % (name, sliceno, slices, got_max, want_max,)
+				else:
+					assert got_min is None and got_max is None
+		assert len(res) == total_count, "%s (%d): %d lines written, claims %d" % (name, slices, len(res), total_count,)
+		assert len(res) == len(res_data), "%s (%d): %d lines written, should be %d" % (name, slices, len(res), len(res_data),)
+		assert set(res) == set(res_data), "%s (%d): Wrong data: %r != %r" % (name, slices, res, res_data,)
 
 print("BOM test")
 def test_read_bom(num, prefix=""):
