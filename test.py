@@ -137,6 +137,26 @@ for name, data, bad_cnt, res_data in (
 		assert len(res) == len(res_data), "%s (%d): %d lines written, should be %d" % (name, slices, len(res), len(res_data),)
 		assert set(res) == set(res_data), "%s (%d): Wrong data: %r != %r" % (name, slices, res, res_data,)
 
+print("Hash testing, false things")
+for v in (None, "", b"", 0, 0.0, False,):
+	assert gzutil.hash(v) == 0, "%r doesn't hash to 0" % (v,)
+print("Hash testing, strings")
+for v in ("", "a", "0", "foo", "a slightly longer string", "\0", "a\0b",):
+	u = gzutil.GzWriteUnicodeLines.hash(v)
+	a = gzutil.GzWriteAsciiLines.hash(v)
+	b = gzutil.GzWriteBytesLines.hash(v.encode("utf-8"))
+	assert u == a == b, "%r doesn't hash the same" % (v,)
+assert gzutil.hash(b"\xe4") != gzutil.hash("\xe4"), "Unicode hash fail"
+assert gzutil.GzWriteBytesLines.hash(b"\xe4") != gzutil.GzWriteUnicodeLines.hash("\xe4"), "Unicode hash fail"
+try:
+	gzutil.GzWriteAsciiLines.hash(b"\xe4")
+	raise Exception("Ascii.hash acceptet non-ascii")
+except ValueError:
+	pass
+print("Hash testing, numbers")
+for v in (0, 1, 2, 9007199254740991, -42):
+	assert gzutil.GzWriteInt64.hash(v) == gzutil.GzWriteFloat64.hash(float(v)), "%d doesn't hash the same" % (v,)
+
 print("BOM test")
 def test_read_bom(num, prefix=""):
 	with gzutil.GzBytesLines(TMP_FN) as fh:
