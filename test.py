@@ -204,3 +204,17 @@ with gzutil.GzWriteInt64(TMP_FN, mode="a") as fh:
 	fh.write(18)
 with gzutil.GzInt64(TMP_FN) as fh:
 	assert list(fh) == [42, 18]
+
+print("Untyped writer test")
+with gzutil.GzWrite(TMP_FN) as fh:
+	class SubString(bytes): pass
+	for v in (b"apa", "beta", 42, None, SubString(b"\n"), b"foo"):
+		try:
+			fh.write(v)
+			assert isinstance(v, bytes), "GzWrite accepted %r" % (type(v),)
+		except ValueError:
+			assert not isinstance(v, bytes), "GzWrite doesn't accept %r" % (type(v),)
+			pass
+with gzutil.GzAsciiLines(TMP_FN) as fh:
+	res = list(fh)
+	assert res == ["apa", "foo"], "Failed to read back GzWrite written stuff: %r" % (res,)
