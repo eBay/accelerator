@@ -242,8 +242,33 @@ static inline PyObject *mkUnicode(GzRead *self, const char *ptr, int len)
 			if (gzread_read_(self)) {                                        	\
 				return mk ## typename(self, line, linelen);              	\
 			}                                                                	\
-			end = memchr(self->buf + self->pos, '\n', self->len - self->pos);	\
-			if (!end) end = self->buf + self->len;                           	\
+			end = memchr(self->buf, '\n', self->len);                        	\
+			if (!end) {                                                      	\
+				size_t longlen = linelen + self->len;                    	\
+				char *longbuf = malloc(longlen);                         	\
+				if (!longbuf) return PyErr_NoMemory();                   	\
+				memcpy(longbuf, line, linelen);                          	\
+				memcpy(longbuf + linelen, self->buf, self->len);         	\
+				while (1) {                                              	\
+					if (gzread_read_(self)) break;                   	\
+					int copylen = Z;                                 	\
+					char *end = memchr(self->buf, '\n', self->len);  	\
+					if (end) copylen = end - self->buf;              	\
+					char *tmp = realloc(longbuf, longlen + copylen); 	\
+					if (!tmp) {                                      	\
+						free(longbuf);                           	\
+						return PyErr_NoMemory();                 	\
+					}                                                	\
+					longbuf = tmp;                                   	\
+					memcpy(longbuf + longlen, self->buf, copylen);   	\
+					longlen += copylen;                              	\
+					self->pos = copylen + 1;                         	\
+					if (end) break;                                  	\
+				}                                                        	\
+				PyObject *res = mk ## typename(self, longbuf, longlen);  	\
+				free(longbuf);                                           	\
+				return res;                                              	\
+			}                                                                	\
 			self->pos = end - self->buf + 1;                                 	\
 			memcpy(line + linelen, self->buf, self->pos - 1);                	\
 			return mk ## typename(self, line, linelen + self->pos - 1);      	\
@@ -632,13 +657,6 @@ static PyObject *gzwrite_write_GzWrite(GzWrite *self, PyObject *obj)
 		PyErr_Format(PyExc_ValueError,                                        	\
 		             "Value becomes None-marker (line %ld)",                  	\
 		             self->count + 1);                                        	\
-		return 0;                                                             	\
-	}                                                                             	\
-	if (len >= Z) {                                                               	\
-		cleanup;                                                              	\
-		PyErr_Format(PyExc_ValueError,                                        	\
-		             "Value is %lld bytes, max %lld allowed (line %ld)",      	\
-		             (long long)len, (long long)Z, self->count + 1);          	\
 		return 0;                                                             	\
 	}                                                                             	\
 	if (memchr(data, '\n', len)) {                                                	\
@@ -1254,7 +1272,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	INIT(GzWriteParsedInt32);
 	INIT(GzWriteParsedBits64);
 	INIT(GzWriteParsedBits32);
-	PyObject *version = Py_BuildValue("(iii)", 2, 2, 5);
+	PyObject *version = Py_BuildValue("(iii)", 2, 2, 6);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;
