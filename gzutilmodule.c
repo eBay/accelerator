@@ -1191,6 +1191,20 @@ static struct PyModuleDef moduledef = {
 
 PyMODINIT_FUNC INITFUNC(void)
 {
+	int good = (sizeof(long) == 8);
+	good &= (sizeof(int64_t) == 8);
+	good &= (sizeof(double) == 8);
+	union { int16_t s; uint8_t c[2]; } endian_test;
+	endian_test.s = -2;
+	good &= (endian_test.c[0] == 254);
+	good &= (endian_test.c[1] == 255);
+	if (!good) {
+		PyErr_SetString(PyExc_OverflowError,
+			"This module only works with twos complement "
+			"little endian 64 bit longs (and 8 bit bytes)."
+		);
+		return INITERR;
+	}
 	PyDateTime_IMPORT;
 #if PY_MAJOR_VERSION >= 3
 	PyObject *m = PyModule_Create(&moduledef);
@@ -1240,7 +1254,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	INIT(GzWriteParsedInt32);
 	INIT(GzWriteParsedBits64);
 	INIT(GzWriteParsedBits32);
-	PyObject *version = Py_BuildValue("(iii)", 2, 2, 4);
+	PyObject *version = Py_BuildValue("(iii)", 2, 2, 5);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;
