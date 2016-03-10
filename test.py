@@ -218,3 +218,20 @@ with gzutil.GzWrite(TMP_FN) as fh:
 with gzutil.GzAsciiLines(TMP_FN) as fh:
 	res = list(fh)
 	assert res == ["apa", "foo"], "Failed to read back GzWrite written stuff: %r" % (res,)
+
+print("Line boundary test")
+Z = 128 * 1024 # the internal buffer size in gzutil
+a = [
+	"x" * (Z - 2) + "a",         # \n at end of buffer
+	"X" * (Z - 1) + "A",         # \n at start of 2nd buffer
+	"y" * (Z - 4) + "b",         # leave one char in 1st buffer
+	"Y" * (Z * 2 - 1) + "B",     # \n at start of 3rd buffer
+	"12345" * Z + "z" * (Z - 1), # \n at end of 6th buffer
+	"Z",
+]
+with gzutil.GzWriteAsciiLines(TMP_FN) as fh:
+	for v in a:
+		fh.write(v)
+with gzutil.GzAsciiLines(TMP_FN) as fh:
+	b = list(fh)
+assert a == b, b
