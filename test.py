@@ -35,6 +35,7 @@ for name, data, bad_cnt, res_data in (
 	("Bits64"        , ["0", int, None, l(-5), -5, 0.1, 0x8000000000000000, 0x7fffffffffffffff, l(0x8000000000000000)], 6, [0x8000000000000000, 0x7fffffffffffffff, 0x8000000000000000]),
 	("Int32"         , ["0", int, 0x80000000, -0x80000000, 0.1, 0x7fffffff, l(-5), None], 4, [0, 0x7fffffff, -5, None]),
 	("Bits32"        , ["0", int, None, l(-5), -5, 0.1, 0x80000000, 0x7fffffff, l(0x80000000)], 6, [0x80000000, 0x7fffffff, 0x80000000]),
+	("Number"        , ["0", int, 1 << 1007, -(1 << 1007), 1, l(0), -1, 0.5, 0x8000000000000000, -0x800000000000000, 1 << 340, (1 << 1007) - 1, -(1 << 1007) + 1, None], 4, [1, 0, -1, 0.5, 0x8000000000000000, -0x800000000000000, 1 << 340, (1 << 1007) - 1, -(1 << 1007) + 1, None]),
 	("Bool"          , ["0", bool, 0.0, True, False, 0, l(1), None], 2, [False, True, False, False, True, None]),
 	("BytesLines"    , [42, str, b"\n", u"a", b"a", b"foo bar baz", None], 4, [b"a", b"foo bar baz", None]),
 	("AsciiLines"    , [42, str, b"\n", u"foo\xe4", b"foo\xe4", u"a", b"foo bar baz", None], 5, [str("a"), str("foo bar baz"), None]),
@@ -44,6 +45,7 @@ for name, data, bad_cnt, res_data in (
 	("Time"          , [42, "now", dttm0, tm0, tm1, tm2, None], 3, [tm0, tm1, tm2, None]),
 	("ParsedFloat64" , [float, "1 thing", "", "0", " 4.2", -0.01, "1e42 ", " inf", "-inf ", None], 3, [0.0, 4.2, -0.01, 1e42, inf, ninf, None]),
 	("ParsedFloat32" , [float, "1 thing", "", "0", " 4.2", -0.01, "1e42 ", " inf", "-inf ", None], 3, [0.0, 4.199999809265137, -0.009999999776482582, inf , inf, ninf, None]),
+	("ParsedNumber"  , [int, "", str(1 << 1007), str(-(1 << 1007)), "0.0", 1, 0.0, "-1", "9223372036854775809", -0x800000000000000, str(1 << 340), str((1 << 1007) - 1), str(-(1 << 1007) + 1), None, "1e25"], 4, [0.0, 1, 0, -1, 0x8000000000000001, -0x800000000000000, 1 << 340, (1 << 1007) - 1, -(1 << 1007) + 1, None, 1e25]),
 	("ParsedInt64"   , [int, "", "9223372036854775808", -0x8000000000000000, "0.1", 1, 0.1, "9223372036854775807", " -5 ", None], 5, [1, 0, 0x7fffffffffffffff, -5, None]),
 	("ParsedBits64"  , [int, "", None, l(-5), "-5", 0.1, " 9223372036854775808", "9223372036854775807 ", "0", 1], 5, [0, 0x8000000000000000, 0x7fffffffffffffff, 0, 1]),
 	("ParsedInt32"   , [int, "", 0x80000000, -0x80000000, "0.1", 0.1, "-7", "-0", "2147483647", " -5 ", None, 1], 5, [0, -7, 0, 0x7fffffff, -5, None, 1]),
@@ -124,7 +126,8 @@ for name, data, bad_cnt, res_data in (
 			assert len(tmp) == count, "%s (%d, %d): %d lines written, claims %d" % (name, sliceno, slices, len(tmp), count,)
 			for v in tmp:
 				assert w_typ.hash(v) % slices == sliceno, "Bad hash for %r" % (v,)
-				assert w_typ.hash(v) == gzutil.hash(v), "Inconsistent hash for %r" % (v,)
+				if "Bits" not in name or v < 0x8000000000000000:
+					assert w_typ.hash(v) == gzutil.hash(v), "Inconsistent hash for %r" % (v,)
 			res.extend(tmp)
 			if "Lines" not in name:
 				tmp = list(filter(lambda x: x is not None, tmp))
@@ -158,6 +161,7 @@ except ValueError:
 print("Hash testing, numbers")
 for v in (0, 1, 2, 9007199254740991, -42):
 	assert gzutil.GzWriteInt64.hash(v) == gzutil.GzWriteFloat64.hash(float(v)), "%d doesn't hash the same" % (v,)
+	assert gzutil.GzWriteInt64.hash(v) == gzutil.GzWriteNumber.hash(v), "%d doesn't hash the same" % (v,)
 
 print("BOM test")
 def test_read_bom(num, prefix=""):
@@ -235,3 +239,16 @@ with gzutil.GzWriteAsciiLines(TMP_FN) as fh:
 with gzutil.GzAsciiLines(TMP_FN) as fh:
 	b = list(fh)
 assert a == b, b
+
+print("Number boundary test")
+with gzutil.GzWriteNumber(TMP_FN) as fh:
+	todo = Z - 100
+	while todo > 0:
+		fh.write(42)
+		todo -= 9
+	# v goes over a block boundary.
+	v = 0x2e6465726f6220657261206577202c6567617373656d20676e6f6c207974746572702061207369207374696220646e6173756f6874206120796c6c6175746341203f7468676972202c6c6c657720736120746867696d206577202c65726568206567617373656d2074726f68732061206576616820732774656c20796548
+	want = [42] * fh.count + [v]
+	fh.write(v)
+with gzutil.GzNumber(TMP_FN) as fh:
+	assert want == list(fh)
