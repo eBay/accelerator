@@ -1604,7 +1604,10 @@ PyMODINIT_FUNC INITFUNC(void)
 	INIT(GzWriteParsedInt32);
 	INIT(GzWriteParsedBits64);
 	INIT(GzWriteParsedBits32);
-	PyObject *version = Py_BuildValue("(iii)", 2, 3, 1);
+	PyObject *c_hash = PyCapsule_New((void *)hash, "gzutil._C_hash", 0);
+	if (!c_hash) return INITERR;
+	PyModule_AddObject(m, "_C_hash", c_hash);
+	PyObject *version = Py_BuildValue("(iii)", 2, 3, 2);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;
