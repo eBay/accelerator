@@ -950,7 +950,7 @@ MK_MINMAX_SET(Time    , unfmt_time((*(uint64_t *)cmp_value) >> 32, *(uint64_t *)
 		}                                                                        	\
 		self->count = 0;                                                         	\
 		self->len = 0;                                                           	\
-		if (idstr) {                                                             	\
+		if (idstr && *mode == 'w') {                                             	\
 			PyObject *res1 = gzwrite_write_(self, idstr, 8);                 	\
 			err1(!res1);                                                     	\
 			Py_DECREF(res1);                                                 	\
@@ -1172,9 +1172,11 @@ static int gzwrite_init_GzWriteNumber(PyObject *self_, PyObject *args, PyObject 
 	}
 	self->count = 0;
 	self->len = 0;
-	PyObject *res1 = gzwrite_write_((GzWrite *)self_, IDSTR_NUMBER, 8);
-	err1(!res1);
-	Py_DECREF(res1);
+	if (*mode == 'w') {
+		PyObject *res1 = gzwrite_write_((GzWrite *)self_, IDSTR_NUMBER, 8);
+		err1(!res1);
+		Py_DECREF(res1);
+	}
 	return 0;
 err:
 	return -1;
@@ -1607,7 +1609,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	PyObject *c_hash = PyCapsule_New((void *)hash, "gzutil._C_hash", 0);
 	if (!c_hash) return INITERR;
 	PyModule_AddObject(m, "_C_hash", c_hash);
-	PyObject *version = Py_BuildValue("(iii)", 2, 3, 2);
+	PyObject *version = Py_BuildValue("(iii)", 2, 3, 3);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;
