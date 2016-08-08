@@ -547,7 +547,7 @@ typedef struct gzwrite {
 	PyObject *default_obj;
 	PyObject *min_obj;
 	PyObject *max_obj;
-	/* These are declated as double (biggest), but stored as whatever */
+	/* These are declared as double (biggest), but stored as whatever */
 	double   min_bin;
 	double   max_bin;
 	int sliceno;
