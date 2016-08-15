@@ -14,7 +14,7 @@
 
 
 // Must be a multiple of the largest fixed size type
-#define Z (128 * 1024)
+#define Z (16 * 1024)
 
 // Up to +-(2**1007 - 1). Don't increase this.
 #define GZNUMBER_MAX_BYTES 127
@@ -153,6 +153,7 @@ static int gzread_init(PyObject *self_, PyObject *args, PyObject *kwds)
 		PyErr_SetFromErrnoWithFilename(PyExc_IOError, self->name);
 		goto err;
 	}
+	gzbuffer(self->fh, self->max_count < 0 ? Z * 2 : Z / 2);
 	fd = -1; // belongs to self->fh now
 	self->pos = self->len = 0;
 	if (self_->ob_type == &GzAsciiLines_Type) {
@@ -1631,7 +1632,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	PyObject *c_hash = PyCapsule_New((void *)hash, "gzutil._C_hash", 0);
 	if (!c_hash) return INITERR;
 	PyModule_AddObject(m, "_C_hash", c_hash);
-	PyObject *version = Py_BuildValue("(iii)", 2, 4, 0);
+	PyObject *version = Py_BuildValue("(iii)", 2, 4, 1);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;
