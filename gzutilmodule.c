@@ -8,6 +8,9 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdint.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/fcntl.h>
 
 
 // Must be a multiple of the largest fixed size type
@@ -32,6 +35,8 @@ typedef struct gzread {
 	char *encoding;
 	char *errors;
 	PyObject *(*decodefunc)(const char *, Py_ssize_t, const char *);
+	PY_LONG_LONG max_count;
+	PY_LONG_LONG count;
 	gzFile fh;
 	int pos, len;
 	char buf[Z + 1];
@@ -44,6 +49,8 @@ static int gzread_close_(GzRead *self)
 	FREE(self->name);
 	FREE(self->errors);
 	FREE(self->encoding);
+	self->count = 0;
+	self->max_count = -1;
 	if (self->fh) {
 		gzclose(self->fh);
 		self->fh = 0;
@@ -119,22 +126,34 @@ static int gzread_init(PyObject *self_, PyObject *args, PyObject *kwds)
 	GzRead *self = (GzRead *)self_;
 	char *name = NULL;
 	int strip_bom = 0;
+	int fd = -1;
+	PY_LONG_LONG seek = 0;
 	gzread_close_(self);
 	if (self_->ob_type == &GzBytesLines_Type) {
-		static char *kwlist[] = {"name", "strip_bom", 0};
-		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|i", kwlist, Py_FileSystemDefaultEncoding, &self->name, &strip_bom)) return -1;
+		static char *kwlist[] = {"name", "strip_bom", "seek", "max_count", 0};
+		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|iLL", kwlist, Py_FileSystemDefaultEncoding, &self->name, &strip_bom, &seek, &self->max_count)) return -1;
 	} else if (self_->ob_type == &GzUnicodeLines_Type) {
-		static char *kwlist[] = {"name", "encoding", "errors", 0};
-		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|etet", kwlist, Py_FileSystemDefaultEncoding, &self->name, "ascii", &self->encoding, "ascii", &self->errors)) return -1;
+		static char *kwlist[] = {"name", "encoding", "errors", "seek", "max_count", 0};
+		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|etetLL", kwlist, Py_FileSystemDefaultEncoding, &self->name, "ascii", &self->encoding, "ascii", &self->errors, &seek, &self->max_count)) return -1;
 	} else {
-		static char *kwlist[] = {"name", 0};
-		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et", kwlist, Py_FileSystemDefaultEncoding, &self->name)) return -1;
+		static char *kwlist[] = {"name", "seek", "max_count", 0};
+		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|LL", kwlist, Py_FileSystemDefaultEncoding, &self->name, &seek, &self->max_count)) return -1;
 	}
-	self->fh = gzopen(self->name, "rb");
+	fd = open(self->name, O_RDONLY);
+	if (fd < 0) {
+		PyErr_SetFromErrnoWithFilename(PyExc_IOError, self->name);
+		goto err;
+	}
+	if (lseek(fd, seek, 0) != seek) {
+		PyErr_SetFromErrnoWithFilename(PyExc_IOError, self->name);
+		goto err;
+	}
+	self->fh = gzdopen(fd, "rb");
 	if (!self->fh) {
 		PyErr_SetFromErrnoWithFilename(PyExc_IOError, self->name);
 		goto err;
 	}
+	fd = -1; // belongs to self->fh now
 	self->pos = self->len = 0;
 	if (self_->ob_type == &GzAsciiLines_Type) {
 		self->decodefunc = PyUnicode_DecodeASCII;
@@ -195,6 +214,7 @@ static int gzread_init(PyObject *self_, PyObject *args, PyObject *kwds)
 	}
 	res = 0;
 err:
+	if (fd >= 0) close(fd);
 	if (res) gzread_close_(self);
 	return res;
 }
@@ -236,6 +256,8 @@ static int gzread_read_(GzRead *self)
 #define ITERPROLOGUE                                         	\
 	do {                                                 	\
 		if (!self->fh) return err_closed();          	\
+		if (self->count == self->max_count) return 0;	\
+		self->count++;                               	\
 		if (self->pos >= self->len) {                	\
 			if (gzread_read_(self)) return 0;    	\
 		}                                            	\
@@ -1609,7 +1631,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	PyObject *c_hash = PyCapsule_New((void *)hash, "gzutil._C_hash", 0);
 	if (!c_hash) return INITERR;
 	PyModule_AddObject(m, "_C_hash", c_hash);
-	PyObject *version = Py_BuildValue("(iii)", 2, 3, 3);
+	PyObject *version = Py_BuildValue("(iii)", 2, 4, 0);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;
