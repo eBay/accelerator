@@ -14,7 +14,7 @@
 
 
 // Must be a multiple of the largest fixed size type
-#define Z (16 * 1024)
+#define Z (128 * 1024)
 
 // Up to +-(2**1007 - 1). Don't increase this.
 #define GZNUMBER_MAX_BYTES 127
@@ -75,7 +75,7 @@ static int gzread_close_(GzRead *self)
 #endif
 
 // Stupid forward declarations
-static int gzread_read_(GzRead *self);
+static int gzread_read_(GzRead *self, int itemsize);
 static PyTypeObject GzBytesLines_Type;
 static PyTypeObject GzAsciiLines_Type;
 static PyTypeObject GzUnicodeLines_Type;
@@ -155,7 +155,7 @@ static int gzread_init(PyObject *self_, PyObject *args, PyObject *kwds)
 		PyErr_SetFromErrnoWithFilename(PyExc_IOError, self->name);
 		goto err;
 	}
-	gzbuffer(self->fh, self->max_count < 0 ? Z * 2 : Z / 2);
+	gzbuffer(self->fh, (self->max_count < 0 ? 64 : 16) * 1024);
 	fd = -1; // belongs to self->fh now
 	self->pos = self->len = 0;
 	if (self_->ob_type == &GzAsciiLines_Type) {
@@ -188,7 +188,7 @@ static int gzread_init(PyObject *self_, PyObject *args, PyObject *kwds)
 		}
 		if (self->decodefunc == PyUnicode_DecodeUTF8) strip_bom = 1;
 	}
-	gzread_read_(self);
+	gzread_read_(self, 8);
 	if (strip_bom) {
 		if (self->len >= 3 && !memcmp(self->buf, BOM_STR, 3)) {
 			self->pos = 3;
@@ -250,10 +250,16 @@ static PyObject *gzread_self(GzRead *self)
 	return (PyObject *)self;
 }
 
-static int gzread_read_(GzRead *self)
+static int gzread_read_(GzRead *self, int itemsize)
 {
 	if (!self->error) {
-		self->len = gzread(self->fh, self->buf, Z);
+		unsigned len = Z;
+		if (self->max_count > 0) {
+			PY_LONG_LONG count_left = self->max_count - self->count;
+			PY_LONG_LONG candidate = count_left * itemsize + itemsize;
+			if (candidate < len) len = candidate;
+		}
+		self->len = gzread(self->fh, self->buf, len);
 		if (self->len <= 0) {
 			(void) gzerror(self->fh, &self->error);
 		}
@@ -268,12 +274,28 @@ static int gzread_read_(GzRead *self)
 	return 0;
 }
 
-#define ITERPROLOGUE                                         	\
+// Likely item size to avoid over-read. (Exact when possible)
+#define SIZE_Bytes    20
+#define SIZE_Ascii    20
+#define SIZE_Unicode  20
+#define SIZE_Number   9
+#define SIZE_DateTime 8
+#define SIZE_Time     8
+#define SIZE_Date     4
+#define SIZE_double   8
+#define SIZE_float    4
+#define SIZE_int64_t  8
+#define SIZE_int32_t  4
+#define SIZE_uint64_t 8
+#define SIZE_uint32_t 4
+#define SIZE_uint8_t  1
+
+#define ITERPROLOGUE(typename)                               	\
 	do {                                                 	\
 		if (!self->fh) return err_closed();          	\
 		if (self->count == self->max_count) return 0;	\
 		if (self->error || self->pos >= self->len) { 	\
-			if (gzread_read_(self)) return 0;    	\
+			if (gzread_read_(self, SIZE_ ## typename)) return 0; \
 		}                                            	\
 		self->count++;                               	\
 	} while (0)
@@ -304,14 +326,14 @@ static inline PyObject *mkUnicode(GzRead *self, const char *ptr, int len)
 #define MKLINEITER(name, typename) \
 	static PyObject *name ## _iternext(GzRead *self)                                 	\
 	{                                                                                	\
-		ITERPROLOGUE;                                                            	\
+		ITERPROLOGUE(typename);                                                  	\
 		char *ptr = self->buf + self->pos;                                       	\
 		char *end = memchr(ptr, '\n', self->len - self->pos);                    	\
 		if (!end) {                                                              	\
 			int linelen = self->len - self->pos;                             	\
 			char line[Z + linelen];                                          	\
 			memcpy(line, self->buf + self->pos, linelen);                    	\
-			if (gzread_read_(self)) {                                        	\
+			if (gzread_read_(self, SIZE_ ## typename)) {                     	\
 				if (self->error) return 0;                                      \
 				return mk ## typename(self, line, linelen);              	\
 			}                                                                	\
@@ -323,9 +345,9 @@ static inline PyObject *mkUnicode(GzRead *self, const char *ptr, int len)
 				memcpy(longbuf, line, linelen);                          	\
 				memcpy(longbuf + linelen, self->buf, self->len);         	\
 				while (1) {                                              	\
-					if (gzread_read_(self)) break;                   	\
-					int copylen = Z;                                 	\
-					char *end = memchr(self->buf, '\n', self->len);  	\
+					if (gzread_read_(self, SIZE_ ## typename)) break;	\
+					int copylen = self->len;                         	\
+					char *end = memchr(self->buf, '\n', copylen);    	\
 					if (end) copylen = end - self->buf;              	\
 					char *tmp = realloc(longbuf, longlen + copylen); 	\
 					if (!tmp) {                                      	\
@@ -380,7 +402,7 @@ static const uint8_t noneval_uint8_t = 255;
 #define MKITER(name, T, conv, withnone)                                      	\
 	static PyObject * name ## _iternext(GzRead *self)                   	\
 	{                                                                    	\
-		ITERPROLOGUE;                                                	\
+		ITERPROLOGUE(T);                                             	\
 		/* Z is a multiple of sizeof(T), so this never overruns. */  	\
 		const T res = *(T *)(self->buf + self->pos);                 	\
 		self->pos += sizeof(T);                                      	\
@@ -400,7 +422,7 @@ MKITER(GzBool   , uint8_t , PyBool_FromLong        , 1)
 
 static PyObject *GzNumber_iternext(GzRead *self)
 {
-	ITERPROLOGUE;
+	ITERPROLOGUE(Number);
 	int is_float = 0;
 	int len = self->buf[self->pos];
 	self->pos++;
@@ -422,7 +444,7 @@ static PyObject *GzNumber_iternext(GzRead *self)
 		memcpy(buf, self->buf + self->pos, avail);
 		unsigned char * const ptr = buf + avail;
 		const int morelen = len - avail;
-		if (gzread_read_(self) || morelen > self->len) {
+		if (gzread_read_(self, SIZE_Number) || morelen > self->len) {
 			self->error = 1;
 			PyErr_SetString(PyExc_ValueError, "File format error");
 			return 0;
@@ -450,7 +472,7 @@ static inline PyObject *unfmt_datetime(const uint32_t i0, const uint32_t i1)
 
 static PyObject *GzDateTime_iternext(GzRead *self)
 {
-	ITERPROLOGUE;
+	ITERPROLOGUE(DateTime);
 	/* Z is a multiple of 8, so this never overruns. */
 	const uint32_t i0 = *(uint32_t *)(self->buf + self->pos);
 	const uint32_t i1 = *(uint32_t *)(self->buf + self->pos + 4);
@@ -469,7 +491,7 @@ static inline PyObject *unfmt_date(const uint32_t i0)
 
 static PyObject *GzDate_iternext(GzRead *self)
 {
-	ITERPROLOGUE;
+	ITERPROLOGUE(Date);
 	/* Z is a multiple of 4, so this never overruns. */
 	const uint32_t i0 = *(uint32_t *)(self->buf + self->pos);
 	self->pos += 4;
@@ -488,7 +510,7 @@ static inline PyObject *unfmt_time(const uint32_t i0, const uint32_t i1)
 
 static PyObject *GzTime_iternext(GzRead *self)
 {
-	ITERPROLOGUE;
+	ITERPROLOGUE(Time);
 	/* Z is a multiple of 8, so this never overruns. */
 	const uint32_t i0 = *(uint32_t *)(self->buf + self->pos);
 	const uint32_t i1 = *(uint32_t *)(self->buf + self->pos + 4);
@@ -1652,7 +1674,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	PyObject *c_hash = PyCapsule_New((void *)hash, "gzutil._C_hash", 0);
 	if (!c_hash) return INITERR;
 	PyModule_AddObject(m, "_C_hash", c_hash);
-	PyObject *version = Py_BuildValue("(iii)", 2, 4, 2);
+	PyObject *version = Py_BuildValue("(iii)", 2, 4, 3);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;
