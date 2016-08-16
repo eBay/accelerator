@@ -38,6 +38,7 @@ typedef struct gzread {
 	PY_LONG_LONG max_count;
 	PY_LONG_LONG count;
 	gzFile fh;
+	int error;
 	int pos, len;
 	char buf[Z + 1];
 } GzRead;
@@ -129,6 +130,7 @@ static int gzread_init(PyObject *self_, PyObject *args, PyObject *kwds)
 	int fd = -1;
 	PY_LONG_LONG seek = 0;
 	gzread_close_(self);
+	self->error = 0;
 	if (self_->ob_type == &GzBytesLines_Type) {
 		static char *kwlist[] = {"name", "strip_bom", "seek", "max_count", 0};
 		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|iLL", kwlist, Py_FileSystemDefaultEncoding, &self->name, &strip_bom, &seek, &self->max_count)) return -1;
@@ -216,7 +218,10 @@ static int gzread_init(PyObject *self_, PyObject *args, PyObject *kwds)
 	res = 0;
 err:
 	if (fd >= 0) close(fd);
-	if (res) gzread_close_(self);
+	if (res) {
+		gzread_close_(self);
+		self->error = 1;
+	}
 	return res;
 }
 
@@ -247,7 +252,16 @@ static PyObject *gzread_self(GzRead *self)
 
 static int gzread_read_(GzRead *self)
 {
-	self->len = gzread(self->fh, self->buf, Z);
+	if (!self->error) {
+		self->len = gzread(self->fh, self->buf, Z);
+		if (self->len <= 0) {
+			(void) gzerror(self->fh, &self->error);
+		}
+	}
+	if (self->error) {
+		PyErr_SetString(PyExc_ValueError, "File format error");
+		return 1;
+	}
 	if (self->len <= 0) return 1;
 	self->buf[self->len] = 0;
 	self->pos = 0;
@@ -258,10 +272,10 @@ static int gzread_read_(GzRead *self)
 	do {                                                 	\
 		if (!self->fh) return err_closed();          	\
 		if (self->count == self->max_count) return 0;	\
-		self->count++;                               	\
-		if (self->pos >= self->len) {                	\
+		if (self->error || self->pos >= self->len) { 	\
 			if (gzread_read_(self)) return 0;    	\
 		}                                            	\
+		self->count++;                               	\
 	} while (0)
 
 static inline PyObject *mkBytes(GzRead *self, const char *ptr, int len)
@@ -298,6 +312,7 @@ static inline PyObject *mkUnicode(GzRead *self, const char *ptr, int len)
 			char line[Z + linelen];                                          	\
 			memcpy(line, self->buf + self->pos, linelen);                    	\
 			if (gzread_read_(self)) {                                        	\
+				if (self->error) return 0;                                      \
 				return mk ## typename(self, line, linelen);              	\
 			}                                                                	\
 			end = memchr(self->buf, '\n', self->len);                        	\
@@ -323,6 +338,10 @@ static inline PyObject *mkUnicode(GzRead *self, const char *ptr, int len)
 					self->pos = copylen + 1;                         	\
 					if (end) break;                                  	\
 				}                                                        	\
+				if (self->error) {                                              \
+					free(longbuf);                                          \
+					return 0;                                               \
+				}                                                               \
 				PyObject *res = mk ## typename(self, longbuf, longlen);  	\
 				free(longbuf);                                           	\
 				return res;                                              	\
@@ -404,6 +423,7 @@ static PyObject *GzNumber_iternext(GzRead *self)
 		unsigned char * const ptr = buf + avail;
 		const int morelen = len - avail;
 		if (gzread_read_(self) || morelen > self->len) {
+			self->error = 1;
 			PyErr_SetString(PyExc_ValueError, "File format error");
 			return 0;
 		}
@@ -1632,7 +1652,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	PyObject *c_hash = PyCapsule_New((void *)hash, "gzutil._C_hash", 0);
 	if (!c_hash) return INITERR;
 	PyModule_AddObject(m, "_C_hash", c_hash);
-	PyObject *version = Py_BuildValue("(iii)", 2, 4, 1);
+	PyObject *version = Py_BuildValue("(iii)", 2, 4, 2);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;
