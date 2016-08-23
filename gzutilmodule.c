@@ -35,11 +35,14 @@ typedef struct gzread {
 	char *encoding;
 	char *errors;
 	PyObject *(*decodefunc)(const char *, Py_ssize_t, const char *);
+	PyObject *hashfilter;
 	PY_LONG_LONG max_count;
 	PY_LONG_LONG count;
 	gzFile fh;
 	int error;
 	int pos, len;
+	int sliceno;
+	int slices;
 	char buf[Z + 1];
 } GzRead;
 
@@ -50,6 +53,9 @@ static int gzread_close_(GzRead *self)
 	FREE(self->name);
 	FREE(self->errors);
 	FREE(self->encoding);
+	Py_CLEAR(self->hashfilter);
+	self->sliceno = 0;
+	self->slices = 0;
 	self->count = 0;
 	self->max_count = -1;
 	if (self->fh) {
@@ -132,14 +138,14 @@ static int gzread_init(PyObject *self_, PyObject *args, PyObject *kwds)
 	gzread_close_(self);
 	self->error = 0;
 	if (self_->ob_type == &GzBytesLines_Type) {
-		static char *kwlist[] = {"name", "strip_bom", "seek", "max_count", 0};
-		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|iLL", kwlist, Py_FileSystemDefaultEncoding, &self->name, &strip_bom, &seek, &self->max_count)) return -1;
+		static char *kwlist[] = {"name", "strip_bom", "seek", "max_count", "hashfilter", 0};
+		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|iLL(ii)", kwlist, Py_FileSystemDefaultEncoding, &self->name, &strip_bom, &seek, &self->max_count, &self->sliceno, &self->slices)) return -1;
 	} else if (self_->ob_type == &GzUnicodeLines_Type) {
-		static char *kwlist[] = {"name", "encoding", "errors", "seek", "max_count", 0};
-		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|etetLL", kwlist, Py_FileSystemDefaultEncoding, &self->name, "ascii", &self->encoding, "ascii", &self->errors, &seek, &self->max_count)) return -1;
+		static char *kwlist[] = {"name", "encoding", "errors", "seek", "max_count", "hashfilter", 0};
+		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|etetLL(ii)", kwlist, Py_FileSystemDefaultEncoding, &self->name, "ascii", &self->encoding, "ascii", &self->errors, &seek, &self->max_count, &self->sliceno, &self->slices)) return -1;
 	} else {
-		static char *kwlist[] = {"name", "seek", "max_count", 0};
-		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|LL", kwlist, Py_FileSystemDefaultEncoding, &self->name, &seek, &self->max_count)) return -1;
+		static char *kwlist[] = {"name", "seek", "max_count", "hashfilter", 0};
+		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|LL(ii)", kwlist, Py_FileSystemDefaultEncoding, &self->name, &seek, &self->max_count, &self->sliceno, &self->slices)) return -1;
 	}
 	fd = open(self->name, O_RDONLY);
 	if (fd < 0) {
@@ -187,6 +193,14 @@ static int gzread_init(PyObject *self_, PyObject *args, PyObject *kwds)
 			strcpy(self->encoding, "utf-8");
 		}
 		if (self->decodefunc == PyUnicode_DecodeUTF8) strip_bom = 1;
+	}
+	if ((self->sliceno || self->slices) && (self->sliceno < 0 || self->slices <= 0 || self->sliceno >= self->slices)) {
+		PyErr_Format(PyExc_ValueError, "Bad hashfilter (%d, %d)", self->sliceno, self->slices);
+		goto err;
+	}
+	if (self->slices) {
+		self->hashfilter = Py_BuildValue("(ii)", self->sliceno, self->slices);
+		err1(!self->hashfilter);
 	}
 	gzread_read_(self, 8);
 	if (strip_bom) {
@@ -300,21 +314,44 @@ static int gzread_read_(GzRead *self, int itemsize)
 		self->count++;                               	\
 	} while (0)
 
+#define HC_RETURN_NONE do {                  	\
+	if (self->slices) {                  	\
+		if (self->sliceno) {         	\
+			Py_RETURN_FALSE;     	\
+		} else {                     	\
+			Py_RETURN_TRUE;      	\
+		}                            	\
+	} else {                             	\
+		Py_RETURN_NONE;              	\
+	}                                    	\
+} while(0)
+
+#define HC_CHECK(hash) do {                                  	\
+	if (self->slices) {                                  	\
+		if (hash % self->slices == self->sliceno) {  	\
+			Py_RETURN_TRUE;                      	\
+		} else {                                     	\
+			Py_RETURN_FALSE;                     	\
+		}                                            	\
+	}                                                    	\
+} while(0)
+
 static inline PyObject *mkBytes(GzRead *self, const char *ptr, int len)
 {
-	(void) self;
 	if (len == 1 && *ptr == 0) {
-		Py_RETURN_NONE;
+		HC_RETURN_NONE;
 	}
 	if (len && ptr[len - 1] == '\r') len--;
+	HC_CHECK(hash(ptr, len));
 	return PyBytes_FromStringAndSize(ptr, len);
 }
 static inline PyObject *mkUnicode(GzRead *self, const char *ptr, int len)
 {
 	if (len == 1 && *ptr == 0) {
-		Py_RETURN_NONE;
+		HC_RETURN_NONE;
 	}
 	if (len && ptr[len - 1] == '\r') len--;
+	HC_CHECK(hash(ptr, len));
 	return self->decodefunc(ptr, len, self->errors);
 }
 #if PY_MAJOR_VERSION < 3
@@ -399,26 +436,30 @@ static const uint32_t noneval_uint32_t = 0;
 // This is bool
 static const uint8_t noneval_uint8_t = 255;
 
-#define MKITER(name, T, conv, withnone)                                      	\
-	static PyObject * name ## _iternext(GzRead *self)                   	\
+#define MKITER(name, T, conv, hash, HT, withnone)                            	\
+	static PyObject * name ## _iternext(GzRead *self)                    	\
 	{                                                                    	\
 		ITERPROLOGUE(T);                                             	\
 		/* Z is a multiple of sizeof(T), so this never overruns. */  	\
 		const T res = *(T *)(self->buf + self->pos);                 	\
 		self->pos += sizeof(T);                                      	\
 		if (withnone && !memcmp(&res, &noneval_ ## T, sizeof(T))) {  	\
-			Py_RETURN_NONE;                                      	\
+			HC_RETURN_NONE;                                      	\
+		}                                                            	\
+		if (self->slices) {                                          	\
+			HT v = res;                                          	\
+			HC_CHECK(hash(&v));                                  	\
 		}                                                            	\
 		return conv(res);                                            	\
 	}
 
-MKITER(GzFloat64, double  , PyFloat_FromDouble     , 1)
-MKITER(GzFloat32, float   , PyFloat_FromDouble     , 1)
-MKITER(GzInt64  , int64_t , PyInt_FromLong         , 1)
-MKITER(GzInt32  , int32_t , PyInt_FromLong         , 1)
-MKITER(GzBits64 , uint64_t, PyLong_FromUnsignedLong, 0)
-MKITER(GzBits32 , uint32_t, PyLong_FromUnsignedLong, 0)
-MKITER(GzBool   , uint8_t , PyBool_FromLong        , 1)
+MKITER(GzFloat64, double  , PyFloat_FromDouble     , hash_double , double  , 1)
+MKITER(GzFloat32, float   , PyFloat_FromDouble     , hash_double , double  , 1)
+MKITER(GzInt64  , int64_t , PyInt_FromLong         , hash_integer, int64_t , 1)
+MKITER(GzInt32  , int32_t , PyInt_FromLong         , hash_integer, int64_t , 1)
+MKITER(GzBits64 , uint64_t, PyLong_FromUnsignedLong, hash_integer, uint64_t, 0)
+MKITER(GzBits32 , uint32_t, PyLong_FromUnsignedLong, hash_integer, uint64_t, 0)
+MKITER(GzBool   , uint8_t , PyBool_FromLong        , hash_bool   , uint8_t , 1)
 
 static PyObject *GzNumber_iternext(GzRead *self)
 {
@@ -426,7 +467,7 @@ static PyObject *GzNumber_iternext(GzRead *self)
 	int is_float = 0;
 	int len = self->buf[self->pos];
 	self->pos++;
-	if (!len) Py_RETURN_NONE;
+	if (!len) HC_RETURN_NONE;
 	if (len == 1) {
 		len = 8;
 		is_float = 1;
@@ -452,8 +493,17 @@ static PyObject *GzNumber_iternext(GzRead *self)
 		memcpy(ptr, self->buf, morelen);
 		self->pos = morelen;
 	}
-	if (is_float) return PyFloat_FromDouble(*(double *)buf);
-	if (len == 8) return PyInt_FromLong(*(int64_t *)buf);
+	if (is_float) {
+		double v = *(double *)buf;
+		HC_CHECK(hash_double(&v));
+		return PyFloat_FromDouble(v);
+	}
+	if (len == 8) {
+		int64_t v = *(int64_t *)buf;
+		HC_CHECK(hash_integer(&v));
+		return PyInt_FromLong(v);
+	}
+	HC_CHECK(hash(buf, len));
 	return _PyLong_FromByteArray(buf, len, 1, 1);
 }
 
@@ -477,6 +527,8 @@ static PyObject *GzDateTime_iternext(GzRead *self)
 	const uint32_t i0 = *(uint32_t *)(self->buf + self->pos);
 	const uint32_t i1 = *(uint32_t *)(self->buf + self->pos + 4);
 	self->pos += 8;
+	if (!i0) HC_RETURN_NONE;
+	HC_CHECK(hash_64bits(self->buf + self->pos - 8));
 	return unfmt_datetime(i0, i1);
 }
 
@@ -495,6 +547,8 @@ static PyObject *GzDate_iternext(GzRead *self)
 	/* Z is a multiple of 4, so this never overruns. */
 	const uint32_t i0 = *(uint32_t *)(self->buf + self->pos);
 	self->pos += 4;
+	if (!i0) HC_RETURN_NONE;
+	HC_CHECK(hash_32bits(self->buf + self->pos - 4));
 	return unfmt_date(i0);
 }
 
@@ -515,6 +569,8 @@ static PyObject *GzTime_iternext(GzRead *self)
 	const uint32_t i0 = *(uint32_t *)(self->buf + self->pos);
 	const uint32_t i1 = *(uint32_t *)(self->buf + self->pos + 4);
 	self->pos += 8;
+	if (!i0) HC_RETURN_NONE;
+	HC_CHECK(hash_64bits(self->buf + self->pos - 8));
 	return unfmt_time(i0, i1);
 }
 
@@ -577,7 +633,8 @@ static PyMethodDef gzread_methods[] = {
 		0,                              /*tp_is_gc         */	\
 	}
 static PyMemberDef r_default_members[] = {
-	{"name"    , T_STRING, offsetof(GzRead, name    ), READONLY},
+	{"name"      , T_STRING   , offsetof(GzRead, name       ), READONLY},
+	{"hashfilter", T_OBJECT_EX, offsetof(GzRead, hashfilter ), READONLY},
 	{0}
 };
 static PyMemberDef r_unicode_members[] = {
@@ -648,6 +705,8 @@ static int gzwrite_close_(GzWrite *self)
 	}
 	FREE(self->name);
 	Py_CLEAR(self->hashfilter);
+	self->sliceno = 0;
+	self->slices = 0;
 	Py_CLEAR(self->default_obj);
 	Py_CLEAR(self->min_obj);
 	Py_CLEAR(self->max_obj);
@@ -1674,7 +1733,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	PyObject *c_hash = PyCapsule_New((void *)hash, "gzutil._C_hash", 0);
 	if (!c_hash) return INITERR;
 	PyModule_AddObject(m, "_C_hash", c_hash);
-	PyObject *version = Py_BuildValue("(iii)", 2, 4, 3);
+	PyObject *version = Py_BuildValue("(iii)", 2, 5, 0);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;

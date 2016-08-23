@@ -6,6 +6,7 @@ from __future__ import division, print_function, unicode_literals
 
 from datetime import datetime, date, time
 from sys import version_info
+from itertools import compress
 import gzutil
 
 TMP_FN = "_tmp_test.gz"
@@ -105,6 +106,7 @@ for name, data, bad_cnt, res_data in (
 	# Verify hashing and slicing
 	for slices in range(1, 24):
 		res = []
+		sliced_res = []
 		total_count = 0
 		for sliceno in range(slices):
 			with w_typ(TMP_FN, hashfilter=(sliceno, slices)) as fh:
@@ -129,6 +131,7 @@ for name, data, bad_cnt, res_data in (
 				if "Bits" not in name or v < 0x8000000000000000:
 					assert w_typ.hash(v) == gzutil.hash(v), "Inconsistent hash for %r" % (v,)
 			res.extend(tmp)
+			sliced_res.append(tmp)
 			if "Lines" not in name:
 				tmp = list(filter(lambda x: x is not None, tmp))
 				if tmp:
@@ -141,6 +144,14 @@ for name, data, bad_cnt, res_data in (
 		assert len(res) == total_count, "%s (%d): %d lines written, claims %d" % (name, slices, len(res), total_count,)
 		assert len(res) == len(res_data), "%s (%d): %d lines written, should be %d" % (name, slices, len(res), len(res_data),)
 		assert set(res) == set(res_data), "%s (%d): Wrong data: %r != %r" % (name, slices, res, res_data,)
+		# verify reading back with hashfilter gives the same as writing with it
+		with w_typ(TMP_FN) as fh:
+			for value in data[bad_cnt:]:
+				fh.write(value)
+		for sliceno in range(slices):
+			with r_typ(TMP_FN, hashfilter=(sliceno, slices)) as fh:
+				slice_values = list(compress(res_data, fh))
+			assert slice_values == sliced_res[sliceno], "Bad reader hashfilter: slice %d of %d gave %r instead of %r" % (sliceno, slices, slice_values, sliced_res[sliceno],)
 
 print("Hash testing, false things")
 for v in (None, "", b"", 0, 0.0, False,):
