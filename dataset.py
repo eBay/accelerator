@@ -609,7 +609,7 @@ class DatasetWriter(object):
 			for ix in range(len(names)):
 				if ix != hix:
 					f.append('  w%d(%s)' % (ix, names[ix],))
-		exec '\n'.join(f) in w_d
+		eval(compile('\n'.join(f), '<DatasetWriter generated write>', 'exec'), w_d)
 		self.write = w_d['write']
 
 	@property
@@ -659,9 +659,9 @@ class DatasetWriter(object):
 			f_____.append('w_l[%d](%s)' % (ix, names[ix],))
 			f_list.append('w_l[%d](v[%d])' % (ix, ix,))
 			f_dict.append('w_l[%d](d[%r])' % (ix, self._order[ix],))
-		exec '\n '.join(f_____) in w_d
-		exec '\n '.join(f_list) in w_d
-		exec '\n '.join(f_dict) in w_d
+		eval(compile('\n '.join(f_____), '<DatasetWriter generated split_write>'     , 'exec'), w_d)
+		eval(compile('\n '.join(f_list), '<DatasetWriter generated split_write_list>', 'exec'), w_d)
+		eval(compile('\n '.join(f_dict), '<DatasetWriter generated split_write_dict>', 'exec'), w_d)
 		self._split = w_d['split']
 		self._split_list = w_d['split_list']
 		self._split_dict = w_d['split_dict']
