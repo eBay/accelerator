@@ -71,6 +71,7 @@ static int gzread_close_(GzRead *self)
 #  define UNICODE_NAME    "unicode"
 #  define EITHER_NAME     "str or unicode"
 #  define INITFUNC        initgzutil
+#  define Integer_Check(o) (PyInt_Check(o) || PyLong_Check(o))
 #else
 #  define BYTES_NAME      "bytes"
 #  define UNICODE_NAME    "str"
@@ -78,6 +79,7 @@ static int gzread_close_(GzRead *self)
 #  define PyInt_FromLong  PyLong_FromLong
 #  define PyNumber_Int    PyNumber_Long
 #  define INITFUNC        PyInit_gzutil
+#  define Integer_Check(o) PyLong_Check(o)
 #endif
 
 // Stupid forward declarations
@@ -1342,12 +1344,7 @@ static PyObject *gzwrite_C_GzWriteNumber(GzWrite *self, PyObject *obj, int actua
 		self->count++;
 		return gzwrite_write_(self, buf, 9);
 	}
-	if (first &&
-#if PY_MAJOR_VERSION < 3
-	    !PyInt_Check(obj) &&
-#endif
-	    !PyLong_Check(obj)
-	) {
+	if (first && !Integer_Check(obj)) {
 		if (first && self->default_obj) {
 			return gzwrite_C_GzWriteNumber(self, self->default_obj, actually_write, 0);
 		}
@@ -1406,12 +1403,7 @@ static PyObject *gzwrite_hash_GzWriteNumber(PyObject *dummy, PyObject *obj)
 			const double value = PyFloat_AS_DOUBLE(obj);
 			return PyLong_FromUnsignedLong(hash_double(&value));
 		}
-		if (
-#if PY_MAJOR_VERSION < 3
-		    !PyInt_Check(obj) &&
-#endif
-		    !PyLong_Check(obj)
-		) {
+		if (!Integer_Check(obj)) {
 			PyErr_SetString(PyExc_ValueError, "Only integers/floats accepted");
 			return 0;
 		}
@@ -1619,12 +1611,7 @@ static PyObject *generic_hash(PyObject *dummy, PyObject *obj)
 	if (PyUnicode_Check(obj))  return gzwrite_hash_GzWriteUnicodeLines(0, obj);
 	if (PyFloat_Check(obj))    return gzwrite_hash_GzWriteFloat64(0, obj);
 	if (PyBool_Check(obj))     return gzwrite_hash_GzWriteBool(0, obj);
-	if (
-#if PY_MAJOR_VERSION < 3
-	    PyInt_Check(obj) ||
-#endif
-	    PyLong_Check(obj)
-	   ) {
+	if (Integer_Check(obj)) {
 		return gzwrite_hash_GzWriteNumber(0, obj);
 	}
 	if (PyDateTime_Check(obj)) return gzwrite_hash_GzWriteDateTime(0, obj);
