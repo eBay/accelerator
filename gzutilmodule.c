@@ -38,6 +38,7 @@ typedef struct gzread {
 	PyObject *hashfilter;
 	PY_LONG_LONG max_count;
 	PY_LONG_LONG count;
+	uint64_t spread_None;
 	gzFile fh;
 	int error;
 	int pos, len;
@@ -127,22 +128,25 @@ static uint64_t hash_double(const void *ptr)
 	return hash(&d, sizeof(d));
 }
 
-static int parse_hashfilter(PyObject *hashfilter, PyObject **r_hashfilter, int *r_sliceno, int *r_slices)
+static int parse_hashfilter(PyObject *hashfilter, PyObject **r_hashfilter, int *r_sliceno, int *r_slices, uint64_t *r_spread_None)
 {
 	Py_CLEAR(*r_hashfilter);
 	*r_slices = 0;
 	*r_sliceno = 0;
+	*r_spread_None = 0;
 	if (!hashfilter || hashfilter == Py_None) return 0;
-	if (!PyArg_ParseTuple(hashfilter, "ii", r_sliceno, r_slices)) {
+	int spread_None = 0;
+	if (!PyArg_ParseTuple(hashfilter, "ii|i", r_sliceno, r_slices, &spread_None)) {
 		PyErr_Clear();
-		PyErr_SetString(PyExc_ValueError, "hashfilter should be a tuple (sliceno, slices)");
+		PyErr_SetString(PyExc_ValueError, "hashfilter should be a tuple (sliceno, slices) or (sliceno, slices, spread_None)");
 		return 1;
 	}
 	if (*r_sliceno < 0 || *r_slices <= 0 || *r_sliceno >= *r_slices) {
 		PyErr_Format(PyExc_ValueError, "Bad hashfilter (%d, %d)", *r_sliceno, *r_slices);
 		return 1;
 	}
-	*r_hashfilter = Py_BuildValue("(ii)", *r_sliceno, *r_slices);
+	*r_spread_None = !!spread_None;
+	*r_hashfilter = Py_BuildValue("(iiO)", *r_sliceno, *r_slices, spread_None ? Py_True : Py_False);
 	return !*r_hashfilter;
 }
 
@@ -214,7 +218,7 @@ static int gzread_init(PyObject *self_, PyObject *args, PyObject *kwds)
 		}
 		if (self->decodefunc == PyUnicode_DecodeUTF8) strip_bom = 1;
 	}
-	err1(parse_hashfilter(hashfilter, &self->hashfilter, &self->sliceno, &self->slices));
+	err1(parse_hashfilter(hashfilter, &self->hashfilter, &self->sliceno, &self->slices, &self->spread_None));
 	gzread_read_(self, 8);
 	if (strip_bom) {
 		if (self->len >= 3 && !memcmp(self->buf, BOM_STR, 3)) {
@@ -327,16 +331,22 @@ static int gzread_read_(GzRead *self, int itemsize)
 		self->count++;                               	\
 	} while (0)
 
-#define HC_RETURN_NONE do {                  	\
-	if (self->slices) {                  	\
-		if (self->sliceno) {         	\
-			Py_RETURN_FALSE;     	\
-		} else {                     	\
-			Py_RETURN_TRUE;      	\
-		}                            	\
-	} else {                             	\
-		Py_RETURN_NONE;              	\
-	}                                    	\
+#define HC_RETURN_NONE do {                                                  	\
+	if (self->slices) {                                                  	\
+		if (self->spread_None) {                                     	\
+			if (self->spread_None++ % self->slices == self->sliceno) {\
+				Py_RETURN_TRUE;                              	\
+			} else {                                             	\
+				Py_RETURN_FALSE;                             	\
+			}                                                    	\
+		} else if (self->sliceno) {                                  	\
+			Py_RETURN_FALSE;                                     	\
+		} else {                                                     	\
+			Py_RETURN_TRUE;                                      	\
+		}                                                            	\
+	} else {                                                             	\
+		Py_RETURN_NONE;                                              	\
+	}                                                                    	\
 } while(0)
 
 #define HC_CHECK(hash) do {                                  	\
@@ -685,6 +695,7 @@ typedef struct gzwrite {
 	/* These are declared as double (biggest), but stored as whatever */
 	double   min_bin;
 	double   max_bin;
+	uint64_t spread_None;
 	int sliceno;
 	int slices;
 	int len;
@@ -768,7 +779,7 @@ static int gzwrite_init_GzWriteLines(PyObject *self_, PyObject *args, PyObject *
 		PyErr_Format(PyExc_IOError, "Bad mode '%s'", mode);
 		goto err;
 	}
-	err1(parse_hashfilter(hashfilter, &self->hashfilter, &self->sliceno, &self->slices));
+	err1(parse_hashfilter(hashfilter, &self->hashfilter, &self->sliceno, &self->slices, &self->spread_None));
 	mode_buf[0] = mode[0]; // always [wa]b
 	self->fh = gzopen(self->name, mode_buf);
 	if (!self->fh) {
@@ -838,10 +849,22 @@ static PyObject *gzwrite_write_GzWrite(GzWrite *self, PyObject *obj)
 	return gzwrite_write_(self, data, len);
 }
 
+#define WRITE_NONE_SLICE_CHECK do {                                                   	\
+	if (self->spread_None) {                                                      	\
+		const int spread_slice = self->spread_None % self->slices;            	\
+		if (actually_write) self->spread_None++;                              	\
+		if (spread_slice != self->sliceno) {                                  	\
+			Py_RETURN_FALSE;                                              	\
+		}                                                                     	\
+	} else if (self->sliceno) {                                                   	\
+		Py_RETURN_FALSE;                                                      	\
+	}                                                                             	\
+	if (!actually_write) Py_RETURN_TRUE;                                          	\
+} while (0)
+
 #define WRITELINEPROLOGUE(checktype, errname) \
 	if (obj == Py_None) {                                                         	\
-		if (self->sliceno) Py_RETURN_FALSE;                                   	\
-		if (!actually_write) Py_RETURN_TRUE;                                  	\
+		WRITE_NONE_SLICE_CHECK;                                               	\
 		self->count++;                                                        	\
 		return gzwrite_write_(self, "\x00\n", 2);                             	\
 	}                                                                             	\
@@ -1065,7 +1088,7 @@ MK_MINMAX_SET(Time    , unfmt_time((*(uint64_t *)cmp_value) >> 32, *(uint64_t *)
 			}                                                                	\
 			memcpy(self->default_value, &value, sizeof(T));                  	\
 		}                                                                        	\
-		err1(parse_hashfilter(hashfilter, &self->hashfilter, &self->sliceno, &self->slices)); \
+		err1(parse_hashfilter(hashfilter, &self->hashfilter, &self->sliceno, &self->slices, &self->spread_None)); \
 		self->fh = gzopen(self->name, mode);                                     	\
 		if (!self->fh) {                                                         	\
 			PyErr_SetFromErrnoWithFilename(PyExc_IOError, self->name);       	\
@@ -1085,8 +1108,7 @@ err:                                                                            
 	static PyObject *gzwrite_C_ ## tname(GzWrite *self, PyObject *obj, int actually_write)	\
 	{                                                                                	\
 		if (withnone && obj == Py_None) {                                        	\
-			if (self->sliceno) Py_RETURN_FALSE;                              	\
-			if (!actually_write) Py_RETURN_TRUE;                             	\
+			WRITE_NONE_SLICE_CHECK;                                            	\
 			self->count++;                                                   	\
 			return gzwrite_write_(self, (char *)&noneval_ ## T, sizeof(T));  	\
 		}                                                                        	\
@@ -1281,7 +1303,7 @@ static int gzwrite_init_GzWriteNumber(PyObject *self_, PyObject *args, PyObject 
 			}
 		}
 	}
-	err1(parse_hashfilter(hashfilter, &self->hashfilter, &self->sliceno, &self->slices));
+	err1(parse_hashfilter(hashfilter, &self->hashfilter, &self->sliceno, &self->slices, &self->spread_None));
 	self->fh = gzopen(self->name, mode);
 	if (!self->fh) {
 		PyErr_SetFromErrnoWithFilename(PyExc_IOError, self->name);
@@ -1316,8 +1338,7 @@ static void gzwrite_obj_minmax(GzWrite *self, PyObject *obj)
 static PyObject *gzwrite_C_GzWriteNumber(GzWrite *self, PyObject *obj, int actually_write, int first)
 {
 	if (obj == Py_None) {
-		if (self->sliceno) Py_RETURN_FALSE;
-		if (!actually_write) Py_RETURN_TRUE;
+		WRITE_NONE_SLICE_CHECK;
 		self->count++;
 		return gzwrite_write_(self, "", 1);
 	}
@@ -1711,7 +1732,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	PyObject *c_hash = PyCapsule_New((void *)hash, "gzutil._C_hash", 0);
 	if (!c_hash) return INITERR;
 	PyModule_AddObject(m, "_C_hash", c_hash);
-	PyObject *version = Py_BuildValue("(iii)", 2, 5, 0);
+	PyObject *version = Py_BuildValue("(iii)", 2, 6, 0);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;

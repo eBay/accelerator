@@ -104,19 +104,19 @@ for name, data, bad_cnt, res_data in (
 				assert res == [res_data[ix - bad_cnt]] * bad_cnt + res_data, res
 			# Great, all default values came out right in the file!
 	# Verify hashing and slicing
-	for slices in range(1, 24):
+	def slice_test(slices, spread_None):
 		res = []
 		sliced_res = []
 		total_count = 0
 		for sliceno in range(slices):
-			with w_typ(TMP_FN, hashfilter=(sliceno, slices)) as fh:
+			with w_typ(TMP_FN, hashfilter=(sliceno, slices, spread_None)) as fh:
 				count = 0
 				for ix, value in enumerate(data):
 					try:
 						wrote = fh.write(value)
 						count += wrote
 						assert ix >= bad_cnt, repr(value)
-						assert fh.hashcheck(value) == wrote, "Hashcheck disagrees with write"
+						assert fh.hashcheck(value) == wrote or (spread_None and value is None), "Hashcheck disagrees with write"
 					except (ValueError, TypeError, OverflowError):
 						assert ix < bad_cnt, repr(value)
 				assert fh.count == count, "%s (%d, %d): %d lines written, claims %d" % (name, sliceno, slices, count, fh.count,)
@@ -127,7 +127,7 @@ for name, data, bad_cnt, res_data in (
 				tmp = list(fh)
 			assert len(tmp) == count, "%s (%d, %d): %d lines written, claims %d" % (name, sliceno, slices, len(tmp), count,)
 			for v in tmp:
-				assert w_typ.hash(v) % slices == sliceno, "Bad hash for %r" % (v,)
+				assert (spread_None and v is None) or w_typ.hash(v) % slices == sliceno, "Bad hash for %r" % (v,)
 				if "Bits" not in name or v < 0x8000000000000000:
 					assert w_typ.hash(v) == gzutil.hash(v), "Inconsistent hash for %r" % (v,)
 			res.extend(tmp)
@@ -149,9 +149,20 @@ for name, data, bad_cnt, res_data in (
 			for value in data[bad_cnt:]:
 				fh.write(value)
 		for sliceno in range(slices):
-			with r_typ(TMP_FN, hashfilter=(sliceno, slices)) as fh:
+			with r_typ(TMP_FN, hashfilter=(sliceno, slices, spread_None)) as fh:
 				slice_values = list(compress(res_data, fh))
 			assert slice_values == sliced_res[sliceno], "Bad reader hashfilter: slice %d of %d gave %r instead of %r" % (sliceno, slices, slice_values, sliced_res[sliceno],)
+	for slices in range(1, 24):
+		slice_test(slices, False)
+		slice_test(slices, True)
+		# and a simple check to verify that None actually gets spread too
+		if "Bits" not in name:
+			with w_typ(TMP_FN, hashfilter=(slices - 1, slices, True)) as fh:
+				for _ in range(slices * 3):
+					fh.write(None)
+			with r_typ(TMP_FN) as fh:
+				tmp = list(fh)
+				assert tmp == [None, None, None], "Bad spread_None for %d slices" % (slices,)
 
 print("Hash testing, false things")
 for v in (None, "", b"", 0, 0.0, False,):
