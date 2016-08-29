@@ -1,8 +1,16 @@
 # -*- coding: iso-8859-1 -*-
 
-from SocketServer import ThreadingMixIn, ForkingMixIn
-from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
-from SocketServer import UnixStreamServer
+from compat import PY3, unicode
+
+if PY3:
+	from socketserver import ThreadingMixIn, ForkingMixIn
+	from http.server import HTTPServer, BaseHTTPRequestHandler
+	from socketserver import UnixStreamServer
+else:
+	from SocketServer import ThreadingMixIn, ForkingMixIn
+	from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
+	from SocketServer import UnixStreamServer
+
 import cgi
 from traceback import print_exc
 
@@ -40,10 +48,12 @@ class BaseWebHandler(BaseHTTPRequestHandler):
 		self._do_req()
 	
 	def do_POST(self):
-		length = self.headers.getheader('content-length')
+		length = self.headers.get('content-length')
 		if not length:
 			return self._bad_request()
-		if self.headers.typeheader is None:
+		if hasattr(self.headers, 'get_content_type'):
+			ctype = self.headers.get_content_type()
+		elif self.headers.typeheader is None:
 			ctype = self.headers.type
 		else:
 			ctype = self.headers.typeheader
@@ -97,7 +107,7 @@ class BaseWebHandler(BaseHTTPRequestHandler):
 		"""Encode whatever you passed as body to do_response as byte stream.
 		   Should be overridden if you pass anything but str or an object
 		   with a unicode-compatible encode method."""
-		if type(body) is str: return body
+		if isinstance(body, bytes): return body
 		return body.encode("utf-8")
 	
 	def do_response(self, code, content_type, body, extra_headers = []):

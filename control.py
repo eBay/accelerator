@@ -1,3 +1,6 @@
+from __future__ import print_function
+from __future__ import division
+
 import time
 import configfile
 import dependency
@@ -53,7 +56,7 @@ class Main:
                 if name == self.config['main_workspace']:
                     self.workspaces[name] = workspace.WorkSpace(name, path, slices, True)
 
-        put_workspaces({k: v.path for k, v in self.workspaces.iteritems()})
+        put_workspaces({k: v.path for k, v in self.workspaces.items()})
         # set current workspace pointers
         self.set_workspace(self.config['main_workspace'])
         self.set_remote_workspaces(self.config.get('remote_workspaces', ''))
@@ -75,7 +78,7 @@ class Main:
         self.valid_fds = valid_fds
 
     def _update_methods(self):
-        print 'Update methods'
+        print('Update methods')
         # initialise methods class looking in method_directories from config file
         method_directories = self.config['method_directories']
         self.Methods = methods.SubMethods(method_directories, METHODS_CONFIGFILENAME)
@@ -103,8 +106,8 @@ class Main:
             if self.workspaces[name].get_slices() == slices:
                 self.current_remote_workspaces.add(name)
             else:
-                print "Warning, could not add remote workspace \"%s\", since it has %d slices (and %d required from \"%s\")" % (
-                    name, self.workspaces[name].get_slices(), slices, self.current_workspace)
+                print("Warning, could not add remote workspace \"%s\", since it has %d slices (and %d required from \"%s\")" % (
+                    name, self.workspaces[name].get_slices(), slices, self.current_workspace))
 
 
     def get_workspace_details(self):
@@ -183,9 +186,9 @@ class Main:
 
         launcher = dispatch.launch_all
         if partial:
-            print 'RUN PARTIAL:', partial
+            print('RUN PARTIAL:', partial)
             if jobid not in W.list_of_jobids(valid=False):
-                print "ERROR, cannot update jobid \"%s\" - it does not exist" % jobid
+                print("ERROR, cannot update jobid \"%s\" - it does not exist" % jobid)
                 return
             x = {
                 'analysis' : dispatch.launch_analysis,
@@ -204,7 +207,7 @@ class Main:
                 del files[filename]
         prof.update(new_prof)
         prof.total = 0
-        prof.total = sum(v for v in prof.itervalues() if isinstance(v, (float, int)))
+        prof.total = sum(v for v in prof.values() if isinstance(v, (float, int)))
         data = dict(
                     starttime=t0,
                     endtime=time.time(),

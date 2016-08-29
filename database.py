@@ -1,6 +1,11 @@
+from __future__ import print_function
+from __future__ import division
+
 from collections import defaultdict
 from operator import attrgetter
 from collections import namedtuple
+
+from compat import iteritems, itervalues, iterkeys
 
 from safe_pool import Pool
 from extras import job_params, OptionEnum, OptionDefault
@@ -17,19 +22,19 @@ def _update(jobid):
         # Fill in defaults for all methods, update with actual options
         def optfilter(d):
             res = {}
-            for k, v in d.iteritems():
+            for k, v in iteritems(d):
                 if isinstance(v, OptionEnum):
                     v = None
                 elif isinstance(v, OptionDefault):
                     v = v.default
                 res[k] = v
             return res
-        for method, params in setup.params.iteritems():
+        for method, params in iteritems(setup.params):
             if method in _control.Methods.params:
-                d = {k: optfilter(v) for k, v in _control.Methods.params[method].defaults.iteritems()}
+                d = {k: optfilter(v) for k, v in iteritems(_control.Methods.params[method].defaults)}
             else:
                 d = {}
-            for k, v in d.iteritems():
+            for k, v in iteritems(d):
                 v.update(params[k])
             params_with_defaults[method] = d
         optset = _control.Methods.params2optset(params_with_defaults)
@@ -63,10 +68,10 @@ class DataBase:
     def update_workspace(self, WorkSpace, verbose=False):
         """Insert all items in WorkSpace in database (call update_finish too)"""
         if verbose:
-            print "DATABASE:  update for \"%s\"" % WorkSpace.name
+            print("DATABASE:  update for \"%s\"" % WorkSpace.name)
         filesystem_jobids = WorkSpace.list_of_jobids(valid=True)
         if verbose > 1:
-            print 'DATABASE:  update found these jobids in workspace', filesystem_jobids
+            print('DATABASE:  update found these jobids in workspace', filesystem_jobids)
         # Insert any new jobids, including with invalid hash
         pool = Pool(processes=WorkSpace.slices)
         new_jobids = set(filesystem_jobids).difference(self.db)
@@ -74,13 +79,13 @@ class DataBase:
         pool.close()
         prefix = WorkSpace.name + '-'
         valid = set(filesystem_jobids)
-        for jobid in self.db.keys():
+        for jobid in list(iterkeys(self.db)):
             if jobid.startswith(prefix) and jobid not in valid:
                 if verbose:
-                    print 'Removed deleted job %s.' % (jobid, )
+                    print('Removed deleted job %s.' % (jobid, ))
                 del self.db[jobid]
         if verbose:
-            print "DATABASE:  Database \"%s\" contains %d potential items" % (WorkSpace.name, len(filesystem_jobids), )
+            print("DATABASE:  Database \"%s\" contains %d potential items" % (WorkSpace.name, len(filesystem_jobids), ))
 
     def update_finish(self, dict_of_hashes, verbose=False):
         """Filters in-use database on valid hashes.
@@ -89,18 +94,18 @@ class DataBase:
         discarded_due_to_hash_list = []
         # Keep lists of jobs per method, only with valid hashes
         self.db_by_method = defaultdict(list)
-        for job in self.db.itervalues():
+        for job in itervalues(self.db):
             if job.hash in dict_of_hashes.get(job.method, ()):
                 self.db_by_method[job.method].append(job)
             else:
                 discarded_due_to_hash_list.append(job.id)
         # Newest first
-        for l in self.db_by_method.itervalues():
+        for l in itervalues(self.db_by_method):
             l.sort(key=attrgetter('time'), reverse=True)
         if verbose:
             if discarded_due_to_hash_list:
-                print "DATABASE:  discarding due to unknown hash: %s" % ', '.join(discarded_due_to_hash_list)
-            print "DATABASE:  Full database contains %d items" % (len(self.db), )
+                print("DATABASE:  discarding due to unknown hash: %s" % ', '.join(discarded_due_to_hash_list))
+            print("DATABASE:  Full database contains %d items" % (len(self.db), ))
 
     def match_complex(self, reqlist):
         for method, uid, opttuple in reqlist:

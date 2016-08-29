@@ -1,4 +1,8 @@
+from __future__ import print_function
+from __future__ import division
+
 import gzutil
+from compat import unicode, str_types
 
 GzWrite = gzutil.GzWrite
 
@@ -52,8 +56,10 @@ def _mklistwriter(inner_type, seq_type, len_type):
 				return
 			llen = len(lst)
 			assert llen < 65536, 'List too long (max 65535 elements)'
-			self.fh.write(len_type(llen))
-			map(self.fh.write, lst)
+			w = self.fh.write
+			w(len_type(llen))
+			for v in lst:
+				w(v)
 		def close(self):
 			self.fh.close()
 		def __enter__(self):
@@ -90,7 +96,7 @@ class GzWriteParsedJson(GzWriteJson):
 	"""This assumes strings are the object you wanted and parse them as json.
 	If they are unparseable you get an error."""
 	def write(self, o):
-		if isinstance(o, (str, unicode)):
+		if isinstance(o, str_types):
 			o = loads(o)
 		self.count += 1
 		self.fh.write(dumps(o, ensure_ascii=False))

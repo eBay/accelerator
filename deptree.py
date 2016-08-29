@@ -1,5 +1,10 @@
+from __future__ import print_function
+from __future__ import division
+
 from traceback import print_exc
 from datetime import datetime, date, time, timedelta
+
+from compat import iteritems, itervalues, first_value, long
 
 from extras import OptionEnum, OptionEnumValue, OptionString, OptionDefault, JobWithFile, typing_conv
 
@@ -17,13 +22,13 @@ class DepTree:
         self.tree = tree
         self.add_flags({'make' : False, 'link' : False, })
         seen = set()
-        for method, data in self.tree.iteritems():
+        for method, data in iteritems(self.tree):
             seen.add(method)
             data['params'] = {method: setup.params[method]}
-        unmatched = {method: params for method, params in setup.params.iteritems() if method not in seen}
+        unmatched = {method: params for method, params in iteritems(setup.params) if method not in seen}
         if unmatched:
             from extras import json_encode
-            print "DepTree Warning:  Unmatched options remain: " + json_encode(unmatched)
+            print("DepTree Warning:  Unmatched options remain:", json_encode(unmatched, as_str=True))
         def collect(method):
             # All methods that method depend on
             for child in tree[method]['dep']:
@@ -32,7 +37,7 @@ class DepTree:
                     yield method
         # This probably updates some with the same data several times,
         # but this is cheap (key: dictref updates, nothing more.)
-        for method, data in self.tree.iteritems():
+        for method, data in iteritems(self.tree):
             for submethod in set(collect(method)):
                 data['params'].update(tree[submethod]['params'])
         self._fix_options(False)
@@ -49,9 +54,9 @@ class DepTree:
     def get_reqlist(self):
         for method, data in self.tree.items():
             full_params = {}
-            for submethod, given_params in data['params'].iteritems():
-                params = {k: dict(v) for k, v in self.methods.params[submethod].defaults.iteritems()}
-                for k, v in given_params.iteritems():
+            for submethod, given_params in iteritems(data['params']):
+                params = {k: dict(v) for k, v in iteritems(self.methods.params[submethod].defaults)}
+                for k, v in iteritems(given_params):
                     params[k].update(v)
                 full_params[submethod] = params
             yield method, data['uid'], self.methods.params2optset(full_params)
@@ -60,7 +65,7 @@ class DepTree:
         self._fix_options(True)
 
     def _fix_jobids(self, key):
-        for method, data in self.tree.iteritems():
+        for method, data in iteritems(self.tree):
             method_params = data['params'][method]
             data = method_params[key]
             method_wants = self.methods.params[method][key]
@@ -93,7 +98,7 @@ class DepTree:
                 raise OptionException('Unknown %s on %s: %s' % (key, method, ', '.join(sorted(spill)),))
 
     def _fix_options(self, fill_in):
-        for method, data in self.tree.iteritems():
+        for method, data in iteritems(self.tree):
             data = data['params'][method]
             options = self.methods.params[method].options
             res_options = {}
@@ -110,17 +115,17 @@ class DepTree:
                     default_v = default_v.value
                 if isinstance(default_v, dict) and isinstance(v, dict):
                     if default_v:
-                        sample_v = default_v.values()[0]
-                        for chk_v in default_v.itervalues():
+                        sample_v = first_value(default_v)
+                        for chk_v in itervalues(default_v):
                             assert isinstance(chk_v, type(sample_v))
-                        return {k: convert(sample_v, v) for k, v in v.iteritems()}
+                        return {k: convert(sample_v, v) for k, v in iteritems(v)}
                     else:
                         return v
                 if isinstance(default_v, (list, set, tuple,)) and isinstance(v, (str, list, set, tuple,)):
                     if isinstance(v, str):
                         v = (e.strip() for e in v.split(','))
                     if default_v:
-                        sample_v = list(default_v)[0]
+                        sample_v = first_value(default_v)
                         for chk_v in default_v:
                             assert isinstance(chk_v, type(sample_v))
                         v = (convert(sample_v, e) for e in v)
@@ -173,7 +178,7 @@ class DepTree:
                 res_options.update(data['options'])
                 data['options'] = res_options
             else:
-                for k, v in data['options'].iteritems():
+                for k, v in iteritems(data['options']):
                     if k in options:
                         try:
                             res_options[k] = convert(options[k], v)
@@ -194,7 +199,9 @@ class DepTree:
             data['options'] = res_options
 
     def get_item_by_uid(self, uid):
-        return filter(lambda x : x[1]['uid'] == uid, self.tree.items())[0][1]
+        for v in itervalues(self.tree):
+            if v['uid'] == uid:
+                return v
 
     def set_link(self, uid, link):
         item = self.get_item_by_uid(uid)
@@ -219,8 +226,7 @@ class DepTree:
 
     def debugprint(self):
         for x, y in sorted(self.tree.items(), key = lambda x: -int(x[1]['level'])):
-            print ' %15s' % x, 
+            print(' %15s' % x, end=' ')
             for k in y:
-                print '%5s=%5s' % (k, y[k]),
-        print
-        
+                print('%5s=%5s' % (k, y[k]), end=' ')
+        print()

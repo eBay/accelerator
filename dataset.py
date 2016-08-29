@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
 from __future__ import division
 from __future__ import unicode_literals
 
@@ -8,6 +9,8 @@ from keyword import kwlist
 from collections import namedtuple
 from itertools import compress
 from functools import partial
+
+from compat import unicode, uni
 
 import blob
 from extras import DotDict
@@ -56,16 +59,6 @@ iskeyword = frozenset(kwlist).__contains__
 #
 # The dataset pickle is jid/name/dataset.pickle, so jid/default/dataset.pickle for the default dataset.
 
-def _uni(s):
-	if s is None:
-		return None
-	if isinstance(s, bytes):
-		try:
-			return s.decode('utf-8')
-		except UnicodeDecodeError:
-			return s.decode('iso-8859-1')
-	return unicode(s)
-
 def _clean_name(n, seen_n):
 	n = ''.join(c if c.isalnum() else '_' for c in n)
 	if n[0].isdigit():
@@ -82,10 +75,10 @@ def _dsid(t):
 		jid, name = t
 		if not jid:
 			return None
-		t = '%s/%s' % (jid.split('/')[0], _uni(name) or 'default')
+		t = '%s/%s' % (jid.split('/')[0], uni(name) or 'default')
 	if '/' not in t:
 		t += '/default'
-	return _uni(t)
+	return uni(t)
 
 # If we want to add fields to later versions, using a versioned name will
 # allow still loading the old versions without messing with the constructor.
@@ -122,7 +115,7 @@ class Dataset(unicode):
 			assert not name, "Don't pass both a separate name and jobid as jid/name"
 			jobid, name = jobid.split('/', 1)
 		assert jobid, "If you really meant to use yourself as a dataset, pass params.jobid explicitly."
-		name = _uni(name or 'default')
+		name = uni(name or 'default')
 		assert '/' not in name
 		if name == 'default':
 			suffix = ''
@@ -134,7 +127,7 @@ class Dataset(unicode):
 		else:
 			fullname = jobid + suffix
 		obj = unicode.__new__(cls, fullname)
-		obj.name = _uni(name or 'default')
+		obj.name = uni(name or 'default')
 		if jobid is _new_dataset_marker:
 			obj._data = DotDict({
 				'version': (2, 1,),
@@ -200,8 +193,8 @@ class Dataset(unicode):
 		will allow access to the subjob dataset under your jid."""
 		from g import JOBID
 		self._data.parent = '%s/%s' % (self.jobid, self.name,)
-		self.jobid = _uni(JOBID)
-		self.name = _uni(name)
+		self.jobid = uni(JOBID)
+		self.name = uni(name)
 		self._save()
 
 	def _column_iterator(self, sliceno, col, **kw):
@@ -276,9 +269,9 @@ class Dataset(unicode):
 	@staticmethod
 	def new(columns, filenames, lines, minmax={}, filename=None, hashlabel=None, caption=None, previous=None, name='default'):
 		"""columns = {"colname": "type"}, lines = [n, ...] or {sliceno: n}"""
-		columns = {_uni(k): _uni(v) for k, v in columns.items()}
+		columns = {uni(k): uni(v) for k, v in columns.items()}
 		if hashlabel:
-			hashlabel = _uni(hashlabel)
+			hashlabel = uni(hashlabel)
 			assert hashlabel in columns, hashlabel
 		res = Dataset(_new_dataset_marker, name)
 		res._data.lines = list(Dataset._linefixup(lines))
@@ -297,11 +290,11 @@ class Dataset(unicode):
 
 	def append(self, columns, filenames, lines, minmax={}, filename=None, hashlabel=None, hashlabel_override=False, caption=None, previous=None, name='default'):
 		if hashlabel:
-			hashlabel = _uni(hashlabel)
+			hashlabel = uni(hashlabel)
 			if not hashlabel_override:
 				assert self.hashlabel == hashlabel, 'Hashlabel mismatch %s != %s' % (self.hashlabel, hashlabel,)
 		assert self._linefixup(lines) == self.lines, "New columns don't have the same number of lines as parent columns"
-		columns = {_uni(k): _uni(v) for k, v in columns.items()}
+		columns = {uni(k): uni(v) for k, v in columns.items()}
 		self._append(columns, filenames, minmax, filename, caption, previous, name)
 
 	def _minmax_merge(self, minmax):
@@ -322,16 +315,16 @@ class Dataset(unicode):
 	def _append(self, columns, filenames, minmax, filename, caption, previous, name):
 		from sourcedata import type2iter
 		from g import JOBID
-		jobid = _uni(JOBID)
-		name = _uni(name)
-		filenames = {_uni(k): _uni(v) for k, v in filenames.items()}
+		jobid = uni(JOBID)
+		name = uni(name)
+		filenames = {uni(k): uni(v) for k, v in filenames.items()}
 		assert set(columns) == set(filenames), "columns and filenames don't have the same keys"
 		if self.jobid and (self.jobid != jobid or self.name != name):
 			self._data.parent = '%s/%s' % (self.jobid, self.name,)
 		self.jobid = jobid
 		self.name = name
-		self._data.filename = _uni(filename) or self._data.filename or None
-		self._data.caption  = _uni(caption) or self._data.caption or jobid
+		self._data.filename = uni(filename) or self._data.filename or None
+		self._data.caption  = uni(caption) or self._data.caption or jobid
 		self._data.previous = _dsid(previous)
 		for n in ('caches', 'cache_distance'):
 			if n in self._data: del self._data[n]
@@ -341,7 +334,7 @@ class Dataset(unicode):
 				raise Exception('Unknown type %s on column %s' % (t, n,))
 			mm = minmax.get(n, (None, None,))
 			self._data.columns[n] = DatasetColumn(
-				type=_uni(t),
+				type=uni(t),
 				name=filenames[n],
 				location='%s/%s/%%s.%s' % (jobid, self.name, filenames[n]),
 				min=mm[0],
@@ -472,7 +465,7 @@ class DatasetWriter(object):
 	def __new__(cls, columns={}, filename=None, hashlabel=None, hashlabel_override=False, caption=None, previous=None, name='default', parent=None, meta_only=False):
 		"""columns can be {'name': 'type'} or {'name': DatasetColumn}
 		to simplify basing your dataset on another."""
-		name = _uni(name)
+		name = uni(name)
 		assert '/' not in name, name
 		from g import running
 		if running == 'analysis':
@@ -484,12 +477,12 @@ class DatasetWriter(object):
 			os.mkdir(name)
 			obj = object.__new__(cls)
 			obj._running = running
-			obj.filename = _uni(filename)
-			obj.hashlabel = _uni(hashlabel)
+			obj.filename = uni(filename)
+			obj.hashlabel = uni(hashlabel)
 			obj.hashlabel_override = hashlabel_override,
-			obj.caption = _uni(caption)
+			obj.caption = uni(caption)
 			obj.previous = _dsid(previous)
-			obj.name = _uni(name)
+			obj.name = uni(name)
 			obj.parent = _dsid(parent)
 			obj.columns = {}
 			obj.meta_only = meta_only
@@ -515,8 +508,8 @@ class DatasetWriter(object):
 		from g import running
 		assert running == self._running, "Add all columns in the same step as creation"
 		assert not self._started, "Add all columns before setting slice"
-		colname = _uni(colname)
-		coltype = _uni(coltype)
+		colname = uni(colname)
+		coltype = uni(coltype)
 		assert colname not in self.columns, colname
 		assert colname
 		typed_writer(coltype) # gives error for unknown types

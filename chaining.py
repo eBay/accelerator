@@ -1,5 +1,10 @@
-from itertools import chain, ifilter, imap, izip
+from __future__ import print_function
+from __future__ import division
+
+from itertools import chain
 from inspect import getargspec
+
+from compat import ifilter, imap, izip, str_types
 
 from extras import job_params
 from dataset import Dataset
@@ -40,7 +45,7 @@ def jobchain(length=-1, reverse=False, tip_jobid=None, stop_jobid=None):
 
 	if not stop_jobid:
 		stop_jobid = ()
-	elif isinstance(stop_jobid, (str, unicode,)):
+	elif isinstance(stop_jobid, str_types):
 		stop_jobid = (stop_jobid,)
 	elif isinstance(stop_jobid, dict):
 		stuff = stop_jobid.items()
@@ -98,11 +103,11 @@ def iterate_datasets(sliceno, names_list, jobids, hashlabel=None, pre_callback=N
 
 	if isinstance(jobids, Dataset):
 		jobids = [jobids]
-	if isinstance(jobids, (str, unicode,)):
+	if isinstance(jobids, str_types):
 		jobids = [jid.strip() for jid in jobids.split(',')]
 	if not names_list:
 		names_list = Dataset(jobids[0]).columns
-	if isinstance(names_list, (str, unicode,)):
+	if isinstance(names_list, str_types):
 		names_list = [names_list]
 		want_tuple = False
 	else:
@@ -132,7 +137,7 @@ def iterate_datasets(sliceno, names_list, jobids, hashlabel=None, pre_callback=N
 def _resolve_filters(names_list, filters):
 	if filters and not callable(filters):
 		# Sort in column order, to allow selecting an efficient order.
-		filters = sorted((names_list.index(name), f,) for name, f in filters.iteritems())
+		filters = sorted((names_list.index(name), f,) for name, f in filters.items())
 		# Build "lambda t: f0(t[0]) and f1(t[1]) and ..."
 		fs = []
 		arg_n = []
@@ -162,7 +167,7 @@ def _resolve_translators(names_list, translators):
 		return translators, None
 	else:
 		res = {}
-		for name, f in translators.iteritems():
+		for name, f in translators.items():
 			if not callable(f):
 				f = f.get
 			res[names_list.index(name)] = f
@@ -210,7 +215,7 @@ def _iterate_datasets(to_iter, names_list, pre_callback, post_callback, filter_f
 					skip_jobid = jobid
 					continue
 			it = d._iterator(None if rehash else sliceno, names_list)
-			for ix, trans in (translators or {}).iteritems():
+			for ix, trans in (translators or {}).items():
 				it[ix] = imap(trans, it[ix])
 			if want_tuple:
 				it = izip(*it)

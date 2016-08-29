@@ -1,3 +1,6 @@
+from __future__ import print_function
+from __future__ import division
+
 import atexit
 import os
 import signal
@@ -14,7 +17,7 @@ from extras import job_params, ResultIterMagic, DotDict
 from setupfile import SetupCompat
 from time import time, sleep
 import json
-import cPickle
+from compat import pickle, iteritems
 from dispatch import JobError
 import blob
 import status
@@ -37,7 +40,7 @@ def call_analysis(analysis_func, sliceno_, q, preserve_result, parent_pid, **kw)
             if stupid_inconsistent_name in kw:
                 kw[stupid_inconsistent_name] = sliceno_
             setattr(g, stupid_inconsistent_name, sliceno_)
-        for dw in dataset._datasetwriters.itervalues():
+        for dw in dataset._datasetwriters.values():
             dw._set_slice(sliceno_)
         res = analysis_func(**kw)
         if preserve_result:
@@ -45,7 +48,7 @@ def call_analysis(analysis_func, sliceno_, q, preserve_result, parent_pid, **kw)
             # (This is what you end up doing manually anyway.)
             def picklable(v):
                 try:
-                    cPickle.dumps(v)
+                    pickle.dumps(v, pickle.HIGHEST_PROTOCOL)
                     return True
                 except Exception:
                     return False
@@ -53,9 +56,9 @@ def call_analysis(analysis_func, sliceno_, q, preserve_result, parent_pid, **kw)
                 if isinstance(d, defaultdict) and not picklable(d.default_factory):
                     if not d:
                         return {}
-                    v = next(d.iteritems())
+                    v = next(iteritems(d))
                     if isinstance(v, defaultdict) and not picklable(v.default_factory):
-                        return {k: fixup(v) for k, v in d.iteritems()}
+                        return {k: fixup(v) for k, v in iteritems(d)}
                     else:
                         return dict(d)
                 else:
@@ -74,7 +77,7 @@ def call_analysis(analysis_func, sliceno_, q, preserve_result, parent_pid, **kw)
         from extras import saved_files
         dw_lens = {}
         dw_minmax = {}
-        for name, dw in dataset._datasetwriters.iteritems():
+        for name, dw in dataset._datasetwriters.items():
             dw.close()
             dw_lens[name] = dw._lens
             dw_minmax[name] = dw._minmax
@@ -107,9 +110,9 @@ def fork_analysis(slices, analysis_func, kw, preserve_result):
             exitfunction()
         per_slice.append((s_no, s_t))
         temp_files.update(s_temp_files)
-        for name, lens in s_dw_lens.iteritems():
+        for name, lens in s_dw_lens.items():
             dataset._datasetwriters[name]._lens.update(lens)
-        for name, minmax in s_dw_minmax.iteritems():
+        for name, minmax in s_dw_minmax.items():
             dataset._datasetwriters[name]._minmax.update(minmax)
     for p in children:
         p.join()
@@ -144,7 +147,7 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
     try:
         os.chdir(path)
     except Exception:
-        print "Cannot cd to workdir", path
+        print("Cannot cd to workdir", path)
         exit(1)
 
     g.params = params = job_params()
@@ -301,14 +304,14 @@ def main(argv):
         if opt=='--parent_pid':
             parent_pid = int(arg or 0)
 
-    assert len(filter(None, [all, analysis, synthesis])) == 1, 'Specify exactly one of --all --analysis --synthesis'
+    assert sum([all, analysis, synthesis]) == 1, 'Specify exactly one of --all --analysis --synthesis'
     try:
         data = execute_process(workdir, jobid, slices, result_directory, common_directory, source_directory, index=index, workspaces=workspaces, all=all, analysis=analysis, synthesis=synthesis, daemon_url=daemon_url, subjob_cookie=subjob_cookie, parent_pid=parent_pid)
         g_allesgut = True
     except Exception:
         print_exc()
         data = [{g.running: fmt_tb(2)}, None]
-    os.write(prof_fd, json.dumps(data))
+    os.write(prof_fd, json.dumps(data).encode('utf-8'))
 
 
 
@@ -317,7 +320,7 @@ def main(argv):
 
 def exitfunction():
     if not g_allesgut:
-        print 'LAUNCH:  The deathening!'
+        print('LAUNCH:  The deathening!')
         os.killpg(os.getpgid(0), signal.SIGTERM)
 
 

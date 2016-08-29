@@ -1,8 +1,9 @@
+from __future__ import print_function
+from __future__ import division
+
 import time
 import sys
 import os
-import urllib
-import urllib2
 import json
 from operator import itemgetter
 from collections import defaultdict
@@ -10,6 +11,9 @@ from functools import partial
 from types import GeneratorType
 from base64 import b64encode
 import signal
+
+from compat import unicode, str_types, PY3
+from compat import urlencode, urlopen, Request, URLError, HTTPError
 
 import setupfile
 from extras import json_encode, json_decode, DotDict
@@ -64,34 +68,44 @@ class Automata:
         # this is run on bigdata response
         pass
 
+    def _url_get(self, *path, **kw):
+        url = self.url + os.path.join('/', *path)
+        req = urlopen(url, **kw)
+        try:
+            resp = req.read()
+        finally:
+            req.close()
+        if PY3:
+            resp = resp.decode('utf-8')
+        return resp
+
+    def _url_json(self, *path, **kw):
+        return json_decode(self._url_get(*path, **kw))
 
     def remake(self, jobid, part='all'):
-        if part=='all':
-            url = self.url+'/update/'+jobid
-        elif part in ['prepare', 'analysis', 'synthesis', ]:
-            url = self.url+'/update/'+jobid+'/'+part
-        else:
-            print "PROBLEM IN REMAKE!", jobid, part
+        path = ['update', jobid]
+        if part in ('prepare', 'analysis', 'synthesis',):
+            path.append(part)
+        elif part != 'all':
+            print("PROBLEM IN REMAKE!", jobid, part)
             exit(1)
-        resp = urllib2.urlopen(url).read()
-        print resp
+        resp = self._url_get(*path)
+        print(resp)
         self._wait(time.time())
 
     def abort(self):
-        return json.loads(urllib2.urlopen(self.url+'/abort').read())
+        return self._url_json('abort')
 
     def info(self):
-        resp = json.loads(urllib2.urlopen(self.url+'/workspace_info').read())
-        return DotDict(resp)
+        return self._url_json('workspace_info')
 
     def config(self):
-        resp = json.loads(urllib2.urlopen(self.url+'/config').read())
-        return DotDict(resp)
+        return self._url_json('config')
 
     def set_workspace(self, workspace):
-        resp = urllib2.urlopen(self.url+'/set_workspace/'+workspace).read()
-        print resp
-        
+        resp = self._url_get('set_workspace', workspace)
+        print(resp)
+
 
     def new(self, method, caption=None):
         """
@@ -152,7 +166,7 @@ class Automata:
             return
         waited = int(round(time.time() - t0)) - 1
         if self.verbose == 'dots':
-            print '[' + '.' * waited,
+            print('[' + '.' * waited, end=' ')
         while not idle:
             if siginfo_received:
                 print_status_stacks(status_stacks)
@@ -173,14 +187,14 @@ class Automata:
                         sys.stdout.write('.')
                 elif self.verbose == 'log':
                     if waited % 60 == 0:
-                        print '%d seconds, still waiting for %s (%d seconds)' % current
+                        print('%d seconds, still waiting for %s (%d seconds)' % current)
                 else:
                     sys.stdout.write('\r\033[K           %.1f %s %.1f' % current)
             idle, status_stacks, current = self._server_idle(1)
         if self.verbose == 'dots':
-            print '(%d)]' % (time.time() - t0,)
+            print('(%d)]' % (time.time() - t0,))
         else:
-            print '\r\033[K           %d seconds' % (round(time.time() - t0),)
+            print('\r\033[K           %d seconds' % (round(time.time() - t0),))
 
     def jobid(self, method):
         """
@@ -193,28 +207,24 @@ class Automata:
 
     def _server_idle(self, timeout=0):
         """ask server if it is idle, return (idle, status_stacks)"""
+        path = ['status']
         if self.verbose:
-            url = self.url + '/status/full'
-        else:
-            url = self.url + '/status'
-        url += '?subjob_cookie=%s&timeout=%d' % (self.subjob_cookie or '', timeout,)
-        resp = json_decode(urllib2.urlopen(url).read())
+            path.append('full')
+        path.append('?subjob_cookie=%s&timeout=%d' % (self.subjob_cookie or '', timeout,))
+        resp = self._url_json(*path)
         last_error = resp.last_error
         if last_error:
-            print >>sys.stderr, "\nFailed to build jobs:"
+            print("\nFailed to build jobs:", file=sys.stderr)
             for jobid, method, status in last_error:
                 e = JobError(jobid, method, status)
-                print >>sys.stderr, e.format_msg()
+                print(e.format_msg(), file=sys.stderr)
             raise e
         return resp.idle, resp.status_stacks, resp.current
 
     def _server_submit(self, json):
         # submit json to server
-        postdata = urllib.urlencode({'json': setupfile.encode_setup(json)})
-        resp = urllib2.urlopen(self.url+'/submit', data=postdata)
-        res = resp.read()
-        resp.close()
-        res = json_decode(res)
+        postdata = urlencode({'json': setupfile.encode_setup(json)})
+        res = self._url_json('submit', data=postdata)
         if res.error:
             raise Exception("Submit failed: " + res.error)
         if not res.why_build:
@@ -230,30 +240,28 @@ class Automata:
                 make_msg = 'MAKE'
             else:
                 make_msg = item.make or 'link'
-            print '        -  %44s' % method.ljust(44),
-            print ' %s' % (make_msg,),
-            print ' %s' % item.link,
-            print
+            print('        -  %44s' % method.ljust(44), end=' ')
+            print(' %s' % (make_msg,), end=' ')
+            print(' %s' % item.link, end=' ')
+            print()
 
     def method_info(self, method):
-        resp = json.loads(urllib2.urlopen(self.url+'/method_info/'+method).read())
-        return resp
+        return self._url_json('method_info', method)
 
     def methods_info(self):
-        resp = json.loads(urllib2.urlopen(self.url+'/methods/').read())
-        return resp
+        return self._url_json('methods')
 
     def update_methods(self):
-        resp = urllib2.urlopen(self.url+'/update_methods').read()
+        resp = self._url_get('update_methods')
         self.update_method_deps()
         return resp
 
     def update_method_deps(self):
         info = self.methods_info()
-        self.dep_methods = {str(name): set(map(str, data.get('dep', ()))) for name, data in info.iteritems()}
+        self.dep_methods = {str(name): set(map(str, data.get('dep', ()))) for name, data in info.items()}
 
     def list_workspaces(self):
-        return json.loads(urllib2.urlopen(self.url+'/list_workspaces/').read())
+        return self._url_json('list_workspaces')
 
     def call_method(self, method, defopt={}, defdata={}, defjob={}, options=(), datasets=(), jobids=(), record_in=None, record_as=None, why_build=False, caption=None):
         todo  = {method}
@@ -278,17 +286,17 @@ class Automata:
                 elif isinstance(name, (list, tuple)):
                     names = name
                 else:
-                    assert isinstance(name, (str, unicode)), "%s: %s" % (key, name)
+                    assert isinstance(name, str_types), "%s: %s" % (key, name)
                     names = [name]
                 fixed_names = []
                 for name in names:
                     res_name = res_in.get(name, name)
                     if isinstance(res_name, (list, tuple)):
                         res_name = resolve(res_name, True)
-                    assert isinstance(res_name, (str, unicode)), "%s: %s" % (key, name) # if name was a job-name this gets a dict and dies
+                    assert isinstance(res_name, str_types), "%s: %s" % (key, name) # if name was a job-name this gets a dict and dies
                     fixed_names.append(res_name)
                 return ','.join(fixed_names)
-            for key, name in d.iteritems():
+            for key, name in d.items():
                 yield key, resolve(name)
         resolve_datasets = partial(resolve_something, defdata)
         resolve_jobids   = partial(resolve_something, defjob)
@@ -312,16 +320,16 @@ class Automata:
         if why_build: # specified by caller
             return self.job_retur.why_build
         if self.job_retur.why_build: # done by server anyway (because --flags why_build)
-            print "Would have built from:"
-            print "======================"
-            print setupfile.encode_setup(self.history[-1][0])
-            print "Could have avoided build if:"
-            print "============================"
-            print json_encode(self.job_retur.why_build)
-            print
+            print("Would have built from:")
+            print("======================")
+            print(setupfile.encode_setup(self.history[-1][0], as_str=True))
+            print("Could have avoided build if:")
+            print("============================")
+            print(json_encode(self.job_retur.why_build, as_str=True))
+            print()
             from inspect import stack
             stk = stack()[1]
-            print "Called from %s line %d" % (stk[1], stk[2],)
+            print("Called from %s line %d" % (stk[1], stk[2],))
             exit()
         if isinstance(record_as, str):
             record_as = {org_method: record_as}
@@ -342,8 +350,8 @@ class JobTuple(tuple):
             method, jobid = a[0]
         else: # like namedtuple
             method, jobid = a
-        assert isinstance(method, (str, unicode))
-        assert isinstance(jobid, (str, unicode))
+        assert isinstance(method, str_types)
+        assert isinstance(jobid, str_types)
         return tuple.__new__(cls, (str(method), str(jobid)))
     method = property(itemgetter(0), doc='Field 0')
     jobid  = property(itemgetter(1), doc='Field 1')
@@ -381,14 +389,14 @@ class JobList(list):
             data = a[0]
         else:
             return self.insert(*a)
-        if isinstance(data, (str, unicode)):
+        if isinstance(data, str_types):
             return self.insert('', data)
         if isinstance(data, (tuple, list)):
             return self.insert(*data)
         raise ValueError("What did you try to append?", data)
 
     def extend(self, other):
-        if isinstance(other, (str, unicode, JobTuple)):
+        if isinstance(other, str_types + (JobTuple,)):
             return self.append(other)
         if not isinstance(other, (list, tuple, GeneratorType)):
             raise ValueError("Adding what?", other)
@@ -416,7 +424,7 @@ class JobList(list):
     def __getitem__(self, item):
         if isinstance(item, slice):
             return JobList(list.__getitem__(self, item))
-        elif isinstance(item, (str, unicode)):
+        elif isinstance(item, str_types):
             return self.find(item)[-1] # last matching or IndexError
         else:
             return list.__getitem__(self, item)
@@ -506,8 +514,13 @@ class UrdResponse(dict):
 		return DotDict(timestamp=self.timestamp, joblist=self.joblist, caption=self.caption, _default=lambda: None)
 
 class EmptyUrdResponse(UrdResponse):
+	# so you can do "if urd.latest('foo'):" and similar.
+	# python2 version
 	def __nonzero__(self):
-		return False # so you can do "if urd.latest('foo'):" and similar.
+		return False
+	# python3 version
+	def __bool__(self):
+		return False
 
 def _urd_typeify(d):
 	if isinstance(d, str):
@@ -515,7 +528,7 @@ def _urd_typeify(d):
 		if not d or isinstance(d, unicode):
 			return d
 	res = DotDict(_default=lambda: None)
-	for k, v in d.iteritems():
+	for k, v in d.items():
 		if k == 'joblist':
 			v = JobList(v)
 		elif isinstance(v, dict):
@@ -534,7 +547,11 @@ class Urd(object):
 		self.flags = set(a.flags)
 		self.horizon = horizon
 		self.joblist = a.jobs
-		auth = b64encode('%s:%s' % (user, password,))
+		auth = '%s:%s' % (user, password,)
+		if PY3:
+			auth = b64encode(auth.encode('utf-8')).decode('ascii')
+		else:
+			auth = b64encode(auth)
 		self._headers = {'Content-Type': 'application/json', 'Authorization': 'Basic ' + auth}
 
 	def _path(self, path):
@@ -545,13 +562,13 @@ class Urd(object):
 	def _call(self, url, data=None, fmt=_urd_typeify):
 		url = url.replace(' ', '%20')
 		if data is not None:
-			req = urllib2.Request(url, json.dumps(data), self._headers)
+			req = Request(url, json_encode(data), self._headers)
 		else:
-			req = urllib2.Request(url)
+			req = Request(url)
 		tries_left = 3
 		while True:
 			try:
-				r = urllib2.urlopen(req)
+				r = urlopen(req)
 				try:
 					return fmt(r.read())
 				finally:
@@ -559,20 +576,20 @@ class Urd(object):
 						r.close()
 					except Exception:
 						pass
-			except urllib2.HTTPError as e:
+			except HTTPError as e:
 				if e.code in (401, 409,):
 					raise
 				tries_left -= 1
 				if not tries_left:
 					raise
-				print >>sys.stderr, 'Error %d from urd, %d tries left' % (e.code, tries_left,)
+				print('Error %d from urd, %d tries left' % (e.code, tries_left,), file=sys.stderr)
 			except ValueError:
 				tries_left -= 1
 				if not tries_left:
 					raise
-				print >>sys.stderr, 'Bad data from urd, %d tries left' % (tries_left,)
-			except urllib2.URLError:
-				print >>sys.stderr, 'Error contacting urd'
+				print('Bad data from urd, %d tries left' % (tries_left,), file=sys.stderr)
+			except URLError:
+				print('Error contacting urd', file=sys.stderr)
 			time.sleep(4)
 
 	def _get(self, path, *a):

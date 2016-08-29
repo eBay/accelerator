@@ -1,7 +1,12 @@
+from __future__ import print_function
+from __future__ import division
+
 from random import randint
 from collections import OrderedDict, defaultdict
 from itertools import combinations
 from copy import deepcopy
+
+from compat import iteritems
 
 import setupfile
 import deptree
@@ -30,7 +35,7 @@ def find_possible_jobs(db, methods, job):
     return dict(_job_candidates_options(res))
 
 def _job_candidates_options(candidates):
-    for jobid, remset in candidates.iteritems():
+    for jobid, remset in iteritems(candidates):
         setup = job_params(jobid)
         optdiff = defaultdict(dict)
         for thing in remset:
@@ -54,7 +59,7 @@ def initialise_jobs(setup, target_WorkSpace, DataBase, Methods, verbose=False):
 
     # get list of jobs in execution order
     joblist = DepTree.get_sorted_joblist()
-    newjoblist = filter(lambda x:x['make']==True, joblist)
+    newjoblist = [x for x in joblist if x['make']]
     num_new_jobs = len(newjoblist)
 
     if setup.why_build == True or (setup.why_build and num_new_jobs):

@@ -1,12 +1,15 @@
+from __future__ import print_function
+from __future__ import division
+
 import os
-import cPickle
 import time
 import datetime
 import json
 from traceback import print_exc
 from collections import namedtuple
 from sys import stderr, argv
-from itertools import izip
+
+from compat import PY3, pickle, izip, iteritems, first_value, num_types
 
 from jobid import resolve_jobid_filename
 from status import status
@@ -39,7 +42,7 @@ def job_params(jobid=None, default_empty=False):
                        jobids=DotDict(),
                       )
     d = json_load('setup.json', jobid)
-    for method, tl in d.get('_typing', {}).iteritems():
+    for method, tl in iteritems(d.get('_typing', {})):
         _apply_typing(d.params[method].options, tl)
     d.update(d.params[d.method])
     return d
@@ -51,58 +54,54 @@ def pickle_save(variable, filename='result', sliceno=None, temp=None):
     filename = full_filename(filename, '.pickle', sliceno)
     if temp == Temp.DEBUG and temp is not True and '--debug' not in argv:
         return
-    with FileWriteMove(filename, temp) as F:
-        P = cPickle.Pickler( F, protocol=cPickle.HIGHEST_PROTOCOL )
-        P.dump( variable )
+    with FileWriteMove(filename, temp) as fh:
+        # use protocol version 2 so python2 can read the pickles too.
+        pickle.dump(variable, fh, 2)
 
 def pickle_load(filename='result', jobid='', sliceno=None, verbose=False, default=None):
     filename = full_filename(filename, '.pickle', sliceno, jobid)
     if not filename and default is not None:
         return default
     if verbose:
-        print 'Pickle load \"' + filename + '\" ... ',
+        print('Pickle load "%s" ... ' % (filename,), end='')
         t0 = time.time()
     try:
         with status('Loading ' + filename):
             with open(filename, 'rb') as fh:
-                ret = cPickle.load(fh)
+                ret = pickle.load(fh)
     except IOError:
         if default is not None:
             return default
         raise
-    if verbose:  print 'done (%f seconds).' % (time.time()-t0,)
+    if verbose:
+        print('done (%f seconds).' % (time.time()-t0,))
     return ret
 
 
-def json_encode(variable, sort_keys=True):
+def json_encode(variable, sort_keys=True, as_str=False):
     if sort_keys:
         def enc_elem(e):
             if isinstance(e, dict):
-                return {k: enc_elem(v) for k, v in e.iteritems()}
-            elif hasattr(e, 'encode'):
-                return e.encode('ascii')
+                return {k: enc_elem(v) for k, v in iteritems(e)}
             elif isinstance(e, (list, tuple, set,)):
                 return [enc_elem(v) for v in e]
+            elif PY3:
+                return e
+            elif hasattr(e, 'encode'):
+                return e.encode('ascii')
             else:
                 return e
         variable = enc_elem(variable)
-    return json.dumps(variable, indent=4, sort_keys=sort_keys)
+    res = json.dumps(variable, indent=4, sort_keys=sort_keys)
+    if PY3 and not as_str:
+        res = res.encode('ascii')
+    return res
 
 def json_save(variable, filename='result', jobid=None, sliceno=None, sort_keys=True, _encoder=json_encode, temp=False):
     filename = full_filename(filename, '.json', sliceno, jobid)
     with FileWriteMove(filename, temp) as fh:
         fh.write(_encoder(variable, sort_keys=sort_keys))
-        fh.write('\n')
-
-# I wish we were using python 3..
-def _json_hook(seq):
-    def enc(v):
-        if isinstance(v, unicode):
-            return v.encode('utf-8')
-        if isinstance(v, list):
-            return [enc(e) for e in v]
-        return v
-    return DotDict((enc(k), enc(v)) for k, v in seq)
+        fh.write(b'\n')
 
 def json_decode(s):
     return json.loads(s, object_pairs_hook=_json_hook)
@@ -112,7 +111,7 @@ def json_load(filename='result', jobid='', sliceno=None, default=None):
     if not filename and default is not None:
         return default
     try:
-        with open(filename, 'rb') as fh:
+        with open(filename, 'r') as fh:
             data = fh.read()
     except IOError:
         if default is not None:
@@ -122,17 +121,17 @@ def json_load(filename='result', jobid='', sliceno=None, default=None):
 
 
 def debug_print_options( options, title = '' ):
-    print '-'*53
+    print('-'*53)
     if len(title)>0:
-        print '-', title
-        print '-'*53
+        print('-', title)
+        print('-'*53)
     import string
     maxx = max( len(x) for x in options.keys() if type(x) is str )
     for key,val in sorted(options.items()):
         if type(val)==str:
             val = '\'%s\''%val
-        print "%s = %s"% (string.ljust(str(key),maxx), str(val))
-    print '-'*53
+        print("%s = %s" % (string.ljust(str(key), maxx), str(val)))
+    print('-'*53)
 
 
 def parse_option_list(streng):
@@ -171,12 +170,12 @@ def printresult(v, path, stdout=True):
     """
     for s, fname in v:
         if stdout:
-            print s
+            print(s)
         with open(fname, 'wb') as F:
             F.write(s)
         symlink(fname, path)
         # try:
-        #     print os.path.join(path, fname)
+        #     print(os.path.join(path, fname))
         #     os.remove(os.path.join(path, fname))
         # except OSError:
         #     pass
@@ -221,21 +220,22 @@ class FileWriteMove(object):
         from g import running
         self.filename = filename
         self.tmp_filename = '%s.%dtmp' % (filename, os.getpid(),)
-        temp = dict(False=Temp.PERMANENT, True=Temp.TEMP).get(temp, temp)
+        temp = {'False': Temp.PERMANENT, 'True': Temp.TEMP}.get(temp, temp)
         if temp is None: # unspecified
             temp = Temp.PERMANENT
             if running == 'analysis':
-                print >>stderr, 'WARNING: Should specify file permanence on %s line %d' % stackup()
+                print('WARNING: Should specify file permanence on %s line %d' % stackup(), file=stderr)
         assert temp in range(4), 'temp should be True, False or a value from Temp'
         self.temp = temp
         if temp in (Temp.DEBUGTEMP, Temp.TEMP,):
             if running != 'analysis':
-                print >>stderr, 'WARNING: Only analysis should make temp files (%s line %d).' % stackup()
+                print('WARNING: Only analysis should make temp files (%s line %d).' % stackup(), file=stderr)
 
     def __enter__(self):
         self._status = status('Saving ' + self.filename)
         self._status.__enter__()
-        fh = open(self.tmp_filename, 'wbx')
+        # stupid python3 feels that w and x are exclusive, while python2 requires both.
+        fh = open(self.tmp_filename, 'xb' if PY3 else 'wbx')
         self.close = fh.close
         return fh
     def __exit__(self, e_type, e_value, e_tb):
@@ -266,11 +266,12 @@ class ResultIter(object):
 	def _loader(self, ix, slices):
 		for sliceno in slices:
 			yield pickle_load("Analysis.%d." % (ix,), sliceno=sliceno)
-	def next(self):
+	def __next__(self):
 		if self._is_tupled:
 			return next(self._tupled)
 		else:
 			return pickle_load("Analysis.", sliceno=next(self._slices))
+	next = __next__
 
 class ResultIterMagic(object):
 	"""Wrap a ResultIter to give magic merging functionality,
@@ -289,7 +290,7 @@ class ResultIterMagic(object):
 	def __iter__(self):
 		return self
 
-	def next(self):
+	def __next__(self):
 		try:
 			self._started = True
 			item = next(self._inner)
@@ -300,6 +301,7 @@ class ResultIterMagic(object):
 				self._done = True
 				raise
 		return item
+	next = __next__
 
 	def merge_auto(self):
 		"""Merge values from iterator using magic.
@@ -320,7 +322,7 @@ class ResultIterMagic(object):
 	def _merge_auto_single(self, it, ix):
 		# find a non-empty one, so we can look at the data in it
 		data = next(it)
-		if isinstance(data, (int, long, float)):
+		if isinstance(data, num_types):
 			# special case for when you have something like (count, dict)
 			return sum(it, data)
 		if isinstance(data, list):
@@ -338,7 +340,7 @@ class ResultIterMagic(object):
 		while hasattr(to_check, "itervalues"):
 			if not to_check:
 				raise self._exc("Empty value at depth %d (index %d)" % (depth, ix,))
-			to_check = next(to_check.itervalues())
+			to_check = first_value(to_check)
 			depth += 1
 		if hasattr(to_check, "update"): # like a set
 			depth += 1
@@ -348,7 +350,7 @@ class ResultIterMagic(object):
 			if level == depth:
 				aggregate.update(part)
 			else:
-				for k, v in part.iteritems():
+				for k, v in iteritems(part):
 					if k in aggregate:
 						upd(aggregate[k], v, level + 1)
 					else:
@@ -530,3 +532,16 @@ def _apply_typing(options, tl):
             if v is not None:
                 v = t(v)
             d[k] = v
+if PY3:
+	_json_hook = DotDict
+else:
+	# I wish we were using python 3..
+	def _json_hook(seq):
+		def enc(v):
+			if isinstance(v, unicode):
+				return v.encode('utf-8')
+			if isinstance(v, list):
+				return [enc(e) for e in v]
+			return v
+		return DotDict((enc(k), enc(v)) for k, v in seq)
+

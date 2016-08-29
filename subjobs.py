@@ -28,7 +28,7 @@ def build(method, options={}, datasets={}, jobids={}, name=None, caption=None):
 			jid = run()
 	else:
 		jid = run()
-	for d in _a.job_retur.jobs.itervalues():
+	for d in _a.job_retur.jobs.values():
 		if d.link not in _record:
 			_record[d.link] = bool(d.make)
 	return jid

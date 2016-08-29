@@ -1,13 +1,17 @@
 #!/usr/bin/env python2.7
 # -*- coding: iso-8859-1 -*-
 
+from __future__ import print_function
+from __future__ import division
+
 from optparse import OptionParser
 import sys
 from importlib import import_module
-from urllib import quote_plus
 from os.path import realpath
 from inspect import getargspec
 from os import environ
+
+from compat import quote_plus
 
 import automata_common
 from autoflush import AutoFlush
@@ -26,7 +30,7 @@ def find_automata(a, package, script):
 		module_name = p + '.' + script
 		try:
 			module_ref = import_module(module_name)
-			print module_name
+			print(module_name)
 			return module_ref
 		except ImportError as e:
 			if not e.message.endswith(script):
@@ -44,7 +48,7 @@ def run_automata(options):
 	a = automata_common.Automata(url, verbose=options.verbose, flags=options.flags.split(','))
 
 	if options.remake:
-		print "REMAKE"
+		print("REMAKE")
 		remake = options.remake.lower()
 		if remake != 'all':
 			remake = {'p': 'prepare', 'a': 'analysis', 's': 'synthesis'}.get(remake[0])

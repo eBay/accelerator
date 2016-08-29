@@ -1,10 +1,16 @@
+from __future__ import print_function
+from __future__ import division
+
 import os
 import hashlib
 from importlib import import_module
-from types import NoneType, ModuleType
+from types import ModuleType
 from datetime import datetime, date, time, timedelta
 from linecache import clearcache
 from traceback import print_exc
+from imp import reload
+
+from compat import iteritems, itervalues, first_value, NoneType, unicode, long
 
 from extras import DotDict, OptionString, OptionEnum, OptionDefault
 
@@ -20,10 +26,10 @@ class Methods(object):
         self.db = {}
         for package in self.package_list:
             tmp = read_method_conf(os.path.join(package, configfilename))
-            for x in tmp.keys():
+            for x in tmp:
                 if x in self.db:
-                    print "METHOD:  ERROR, method \"%s\" defined both in \"%s\" and \"%s\"!" % (
-                        x, package, self.db[x]['package'])
+                    print("METHOD:  ERROR, method \"%s\" defined both in \"%s\" and \"%s\"!" % (
+                        x, package, self.db[x]['package']))
                     exit(1)
             for x in tmp.values():
                 x['package'] = os.path.basename(package)
@@ -32,11 +38,11 @@ class Methods(object):
         self.deptree = {}
         for method in self.db:
             self.deptree[method] = self._build_dep_tree(method, tree={})
-        self.link = dict([(x, self.db[x].get('link', None)) for x in self.db.keys()])
+        self.link = {k: v.get('link') for k, v in iteritems(self.db)}
 
     def _build_dep_tree(self, method, tree={}):
         if method not in self.db:
-            print "METHOD:  Error, no such method exists: \"%s\"" % method
+            print("METHOD:  Error, no such method exists: \"%s\"" % method)
             exit(1)
         dependencies = self.db[method].get('dep', [])
         tree.setdefault(method, {'dep' : dependencies, 'level' : -1, 'method' : method})
@@ -65,12 +71,12 @@ class SubMethods(Methods):
         super(SubMethods, self).__init__(package_list, configfilename)
         warnings = []
         failed = []
-        for key, val in self.db.items():
+        for key, val in iteritems(self.db):
             package = val['package']
             filename = '%s/a_%s.py' % (package, key,)
             modname = '%s.a_%s' % (package, key)
             try:
-                with open(filename) as F:
+                with open(filename, 'rb') as F:
                     src = F.read()
                 h = hashlib.sha1(src)
                 hash = int(h.hexdigest(), 16)
@@ -133,9 +139,10 @@ class SubMethods(Methods):
             if equivalent_hashes:
                 assert isinstance(equivalent_hashes, dict), 'Read the docs about equivalent_hashes'
                 assert len(equivalent_hashes) == 1, 'Read the docs about equivalent_hashes'
-                assert isinstance(equivalent_hashes.keys()[0], str), 'Read the docs about equivalent_hashes'
-                assert isinstance(equivalent_hashes.values()[0], tuple), 'Read the docs about equivalent_hashes'
-                for v in equivalent_hashes.values()[0]:
+                k, v = next(iteritems(equivalent_hashes))
+                assert isinstance(k, str), 'Read the docs about equivalent_hashes'
+                assert isinstance(v, tuple), 'Read the docs about equivalent_hashes'
+                for v in v:
                     assert isinstance(v, str), 'Read the docs about equivalent_hashes'
                 start = src.index('equivalent_hashes')
                 end   = src.index('}', start)
@@ -149,42 +156,42 @@ class SubMethods(Methods):
         def prt(a, prefix):
             maxlen = (max(len(e) for e in a) + len(prefix))
             line = '=' * maxlen
-            print
-            print line
+            print()
+            print(line)
             for e in sorted(a):
                 msg = prefix + e
-                print msg + ' ' * (maxlen - len(msg))
-            print line
-            print
+                print(msg + ' ' * (maxlen - len(msg)))
+            print(line)
+            print()
         if warnings:
             prt(warnings, 'WARNING: ')
         if failed:
-            print '\033[47;31;1m'
+            print('\033[47;31;1m')
             prt(failed, 'FAILED to import ')
-            print '\033[m'
+            print('\033[m')
             raise MethodLoadException(failed)
 
     def params2optset(self, params):
         optset = set()
-        for optmethod, method_params in params.iteritems():
-            for group, d in method_params.iteritems():
+        for optmethod, method_params in iteritems(params):
+            for group, d in iteritems(method_params):
                 filled_in = dict(self.params[optmethod].defaults[group])
                 filled_in.update(d)
-                for optname, optval in filled_in.iteritems():
+                for optname, optval in iteritems(filled_in):
                     optset.add('%s %s-%s %s' % (optmethod, group, optname, _reprify(optval),))
         return optset
 
 def _reprify(o):
     if isinstance(o, OptionDefault):
         o = o.default
-    if isinstance(o, (str, unicode, int, float, long, bool, NoneType)):
+    if isinstance(o, (bytes, unicode, int, float, long, bool, NoneType)):
         return repr(o)
     if isinstance(o, set):
         return '{%s}' % (', '.join(map(_reprify, sorted(o))),)
     if isinstance(o, (list, tuple)):
         return '[%s]' % (', '.join(map(_reprify, o)),)
     if isinstance(o, dict):
-        return '{%s}' % (', '.join('%s: %s' % (_reprify(k), _reprify(v),) for k, v in sorted(o.iteritems())),)
+        return '{%s}' % (', '.join('%s: %s' % (_reprify(k), _reprify(v),) for k, v in sorted(iteritems(o))),)
     if isinstance(o, (datetime, date, time, timedelta,)):
         return str(o)
     raise Exception('Unhandled %s in dependency resolution' % (type(o),))
@@ -203,8 +210,8 @@ def params2defaults(params):
         d[key] = r
     def fixup(item):
         if isinstance(item, dict):
-            d = {k: fixup(v) for k, v in item.iteritems()}
-            if d.values() == [None] and item.values() != [None]:
+            d = {k: fixup(v) for k, v in iteritems(item)}
+            if len(d) == 1 and first_value(d) is None and first_value(item) is not None:
                 return {}
             return d
         if isinstance(item, (list, tuple, set,)):
@@ -214,13 +221,13 @@ def params2defaults(params):
             return type(item)(l)
         if isinstance(item, type):
             return None
-        assert isinstance(item, (str, unicode, int, float, long, bool, OptionEnum, NoneType, datetime, date, time, timedelta)), type(item)
+        assert isinstance(item, (bytes, unicode, int, float, long, bool, OptionEnum, NoneType, datetime, date, time, timedelta)), type(item)
         return item
     def fixup0(item):
         if isinstance(item, OptionDefault):
             item = item.default
         return fixup(item)
-    d.options = {k: fixup0(v) for k, v in params.options.iteritems()}
+    d.options = {k: fixup0(v) for k, v in iteritems(params.options)}
     return d
 
 
@@ -233,12 +240,12 @@ def options2required(options):
             if None not in value._valid:
                 res.add(key)
         elif isinstance(value, dict):
-            for v in value.itervalues():
+            for v in itervalues(value):
                 chk(key, v)
         elif isinstance(value, (list, tuple, set,)):
             for v in value:
                 chk(key, v)
-    for key, value in options.iteritems():
+    for key, value in iteritems(options):
         chk(key, value)
     return res
 
@@ -268,18 +275,18 @@ def options2typing(method, options):
     def collect(key, value, path=''):
         path = "%s/%s" % (path, key,)
         if isinstance(value, dict):
-            for k, v in value.iteritems():
+            for v in itervalues(value):
                 collect('*', v, path)
             return
         spec = value2spec(value)
         assert res.get(path, spec) == spec, 'Method %s has incompatible types in options%s' % (method, path,)
         res[path] = spec
-    for k, v in options.iteritems():
+    for k, v in iteritems(options):
         collect(k, v)
     # reverse by key len, so something inside a dict always comes before
     # the dict itself. (We don't currently have any dict-like types, but we
     # might later.)
-    return sorted(([k[1:], v] for k, v in res.iteritems() if v), key=lambda i: -len(i[0]))
+    return sorted(([k[1:], v] for k, v in iteritems(res) if v), key=lambda i: -len(i[0]))
 
 
 def read_method_conf(filename, debug=False):

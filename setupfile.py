@@ -1,7 +1,12 @@
+from __future__ import print_function
+from __future__ import division
+
 import os
 from collections import OrderedDict
 from json import dumps
 from datetime import datetime, date, time, timedelta
+
+from compat import iteritems, unicode, long, PY3
 
 from extras import DotDict, json_load, json_save, json_encode
 
@@ -26,10 +31,10 @@ class SetupCompat:
 
 	def alloptions(self):
 		res = {}
-		for method, d in self.data.params.iteritems():
+		for method, d in iteritems(self.data.params):
 			part = DotDict(d.options)
-			part.update(("dataset-" + k, v) for k, v in d.datasets.iteritems())
-			part.update(("jobid-" + k, v) for k, v in d.jobids.iteritems())
+			part.update(("dataset-" + k, v) for k, v in iteritems(d.datasets))
+			part.update(("jobid-" + k, v) for k, v in iteritems(d.jobids))
 			res[method] = part
 		return res
 
@@ -43,8 +48,8 @@ class SetupCompat:
 
 	def alldepopts(self):
 		res = DotDict()
-		for method, d in self.data.params.iteritems():
-			res.update(("%s:%s" % (method, k), v) for k, v in d.options.iteritems())
+		for method, d in iteritems(self.data.params):
+			res.update(("%s:%s" % (method, k), v) for k, v in iteritems(d.options))
 		return res
 
 	def alldepjobids(self):
@@ -72,7 +77,7 @@ def update_setup(jobid, **kw):
 	return data
 
 # It's almost worth making your own json encoder. Almost.
-def encode_setup(data, sort_keys=True):
+def encode_setup(data, sort_keys=True, as_str=False):
 	def copy(src):
 		if isinstance(src, dict):
 			dst = OrderedDict()
@@ -93,11 +98,14 @@ def encode_setup(data, sort_keys=True):
 			assert isinstance(src, (str, unicode, int, float, long, bool)) or src is None, type(src)
 			return src
 	data = copy(data)
-	return _encode_with_compact(copy(data), ('starttime', 'endtime', 'profile', '_typing',))
+	res = _encode_with_compact(copy(data), ('starttime', 'endtime', 'profile', '_typing',))
+	if PY3 and not as_str:
+		res = res.encode('ascii')
+	return res
 
 def _round_floats(d, ndigits):
 	res = OrderedDict()
-	for k, v in d.iteritems():
+	for k, v in iteritems(d):
 		if isinstance(v, float):
 			v = round(v, ndigits)
 		if isinstance(v, dict):
@@ -118,7 +126,7 @@ def _encode_with_compact(data, compact_keys, extra_indent=0, separator='\n'):
 				fmted = dumps(data[k])
 			compact.append('    "%s": %s,' % (k, fmted,))
 			del data[k]
-	res = json_encode(data)
+	res = json_encode(data, as_str=True)
 	if compact:
 		res = '{\n%s%s%s' % ('\n'.join(compact), separator, res[1:],)
 	res = res.replace('\n', ('\n' + ' ' * extra_indent * 4))

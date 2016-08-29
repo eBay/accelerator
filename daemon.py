@@ -1,6 +1,9 @@
 #!/usr/bin/env python2.7
 # -*- coding: iso-8859-1 -*-
 
+from __future__ import print_function
+from __future__ import division
+
 from web import ThreadedHTTPServer, ThreadedUnixHTTPServer, BaseWebHandler
 
 import sys
@@ -19,6 +22,8 @@ from threading import Thread, Lock as TLock, Lock as JLock
 from string import ascii_letters
 import random
 import atexit
+
+from compat import unicode
 
 from extras import json_encode, json_decode, DotDict
 from dispatch import JobError
@@ -45,14 +50,14 @@ class XtdHandler(BaseWebHandler):
         return
 
     def encode_body(self, body):
-        if isinstance(body, str):
+        if isinstance(body, bytes):
             return body
         if isinstance(body, unicode):
             return body.encode('utf-8')
         return json_encode(body)
 
     def handle_req(self, path, args):
-        if self.DEBUG:  print >>sys.stderr, "@daemon.py:  Handle_req, path = \"%s\", args = %s" %( path, args )
+        if self.DEBUG:  print("@daemon.py:  Handle_req, path = \"%s\", args = %s" %( path, args ), file=sys.stderr)
         try:
             self._handle_req( path, args )
         except Exception:
@@ -112,7 +117,7 @@ class XtdHandler(BaseWebHandler):
 
         elif path[0] == 'abort':
             tokill = list(children)
-            print 'Force abort ', tokill
+            print('Force abort', tokill)
             for child in tokill:
                 os.killpg(child, signal.SIGKILL)
             self.do_response(200, 'text/json', {'killed': len(tokill)})
@@ -136,9 +141,9 @@ class XtdHandler(BaseWebHandler):
         elif path==['submit']:
             if self.ctrl.broken:
                 self.do_response(500, "text/json", {'broken': self.ctrl.broken, 'error': 'Broken methods: ' + ', '.join(sorted(m.split('.')[-1][2:] for m in self.ctrl.broken))})
-            elif args.has_key('xml'):
+            elif 'xml' in args:
                 self.do_response(500, 'text/plain', 'JSON > XML!\n' )
-            elif args.has_key('json'):
+            elif 'json' in args:
                 if DEBUG_WRITE_JSON:
                     with open('DEBUG_WRITE.json', 'wb') as fh:
                         fh.write(args['json'])
@@ -148,19 +153,19 @@ class XtdHandler(BaseWebHandler):
                     self.do_response(500, 'text/plain', 'bad subjob_cookie!\n' )
                     return
                 if len(job_tracking) - 1 > 5: # max five levels
-                    print 'Too deep subjob nesting!'
+                    print('Too deep subjob nesting!')
                     self.do_response(500, 'text/plain', 'Too deep subjob nesting')
                     return
                 if data.lock.acquire(False):
                     respond_after = True
                     try:
-                        if self.DEBUG:  print >>sys.stderr, '@daemon.py:  Got the lock!'
+                        if self.DEBUG:  print('@daemon.py:  Got the lock!', file=sys.stderr)
                         jobidv, job_res = self.ctrl.initialise_jobs(setup)
                         job_res['done'] = False
                         if jobidv:
                             error = []
                             tlock = TLock()
-                            link2job = {j['link']: j for j in job_res['jobs'].itervalues()}
+                            link2job = {j['link']: j for j in job_res['jobs'].values()}
                             def run(jobidv, tlock):
                                 for jobid in jobidv:
                                     passed_cookie = None
@@ -198,7 +203,7 @@ class XtdHandler(BaseWebHandler):
                             t.start()
                             t.join(2) # give job two seconds to complete
                             with tlock:
-                                for j in link2job.itervalues():
+                                for j in link2job.values():
                                     if j['make'] in (True, 'FAIL',):
                                         respond_after = False
                                         job_res_json = json_encode(job_res)
@@ -209,12 +214,12 @@ class XtdHandler(BaseWebHandler):
                             del tlock
                             del t
                             # verify that all jobs got built.
-                            for j in link2job.itervalues():
+                            for j in link2job.values():
                                 jobid = j['link']
                                 if j['make'] == True:
                                     # Well, crap.
                                     error.append([jobid, "unknown", {"INTERNAL": "Not built"}])
-                                    print >>sys.stderr, "INTERNAL ERROR IN JOB BUILDING!"
+                                    print("INTERNAL ERROR IN JOB BUILDING!", file=sys.stderr)
                             data.last_error = error
                     except Exception as e:
                         if respond_after:
@@ -225,7 +230,7 @@ class XtdHandler(BaseWebHandler):
                     if respond_after:
                         job_res['done'] = True
                         self.do_response(200, "text/json", job_res)
-                    if self.DEBUG:  print >>sys.stderr, "@daemon.py:  Process releases lock!" # note: has already done http response
+                    if self.DEBUG:  print("@daemon.py:  Process releases lock!", file=sys.stderr) # note: has already done http response
                 else:
                     self.do_response(200, 'text/plain', 'Busy doing work for you...\n')
             else:
@@ -248,9 +253,9 @@ def parse_args(argv):
 def exitfunction(*a):
     signal.signal(signal.SIGTERM, signal.SIG_IGN)
     signal.signal(signal.SIGINT, signal.SIG_IGN)
-    print
-    print 'The daemon deathening! %d %s' % (os.getpid(), children,)
-    print
+    print()
+    print('The daemon deathening! %d %s' % (os.getpid(), children,))
+    print()
     for child in children:
         os.killpg(child, signal.SIGKILL)
     os.killpg(os.getpgid(0), signal.SIGKILL)
@@ -283,12 +288,12 @@ def main(options):
     try:
         os.setpgrp()
     except OSError:
-        print >>sys.stderr, "Failed to create process group - there is probably already one (daemontools)."
+        print("Failed to create process group - there is probably already one (daemontools).", file=sys.stderr)
 
     # increase number of open file per process
     r1, r2 = resource.getrlimit(resource.RLIMIT_NOFILE)
     resource.setrlimit(resource.RLIMIT_NOFILE, (r2, r2))
-    print "DAEMON:  Set max number of open files to (%d, %d)" % resource.getrlimit(resource.RLIMIT_NOFILE)
+    print("DAEMON:  Set max number of open files to (%d, %d)" % resource.getrlimit(resource.RLIMIT_NOFILE))
 
     # setup statmsg sink and tell address using ENV
     statmsg_rd, statmsg_wr = socket.socketpair(socket.AF_UNIX, socket.SOCK_DGRAM)
@@ -330,17 +335,17 @@ def main(options):
         daemon_url = configfile.resolve_socket_url(options.socket)
 
     ctrl = control.Main(options, daemon_url)
-    print "DAEMON:  Available workspaces"
+    print("DAEMON:  Available workspaces")
     for x in ctrl.list_workspaces():
-        print "DAEMON:    %s" % x
-    print "DAEMON:  Current workspace is          \"%s\"" % ctrl.get_current_workspace()
-    print "DAEMON:  Current remote workspaces are %s" % ', '.join(['\"' + x + '\"' for x in ctrl.get_current_remote_workspaces()])
+        print("DAEMON:    %s" % x)
+    print("DAEMON:  Current workspace is          \"%s\"" % ctrl.get_current_workspace())
+    print("DAEMON:  Current remote workspaces are %s" % ', '.join(['\"' + x + '\"' for x in ctrl.get_current_remote_workspaces()]))
 
     XtdHandler.ctrl = ctrl
 
-    print >>sys.stderr, "Start serving on port %s." % (options.port or options.socket,)
-    print '-' * 79
-    print
+    print("Start serving on port %s." % (options.port or options.socket,), file=sys.stderr)
+    print('-' * 79)
+    print()
     server.serve_forever()
 
 

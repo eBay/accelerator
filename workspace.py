@@ -1,3 +1,6 @@
+from __future__ import print_function
+from __future__ import division
+
 import os
 import glob
 import jobid as jobid_module
@@ -31,19 +34,19 @@ class WorkSpace:
             with open(filename) as F:
                 file_slices = int(F.read())
             if self.slices != file_slices:
-                print "WORKSPACE:  ERROR, workspace has %d slices, but config file stipulates %d!" % (file_slices, self.slices)
-                print "WORKSPACE:  Consequence:  ignore config file, use SLICES=%d." % (file_slices)
+                print("WORKSPACE:  ERROR, workspace has %d slices, but config file stipulates %d!" % (file_slices, self.slices))
+                print("WORKSPACE:  Consequence:  ignore config file, use SLICES=%d." % (file_slices))
                 self.slices = file_slices
         except Exception:
             if writeable:
-                print "WORKSPACE:  create %s in %s." % (SLICES_FILENAME, self.path)
+                print("WORKSPACE:  create %s in %s." % (SLICES_FILENAME, self.path))
                 with open(filename, 'wb') as F:
                     F.write(str(self.slices)+'\n')
             else:
-                print "WORKSPACE:  not a workspace \"%s\" at \"%s\"" % (self.name, self.path,)
+                print("WORKSPACE:  not a workspace \"%s\" at \"%s\"" % (self.name, self.path,))
                 ok = False
         if ok:
-            print "WORKSPACE:  Set up \"%s\" : \"%s\" : %d" % (self.name, self.path, self.slices)
+            print("WORKSPACE:  Set up \"%s\" : \"%s\" : %d" % (self.name, self.path, self.slices))
             return True
         else:
             return False
@@ -99,11 +102,11 @@ class WorkSpace:
     def allocate_jobs(self, num_jobs):
         """ create num_jobs directories in self.path with jobid-compliant naming """
         highest = self._get_highest_jobnumber()
-#        print 'WORKSPACE:  Highest jobid is', highest
+#        print('WORKSPACE:  Highest jobid is', highest)
         jobidv = [jobid_module.create(self.name, highest + 1, x) for x in range(num_jobs)]
         for jobid in jobidv:
             fullpath = os.path.join(self.path, jobid)
-            print "WORKSPACE:  Allocate_job \"%s\"" % fullpath
+            print("WORKSPACE:  Allocate_job \"%s\"" % fullpath)
             os.mkdir(fullpath)
         return jobidv
 

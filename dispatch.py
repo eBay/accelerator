@@ -1,9 +1,14 @@
+from __future__ import print_function
+from __future__ import division
+
 import os
 import sys
 import time
 import json
 from functools import partial
 from signal import SIGTERM, SIGKILL
+
+from compat import PY3
 
 from status_messaging import statmsg
 from status import children
@@ -18,7 +23,7 @@ class JobError(Exception):
 
 	def format_msg(self):
 		res = ["%s (%s):" % (self.jobid, self.method,)]
-		for component, msg in self.status.iteritems():
+		for component, msg in self.status.items():
 			res.append("  %s:" % (component,))
 			res.append("   %s" % (msg.replace("\n", "\n    "),))
 		return "\n".join(res)
@@ -31,7 +36,7 @@ def launch_common(name, workdir, jobid, config, Methods, active_workspaces, slic
 		print_prefix = ''
 	else:
 		print_prefix = '    '
-	print '%s| %s [%s]  %-20s|' % (print_prefix, jobid, method, name)
+	print('%s| %s [%s]  %-20s|' % (print_prefix, jobid, method, name))
 	statmsg('| %s [%s]  %-20s|' % (jobid, method, name))
 	prof_r, prof_w = os.pipe()
 	try:
@@ -68,6 +73,9 @@ def launch_common(name, workdir, jobid, config, Methods, active_workspaces, slic
 			devnull = os.open('/dev/null', os.O_RDONLY)
 			os.dup2(devnull, 0)
 			os.close(devnull)
+			if PY3:
+				for fd in (1, 2, prof_w, status_fd):
+					os.set_inheritable(fd, True)
 			os.execv(cmd[0], cmd)
 			os._exit()
 		# There's a race where if we get interrupted right after fork this is not recorded
@@ -83,13 +91,13 @@ def launch_common(name, workdir, jobid, config, Methods, active_workspaces, slic
 				break
 			prof.append(data)
 		try:
-			status, data = json.loads(''.join(prof))
+			status, data = json.loads(b''.join(prof).decode('utf-8'))
 		except Exception:
 			status = {'launcher': '[invalid data] (probably killed)'}
 		if status:
 			os.killpg(child, SIGTERM) # give it a chance to exit gracefully
-			msg = json_encode(status)
-			print '%s| %s [%s]  failed!    (%5.1fs) |' % (print_prefix, jobid, method, time.time() -  starttime)
+			msg = json_encode(status, as_str=True)
+			print('%s| %s [%s]  failed!    (%5.1fs) |' % (print_prefix, jobid, method, time.time() -  starttime))
 			statmsg('| %s [%s]  failed!             |' % (jobid, method))
 			statmsg(msg)
 			time.sleep(1) # give it a little time to do whatever cleanup it feels the need to do
@@ -102,7 +110,7 @@ def launch_common(name, workdir, jobid, config, Methods, active_workspaces, slic
 		os.waitpid(child, 0) # won't block (we just killed it, plus it had probably already exited)
 		if status:
 			raise JobError(jobid, method, status)
-		print '%s| %s [%s]  completed. (%5.1fs) |' % (print_prefix, jobid, method, time.time() -  starttime)
+		print('%s| %s [%s]  completed. (%5.1fs) |' % (print_prefix, jobid, method, time.time() -  starttime))
 		statmsg('| %s [%s]  completed.          |' % (jobid, method))
 		return data
 	finally:

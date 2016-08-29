@@ -1,8 +1,13 @@
+from __future__ import print_function
+from __future__ import division
+
 from contextlib import contextmanager
 from time import time, strftime
 from traceback import print_exc
 from threading import Lock
 from weakref import WeakValueDictionary
+
+from compat import str_types, iteritems, open
 
 import g
 from status_messaging import _send
@@ -36,9 +41,7 @@ def status(msg):
 	if g.running == 'daemon':
 		yield
 		return
-	if isinstance(msg, unicode):
-		msg = msg.encode('utf-8')
-	assert msg and isinstance(msg, str) and '\0' not in msg
+	assert msg and isinstance(msg, str_types) and '\0' not in msg
 	_send('push', '%s\0%f' % (msg, time(),))
 	try:
 		yield
@@ -57,7 +60,7 @@ def status_stacks_export():
 	last = [None]
 	current = None
 	def fmt(tree, start_indent=0):
-		for pid, d in sorted(tree.iteritems(), key=lambda i: (i[1].stack or ((0,),))[0][0]):
+		for pid, d in sorted(iteritems(tree), key=lambda i: (i[1].stack or ((0,),))[0][0]):
 			last[0] = d
 			indent = start_indent
 			for msg, t in d.stack:
@@ -82,19 +85,19 @@ def print_status_stacks(stacks=None):
 		stacks, _ = status_stacks_export()
 	report_t = time()
 	for pid, indent, msg, t in stacks:
-		print "%6d STATUS: %s%s (%.1f seconds)" % (pid, "    " * indent, msg, report_t - t)
+		print("%6d STATUS: %s%s (%.1f seconds)" % (pid, "    " * indent, msg, report_t - t))
 
 
 def statmsg_sink(logfilename, sock):
 	from extras import DotDict
-	print 'write log to \"%s\".' % logfilename
-	with open(logfilename, 'wb') as fh:
+	print('write log to "%s".' % (logfilename,))
+	with open(logfilename, 'w', encoding='utf-8') as fh:
 		ix = 0
 		while True:
 			data = None
 			try:
 				data = sock.recv(1500)
-				typ, pid, msg = data.split('\0', 2)
+				typ, pid, msg = data.decode('utf-8').split('\0', 2)
 				pid = int(pid)
 				with status_stacks_lock:
 					if typ == 'push':
@@ -133,11 +136,11 @@ def statmsg_sink(logfilename, sock):
 						if pid in  status_tree:
 							del status_tree[pid]
 					elif typ == 'statmsg':
-						fh.write('%s %5d: %s\n' % (strftime("%Y-%m-%d %H:%M:%S"), ix, data,))
+						fh.write('%s %5d: %s\n' % (strftime("%Y-%m-%d %H:%M:%S"), ix, msg,))
 						fh.flush()
 						ix += 1
 					else:
-						print 'UNKNOWN MESSAGE: %r' % (data,)
+						print('UNKNOWN MESSAGE: %r' % (data,))
 			except Exception:
-				print 'Failed to process %r:' % (data,)
+				print('Failed to process %r:' % (data,))
 				print_exc()

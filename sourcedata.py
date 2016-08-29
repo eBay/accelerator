@@ -1,3 +1,6 @@
+from __future__ import print_function
+from __future__ import division
+
 import gzutil
 
 assert gzutil.version >= (2, 5, 0) and gzutil.version[0] == 2, gzutil.version
@@ -20,18 +23,19 @@ type2iter = {
 }
 
 def _mklistreader(inner_type, seq_type):
-	import __builtin__
+	from compat import builtins
 	reader = type2iter[inner_type.lower()]
-	mk = getattr(__builtin__, seq_type.lower())
+	mk = getattr(builtins, seq_type.lower())
 	class GzXList(object):
 		def __init__(self, *a, **kw):
 			self.fh = reader(*a, **kw)
 			assert int(next(self.fh)) == 42001, "Wrong version"
-		def next(self):
+		def __next__(self):
 			llen = next(self.fh)
 			if llen is None:
 				return None
 			return mk(next(self.fh) for _ in range(int(llen)))
+		next = __next__
 		def close(self):
 			self.fh.close()
 		def __iter__(self):
@@ -52,8 +56,9 @@ class GzJson(object):
 	def __init__(self, *a, **kw):
 		self.fh = gzutil.GzBytesLines(*a, **kw)
 		assert next(self.fh) == "json0", "Wrong version"
-	def next(self):
+	def __next__(self):
 		return loads(next(self.fh))
+	next = __next__
 	def close(self):
 		self.fh.close()
 	def __iter__(self):

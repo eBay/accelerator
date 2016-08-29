@@ -1,3 +1,6 @@
+from __future__ import print_function
+from __future__ import division
+
 import os
 import string
 import time
@@ -49,7 +52,7 @@ class report():
         if ix%columns==0:  self.write('\n')
 
     def options(self):
-        print "REPORT,  use of OPTIONS is depreciated, call constructor with globals() instead!"
+        print("REPORT,  use of OPTIONS is depreciated, call constructor with globals() instead!")
         exit(1)
 
     def _options( self, optionsdict, title='Options' ):
@@ -70,11 +73,11 @@ class report():
         with open('report.txt', 'wb') as F:
             F.write(self.s)
         if self.stdout:
-            print self.s
+            print(self.s)
 
 
 
 class newreport(report):
     def __init__(**args):
-        print "NEWREPORT GONE!"
-    
+        print("NEWREPORT GONE!")
+
