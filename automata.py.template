@@ -1,0 +1,24 @@
+
+def main():
+
+    # Automata object named "a" is injected from automatarunner,
+    # use like this:
+    #
+    # a.new('method', caption='dummy')
+    # a.options('method', {'option' : value, }
+    # a.options('depmethod', {'option' : value, }
+    # a.submit()
+    # jobid = a.jobid('method')
+
+    # Also, a sequences object is injected from automatarunner.
+    # This uses the "a" object, and is a merge of the default
+    # sequences and the project specific sequences.
+    # (for now located in
+    #     default_analysis/sequences.py, and
+    #     analysis/sequences.py
+    # )
+    #
+    # Use like this:
+    #
+    # jobid = Seq.importfile(filename='gurgel')
+

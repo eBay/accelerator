@@ -1,0 +1,16 @@
+*~
+*.pyc
+*#
+*.swp
+log.txt
+
+default_analysis/__pycache__/
+conf/FRAMEWORK_CONFIG
+WORK
+status_messaging.log
+
+default_analysis/configfile.py
+default_analysis/setupfile.py
+
+analysis_cf/c_buildgraph
+analysis_cf/c_buildgraph_weighted

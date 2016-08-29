@@ -1,0 +1,20 @@
+
+
+- bugfix in dependency.  After a matching method is found, stop
+  searching for method.  Before fix, dependency continued to search
+  for matches, with the effect that if there was more than one
+  matching job, the oldest one was picked (instead of the latest one).
+
+
+
+version2.2
+----------
+- automatarunner and sequences.py changes way of calling automata-scripts
+- all '.pickle' extensions removed from extras.pickle_load/save apis.
+- gnuplots in predict_lift report.txt
+- new index method:  index_sorted
+- Example Iris dataset and matching automata added.
+- Method directories (analysis/default_analysis) are now read from FRAMEWORK_CONFIG
+- Attempt to prefer log messages to daemon crashes when calling functions in obsolete ways.
+- Dataset is now relative-path.  No options should be given to the constructor.
+- Method default_options is now dict, not function.
