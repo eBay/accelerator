@@ -93,13 +93,14 @@ static PyTypeObject GzDate_Type;
 static PyTypeObject GzTime_Type;
 static PyTypeObject GzBool_Type;
 
+static const uint8_t hash_k[16] = {94, 70, 175, 255, 152, 30, 237, 97, 252, 125, 174, 76, 165, 112, 16, 9};
+
 int siphash(uint8_t *out, const uint8_t *in, uint64_t inlen, const uint8_t *k);
 static uint64_t hash(const void *ptr, const uint64_t len)
 {
-	static const uint8_t k[16] = {94, 70, 175, 255, 152, 30, 237, 97, 252, 125, 174, 76, 165, 112, 16, 9};
 	uint64_t res;
 	if (!len) return 0;
-	siphash((uint8_t *)&res, ptr, len, k);
+	siphash((uint8_t *)&res, ptr, len, hash_k);
 	return res;
 }
 static uint64_t hash_64bits(const void *ptr)
@@ -1633,8 +1634,25 @@ static PyObject *generic_hash(PyObject *dummy, PyObject *obj)
 	return 0;
 }
 
+static PyObject *siphash24(PyObject *dummy, PyObject *args)
+{
+	const uint8_t *v;
+	const uint8_t *k = hash_k;
+	Py_ssize_t v_len;
+	Py_ssize_t k_len = 16;
+	if (!PyArg_ParseTuple(args, "s#|s#", &v, &v_len, &k, &k_len)) return 0;
+	if (k_len != 16) {
+		PyErr_Format(PyExc_ValueError, "Bad k, must be 16 bytes (not %zd)", k_len);
+		return 0;
+	}
+	uint64_t res;
+	siphash((uint8_t *)&res, v, v_len, k);
+	return PyLong_FromUnsignedLong(res);
+}
+
 static PyMethodDef module_methods[] = {
-	{"hash", generic_hash, METH_O, 0},
+	{"hash", generic_hash, METH_O, "hash(v) - The hash a writer for type(v) would have used to slice v"},
+	{"siphash24", siphash24, METH_VARARGS, "siphash24(v, k=...) - SipHash-2-4 of v, defaults to the same k as the slicing hash"},
 	{0}
 };
 
@@ -1732,7 +1750,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	PyObject *c_hash = PyCapsule_New((void *)hash, "gzutil._C_hash", 0);
 	if (!c_hash) return INITERR;
 	PyModule_AddObject(m, "_C_hash", c_hash);
-	PyObject *version = Py_BuildValue("(iii)", 2, 6, 0);
+	PyObject *version = Py_BuildValue("(iii)", 2, 7, 0);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;
