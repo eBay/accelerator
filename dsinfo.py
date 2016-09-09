@@ -8,10 +8,13 @@ import sys
 from glob import glob
 from os.path import join, exists, realpath
 from functools import partial
+from locale import resetlocale
 
 from configfile import get_config
 from jobid import WORKSPACES
 from dataset import Dataset
+
+resetlocale()
 
 # find config files near script location, build WORKSPACES from them
 rel = partial(join, sys.path[0])
@@ -50,11 +53,11 @@ for n in sys.argv[1:]:
 	for n, c in ds.columns.items():
 		len_n = max(len_n, len(n))
 		len_t = max(len_t, len(c.type))
-	template = "    %%%ds  %%%ds" % (len_n, len_t,)
+	template = "    {0:%d}  {1:%d}" % (len_n, len_t,)
 	for n, c in ds.columns.items():
-		print(template % (n, c.type,))
-	print("%d lines" % (sum(ds.lines),))
+		print(template.format(n, c.type))
+	print("{0:n} lines".format(sum(ds.lines)))
 	if ds.previous:
 		chain = ds.chain()
-		print("Chain length %d, from %s to %s" % (len(chain), chain[0], chain[-1],))
-		print("%d total lines" % (sum(sum(ds.lines) for ds in chain)),)
+		print("Chain length {0:n}, from {1} to {2}".format(len(chain), chain[0], chain[-1]))
+		print("{0:n} total lines".format(sum(sum(ds.lines) for ds in chain)))
