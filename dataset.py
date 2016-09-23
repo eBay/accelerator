@@ -896,33 +896,3 @@ class SkipJob(Exception):
 class SkipSlice(Exception):
 	"""Raise this in pre_callback to skip iterating the coming slice
 	(if your callback doesn't want sliceno, this is the same as SkipJob)"""
-
-
-# Backward compat sadness.
-# Supports some of the info API, none of the reading or writing API.
-# I hope this is what is actually commonly used.
-# Please don't use this in new code.
-class dataset:
-	def load(self, jobid):
-		self.d = Dataset(jobid)
-
-	def name_type_list(self):
-		return self.d.columns.items()
-
-	def name_type_dict(self):
-		return self.d.columns
-
-	def get_filename(self):
-		return self.d.filename
-
-	def get_hashlabel(self):
-		return self.d.hashlabel
-
-	def get_jobid(self):
-		return self.d.jobid
-
-	def get_caption(self):
-		return self.d.caption
-
-	def get_num_lines_per_split(self):
-		return self.d.lines
