@@ -11,7 +11,7 @@ from itertools import compress
 from functools import partial
 from inspect import getargspec
 
-from compat import unicode, uni, ifilter, imap, izip, str_types
+from compat import unicode, uni, ifilter, imap, izip, iteritems, str_types, builtins
 
 import blob
 from extras import DotDict
@@ -256,17 +256,17 @@ class Dataset(unicode):
 			chain.reverse()
 		return chain
 
-	def iterate_chain(self, sliceno, columns=None, length=-1, reverse=False, hashlabel=None, stop_jobid=None, pre_callback=None, post_callback=None, filters=None, translators=None):
+	def iterate_chain(self, sliceno, columns=None, length=-1, range=None, sloppy_range=False, reverse=False, hashlabel=None, stop_jobid=None, pre_callback=None, post_callback=None, filters=None, translators=None):
 		"""Iterate a list of datasets. See .chain and .iterate_list for details."""
 		chain = self.chain(length, reverse, stop_jobid)
-		return self.iterate_list(sliceno, columns, chain, hashlabel=hashlabel, pre_callback=pre_callback, post_callback=post_callback, filters=filters, translators=translators)
+		return self.iterate_list(sliceno, columns, chain, range=range, sloppy_range=sloppy_range, hashlabel=hashlabel, pre_callback=pre_callback, post_callback=post_callback, filters=filters, translators=translators)
 
 	def iterate(self, sliceno, columns=None, hashlabel=None, filters=None, translators=None):
 		"""Iterate just this dataset. See .iterate_list for details."""
 		return self.iterate_list(sliceno, columns, [self], hashlabel=hashlabel, filters=filters, translators=translators)
 
 	@staticmethod
-	def iterate_list(sliceno, columns, jobids, hashlabel=None, pre_callback=None, post_callback=None, filters=None, translators=None):
+	def iterate_list(sliceno, columns, jobids, range=None, sloppy_range=False, hashlabel=None, pre_callback=None, post_callback=None, filters=None, translators=None):
 		"""Iterator over the specified columns from jobids (str or list)
 		callbacks are called before and after each dataset is iterated.
 
@@ -295,6 +295,11 @@ class Dataset(unicode):
 		get just the value in this case (column versions are unaffected).
 		
 		If you pass a false value for columns you get all columns in name order.
+		
+		range limits which rows you see. Specify {colname: (start, stop)} and
+		only rows where start <= colvalue < stop will be returned.
+		If you set sloppy_range=True you may get all rows from datasets that
+		contain any rows you asked for. (This can be faster.)
 		"""
 
 		if isinstance(jobids, Dataset):
@@ -313,11 +318,24 @@ class Dataset(unicode):
 		to_iter = []
 		if sliceno is None:
 			from g import SLICES
+		if range:
+			assert len(range) == 1, "Specify exactly one range column."
+			range_k, (range_bottom, range_top,) = next(iteritems(range))
+			if range_bottom is None and range_top is None:
+				range = None
 		for jobid in jobids:
 			d = jobid if isinstance(jobid, Dataset) else Dataset(jobid)
+			if sum(d.lines) == 0:
+				continue
+			if range:
+				c = d.columns[range_k]
+				if range_top is not None and c.min >= range_top:
+					continue
+				if range_bottom is not None and c.max < range_bottom:
+					continue
 			jobid = jobid.split('/')[0]
 			if sliceno is None:
-				for ix in range(SLICES):
+				for ix in builtins.range(SLICES):
 					to_iter.append((jobid, d, ix, False,))
 			else:
 				if hashlabel and d.hashlabel != hashlabel:
@@ -328,8 +346,10 @@ class Dataset(unicode):
 				to_iter.append((jobid, d, sliceno, rehash,))
 		filter_func = Dataset._resolve_filters(columns, filters)
 		translation_func, translators = Dataset._resolve_translators(columns, translators)
+		if sloppy_range:
+			range = None
 		from itertools import chain
-		return chain.from_iterable(Dataset._iterate_datasets(to_iter, columns, pre_callback, post_callback, filter_func, translation_func, translators, want_tuple))
+		return chain.from_iterable(Dataset._iterate_datasets(to_iter, columns, pre_callback, post_callback, filter_func, translation_func, translators, want_tuple, range))
 
 	@staticmethod
 	def _resolve_filters(columns, filters):
@@ -361,9 +381,9 @@ class Dataset(unicode):
 	@staticmethod
 	def _resolve_translators(columns, translators):
 		if not translators:
-			return None, None
+			return None, {}
 		if callable(translators):
-			return translators, None
+			return translators, {}
 		else:
 			res = {}
 			for name, f in translators.items():
@@ -373,7 +393,7 @@ class Dataset(unicode):
 			return None, res
 
 	@staticmethod
-	def _iterate_datasets(to_iter, columns, pre_callback, post_callback, filter_func, translation_func, translators, want_tuple):
+	def _iterate_datasets(to_iter, columns, pre_callback, post_callback, filter_func, translation_func, translators, want_tuple, range):
 		skip_jobid = None
 		def argfixup(func, is_post):
 			if func:
@@ -393,6 +413,18 @@ class Dataset(unicode):
 		post_callback, unsliced_post_callback = argfixup(post_callback, True)
 		if not to_iter:
 			return
+		if range:
+			range_k, (range_bottom, range_top,) = next(iteritems(range))
+			range_check = range_check_function(range_bottom, range_top)
+			if range_k in columns and range_k not in translators and not translation_func:
+				has_range_column = True
+				range_i = columns.index(range_k)
+				if want_tuple:
+					range_f = lambda t: range_check(t[range_i])
+				else:
+					range_f = range_check
+			else:
+				has_range_column = False
 		starting_at = '%s:%d' % (to_iter[0][0], to_iter[0][2],)
 		if len(to_iter) == 1:
 			msg = 'Iterating ' + starting_at
@@ -415,7 +447,7 @@ class Dataset(unicode):
 						skip_jobid = jobid
 						continue
 				it = d._iterator(None if rehash else sliceno, columns)
-				for ix, trans in (translators or {}).items():
+				for ix, trans in translators.items():
 					it[ix] = imap(trans, it[ix])
 				if want_tuple:
 					it = izip(*it)
@@ -425,6 +457,17 @@ class Dataset(unicode):
 					it = d._hashfilter(sliceno, rehash, it)
 				if translation_func:
 					it = imap(translation_func, it)
+				if range:
+					c = d.columns[range_k]
+					if c.min is not None and (not range_check(c.min) or not range_check(c.max)):
+						if has_range_column:
+							it = ifilter(range_f, it)
+						else:
+							if rehash:
+								filter_it = d._hashfilter(sliceno, rehash, d._column_iterator(None, range_k))
+							else:
+								filter_it = d._column_iterator(sliceno, range_k)
+							it = compress(it, imap(range_check, filter_it))
 				if filter_func:
 					it = ifilter(filter_func, it)
 				with status('(%d/%d) %s:%s' % (ix, len(to_iter), jobid, 'REHASH' if rehash else sliceno,)):
@@ -888,6 +931,22 @@ class DatasetWriter(object):
 			res = Dataset.new(**args)
 		del _datasetwriters[self.name]
 		return res
+
+def range_check_function(bottom, top):
+	"""Returns a function that checks if bottom <= arg < top, allowing bottom and/or top to be None"""
+	import operator
+	if top is None:
+		if bottom is None:
+			# Can't currently happen (checked before calling this), but let's do something reasonable
+			return lambda _: True
+		else:
+			return partial(operator.le, bottom)
+	elif bottom is None:
+		return partial(operator.gt, top)
+	else:
+		def range_f(v):
+			return v >= bottom and v < top
+		return range_f
 
 class SkipJob(Exception):
 	"""Raise this in pre_callback to skip iterating the coming job
