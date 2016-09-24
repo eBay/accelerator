@@ -541,8 +541,10 @@ class DatasetWriter(object):
 			self.writers = writers
 			self._mkwritefuncs()
 
-	def column_filename(self, colname):
-		return '%s/%d.%s' % (self.name, self.sliceno, self._clean_names[colname],)
+	def column_filename(self, colname, sliceno=None):
+		if sliceno is None:
+			sliceno = self.sliceno
+		return '%s/%d.%s' % (self.name, sliceno, self._clean_names[colname],)
 
 	def _mkwriters(self, sliceno, filtered=True):
 		assert self.columns, "No columns in dataset"
@@ -555,7 +557,7 @@ class DatasetWriter(object):
 		for colname, (coltype, default) in self.columns.items():
 			wt = typed_writer(coltype)
 			kw = {} if default is _nodefault else {'default': default}
-			fn = self.column_filename(colname)
+			fn = self.column_filename(colname, sliceno)
 			if filtered and colname == self.hashlabel:
 				from g import SLICES
 				w = wt(fn, hashfilter=(sliceno, SLICES), **kw)
