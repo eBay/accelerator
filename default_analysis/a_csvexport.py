@@ -1,9 +1,7 @@
 from __future__ import division
 
 from extras import OptionString, job_params
-from dataset import dataset
 from gzwrite import GzWrite
-from chaining import iterate_datasets, jobchain
 
 options = dict(
 	filename          = OptionString, # .csv or .gz
@@ -22,20 +20,18 @@ jobids = ('previous',)
 def csvexport(sliceno, filename):
 	assert len(options.separator) == 1
 	assert options.quote_fields in ('', "'", '"',)
+	d = datasets.source[0]
 	if not options.labels:
-		d = dataset()
-		d.load(datasets.source[0])
-		options.labels = list(d.name_type_dict())
+		options.labels = sorted(d.columns)
 	if options.chain_source:
-		lst = []
 		if jobids.previous:
 			prev_source = job_params(jobids.previous).datasets.source
 			assert len(datasets.source) == len(prev_source)
-			for src, stop in zip(datasets.source, prev_source):
-				lst.extend(jobchain(tip_jobid=src, stop_jobid=stop))
 		else:
-			for src in datasets.source:
-				lst.extend(jobchain(tip_jobid=src))
+			prev_source = [None] * len(datasets.source)
+		lst = []
+		for src, stop in zip(datasets.source, prev_source):
+			lst.extend(src.chain(stop_jobid=stop))
 		datasets.source = lst
 	if filename.lower().endswith('.gz'):
 		mkwrite = GzWrite
@@ -44,6 +40,7 @@ def csvexport(sliceno, filename):
 			return open(filename, "wb")
 	else:
 		raise Exception("Filename should end with .gz for compressed or .csv for uncompressed")
+	it = d.iterate_list(sliceno, options.labels, datasets.source)
 	with mkwrite(filename) as fh:
 		q = options.quote_fields
 		sep = options.separator
@@ -51,12 +48,12 @@ def csvexport(sliceno, filename):
 			qq = q + q
 			if options.labelsonfirstline:
 				fh.write(sep.join(q + n.replace(q, qq) + q for n in options.labels) + '\n')
-			for data in iterate_datasets(sliceno, options.labels, datasets.source):
+			for data in it:
 				fh.write(sep.join(q + str(n).replace(q, qq) + q for n in data) + '\n')
 		else:
 			if options.labelsonfirstline:
 				fh.write(sep.join(options.labels) + '\n')
-			for data in iterate_datasets(sliceno, options.labels, datasets.source):
+			for data in it:
 				fh.write(sep.join(map(str, data)) + '\n')
 
 def analysis(sliceno):
