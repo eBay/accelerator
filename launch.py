@@ -154,14 +154,16 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
     if workspaces:
         jobid_module.put_workspaces(workspaces)
 
-    datasets = DotDict()
-    for k, v in params.datasets.items():
-        if v:
-            try:
-                v = dataset.Dataset(v)
-            except IOError:
-                pass
-        datasets[k] = v
+    def maybe_dataset(v):
+        if isinstance(v, list):
+            return [maybe_dataset(e) for e in v]
+        if not v:
+            return ''
+        try:
+            return dataset.Dataset(v)
+        except IOError:
+            return v
+    datasets = DotDict({k: maybe_dataset(v) for k, v in params.datasets.items()})
 
     g.options  = params.options
     g.datasets = datasets
