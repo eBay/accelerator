@@ -111,6 +111,8 @@ class Dataset(unicode):
 	
 	You usually don't have to make these yourself, because datasets.foo is
 	already a Dataset instance (or None).
+	
+	These decay to a (unicode) string when pickled.
 	"""
 
 	def __new__(cls, jobid, name=None):
@@ -154,6 +156,10 @@ class Dataset(unicode):
 			assert obj._data.version[0] == 2, "%s/%s: Unsupported dataset pickle version %r" % (jobid, name, obj._data.version,)
 			obj._data.columns = dict(obj._data.columns)
 		return obj
+
+	# Look like a string after pickling
+	def __reduce__(self):
+		return unicode, (unicode(self),)
 
 	@property
 	def columns(self):
