@@ -303,11 +303,13 @@ class Dataset(unicode):
 		"""
 
 		if isinstance(jobids, Dataset):
-			jobids = [jobids]
-		if isinstance(jobids, str_types):
-			jobids = [jid.strip() for jid in jobids.split(',')]
+			datasets = [jobids]
+		elif isinstance(jobids, str_types):
+			datasets = [Dataset(jid.strip()) for jid in jobids.split(',')]
+		else:
+			datasets = [jid if isinstance(jid, Dataset) else Dataset(jid) for jid in jobids]
 		if not columns:
-			columns = Dataset(jobids[0]).columns
+			columns = datasets[0].columns
 		if isinstance(columns, str_types):
 			columns = [columns]
 			want_tuple = False
@@ -323,8 +325,7 @@ class Dataset(unicode):
 			range_k, (range_bottom, range_top,) = next(iteritems(range))
 			if range_bottom is None and range_top is None:
 				range = None
-		for jobid in jobids:
-			d = jobid if isinstance(jobid, Dataset) else Dataset(jobid)
+		for d in datasets:
 			if sum(d.lines) == 0:
 				continue
 			if range:
@@ -333,7 +334,7 @@ class Dataset(unicode):
 					continue
 				if range_bottom is not None and c.max < range_bottom:
 					continue
-			jobid = jobid.split('/')[0]
+			jobid = d.split('/')[0]
 			if sliceno is None:
 				for ix in builtins.range(SLICES):
 					to_iter.append((jobid, d, ix, False,))
