@@ -7,7 +7,7 @@ from numpy import lexsort
 from os import symlink
 from functools import partial
 
-from extras import job_params, OptionEnum, OptionString
+from extras import OptionEnum, OptionString
 from jobid import resolve_jobid_filename
 from dataset import Dataset, DatasetWriter
 
@@ -38,9 +38,8 @@ def sort(columniter):
 	return sort_idx
 
 def prepare(params):
-	prev_p = job_params(datasets.previous, default_empty=True)
 	d = datasets.source
-	jobs = d.chain(stop_jobid=prev_p.datasets.source)
+	jobs = d.chain(stop_jobid={datasets.previous: 'source'})
 	if options.sort_across_slices:
 		columniter = partial(Dataset.iterate_list, None, jobids=jobs)
 		sort_idx = sort(columniter)
