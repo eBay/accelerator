@@ -11,7 +11,7 @@ options = {
 	'key_column'  : OptionString,
 	'value_column': OptionString,
 }
-datasets = ('src',)
+datasets = ('source',)
 jobids = ('previous',)
 
 
@@ -25,10 +25,10 @@ def analysis(sliceno, prepare_res):
 	d = blob.load(jobid=jobids.previous, sliceno=sliceno, default=defaultdict(set))
 	if options.key_filter:
 		d = {k: v for k, v in d.iteritems() if k in key_filter}
-	iterator = datasets.src.iterate_chain(
+	iterator = datasets.source.iterate_chain(
 		sliceno,
 		(options.key_column, options.value_column,),
-		stop_jobid=job_params(jobids.previous, default_empty=True).datasets.src,
+		stop_jobid=job_params(jobids.previous, default_empty=True).datasets.source,
 	)
 	# These break out into four versions for shorter runtime
 	if options.value_filter:
