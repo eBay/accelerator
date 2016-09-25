@@ -14,7 +14,7 @@ from inspect import getargspec
 from compat import unicode, uni, ifilter, imap, izip, iteritems, str_types, builtins
 
 import blob
-from extras import DotDict
+from extras import DotDict, job_params
 from jobid import resolve_jobid_filename
 from gzwrite import typed_writer
 from status import status
@@ -107,12 +107,27 @@ class Dataset(unicode):
 	You usually don't have to make these yourself, because datasets.foo is
 	already a Dataset instance (or None).
 	
+	You can pass jobid="jid/name" or jobid="jid", name="name", or skip
+	name completely for "default".
+	
+	You can also pass jobid={jid: dsname} to resolve dsname from the datasets
+	passed to jid. This gives None if that option was unset.
+	
 	These decay to a (unicode) string when pickled.
 	"""
 
 	def __new__(cls, jobid, name=None):
 		if isinstance(jobid, (tuple, list)):
 			jobid = _dsid(jobid)
+		elif isinstance(jobid, dict):
+			assert not name, "Don't pass both a separate name and jobid as {job: dataset}"
+			assert len(jobid) == 1, "Only pass a single {job: dataset}"
+			jobid, dsname = next(iteritems(jobid))
+			if not jobid:
+				return None
+			jobid = job_params(jobid, default_empty=True).datasets.get(dsname)
+			if not jobid:
+				return None
 		if '/' in jobid:
 			assert not name, "Don't pass both a separate name and jobid as jid/name"
 			jobid, name = jobid.split('/', 1)
@@ -244,7 +259,9 @@ class Dataset(unicode):
 	def chain(self, length=-1, reverse=False, stop_jobid=None):
 		if stop_jobid:
 			# resolve whatever format to the bare jobid
-			stop_jobid = Dataset(stop_jobid).jobid
+			stop_jobid = Dataset(stop_jobid)
+			if stop_jobid:
+				stop_jobid = stop_jobid.jobid
 		chain = []
 		current = self
 		while length != len(chain) and current.jobid != stop_jobid:
