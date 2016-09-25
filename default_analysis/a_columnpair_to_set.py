@@ -54,10 +54,10 @@ def analysis(sliceno, prepare_res):
 		if options.key_filter:
 			for k, v in iterator:
 				if k in key_filter:
-					d[k].add(reuse.setdefault(k, k))
+					d[k].add(reuse.setdefault(v, v))
 		else:
 			for k, v in iterator:
-				d[k].add(reuse.setdefault(k, k))
+				d[k].add(reuse.setdefault(v, v))
 	blob.save(d, sliceno=sliceno, temp=False)
 	blob.save(set(d), 'keyset', sliceno=sliceno, temp=False)
 	blob.save(Counter(len(v) for v in d.itervalues()), 'setsizehist', sliceno=sliceno, temp=False)
