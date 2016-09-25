@@ -2,7 +2,7 @@ from __future__ import division
 
 from collections import defaultdict, Counter
 
-from extras import job_params, JobWithFile, OptionString
+from extras import JobWithFile, OptionString
 import blob
 
 options = {
@@ -28,7 +28,7 @@ def analysis(sliceno, prepare_res):
 	iterator = datasets.source.iterate_chain(
 		sliceno,
 		(options.key_column, options.value_column,),
-		stop_jobid=job_params(jobids.previous, default_empty=True).datasets.source,
+		stop_jobid={jobids.previous: 'source'},
 	)
 	# These break out into four versions for shorter runtime
 	if options.value_filter:
