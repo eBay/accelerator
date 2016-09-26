@@ -6,7 +6,6 @@ Rewrite a dataset (or chain to previous) with new hashlabel.
 
 from extras import OptionString, job_params
 from dataset import DatasetWriter
-from chaining import jobchain
 
 options = {
 	'hashlabel'                 : OptionString,
@@ -21,7 +20,7 @@ def prepare():
 	caption = options.caption % dict(caption=d.caption, hashlabel=options.hashlabel)
 	prev_p = job_params(datasets.previous, default_empty=True)
 	prev_source = prev_p.datasets.source
-	if len(jobchain(tip_jobid=datasets.source, stop_jobid=prev_source, length=options.length)) == 1:
+	if len(d.chain(stop_jobid=prev_source, length=options.length)) == 1:
 		filename = d.filename
 	else:
 		filename = None
@@ -37,10 +36,17 @@ def prepare():
 		# so the iterator returns the same order the writer expects.
 		names.append(n)
 		dw.add(n, c.type)
-	return dw, d.iterate_chain(None, names, stop_jobid=prev_source, length=options.length)
+	return dw, names, prev_source
 
 def analysis(sliceno, prepare_res):
-	dw, it = prepare_res
+	dw, names, prev_source = prepare_res
+	it = datasets.source.iterate_chain(
+		sliceno,
+		names,
+		stop_jobid=prev_source,
+		length=options.length,
+		hashlabel=options.hashlabel,
+	)
 	write = dw.write_list
 	for values in it:
 		write(values)
