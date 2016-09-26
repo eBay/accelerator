@@ -3,7 +3,9 @@ from __future__ import division
 description = r'''
 Take a (chain of) dataset(s) and split it based on a date(time) column.
 
-Tried to be intelligent about whether it re-reads old datasets or saves the
+Regrettably does not work with Number columns, nor with list columns.
+
+Tries to be intelligent about whether it re-reads old datasets or saves the
 spilled data from them (for fast re-reading, when there isn't much of it).
 
 Intended to be used in a continually trailing chain from some source with
@@ -16,7 +18,7 @@ any split_date.
 Moving discard_before_date around won't bring any data back from previous
 jobs, even if those datasets are re-read.
 
-If you use discard_before_date you can get look at what was discarded
+If you use discard_before_date you can get a look at what was discarded
 through the dataset_datesplit_discarded method.
 '''
 
@@ -25,11 +27,9 @@ from os.path import exists
 from datetime import datetime, date, time
 from os import unlink
 
-from extras import OptionString, mk_splitdir, json_save, job_params, DotDict
-from dataset import dataset
-from jobid import resolve_jobid_filename
+from extras import OptionString, json_save, job_params, DotDict
+from dataset import Dataset, DatasetWriter
 import dataset_typing
-from chaining import jobchain
 from sourcedata import type2iter
 import blob
 
@@ -72,12 +72,16 @@ minmax_code = dataset_typing.minmax_data + ''.join(funcs) + r'''
 
 ffi = cffi.FFI()
 ffi.cdef(r'''
-int filter(const int count, const char *in_files[], const char *out_files[], const char *minmax_files[], const int sizes[], uint64_t counters[4], const uint32_t dates[6], const int minmax_typeidx[]);
+int filter(const int count, const char *in_files[], const size_t offsets[], const char *out_files[], const char *minmax_files[], const int sizes[], uint64_t counters[4], const uint32_t dates[6], const int minmax_typeidx[], const int64_t line_count);
 ''')
 backend = ffi.verify(r'''
 #include <zlib.h>
 #include <string.h>
 #include <float.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #define err1(v) if (v) goto err
 #define err2(v, msg) if (v) { error_msg = msg; goto err; }
@@ -140,7 +144,7 @@ static const char *read_line(g *g, int *len)
 	(see minmax_setup and minmax_code)
 */
 
-int filter(const int count, const char *in_files[static count], const char *out_files[], const char *minmax_files[static count], const int sizes[static count], uint64_t counters[static 4], const uint32_t dates[static 6], const int minmax_typeidx[static count])
+int filter(const int count, const char *in_files[static count], const size_t offsets[static count], const char *out_files[], const char *minmax_files[static count], const int sizes[static count], uint64_t counters[static 4], const uint32_t dates[static 6], const int minmax_typeidx[static count], const int64_t line_count)
 {
 	g in_fh[count];
 	gzFile out_fh[4][count];
@@ -148,15 +152,20 @@ int filter(const int count, const char *in_files[static count], const char *out_
 	char buf_col_max[4][count * 8];
 	const char *error_msg = "internal error";
 	int res = 1;
+	int fd = -1;
 	memset(in_fh, 0, count * sizeof(g));
 	memset(out_fh, 0, 4 * count * sizeof(gzFile));
 	err1(sizes[0] != 4 && sizes[0] != 8); // sanity check (it must be a date type)
 	for (int i = 0; i < count; i++) {
-		in_fh[i].fh = gzopen(in_files[i], "rb");
+		fd = open(in_files[i], O_RDONLY);
+		err2(fd < 0, in_files[i]);
+		err2(lseek(fd, offsets[i], 0) != offsets[i], in_files[i]);
+		in_fh[i].fh = gzdopen(fd, "rb");
 		err2(!in_fh[i].fh, in_files[i]);
+		fd = -1;
 		for (int c = 0; c < 3; c++) {
-			if (out_files[count * c + i]) {
-				const char * const fn = out_files[count * c + i];
+			const char * const fn = out_files[count * c + i];
+			if (fn) {
 				out_fh[c + 1][i] = gzopen(fn, "ab");
 				err2(!out_fh[c + 1][i], fn);
 			}
@@ -171,7 +180,7 @@ int filter(const int count, const char *in_files[static count], const char *out_
 /*
  * Each line can be classified as one of four things:
  * 0. Already extracted (or too old) in a previous datesplit.
- * 1. Too old. (Arrived to late.)
+ * 1. Too old. (Arrived too late.)
  * 2. Valid.
  * 3. Too new. (Spilled.)
  *
@@ -187,13 +196,11 @@ int filter(const int count, const char *in_files[static count], const char *out_
  * Anything except class 0 can be saved by setting the right options.
  */
 
-	while (42) {
+	for (int64_t line_num = 0; line_num < line_count; line_num++) {
 		char buf[8];
 		const uint32_t * const u32p = (uint32_t *)buf;
 		enum { CLS_ALREADY_HANDLED, CLS_TOO_OLD, CLS_VALID, CLS_TOO_NEW } class;
-		if (gzread(in_fh[0].fh, buf, sizes[0]) != sizes[0]) {
-			break;
-		}
+		err2(gzread(in_fh[0].fh, buf, sizes[0]) != sizes[0], "read");
 		if (u32p[0] < dates[0] || (sizes[0] == 8 && u32p[0] == dates[0] && u32p[1] < dates[1])) {
 			class = CLS_ALREADY_HANDLED;
 		} else if (u32p[0] < dates[2] || (sizes[0] == 8 && u32p[0] == dates[2] && u32p[1] < dates[3])) {
@@ -247,6 +254,7 @@ int filter(const int count, const char *in_files[static count], const char *out_
 		}
 	}
 err:
+	if (fd >= 0) close(fd);
 	for (int i = 0; i < count; i++) {
 		if (in_fh[i].fh && gzclose(in_fh[i].fh)) res = 1;
 		for (int c = 1; c < 4; c++) {
@@ -259,10 +267,8 @@ err:
 ''', libraries=['z'], extra_compile_args=['-std=c99'])
 
 
-def real_prepare(jid, options):
-	d = dataset()
-	d.load(jid)
-	column_types = d.name_type_dict()
+def real_prepare(d, previous, options):
+	column_types = {n: c.type for n, c in d.columns.items()}
 	column_sizes = []
 	column_names = list(column_types)
 	column_names.remove(options.date_column)
@@ -273,42 +279,52 @@ def real_prepare(jid, options):
 		column_sizes.append(dataset_typing.typesizes[typ])
 		minmax_typeidx.append(minmax_type2idx.get(typ, -1))
 	minmax_typeidx = ffi.new('int []', minmax_typeidx)
-	return column_names, column_sizes, column_types, minmax_typeidx
+	kw = dict(
+		columns=column_types,
+		hashlabel=d.hashlabel,
+		caption=options.caption,
+		previous=previous,
+		meta_only=True,
+	)
+	dw = DatasetWriter(**kw)
+	dw_spill = DatasetWriter(name='SPILL', **kw)
+	return dw, dw_spill, column_names, column_sizes, column_types, minmax_typeidx
 
 def prepare():
-	return real_prepare(datasets.source or datasets.previous, options)
+	return real_prepare(datasets.source or datasets.previous, datasets.previous, options)
 
-def empty_spilldata(spill_ext=''):
+def empty_spilldata(spill_ds='default'):
 	return DotDict(
-		version     = 0,
+		version     = 1,
 		counter     = 0,
-		spill_ext   = spill_ext,
+		spill_ds    = spill_ds,
 		last_time   = False,
 		seen_before = False,
 	)
 
-def process_one(sliceno, dstdir, options, source, prepare_res, data=None, save_discard=False):
+def process_one(sliceno, options, source, prepare_res, data=None, save_discard=False):
 	# Future improvement: Look at the old minmax to determine if we will get anything from reading this data
-	column_names, column_sizes, column_types, minmax_typeidx = prepare_res
+	dw, dw_spill, column_names, column_sizes, column_types, minmax_typeidx = prepare_res
 	if data:
-		assert data.version == 0
+		assert data.version == 1
 		data.seen_before = True
 	else:
 		data = empty_spilldata()
-	d = dataset()
-	d.load(source)
+	d = Dataset(source, data.spill_ds)
 	in_files = []
 	out_files = []
+	offsets = []
 	if not save_discard:
 		out_files += [ffi.NULL] * len(column_names) # don't save "too old" lines
 	minmax_files = []
 	minmax_d = {}
 	for colname in column_names:
-		jobid = d.iterator_list([colname])[0][2]
-		out_fn = '%s/%s.gz' % (dstdir, colname,)
-		in_fn = resolve_jobid_filename(jobid, out_fn + data.spill_ext)
+		out_fn = dw.column_filename(colname, sliceno).encode('ascii')
+		in_fn = d.column_filename(colname, sliceno).encode('ascii')
+		offset = d.columns[colname].offsets[sliceno] if d.columns[colname].offsets else 0
 		in_files.append(ffi.new('char []', in_fn))
 		out_files.append(ffi.new('char []', out_fn))
+		offsets.append(offset)
 		minmax_fn = out_fn + '_minmax'
 		minmax_files.append(ffi.new('char []', minmax_fn))
 		minmax_d[colname] = minmax_fn
@@ -334,10 +350,14 @@ def process_one(sliceno, dstdir, options, source, prepare_res, data=None, save_d
 		dates[0:2] = date2cfmt(data.get('process_date', datetime.min))
 	if (data.last_time or options.hard_spill) and not save_discard:
 		for colname in column_names:
-			out_fn = '%s/%s.gz_SPILL' % (dstdir, colname,)
+			out_fn = dw_spill.column_filename(colname, sliceno).encode('ascii')
 			out_files.append(ffi.new('char []', out_fn))
 		stats.virtual_spill = False
 	else:
+		# We still have to make sure the files exist, or we end up
+		# with a broken dataset if only some slices wanted to spill.
+		for colname in column_names:
+			open(dw_spill.column_filename(colname, sliceno), 'ab').close()
 		out_files += [ffi.NULL] * len(column_names)
 		stats.virtual_spill = True
 	# We are done reading `data` - update it for next iteration
@@ -352,7 +372,7 @@ def process_one(sliceno, dstdir, options, source, prepare_res, data=None, save_d
 		dates[4:6] = date2cfmt(options.split_date)
 		data.process_date = max(data.process_date, options.split_date)
 	counters = ffi.new('uint64_t [4]') # one for each class-enum
-	res = backend.filter(len(in_files), in_files, out_files, minmax_files, column_sizes, counters, dates, minmax_typeidx)
+	res = backend.filter(len(in_files), in_files, offsets, out_files, minmax_files, column_sizes, counters, dates, minmax_typeidx, d.lines[sliceno])
 	assert not res, "cffi converter returned error on data from " + source
 	stats.version = 0
 	stats.counters = list(counters)
@@ -379,27 +399,27 @@ def process_one(sliceno, dstdir, options, source, prepare_res, data=None, save_d
 	return data, stats
 
 def analysis(sliceno, params, prepare_res):
-	dstdir = mk_splitdir(sliceno)
 	spilldata = {}
 	stats = {}
 	we_have_spill = False
 	if datasets.previous:
 		prev_spilldata = blob.load('spilldata', jobid=datasets.previous, sliceno=sliceno)
 		for source, data in prev_spilldata:
-			spilldata[source], stats[source] = process_one(sliceno, dstdir, options, source, prepare_res, data)
+			spilldata[source], stats[source] = process_one(sliceno, options, source, prepare_res, data)
 			we_have_spill |= not stats[source].virtual_spill
 	if datasets.source:
 		prev_params = job_params(datasets.previous, default_empty=True)
-		for source in jobchain(tip_jobid=datasets.source, stop_jobid=prev_params.datasets.source):
-			spilldata[source], stats[source] = process_one(sliceno, dstdir, options, source, prepare_res)
+		for source in datasets.source.chain(stop_jobid=prev_params.datasets.source):
+			spilldata[source], stats[source] = process_one(sliceno, options, source, prepare_res)
 			we_have_spill |= not stats[source].virtual_spill
 	spilldata = [(k, v) for k, v in spilldata.iteritems() if v]
 	if we_have_spill:
-		spilldata.append((params.jobid, empty_spilldata('_SPILL')))
+		spilldata.append((params.jobid, empty_spilldata('SPILL')))
 	blob.save(spilldata, 'spilldata', sliceno=sliceno, temp=False)
 	blob.save(stats, 'stats', sliceno=sliceno, temp=False)
+	return we_have_spill
 
-def real_synthesis(params, options, datasets, minmax_index):
+def real_synthesis(params, options, datasets, minmax_index, prepare_res, we_have_spill, save_discard=False):
 	stats = DotDict(
 		included_lines          = [0] * params.slices,
 		discarded_lines         = [0] * params.slices,
@@ -440,18 +460,22 @@ def real_synthesis(params, options, datasets, minmax_index):
 				else:
 					d[k] = [mn, mx]
 		return d
-	blob.save(minmax_select(minmax_index), 'minmax')
+	dw, dw_spill = prepare_res[:2]
+	dw.set_minmax(None, minmax_select(minmax_index))
+	dw_spill.set_minmax(None, minmax_select(2))
+	if save_discard:
+		included_lines = stats.discarded_lines
+	else:
+		included_lines = stats.included_lines
+	for sliceno in range(params.slices):
+		dw.set_lines(sliceno, included_lines[sliceno])
+		dw_spill.set_lines(sliceno, stats.spilled_lines[sliceno])
+	if not we_have_spill:
+		dw_spill.discard()
 	stats.minmax_discarded = minmax_select(0, True)
 	stats.minmax           = minmax_select(1, True)
 	stats.minmax_spilled   = minmax_select(2, True)
 	json_save(stats)
 
-	d = dataset()
-	d.load(datasets.source or datasets.previous)
-	types = d.name_type_dict()
-	hashlabel = d.get_hashlabel()
-	d = dataset()
-	d.new(params.jobid, name_type=types, caption=options.caption, num_lines_per_split=stats.included_lines, hashlabel=hashlabel)
-
-def synthesis(params):
-	real_synthesis(params, options, datasets, 1)
+def synthesis(params, prepare_res, analysis_res):
+	real_synthesis(params, options, datasets, 1, prepare_res, sum(analysis_res))
