@@ -802,37 +802,32 @@ class DatasetWriter(object):
 						w(values[k])
 			self.write_dict = write_dict
 			hix = self._order.index(hl)
-			check = self.hashcheck
-			def write_list(values):
-				if check(values[hix]):
-					for w, v in zip(w_l, values):
-						w(v)
-			self.write_list = write_list
 		else:
 			w_i = w.items()
 			def write_dict(values):
 				for k, w in w_i:
 					w(values[k])
 			self.write_dict = write_dict
-			def write_list(values):
-				for w, v in zip(w_l, values):
-					w(v)
-			self.write_list = write_list
+			hix = -1
 		w_d = {'w%d' % (ix,): w for ix, w in enumerate(w_l)}
 		names = [self._clean_names[n] for n in self._order]
 		f = ['def write(' + ', '.join(names) + '):']
+		f_list = ['def write_list(values):']
 		if len(names) == 1: # only the hashlabel, no check needed
 			f.append(' w0(%s)' % tuple(names))
+			f_list.append(' w0(values[0])')
 		else:
 			if hl:
 				f.append(' if w%d(%s):' % (hix, names[hix],))
-			else:
-				hix = -1
+				f_list.append(' if w%d(values[%d]):' % (hix, hix,))
 			for ix in range(len(names)):
 				if ix != hix:
 					f.append('  w%d(%s)' % (ix, names[ix],))
+					f_list.append('  w%d(values[%d])' % (ix, ix,))
 		eval(compile('\n'.join(f), '<DatasetWriter generated write>', 'exec'), w_d)
 		self.write = w_d['write']
+		eval(compile('\n'.join(f_list), '<DatasetWriter generated write_list>', 'exec'), w_d)
+		self.write_list = w_d['write_list']
 
 	@property
 	def _allwriters(self):
