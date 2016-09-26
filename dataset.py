@@ -682,6 +682,11 @@ class DatasetWriter(object):
 		self._minmax[self.sliceno] = minmax
 		del self.writers
 
+	def discard(self):
+		del _datasetwriters[self.name]
+		from shutil import rmtree
+		rmtree(self.name)
+
 	def set_lines(self, sliceno, count):
 		assert self.meta_only, "Don't try to set lines for writers that actually write"
 		self._lens[sliceno] = count
