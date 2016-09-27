@@ -1,69 +1,60 @@
 from __future__ import print_function
 from __future__ import division
 
-import os
-import string
 import time
+import g
 
 class report():
-	def __init__(self, globdict, stdout=False):
+	def __init__(self, stdout=False):
 		self.stdout = stdout
 		self.s = ''
 		self.line()
-		self.println( '[%s]                    [jobnum:%s]' % (
-				time.strftime('%a, %d %b %Y %H:%M:%S +0000',time.gmtime()), globdict['JOBID']))
+		t = time.strftime('%a, %d %b %Y %H:%M:%S +0000', time.gmtime())
+		self.println( '[%s]%s[%s]' % (t, ' ' * (76 - len(t) - len(g.JOBID)), g.JOBID,))
 		self.line()
-		self.println('Method \"%s\" report.' % globdict['METHOD'])
-		caption = globdict['CAPTION']
+		self.println('Method \"%s\" report.' % g.METHOD)
+		caption = g.CAPTION
 		if caption:
 			self.println('Caption \"%s\"' % caption)
 		self.line()
-		options = globdict['OPTIONS']
-		if options:
-			self._options(options)
+		self._options(g.options)
 		self.line()
 
 	def line(self):
-		self.s += '-'*80 + '\n'
+		self.println('-' * 80)
 
-	def println( self, string ):
-		self.s += string + '\n'
+	def println(self, s):
+		self.write(s + '\n')
 
-	def write( self, string ):
-		self.s += string
+	def write(self, s):
+		self.s += s
 
-	def printvec( self, vec, columns ):
-		spacing = 80//columns-6
-		for ix,x in enumerate(vec):
-			self.write( '  %3d %s' %(ix,string.ljust(x,spacing)) )
-			if ix%columns==(columns-1):  self.write('\n')
-		if ix%columns==0:  self.write('\n')
+	def printvec(self, vec, columns):
+		spacing = 80 // columns - 6
+		for ix, x in enumerate(vec):
+			self.write( '  %3d %s'  % (ix, str(x).ljust(spacing),))
+			if ix % columns == columns - 1:
+				self.write('\n')
+		if ix % columns != columns - 1:
+			self.write('\n')
 
-	def options(self):
-		print("REPORT,  use of OPTIONS is depreciated, call constructor with globals() instead!")
-		exit(1)
-
-	def _options( self, optionsdict, title='Options' ):
-		if not optionsdict:  return
+	def _options(self, optionsdict, title='Options'):
+		if not optionsdict:
+			return
 		self.println(title)
-		maxlen = max([len(x) for x in optionsdict.keys()])
-		for x,y in optionsdict.iteritems():
-			# NB:  type checking!
-			if type(y)==list:
-				self.println('  %s :'%(string.ljust(x,maxlen)))
-				for t in y:
-					self.println('  %s   %s'%(' '*maxlen,t))
+		maxlen = max(len(k) for k in optionsdict)
+		for k, v in optionsdict.iteritems():
+			k = str(k).ljust(maxlen)
+			if isinstance(v, (list, tuple)):
+				self.println('  %s :' % (k,))
+				for t in v:
+					self.println('  %s   %s' % (' ' * maxlen, t,))
 			else:
-				self.println("  %s : %s "%(string.ljust(x,maxlen),y))
+				self.println("  %s : %s " % (k, v,))
 
 	def close(self):
 		self.line()
-		with open('report.txt', 'wb') as F:
+		with open('report.txt', 'w') as F:
 			F.write(self.s)
 		if self.stdout:
 			print(self.s)
-
-
-class newreport(report):
-	def __init__(**args):
-		print("NEWREPORT GONE!")

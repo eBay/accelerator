@@ -706,7 +706,7 @@ def analysis_lap(sliceno, badmap_fh, first_lap):
 	return res_bad_count, res_default_count, res_minmax, link_candidates
 
 def synthesis(params, analysis_res, prepare_res):
-	r = report(globals())
+	r = report()
 	res = DotDict()
 	d = datasets.source
 	columns = {}

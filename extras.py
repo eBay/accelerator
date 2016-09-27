@@ -122,38 +122,22 @@ def json_load(filename='result', jobid='', sliceno=None, default=None):
 
 def debug_print_options(options, title=''):
 	print('-' * 53)
-	if len(title) > 0:
+	if title:
 		print('-', title)
 		print('-' * 53)
-	import string
-	maxx = max( len(x) for x in options.keys() if type(x) is str )
+	max_k = max(len(str(k)) for k in options)
 	for key, val in sorted(options.items()):
-		if isinstance(val, str):
-			val = "'%s'" % val
-		print("%s = %s" % (string.ljust(str(key), maxx), str(val)))
+		print("%s = %r" % (str(key).ljust(max_k), val))
 	print('-' * 53)
 
-
-def parse_option_list(streng):
-	""" Input is comma separated string, typically an option from xml """
-	if len(streng)==0:
-		return []
-	return streng.split(',')
-
-def mk_splitdir(index):
-	name = '%02d' % int(index)
-	try:
-		os.mkdir(name)
-	except OSError:
-		pass
-	return name
-
 def symlink(filename, destpath):
+	dest_fn = os.path.join(destpath, filename)
 	try:
-		os.remove(os.path.join(destpath, filename))
+		os.remove(dest_fn + '_')
 	except OSError:
 		pass
-	os.symlink(os.path.abspath(filename), os.path.join(destpath, filename))
+	os.symlink(os.path.abspath(filename), dest_fn + '_')
+	os.rename(dest_fn + '_', dest_fn)
 
 
 def printresult(v, path, stdout=True):

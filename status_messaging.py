@@ -4,7 +4,6 @@ from __future__ import division
 import socket
 import os
 import time
-import string
 
 sock = None
 
@@ -29,22 +28,3 @@ def statmsg(message, plain=False, verbose=False):
 	if not plain:
 		message = '  %s' % message
 	_send('statmsg', message)
-
-
-def staterr(message):
-	statmsg('E ' + message)
-
-def statlaunch(jobid, method, msg):
-	s = '| ' + string.ljust('[%s] %s' % (jobid, method), 44) + string.rjust('%s' % msg, 11) + ' |'
-	statmsg(s, plain=True)
-
-class TimedStatus:
-	def __init__(self, delta):
-		self.t = time.time()
-		self.delta = delta
-
-	def status(self, message):
-		t = time.time()
-		if t - self.t > self.delta:
-			statmsg(message)
-			self.t = t

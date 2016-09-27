@@ -344,7 +344,7 @@ def synthesis(prepare_res, analysis_res, params):
 	blob.save(res, 'import')
 
 	# write report
-	r = report.report(globals())
+	r = report.report()
 	if not res['num_lines']:
 		r.println('No lines read - empty file!')
 		r.close()

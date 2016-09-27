@@ -1,6 +1,0 @@
-requires
-  python
-  matplotlib
-  graphviz
-  pip install ordereddict
-  easy_install-2.6 pyzmq
