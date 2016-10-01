@@ -2,11 +2,8 @@ from __future__ import print_function
 from __future__ import division
 
 import os
-import glob
-import jobid as jobid_module
 
 SLICES_FILENAME = 'slices.conf'
-
 
 class WorkSpace:
 	""" Handle all access to a single "physical" workdir. """
@@ -18,7 +15,9 @@ class WorkSpace:
 		self.name   = name
 		self.path   = path
 		self.slices = int(slices)
-		self.valid_jobids = []
+		self.valid_jobids = set()
+		self.known_jobids = set()
+		self.recent_bad_jobids = set()
 		self.ok = self._check_slices(writeable)
 
 
@@ -62,59 +61,58 @@ class WorkSpace:
 
 
 	def add_single_jobid(self, jobid):
-		self.valid_jobids.append(jobid)
+		self.valid_jobids.add(jobid)
 
-	def update(self, valid=True, parallelism=4):
-		"""
-		read all jobids from disk, two things may happen:
-		    - valid = True
-		       valid (i.e. completed jobids) are stored in self.valid_jobids
-		    - valid = False
-		       function returns list of all (complete or not) jobids.
-		       This is used for "allocate_jobs" only.
-		 """
-		globexpression = os.path.join(self.path, jobid_module.globexpression(self.name))
-		jobidv = [d.rsplit('/', 1)[1] for d in glob.glob(globexpression)]
-		if valid:
-			from os.path import exists, join
-			from safe_pool import Pool
-			from itertools import compress
+
+	def update(self, parallelism=4):
+		"""find all new jobids on disk"""
+		from os.path import exists, join
+		from jobid import globexpression
+		import fnmatch
+		from safe_pool import Pool
+		from itertools import compress
+		cand = set(fnmatch.filter(os.listdir(self.path), globexpression(self.name)))
+		bad = self.known_jobids - cand
+		for jid in bad:
+			self.known_jobids.discard(jid)
+			self.valid_jobids.discard(jid)
+		# @@TODO: Fix races for remote daemons:
+		# Anything which was bad last time but had recently been touched needs to be rechecked:
+		#     new = list(cand - (self.known_jobids - self.recent_bad_jobids))
+		#     cutoff = time() - 64 # hopefully avoid races if we're on a network filsystem
+		#     recent = set(j for j in new if mtime(j( > cutoff)
+		#     self.recent_bad_jobids = recent - good
+		# Also anything where the mtime has changed needs to be rechecked, at least
+		# in DataBase.
+		# So we need to keep mtimes and look at them, plus the above recent_bad_jobids
+		new = list(cand - self.known_jobids)
+		if new:
 			pool = Pool(processes=parallelism)
-			known = set(self.valid_jobids)
-			cand  = set(jobidv)
-			new   = cand - known
-			good_known = list(known & cand)
 			pathv = [join(self.path, j, 'post.json') for j in new]
-			jobidv = list(compress(new, pool.map(exists, pathv, chunksize=64))) + good_known
+			good = set(compress(new, pool.map(exists, pathv, chunksize=64)))
+			self.valid_jobids.update(good)
+			self.known_jobids.update(new)
 			pool.close()
-		jobidv = sorted(jobidv, key = lambda x: jobid_module.Jobid(x).number)
-		if valid:
-			self.valid_jobids = jobidv
-		else:
-			return jobidv
-
-
-	def list_of_jobids(self, valid=True):
-		""" return a list of all (valid) jobids in workdir """
-		return self.valid_jobids
 
 
 	def allocate_jobs(self, num_jobs):
 		""" create num_jobs directories in self.path with jobid-compliant naming """
+		from jobid import create
 		highest = self._get_highest_jobnumber()
 #		print('WORKSPACE:  Highest jobid is', highest)
-		jobidv = [jobid_module.create(self.name, highest + 1, x) for x in range(num_jobs)]
+		jobidv = [create(self.name, highest + 1, x) for x in range(num_jobs)]
 		for jobid in jobidv:
 			fullpath = os.path.join(self.path, jobid)
 			print("WORKSPACE:  Allocate_job \"%s\"" % fullpath)
+			self.known_jobids.add(jobid)
 			os.mkdir(fullpath)
 		return jobidv
 
 
 	def _get_highest_jobnumber(self):
 		""" get highest current jobid number """
-		x = self.update(valid=False)
-		if x:
-			return jobid_module.Jobid(x[-1]).major
+		if self.known_jobids:
+			from jobid import Jobid
+			return max(Jobid(jid).major for jid in self.known_jobids)
 		else:
 			return -1

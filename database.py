@@ -68,18 +68,17 @@ class DataBase:
 		"""Insert all items in WorkSpace in database (call update_finish too)"""
 		if verbose:
 			print("DATABASE:  update for \"%s\"" % WorkSpace.name)
-		filesystem_jobids = WorkSpace.list_of_jobids(valid=True)
+		filesystem_jobids = WorkSpace.valid_jobids
 		if verbose > 1:
 			print('DATABASE:  update found these jobids in workspace', filesystem_jobids)
 		# Insert any new jobids, including with invalid hash
 		pool = Pool(processes=WorkSpace.slices)
-		new_jobids = set(filesystem_jobids).difference(self.db)
+		new_jobids = filesystem_jobids.difference(self.db)
 		self.db.update(pool.imap_unordered(_update, new_jobids, chunksize=64))
 		pool.close()
 		prefix = WorkSpace.name + '-'
-		valid = set(filesystem_jobids)
 		for jobid in list(iterkeys(self.db)):
-			if jobid.startswith(prefix) and jobid not in valid:
+			if jobid.startswith(prefix) and jobid not in filesystem_jobids:
 				if verbose:
 					print('Removed deleted job %s.' % (jobid, ))
 				del self.db[jobid]

@@ -189,7 +189,7 @@ class Main:
 		launcher = dispatch.launch_all
 		if partial:
 			print('RUN PARTIAL:', partial)
-			if jobid not in W.list_of_jobids(valid=False):
+			if jobid not in W.known_jobids:
 				print("ERROR, cannot update jobid \"%s\" - it does not exist" % jobid)
 				return
 			x = {
