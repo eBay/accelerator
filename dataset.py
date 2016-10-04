@@ -555,7 +555,7 @@ class Dataset(unicode):
 		self._data.filename = uni(filename) or self._data.filename or None
 		self._data.caption  = uni(caption) or self._data.caption or jobid
 		self._data.previous = _dsid(previous)
-		for n in ('caches', 'cache_distance'):
+		for n in ('cache', 'cache_distance'):
 			if n in self._data: del self._data[n]
 		minmax = self._minmax_merge(minmax)
 		for n, t in sorted(columns.items()):
