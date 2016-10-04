@@ -581,8 +581,8 @@ class Dataset(unicode):
 			if cache_distance == 64:
 				cache_distance = 0
 				chain = self.chain(64)
-				self._data.cache = tuple((unicode(d), d._data) for d in chain[1:])
-			self._data.cache_distance = cache_distance
+				self._data['cache'] = tuple((unicode(d), d._data) for d in chain[1:])
+			self._data['cache_distance'] = cache_distance
 
 	def _maybe_merge(self, n):
 		from g import SLICES

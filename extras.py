@@ -58,7 +58,10 @@ def pickle_save(variable, filename='result', sliceno=None, temp=None):
 		# use protocol version 2 so python2 can read the pickles too.
 		pickle.dump(variable, fh, 2)
 
-def pickle_load(filename='result', jobid='', sliceno=None, verbose=False, default=None):
+# default to encoding='bytes' because datetime.* (and probably other types
+# too) saved in python 2 fail to unpickle in python 3 otherwise. (Official
+# default is 'ascii', which is pretty terrible too.)
+def pickle_load(filename='result', jobid='', sliceno=None, verbose=False, default=None, encoding='bytes'):
 	filename = full_filename(filename, '.pickle', sliceno, jobid)
 	if not filename and default is not None:
 		return default
@@ -68,7 +71,10 @@ def pickle_load(filename='result', jobid='', sliceno=None, verbose=False, defaul
 	try:
 		with status('Loading ' + filename):
 			with open(filename, 'rb') as fh:
-				ret = pickle.load(fh)
+				if PY3:
+					ret = pickle.load(fh, encoding=encoding)
+				else:
+					ret = pickle.load(fh)
 	except IOError:
 		if default is not None:
 			return default
