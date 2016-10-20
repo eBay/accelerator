@@ -270,9 +270,9 @@ def options2typing(method, options):
 		elif isinstance(value, set):
 			typ = 'set'
 		elif value in (datetime, date, time, timedelta,):
-			return value.__name__
+			typ = value.__name__
 		elif isinstance(value, (datetime, date, time, timedelta,)):
-			return type(value).__name__
+			typ = type(value).__name__
 		if typ:
 			return fmt % (typ,)
 	def collect(key, value, path=''):
