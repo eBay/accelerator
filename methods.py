@@ -12,7 +12,7 @@ from imp import reload
 
 from compat import iteritems, itervalues, first_value, NoneType, unicode, long
 
-from extras import DotDict, OptionString, OptionEnum, OptionDefault
+from extras import DotDict, OptionString, OptionEnum, OptionDefault, RequiredOption
 
 
 class MethodLoadException(Exception):
@@ -225,6 +225,8 @@ def params2defaults(params):
 		assert isinstance(item, (bytes, unicode, int, float, long, bool, OptionEnum, NoneType, datetime, date, time, timedelta)), type(item)
 		return item
 	def fixup0(item):
+		if isinstance(item, RequiredOption):
+			item = item.value
 		if isinstance(item, OptionDefault):
 			item = item.default
 		return fixup(item)
@@ -235,7 +237,7 @@ def params2defaults(params):
 def options2required(options):
 	res = set()
 	def chk(key, value):
-		if value is OptionString:
+		if value is OptionString or isinstance(value, RequiredOption):
 			res.add(key)
 		elif isinstance(value, OptionEnum):
 			if None not in value._valid:

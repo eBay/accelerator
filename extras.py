@@ -463,6 +463,14 @@ class OptionString(str):
 		return self
 OptionString = OptionString('<OptionString>')
 
+class RequiredOption(object):
+	"""Specify that this option is mandatory (that the caller must specify a value).
+	None is accepted as a specified value if you pass none_ok=True.
+	"""
+	def __init__(self, value, none_ok=False):
+		self.value = value
+		self.none_ok = none_ok
+
 class OptionDefault(object):
 	"""Default selection for complexly typed options.
 	foo={'bar': OptionEnum(...)} is a mandatory option.

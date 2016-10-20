@@ -6,7 +6,7 @@ from datetime import datetime, date, time, timedelta
 
 from compat import iteritems, itervalues, first_value, long
 
-from extras import OptionEnum, OptionEnumValue, OptionString, OptionDefault, JobWithFile, typing_conv
+from extras import OptionEnum, OptionEnumValue, OptionString, OptionDefault, RequiredOption, JobWithFile, typing_conv
 
 class OptionException(Exception):
 	pass
@@ -103,6 +103,10 @@ class DepTree:
 			options = self.methods.params[method].options
 			res_options = {}
 			def convert(default_v, v):
+				if isinstance(default_v, RequiredOption):
+					if v is None and not default_v.none_ok:
+						raise OptionException('Option %s on method %s requires a non-None value (%r)' % (k, method, default_v.value,))
+					default_v = default_v.value
 				if default_v is None or v is None:
 					if default_v is OptionString:
 						raise OptionException('Option %s on method %s requires a non-empty string value' % (k, method,))
