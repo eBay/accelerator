@@ -162,9 +162,10 @@ class Main:
 		# These run one at a time, but they will spawn SLICES workers for
 		# reading and parsing files. (So unless workspaces are on different
 		# disks this is probably better.)
+		self.DataBase._update_begin()
 		for name in [self.current_workspace] + list(self.current_remote_workspaces):
-			self.DataBase.update_workspace(self.workspaces[name])
-		self.DataBase.update_finish(self.Methods.hash)
+			self.DataBase._update_workspace(self.workspaces[name])
+		self.DataBase._update_finish(self.Methods.hash)
 
 
 	def initialise_jobs(self, setup):
