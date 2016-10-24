@@ -69,11 +69,8 @@ class DepTree:
 			method_params = data['params'][method]
 			data = method_params[key]
 			method_wants = self.methods.params[method][key]
-			old_style = self.methods.params[method].old_style
 			res = {}
 			for jobid_name in method_wants:
-				if old_style:
-					assert isinstance(jobid_name, str), 'Old style input_%s accepts only strings.' % (key,)
 				if isinstance(jobid_name, str):
 					value = data.get(jobid_name)
 					assert value is None or isinstance(value, str), 'Input %s on %s not a string as required' % (jobid_name, method,)
@@ -90,8 +87,7 @@ class DepTree:
 					assert isinstance(value, list), 'Input %s on %s not a list or string as required' % (jobid_name, method,)
 				else:
 					raise OptionException('%s item of unknown type %s on %s: %s' % (key, type(jobid_name), method, repr(jobid_name),))
-				if value is not None or not old_style:
-					res[jobid_name] = value
+				res[jobid_name] = value
 			method_params[key] = res
 			spill = set(data) - set(res)
 			if spill:
@@ -178,21 +174,17 @@ class DepTree:
 					v = [convert(dv, vv) for dv, vv in zip(default_v, v)]
 					return type(default_v)(*v)
 				raise OptionException('Failed to convert option %s of %s to %s on method %s' % (k, type(v), type(default_v), method,))
-			if self.methods.params[method].old_style:
-				res_options.update(data['options'])
-				data['options'] = res_options
-			else:
-				for k, v in iteritems(data['options']):
-					if k in options:
-						try:
-							res_options[k] = convert(options[k], v)
-						except OptionException:
-							raise
-						except Exception:
-							print_exc()
-							raise OptionException('Failed to convert option %s on method %s' % (k, method,))
-					else:
-						raise OptionException('Unknown option %s on method %s' % (k, method,))
+			for k, v in iteritems(data['options']):
+				if k in options:
+					try:
+						res_options[k] = convert(options[k], v)
+					except OptionException:
+						raise
+					except Exception:
+						print_exc()
+						raise OptionException('Failed to convert option %s on method %s' % (k, method,))
+				else:
+					raise OptionException('Unknown option %s on method %s' % (k, method,))
 			if fill_in:
 				missing = set(options) - set(res_options)
 				missing_required = missing & self.methods.params[method].required

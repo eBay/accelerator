@@ -121,18 +121,8 @@ class SubMethods(Methods):
 				warnings.append('%s.a_%s should probably depend_extra on %s' % (package, key, dep[:-3],))
 			self.hash[key] = ("%040x" % (hash ^ hash_extra,),)
 			self.params[key] = params = DotDict()
-			v1_style = v2_style = False
-			for v1_name, v2_name, default in (('default_options', 'options', {},), ('input_datasets', 'datasets', (),), ('input_jobids', 'jobids', (),),):
-				v1 = getattr(mod, v1_name, None)
-				v2 = getattr(mod, v2_name, None)
-				v1_style |= (v1 is not None)
-				v2_style |= (v2 is not None)
-				if callable(v1): # really, really old methods
-					warnings.append("Ancient method %s.a_%s should not have callable %s" % (package, key, v1_name,))
-					v1 = v1()
-				params[v2_name] = v1 or v2 or default
-			assert not v1_style or not v2_style, 'Specify either default_options/input_datasets/input_jobids or options/datasets/jobids in %s.a_%s' % (package, key,)
-			params.old_style = v1_style
+			for name, default in (('options', {},), ('datasets', (),), ('jobids', (),),):
+				params[name] = getattr(mod, name, default)
 			self.typing[key] = options2typing(key, params.options)
 			params.defaults = params2defaults(params)
 			params.required = options2required(params.options)
