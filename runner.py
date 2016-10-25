@@ -18,11 +18,15 @@ import socket
 import signal
 import struct
 import json
+import io
+import tarfile
 
 from compat import PY3, iteritems, itervalues, pickle
 
 from extras import DotDict
 import dispatch
+
+archives = {}
 
 def load_methods(data):
 	res_warnings = []
@@ -35,6 +39,9 @@ def load_methods(data):
 		try:
 			with open(filename, 'rb') as fh:
 				src = fh.read()
+			tar_fh = io.BytesIO()
+			tar_o = tarfile.open(mode='w:gz', fileobj=tar_fh, compresslevel=1)
+			tar_o.add(filename, arcname='a_%s.py' % (key,))
 			h = hashlib.sha1(src)
 			hash = int(h.hexdigest(), 16)
 			mod = import_module(modname)
@@ -60,7 +67,9 @@ def load_methods(data):
 						dep = prefix + dep
 					with open(dep, 'rb') as fh:
 						hash_extra ^= int(hashlib.sha1(fh.read()).hexdigest(), 16)
-					likely_deps.discard(os.path.basename(dep))
+					bn = os.path.basename(dep)
+					likely_deps.discard(bn)
+					tar_o.add(dep, arcname=bn)
 				else:
 					raise Exception('Bad depend_extra in %s.a_%s: %r' % (package, key, dep,))
 			for dep in likely_deps:
@@ -87,6 +96,9 @@ def load_methods(data):
 					res_hashes[key] += equivalent_hashes[verifier]
 				else:
 					res_warnings.append('%s.a_%s has equivalent_hashes, but missing verifier %s' % (package, key, verifier,))
+			tar_o.close()
+			tar_fh.seek(0)
+			archives[key] = tar_fh.read()
 		except Exception:
 			print_exc()
 			res_failed.append(modname)
@@ -118,8 +130,11 @@ def launch_start(data):
 
 def launch_finish(data):
 	try:
+		child, prof_r, workdir, jobid, method = data
+		arc_name = os.path.join(workdir, jobid, 'method.tar.gz')
+		with open(arc_name, 'wb') as fh:
+			fh.write(archives[method])
 		# We have closed prof_w. When child exits we get eof.
-		child, prof_r = data
 		prof = []
 		while True:
 			data = os.read(prof_r, 4096)
@@ -181,8 +196,8 @@ class Runner(object):
 	def launch_start(self, data):
 		return self._do(b's', data)
 
-	def launch_finish(self, child, prof_r):
-		return self._do(b'f', (child, prof_r))
+	def launch_finish(self, child, prof_r, workdir, jobid, method):
+		return self._do(b'f', (child, prof_r, workdir, jobid, method))
 
 runners = {}
 def new_runners(config):

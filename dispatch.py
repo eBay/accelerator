@@ -103,7 +103,7 @@ def launch_common(name, workdir, setup, config, Methods, active_workspaces, slic
 	# (the launched job could continue running)
 	try:
 		children.add(child)
-		status, data = runner.launch_finish(child, prof_r)
+		status, data = runner.launch_finish(child, prof_r, workdir, jobid, method)
 		if status:
 			os.killpg(child, SIGTERM) # give it a chance to exit gracefully
 			msg = json_encode(status, as_str=True)
