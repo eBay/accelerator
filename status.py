@@ -2,7 +2,7 @@ from __future__ import print_function
 from __future__ import division
 
 from contextlib import contextmanager
-from time import time, strftime
+from time import time, strftime, sleep
 from traceback import print_exc
 from threading import Lock
 from weakref import WeakValueDictionary
@@ -144,3 +144,13 @@ def statmsg_sink(logfilename, sock):
 			except Exception:
 				print('Failed to process %r:' % (data,))
 				print_exc()
+
+
+def statmsg_endwait(pid, timeout):
+	"""Wait for pid to be removed from status_stacks (to send 'end')"""
+	for _ in range(10):
+		with status_stacks_lock:
+			d = status_all.get(pid)
+			if not d:
+				return
+		sleep(timeout / 10)

@@ -9,7 +9,7 @@ from signal import SIGTERM, SIGKILL
 from compat import PY3
 
 from status_messaging import statmsg
-from status import children
+from status import children, statmsg_endwait
 from extras import json_encode
 
 class JobError(Exception):
@@ -114,7 +114,7 @@ def launch_common(name, workdir, setup, config, Methods, active_workspaces, slic
 		# There is a race where stuff on the status socket has not arrived when
 		# the sending process exits. This is basically benign, but let's give
 		# it a chance to arrive to cut down on confusing warnings.
-		time.sleep(0.05)
+		statmsg_endwait(child, 0.25)
 	finally:
 		try:
 			os.killpg(child, SIGKILL) # this should normally be a no-op, but in case it left anything.
