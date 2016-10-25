@@ -65,23 +65,11 @@ class Main:
 		self.update_database()
 		self.broken = False
 
-		# Collect all valid fds, so we can close them in job processes
-		from fcntl import fcntl, F_GETFD
-		from resource import getrlimit, RLIMIT_NOFILE
-		valid_fds = []
-		for fd in range(3, getrlimit(RLIMIT_NOFILE)[0]):
-			try:
-				fcntl(fd, F_GETFD)
-				valid_fds.append(fd)
-			except Exception:
-				pass
-		self.valid_fds = valid_fds
-
 	def _update_methods(self):
 		print('Update methods')
 		# initialise methods class looking in method_directories from config file
 		method_directories = self.config['method_directories']
-		self.Methods = methods.SubMethods(method_directories, METHODS_CONFIGFILENAME)
+		self.Methods = methods.SubMethods(method_directories, METHODS_CONFIGFILENAME, self.config)
 
 	def update_methods(self):
 		try:
@@ -199,7 +187,7 @@ class Main:
 			launcher = x[partial]
 		t0 = time.time()
 		prof = update_setup(jobid, starttime=t0).profile or DotDict()
-		new_prof, files, subjobs = launcher(W.path, jobid, self.config, self.Methods, active_workspaces, slices, self.debug, self.daemon_url, subjob_cookie, self.valid_fds, parent_pid)
+		new_prof, files, subjobs = launcher(W.path, jobid, self.config, self.Methods, active_workspaces, slices, self.debug, self.daemon_url, subjob_cookie, parent_pid)
 		if self.debug:
 			delete_from = Temp.TEMP
 		else:

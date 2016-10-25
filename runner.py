@@ -1,3 +1,9 @@
+# This runs once per python version the daemon supports methods for.
+# On reload, it is killed and started again.
+# When launching a method, it forks and calls the method (without any exec).
+# Also contains the function that starts these (new_runners) and the dict
+# of running ones {version: Runner}
+
 from __future__ import print_function
 from __future__ import division
 
@@ -6,8 +12,13 @@ from types import ModuleType
 from traceback import print_exc
 import hashlib
 import os
+import sys
+import re
+import socket
+import signal
+import struct
 
-from compat import iteritems
+from compat import PY3, iteritems, itervalues, pickle
 
 from extras import DotDict
 
@@ -79,3 +90,84 @@ def load_methods(data):
 			res_failed.append(modname)
 			continue
 	return res_warnings, res_failed, res_hashes, res_params
+
+def launch(data):
+	pass
+
+# because a .recvall method is clearly too much to hope for
+# (MSG_WAITALL doesn't really sound like the same thing to me)
+def recvall(sock, z, fatal=False):
+	data = []
+	while z:
+		tmp = sock.recv(z)
+		if not tmp:
+			if fatal:
+				sys.exit(0)
+			return
+		data.append(tmp)
+		z -= len(tmp)
+	return b''.join(data)
+
+class Runner(object):
+	def __init__(self, pid, sock):
+		self.pid = pid
+		self.sock = sock
+
+	def kill(self):
+		try:
+			self.sock.close()
+		except Exception:
+			pass
+		try:
+			os.kill(self.pid, signal.SIGKILL)
+		except Exception:
+			pass
+		try:
+			os.waitpid(self.pid, 0)
+		except Exception:
+			pass
+
+	def load_methods(self, data):
+		data = pickle.dumps(data, 2)
+		header = struct.pack('<cI', b'm', len(data))
+		self.sock.sendall(header + data)
+		op, length = struct.unpack('<cI', recvall(self.sock, 5))
+		data = recvall(self.sock, length)
+		return pickle.loads(data)
+
+runners = {}
+def new_runners(config):
+	from dispatch import run
+	if 'py' in runners:
+		del runners['py']
+	for runner in itervalues(runners):
+		runner.kill()
+	runners.clear()
+	py_v = 'py3' if PY3 else 'py2'
+	todo = {py_v: sys.executable}
+	for k, v in iteritems(config):
+		if re.match(r"py\d+$", k):
+			todo[k] = v
+	for k, py_exe in iteritems(todo):
+		sock_p, sock_c = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM)
+		cmd = [py_exe, './runner.py', str(sock_c.fileno())]
+		pid = run(cmd, [sock_p.fileno()], [sock_c.fileno()], False)
+		sock_c.close()
+		runners[k] = Runner(pid=pid, sock=sock_p)
+	runners['py'] = runners[py_v]
+	return runners
+
+if __name__ == "__main__":
+	sock = socket.fromfd(int(sys.argv[1]), socket.AF_UNIX, socket.SOCK_STREAM)
+
+	while True:
+		op, length = struct.unpack('<cI', recvall(sock, 5, True))
+		data = recvall(sock, length, True)
+		data = pickle.loads(data)
+		if op == b'm':
+			res = load_methods(data)
+		elif op == b'l':
+			res = launch(data)
+		res = pickle.dumps(res, 2)
+		header = struct.pack('<cI', op, len(res))
+		sock.sendall(header + res)

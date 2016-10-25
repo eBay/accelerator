@@ -28,7 +28,51 @@ class JobError(Exception):
 			res.append("   %s" % (msg.replace("\n", "\n    "),))
 		return "\n".join(res)
 
-def launch_common(name, workdir, jobid, config, Methods, active_workspaces, slices, debug, daemon_url, subjob_cookie, valid_fds, parent_pid):
+valid_fds = []
+def update_valid_fds():
+	# Collect all valid fds, so we can close them in job processes
+	global valid_fds
+	valid_fds = []
+	from fcntl import fcntl, F_GETFD
+	from resource import getrlimit, RLIMIT_NOFILE
+	for fd in range(3, getrlimit(RLIMIT_NOFILE)[0]):
+		try:
+			fcntl(fd, F_GETFD)
+			valid_fds.append(fd)
+		except Exception:
+			pass
+
+def run(cmd, close_in_child, keep_in_child, with_pgrp=True):
+	child = os.fork()
+	if child:
+		return child
+	if with_pgrp:
+		os.setpgrp() # this pgrp is killed if the job fails
+	for fd in close_in_child:
+		os.close(fd)
+	status_fd = int(os.getenv('BD_STATUS_FD'))
+	keep_in_child = set(keep_in_child)
+	keep_in_child.add(status_fd)
+	for fd in valid_fds:
+		# Apparently sometimes one of them has gone away.
+		# That's a little worrying, so try to protect our stuff (and ignore errors).
+		try:
+			if fd not in keep_in_child:
+				os.close(fd)
+		except OSError:
+			pass
+	# unreadable stdin - less risk of stuck jobs
+	devnull = os.open('/dev/null', os.O_RDONLY)
+	os.dup2(devnull, 0)
+	os.close(devnull)
+	if PY3:
+		keep_in_child.update([1, 2])
+		for fd in keep_in_child:
+			os.set_inheritable(fd, True)
+	os.execv(cmd[0], cmd)
+	os._exit()
+
+def launch_common(name, workdir, jobid, config, Methods, active_workspaces, slices, debug, daemon_url, subjob_cookie, parent_pid):
 	starttime = time.time()
 	wstr = ','.join(x[0] + ':' + x[1] for x in active_workspaces.items())
 	method = job_params(jobid).method
@@ -56,28 +100,7 @@ def launch_common(name, workdir, jobid, config, Methods, active_workspaces, slic
 		]
 		if debug:
 			cmd.append('--debug')
-		child = os.fork()
-		if not child:
-			os.setpgrp() # this pgrp is killed if the job fails
-			os.close(prof_r)
-			status_fd = int(os.getenv('BD_STATUS_FD'))
-			for fd in valid_fds:
-				# Apparently sometimes one of them has gone away.
-				# That's a little worrying, so try to protect our stuff (and ignore errors).
-				try:
-					if fd not in (prof_w, status_fd):
-						os.close(fd)
-				except OSError:
-					pass
-			# unreadable stdin - less risk of stuck jobs
-			devnull = os.open('/dev/null', os.O_RDONLY)
-			os.dup2(devnull, 0)
-			os.close(devnull)
-			if PY3:
-				for fd in (1, 2, prof_w, status_fd):
-					os.set_inheritable(fd, True)
-			os.execv(cmd[0], cmd)
-			os._exit()
+		child = run(cmd, [prof_r], [prof_w])
 		# There's a race where if we get interrupted right after fork this is not recorded
 		# (the launched job could continue running)
 		children.add(child)

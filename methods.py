@@ -3,11 +3,12 @@ from __future__ import division
 
 import os
 from datetime import datetime, date, time, timedelta
-from linecache import clearcache
+from collections import defaultdict
 
 from compat import iteritems, itervalues, first_value, NoneType, unicode, long
 
 from extras import DotDict, OptionString, OptionEnum, OptionDefault, RequiredOption
+from runner import new_runners
 
 
 class MethodLoadException(Exception):
@@ -56,24 +57,32 @@ class Methods(object):
 		return self._build_dep_tree(top_method, tree={})
 
 
-
 # Collect information on methods
 class SubMethods(Methods):
-	hash = {}
-	params = {}
-	typing = {}
-	def __init__(self, package_list, configfilename):
-		clearcache() # inspect module stupidly caches stuff
+	def __init__(self, package_list, configfilename, daemon_config):
 		super(SubMethods, self).__init__(package_list, configfilename)
-		data = []
+		self.runners = new_runners(daemon_config)
+		per_runner = defaultdict(list)
 		for key, val in iteritems(self.db):
 			package = val['package']
-			data.append((package, key))
-		from runner import load_methods
-		warnings, failed, hashes, res_params = load_methods(data)
-		self.hash.update(hashes)
-		self.params.update(res_params)
-		for key, params in iteritems(res_params):
+			per_runner[val['version']].append((package, key))
+		warnings = []
+		failed = []
+		self.hash = {}
+		self.params = {}
+		self.typing = {}
+		for version, data in iteritems(per_runner):
+			runner = self.runners.get(version)
+			if not runner:
+				msg = '%%s.%%s (unconfigured version %s)' % (version)
+				failed.extend(msg % t for t in sorted(data))
+				continue
+			w, f, h, p = runner.load_methods(data)
+			warnings.extend(w)
+			failed.extend(f)
+			self.hash.update(h)
+			self.params.update(p)
+		for key, params in iteritems(self.params):
 			self.typing[key] = options2typing(key, params.options)
 			params.defaults = params2defaults(params)
 			params.required = options2required(params.options)
