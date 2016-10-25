@@ -186,8 +186,9 @@ class Main:
 				'synthesis' : dispatch.launch_synthesis,}
 			launcher = x[partial]
 		t0 = time.time()
-		prof = update_setup(jobid, starttime=t0).profile or DotDict()
-		new_prof, files, subjobs = launcher(W.path, jobid, self.config, self.Methods, active_workspaces, slices, self.debug, self.daemon_url, subjob_cookie, parent_pid)
+		setup = update_setup(jobid, starttime=t0)
+		prof = setup.profile or DotDict()
+		new_prof, files, subjobs = launcher(W.path, setup, self.config, self.Methods, active_workspaces, slices, self.debug, self.daemon_url, subjob_cookie, parent_pid)
 		if self.debug:
 			delete_from = Temp.TEMP
 		else:

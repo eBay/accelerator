@@ -25,7 +25,7 @@ import dataset
 
 
 g_allesgut = False
-prof_fd = -1
+_prof_fd = -1
 
 
 g_always = {'running',}
@@ -35,7 +35,7 @@ assert set(n for n in dir(g) if not n.startswith("__")) == g_always, "Don't put 
 def call_analysis(analysis_func, sliceno_, q, preserve_result, parent_pid, **kw):
 	try:
 		status._start('analysis(%d)' % (sliceno_,), parent_pid, 't')
-		os.close(prof_fd)
+		os.close(_prof_fd)
 		for stupid_inconsistent_name in ('sliceno', 'index'):
 			if stupid_inconsistent_name in kw:
 				kw[stupid_inconsistent_name] = sliceno_
@@ -106,7 +106,7 @@ def fork_analysis(slices, analysis_func, kw, preserve_result):
 		s_no, s_t, s_temp_files, s_dw_lens, s_dw_minmax, s_tb = q.get()
 		if s_tb:
 			data = [{'analysis(%d)' % (s_no,): s_tb}, None]
-			os.write(prof_fd, json.dumps(data))
+			os.write(_prof_fd, json.dumps(data))
 			exitfunction()
 		per_slice.append((s_no, s_t))
 		temp_files.update(s_temp_files)
@@ -258,7 +258,6 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 
 
 def main(argv):
-	global g_allesgut, prof_fd
 	sys.stdout = AutoFlush(sys.stdout)
 	sys.stderr = AutoFlush(sys.stderr)
 	opts, rem = getopt.getopt(argv[1:], '', ['index=', 'jobid=', 'workdir=', 'slices=', 'result_directory=', 'common_directory=', 'source_directory=', 'wstr=', 'prof_fd=', 'all', 'analysis', 'synthesis', 'debug', 'daemon_url=', 'subjob_cookie=', 'parent_pid='])
@@ -271,6 +270,7 @@ def main(argv):
 	daemon_url = None
 	subjob_cookie = None
 	parent_pid = 0
+	prof_fd = -1
 	for opt, arg in opts:
 		if opt=='--index':
 			index = int(arg)
@@ -304,7 +304,11 @@ def main(argv):
 			subjob_cookie = arg or None
 		if opt=='--parent_pid':
 			parent_pid = int(arg or 0)
+	run(workdir, jobid, slices, result_directory, common_directory, source_directory, index=index, workspaces=workspaces, all=all, analysis=analysis, synthesis=synthesis, daemon_url=daemon_url, subjob_cookie=subjob_cookie, parent_pid=parent_pid, prof_fd=prof_fd)
 
+def run(workdir, jobid, slices, result_directory, common_directory, source_directory, index=None, workspaces=None, all=False, analysis=False, synthesis=False, daemon_url=None, subjob_cookie=None, parent_pid=0, prof_fd=-1):
+	global g_allesgut, _prof_fd
+	_prof_fd = prof_fd
 	assert sum([all, analysis, synthesis]) == 1, 'Specify exactly one of --all --analysis --synthesis'
 	try:
 		data = execute_process(workdir, jobid, slices, result_directory, common_directory, source_directory, index=index, workspaces=workspaces, all=all, analysis=analysis, synthesis=synthesis, daemon_url=daemon_url, subjob_cookie=subjob_cookie, parent_pid=parent_pid)

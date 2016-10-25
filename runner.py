@@ -17,10 +17,12 @@ import re
 import socket
 import signal
 import struct
+import json
 
 from compat import PY3, iteritems, itervalues, pickle
 
 from extras import DotDict
+import dispatch
 
 def load_methods(data):
 	res_warnings = []
@@ -91,8 +93,46 @@ def load_methods(data):
 			continue
 	return res_warnings, res_failed, res_hashes, res_params
 
-def launch(data):
-	pass
+def launch_start(data):
+	from launch import run
+	prof_r, prof_w = os.pipe()
+	try:
+		child = os.fork()
+		if not child: # we are the child
+			try:
+				os.setpgrp() # this pgrp is killed if the job fails
+				os.close(prof_r)
+				status_fd = int(os.getenv('BD_STATUS_FD'))
+				keep = [prof_w, status_fd]
+				dispatch.close_fds(keep)
+				data['prof_fd'] = prof_w
+				run(**data)
+			finally:
+				os._exit(0)
+	except Exception:
+		os.close(prof_r)
+		raise
+	finally:
+		os.close(prof_w)
+	return child, prof_r
+
+def launch_finish(data):
+	try:
+		# We have closed prof_w. When child exits we get eof.
+		child, prof_r = data
+		prof = []
+		while True:
+			data = os.read(prof_r, 4096)
+			if not data:
+				break
+			prof.append(data)
+		try:
+			status, data = json.loads(b''.join(prof).decode('utf-8'))
+		except Exception:
+			status = {'launcher': '[invalid data] (probably killed)'}
+		return status, data
+	finally:
+		os.close(prof_r)
 
 # because a .recvall method is clearly too much to hope for
 # (MSG_WAITALL doesn't really sound like the same thing to me)
@@ -127,13 +167,22 @@ class Runner(object):
 		except Exception:
 			pass
 
-	def load_methods(self, data):
+	def _do(self, op, data):
 		data = pickle.dumps(data, 2)
-		header = struct.pack('<cI', b'm', len(data))
+		header = struct.pack('<cI', op, len(data))
 		self.sock.sendall(header + data)
 		op, length = struct.unpack('<cI', recvall(self.sock, 5))
 		data = recvall(self.sock, length)
 		return pickle.loads(data)
+
+	def load_methods(self, data):
+		return self._do(b'm', data)
+
+	def launch_start(self, data):
+		return self._do(b's', data)
+
+	def launch_finish(self, child, prof_r):
+		return self._do(b'f', (child, prof_r))
 
 runners = {}
 def new_runners(config):
@@ -158,7 +207,12 @@ def new_runners(config):
 	return runners
 
 if __name__ == "__main__":
+	from autoflush import AutoFlush
+
+	sys.stdout = AutoFlush(sys.stdout)
+	sys.stderr = AutoFlush(sys.stderr)
 	sock = socket.fromfd(int(sys.argv[1]), socket.AF_UNIX, socket.SOCK_STREAM)
+	dispatch.update_valid_fds()
 
 	while True:
 		op, length = struct.unpack('<cI', recvall(sock, 5, True))
@@ -166,8 +220,10 @@ if __name__ == "__main__":
 		data = pickle.loads(data)
 		if op == b'm':
 			res = load_methods(data)
-		elif op == b'l':
-			res = launch(data)
+		elif op == b's':
+			res = launch_start(data)
+		elif op == b'f':
+			res = launch_finish(data)
 		res = pickle.dumps(res, 2)
 		header = struct.pack('<cI', op, len(res))
 		sock.sendall(header + res)
