@@ -215,21 +215,20 @@ def options2typing(method, options):
 	return sorted(([k[1:], v] for k, v in iteritems(res) if v), key=lambda i: -len(i[0]))
 
 
-def read_method_conf(filename, debug=False):
+def read_method_conf(filename):
 	""" read and parse the methods.conf file """
 	db = {}
-	with open(filename) as F:
-		for line in F:
-			data = line.split('#')[0]
-			data = data.replace(',', ' ').split()
+	with open(filename) as fh:
+		for lineno, line in enumerate(fh, 1):
+			data = line.split('#')[0].split()
 			if not data:
 				continue
-			l0 = data.pop(0)
-			if l0 != "@":
-				method = l0
-				db.setdefault(method, DotDict(list, list))
-			if data:
-				cmd = data.pop(0)
-				assert cmd in ('dep', 'link',), line
-				db[method][cmd].extend(data)
+			method = data.pop(0)
+			try:
+				version = data.pop(0)
+			except IndexError:
+				version = 'py'
+			if not version.startswith('py') or data:
+				raise Exception('Trailing garbage on %s:%d: %s' % (filename, lineno, line,))
+			db[method] = DotDict(version=version)
 	return db
