@@ -392,7 +392,9 @@ class DotDict(dict):
 		return dict.__getitem__(self, name)
 
 class OptionEnumValue(str):
-	pass
+	# be picklable
+	def __reduce__(self):
+		return type, (self.__class__.__name__, (OptionEnumValue,), {'_valid': self._valid, '_prefixes': self._prefixes})
 class OptionEnum(object):
 	"""A little like Enum in python34, but string-like.
 	(For JSONable method option enums.)
@@ -441,6 +443,7 @@ class OptionEnum(object):
 		d = {}
 		for value in values:
 			d[value] = sub(value)
+		d['_values'] = values
 		d['_valid'] = valid
 		d['_prefixes'] = prefixes
 		d['_sub'] = sub
@@ -453,7 +456,13 @@ class OptionEnum(object):
 				if name.startswith(cand_prefix):
 					return self._sub(name)
 			raise KeyError(name)
+	# be picklable
+	def __reduce__(self):
+		return OptionEnum, (self._values, None in self._valid)
 
+def _OptionStringUnpickle():
+	return OptionString
+_OptionStringUnpickle.__safe_for_unpickling__ = True
 class OptionString(str):
 	"""Marker value to specify in options{} for requiring a non-empty string.
 	You can use plain OptionString, or you can use OptionString('example'),
@@ -461,6 +470,9 @@ class OptionString(str):
 	"""
 	def __call__(self, example):
 		return self
+	# Be the same object after unpickling
+	def __reduce__(self):
+		return _OptionStringUnpickle, ()
 OptionString = OptionString('<OptionString>')
 
 class RequiredOption(object):
