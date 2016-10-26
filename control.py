@@ -193,7 +193,7 @@ class Main:
 			delete_from = Temp.TEMP
 		else:
 			delete_from = Temp.DEBUG
-		for filename, temp in files.items():
+		for filename, temp in list(files.items()):
 			if temp >= delete_from:
 				unlink(join(W.path, jobid, filename))
 				del files[filename]
