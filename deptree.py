@@ -4,7 +4,7 @@ from __future__ import division
 from traceback import print_exc
 from datetime import datetime, date, time, timedelta
 
-from compat import iteritems, itervalues, first_value, long
+from compat import iteritems, itervalues, first_value, str_types, int_types, num_types
 
 from extras import OptionEnum, OptionEnumValue, OptionString, OptionDefault, RequiredOption, JobWithFile, typing_conv
 
@@ -71,16 +71,16 @@ class DepTree:
 			method_wants = self.methods.params[method][key]
 			res = {}
 			for jobid_name in method_wants:
-				if isinstance(jobid_name, str):
+				if isinstance(jobid_name, str_types):
 					value = data.get(jobid_name)
 					assert value is None or isinstance(value, str), 'Input %s on %s not a string as required' % (jobid_name, method,)
 				elif isinstance(jobid_name, list):
-					if len(jobid_name) != 1 or not isinstance(jobid_name[0], str):
+					if len(jobid_name) != 1 or not isinstance(jobid_name[0], str_types):
 						raise OptionException('Bad %s item on %s: %s' % (key, method, repr(jobid_name),))
 					jobid_name = jobid_name[0]
 					value = data.get(jobid_name)
 					if value:
-						if isinstance(value, str):
+						if isinstance(value, str_types):
 							value = [e.strip() for e in value.split(',')]
 					else:
 						value = []
@@ -98,6 +98,12 @@ class DepTree:
 			data = data['params'][method]
 			options = self.methods.params[method].options
 			res_options = {}
+			def typefuzz(t):
+				if issubclass(t, str_types):
+					return str_types
+				if issubclass(t, int_types):
+					return int_types
+				return t
 			def convert(default_v, v):
 				if isinstance(default_v, RequiredOption):
 					if v is None and not default_v.none_ok:
@@ -121,8 +127,8 @@ class DepTree:
 						return {k: convert(sample_v, v) for k, v in iteritems(v)}
 					else:
 						return v
-				if isinstance(default_v, (list, set, tuple,)) and isinstance(v, (str, list, set, tuple,)):
-					if isinstance(v, str):
+				if isinstance(default_v, (list, set, tuple,)) and isinstance(v, str_types + (list, set, tuple,)):
+					if isinstance(v, str_types):
 						v = (e.strip() for e in v.split(','))
 					if default_v:
 						sample_v = first_value(default_v)
@@ -140,14 +146,14 @@ class DepTree:
 						if not ok:
 							raise OptionException('%r not a permitted value for option %s on method %s (%s)' % (v, k, method, default_v._valid))
 					return v or None
-				if isinstance(default_v, (str, int, float, long)) and isinstance(v, (str, int, float, long)):
+				if isinstance(default_v, str_types + num_types) and isinstance(v, str_types + num_types):
 					if default_v is OptionString:
 						v = str(v)
 						if not v:
 							raise OptionException('Option %s on method %s requires a non-empty string value' % (k, method,))
 						return v
 					return type(default_v)(v)
-				if (isinstance(default_v, type) and isinstance(v, default_v)) or isinstance(v, type(default_v)):
+				if (isinstance(default_v, type) and isinstance(v, typefuzz(default_v))) or isinstance(v, typefuzz(type(default_v))):
 					return v
 				if isinstance(default_v, bool) and isinstance(v, (str, int)):
 					lv = str(v).lower()
@@ -162,7 +168,7 @@ class DepTree:
 						return typing_conv[default_v.__name__](v)
 					except Exception:
 						raise OptionException('Failed to convert option %s %r to %s on method %s' % (k, v, default_v, method,))
-				if isinstance(v, str) and not v:
+				if isinstance(v, str_types) and not v:
 					return type(default_v)()
 				if isinstance(default_v, type): # JobWithFile or similar
 					default_v = default_v()
