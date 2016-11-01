@@ -10,7 +10,6 @@ from collections import defaultdict
 from functools import partial
 from types import GeneratorType
 from base64 import b64encode
-import signal
 
 from compat import unicode, str_types, PY3
 from compat import urlencode, urlopen, Request, URLError, HTTPError
@@ -22,27 +21,12 @@ from status import print_status_stacks
 import unixhttp; unixhttp # for unixhttp:// URLs, as used to talk to the daemon
 
 
-siginfo_received = False
-def siginfo(sig, frame):
-	global siginfo_received
-	siginfo_received = True
-
-def handlesig(sig):
-	# Don't do this if we are part of the daemon
-	if signal.getsignal(sig) == signal.SIG_DFL:
-		signal.signal(sig, siginfo)
-		signal.siginterrupt(sig, False)
-
-handlesig(signal.SIGUSR1)
-if hasattr(signal, 'SIGINFO'):
-	handlesig(signal.SIGINFO)
-
 class Automata:
 	"""
 	Launch jobs, wait for completion.
 	"""
 
-	def __init__(self, server_url, dataset='churn', verbose=False, flags=None, subjob_cookie=None):
+	def __init__(self, server_url, dataset='churn', verbose=False, flags=None, subjob_cookie=None, infoprints=False):
 		"""
 		Set server url and legacy dataset parameter
 		"""
@@ -58,6 +42,14 @@ class Automata:
 		put_workspaces(self.list_workspaces())
 		self.update_method_deps()
 		self.clear_record()
+		# Don't do this unless we are part of automatarunner
+		if infoprints:
+			from workarounds import SignalWrapper
+			siginfo = SignalWrapper(['SIGINFO', 'SIGUSR1'])
+			self.siginfo_check = siginfo.check
+		else:
+			self.siginfo_check = lambda: False
+
 
 	def clear_record(self):
 		self.record = defaultdict(JobList)
@@ -160,7 +152,6 @@ class Automata:
 			self.monitor.done()
 
 	def _wait(self, t0):
-		global siginfo_received
 		idle, status_stacks, current = self._server_idle(0)
 		if idle:
 			return
@@ -168,9 +159,9 @@ class Automata:
 		if self.verbose == 'dots':
 			print('[' + '.' * waited, end=' ')
 		while not idle:
-			if siginfo_received:
+			if self.siginfo_check():
+				print()
 				print_status_stacks(status_stacks)
-				siginfo_received = False
 			waited += 1
 			if waited % 60 == 0 and self.monitor:
 				self.monitor.ping()

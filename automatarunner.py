@@ -45,7 +45,7 @@ def run_automata(options):
 		assert not options.hostname, "Specify either socket or port (with optional hostname)"
 		url = 'unixhttp://' + quote_plus(realpath(options.socket or './socket.dir/default'))
 
-	a = automata_common.Automata(url, verbose=options.verbose, flags=options.flags.split(','))
+	a = automata_common.Automata(url, verbose=options.verbose, flags=options.flags.split(','), infoprints=True)
 
 	if options.remake:
 		print("REMAKE")
