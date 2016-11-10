@@ -106,7 +106,7 @@ def fork_analysis(slices, analysis_func, kw, preserve_result):
 		s_no, s_t, s_temp_files, s_dw_lens, s_dw_minmax, s_tb = q.get()
 		if s_tb:
 			data = [{'analysis(%d)' % (s_no,): s_tb}, None]
-			os.write(_prof_fd, json.dumps(data))
+			os.write(_prof_fd, json.dumps(data).encode('utf-8'))
 			exitfunction()
 		per_slice.append((s_no, s_t))
 		temp_files.update(s_temp_files)
