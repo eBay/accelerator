@@ -155,7 +155,6 @@ static int gzread_init(PyObject *self_, PyObject *args, PyObject *kwds)
 {
 	int res = -1;
 	GzRead *self = (GzRead *)self_;
-	char *name = NULL;
 	int strip_bom = 0;
 	int fd = -1;
 	PY_LONG_LONG seek = 0;
