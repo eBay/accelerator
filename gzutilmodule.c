@@ -1491,12 +1491,6 @@ MKPARSED(Int32  , int32_t , int64_t , PyNumber_Int  , pylong_asint32_t , 1, minm
 MKPARSED(Bits64 , uint64_t, uint64_t, PyNumber_Int  , pylong_asuint64_t, 0, minmax_set_Bits64 , hash_integer);
 MKPARSED(Bits32 , uint32_t, uint64_t, PyNumber_Int  , pylong_asuint32_t, 0, minmax_set_Bits32 , hash_integer);
 
-static PyMemberDef w_lines_members[] = {
-	{"name"      , T_STRING   , offsetof(GzWrite, name       ), READONLY},
-	{"count"     , T_ULONG    , offsetof(GzWrite, count      ), READONLY},
-	{"hashfilter", T_OBJECT_EX, offsetof(GzWrite, hashfilter ), READONLY},
-	{0}
-};
 static PyMemberDef w_default_members[] = {
 	{"name"      , T_STRING   , offsetof(GzWrite, name       ), READONLY},
 	{"count"     , T_ULONG    , offsetof(GzWrite, count      ), READONLY},
@@ -1550,7 +1544,7 @@ static PyMemberDef w_default_members[] = {
 		PyObject_Del,                   /*tp_free*/          	\
 		0,                              /*tp_is_gc*/         	\
 	}
-#define MKWTYPE(name, members)                                                                	\
+#define MKWTYPE(name)                                                                	\
 	static PyMethodDef name ## _methods[] = {                                             	\
 		{"__enter__", (PyCFunction)gzwrite_self, METH_NOARGS,  NULL},                 	\
 		{"__exit__",  (PyCFunction)gzany_exit, METH_VARARGS, NULL},                   	\
@@ -1571,28 +1565,28 @@ static PyMethodDef GzWrite_methods[] = {
 	{0}
 };
 MKWTYPE_i(GzWrite, GzWrite_methods, 0);
-MKWTYPE(GzWriteBytesLines, w_lines_members);
-MKWTYPE(GzWriteAsciiLines, w_lines_members);
-MKWTYPE(GzWriteUnicodeLines, w_lines_members);
-MKWTYPE(GzWriteFloat64, w_default_members);
-MKWTYPE(GzWriteFloat32, w_default_members);
-MKWTYPE(GzWriteNumber, w_default_members);
-MKWTYPE(GzWriteInt64, w_default_members);
-MKWTYPE(GzWriteInt32, w_default_members);
-MKWTYPE(GzWriteBits64, w_default_members);
-MKWTYPE(GzWriteBits32, w_default_members);
-MKWTYPE(GzWriteBool, w_default_members);
-MKWTYPE(GzWriteDateTime, w_default_members);
-MKWTYPE(GzWriteDate, w_default_members);
-MKWTYPE(GzWriteTime, w_default_members);
+MKWTYPE(GzWriteBytesLines);
+MKWTYPE(GzWriteAsciiLines);
+MKWTYPE(GzWriteUnicodeLines);
+MKWTYPE(GzWriteFloat64);
+MKWTYPE(GzWriteFloat32);
+MKWTYPE(GzWriteNumber);
+MKWTYPE(GzWriteInt64);
+MKWTYPE(GzWriteInt32);
+MKWTYPE(GzWriteBits64);
+MKWTYPE(GzWriteBits32);
+MKWTYPE(GzWriteBool);
+MKWTYPE(GzWriteDateTime);
+MKWTYPE(GzWriteDate);
+MKWTYPE(GzWriteTime);
 
-MKWTYPE(GzWriteParsedNumber, w_default_members);
-MKWTYPE(GzWriteParsedFloat64, w_default_members);
-MKWTYPE(GzWriteParsedFloat32, w_default_members);
-MKWTYPE(GzWriteParsedInt64, w_default_members);
-MKWTYPE(GzWriteParsedInt32, w_default_members);
-MKWTYPE(GzWriteParsedBits64, w_default_members);
-MKWTYPE(GzWriteParsedBits32, w_default_members);
+MKWTYPE(GzWriteParsedNumber);
+MKWTYPE(GzWriteParsedFloat64);
+MKWTYPE(GzWriteParsedFloat32);
+MKWTYPE(GzWriteParsedInt64);
+MKWTYPE(GzWriteParsedInt32);
+MKWTYPE(GzWriteParsedBits64);
+MKWTYPE(GzWriteParsedBits32);
 
 static PyObject *generic_hash(PyObject *dummy, PyObject *obj)
 {
@@ -1727,7 +1721,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	PyObject *c_hash = PyCapsule_New((void *)hash, "gzutil._C_hash", 0);
 	if (!c_hash) return INITERR;
 	PyModule_AddObject(m, "_C_hash", c_hash);
-	PyObject *version = Py_BuildValue("(iii)", 2, 7, 1);
+	PyObject *version = Py_BuildValue("(iii)", 2, 7, 2);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;
