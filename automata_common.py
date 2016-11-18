@@ -26,6 +26,8 @@ class Automata:
 	Launch jobs, wait for completion.
 	"""
 
+	method = '?' # fall-through case when we resume waiting for something
+
 	def __init__(self, server_url, dataset='churn', verbose=False, flags=None, subjob_cookie=None, infoprints=False):
 		"""
 		Set server url and legacy dataset parameter
@@ -83,7 +85,7 @@ class Automata:
 			exit(1)
 		resp = self._url_get(*path)
 		print(resp)
-		self._wait(time.time())
+		self.wait()
 
 	def abort(self):
 		return self._url_json('abort')
@@ -147,14 +149,19 @@ class Automata:
 		self.history.append((data, self.job_retur))
 		#
 		if wait and not self.job_retur.done:
-			self._wait(t0)
+			self.wait(t0)
 		if self.monitor and not why_build:
 			self.monitor.done()
 
-	def _wait(self, t0):
+	def wait(self, t0=None):
 		idle, status_stacks, current = self._server_idle(0)
 		if idle:
 			return
+		if t0 is None:
+			if current:
+				t0 = current[0]
+			else:
+				t0 = time.time()
 		waited = int(round(time.time() - t0)) - 1
 		if self.verbose == 'dots':
 			print('[' + '.' * waited, end=' ')

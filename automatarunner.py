@@ -47,16 +47,20 @@ def run_automata(options):
 
 	a = automata_common.Automata(url, verbose=options.verbose, flags=options.flags.split(','), infoprints=True)
 
+	if options.abort:
+		a.abort()
+		return
+
+	a.wait()
+	if options.just_wait:
+		return
+
 	if options.remake:
 		print("REMAKE")
 		remake = options.remake.lower()
 		if remake != 'all':
 			remake = {'p': 'prepare', 'a': 'analysis', 's': 'synthesis'}.get(remake[0])
 		a.remake(options.jobid, remake)
-		return
-
-	if options.abort:
-		a.abort()
 		return
 
 	module_ref = find_automata(a, options.package, options.script)
@@ -104,6 +108,7 @@ def main(argv):
 	parser.add_option('-f', '--flags',    dest="flags",    default='',          help="comma separated list of flags", )
 	parser.add_option('-A', '--abort',    dest="abort",    action='store_true', help="abort (fail) currently running job(s)", )
 	parser.add_option('-q', '--quick',    dest="quick",    action='store_true', help="skip method updates and checking workspaces for new jobs", )
+	parser.add_option('-w', '--just_wait',dest="just_wait",action='store_true', help="just wait for running job, don't run any automata", )
 	parser.add_option('--verbose',        dest="verbose",  default='status',    help="verbosity style {no, status, dots, log}")
 	parser.add_option('--quiet',          dest="quiet",    action='store_true', help="same as --verbose=no")
 	parser.add_option('--horizon',        dest="horizon",  default=None,        help="Time horizon - dates after this are not visible in urd.latest")
