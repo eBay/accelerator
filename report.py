@@ -2,6 +2,9 @@ from __future__ import print_function
 from __future__ import division
 
 import time
+
+from compat import open, uni
+
 import g
 
 class report():
@@ -43,7 +46,7 @@ class report():
 			return
 		self.println(title)
 		maxlen = max(len(k) for k in optionsdict)
-		for k, v in optionsdict.iteritems():
+		for k, v in optionsdict.items():
 			k = str(k).ljust(maxlen)
 			if isinstance(v, (list, tuple)):
 				self.println('  %s :' % (k,))
@@ -54,7 +57,7 @@ class report():
 
 	def close(self):
 		self.line()
-		with open('report.txt', 'w') as F:
-			F.write(self.s)
+		with open('report.txt', 'w', encoding='utf-8') as F:
+			F.write(uni(self.s))
 		if self.stdout:
 			print(self.s)
