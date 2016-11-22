@@ -117,8 +117,11 @@ class SubMethods(Methods):
 def _reprify(o):
 	if isinstance(o, OptionDefault):
 		o = o.default
-	if isinstance(o, (bytes, unicode, int, float, long, bool, NoneType)):
+	if isinstance(o, (bytes, str, int, float, long, bool, NoneType)):
 		return repr(o)
+	if isinstance(o, unicode):
+		# not reachable in PY3, the above "str" matches
+		return repr(o.encode('utf-8'))
 	if isinstance(o, set):
 		return '{%s}' % (', '.join(map(_reprify, sorted(o))),)
 	if isinstance(o, (list, tuple)):

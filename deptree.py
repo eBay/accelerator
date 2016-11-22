@@ -4,7 +4,7 @@ from __future__ import division
 from traceback import print_exc
 from datetime import datetime, date, time, timedelta
 
-from compat import iteritems, itervalues, first_value, str_types, int_types, num_types
+from compat import iteritems, itervalues, first_value, str_types, int_types, num_types, unicode
 
 from extras import OptionEnum, OptionEnumValue, OptionString, OptionDefault, RequiredOption, JobWithFile, typing_conv
 
@@ -152,6 +152,8 @@ class DepTree:
 						if not v:
 							raise OptionException('Option %s on method %s requires a non-empty string value' % (k, method,))
 						return v
+					if isinstance(default_v, unicode) and isinstance(v, bytes):
+						return v.decode('utf-8')
 					return type(default_v)(v)
 				if (isinstance(default_v, type) and isinstance(v, typefuzz(default_v))) or isinstance(v, typefuzz(type(default_v))):
 					return v
