@@ -11,7 +11,7 @@ from os.path import realpath
 from inspect import getargspec
 from os import environ
 
-from compat import quote_plus
+from compat import quote_plus, PY3
 
 import automata_common
 from autoflush import AutoFlush
@@ -33,8 +33,12 @@ def find_automata(a, package, script):
 			print(module_name)
 			return module_ref
 		except ImportError as e:
-			if not e.message.endswith(script):
-				raise
+			if PY3:
+				if not e.msg[:-1].endswith(script):
+					raise
+			else:
+				if not e.message.endswith(script):
+					raise
 	raise Exception('No automata "%s" found in {%s}' % (script, ', '.join(package)))
 
 def run_automata(options):
