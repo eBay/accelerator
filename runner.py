@@ -21,7 +21,7 @@ import json
 import io
 import tarfile
 
-from compat import PY3, iteritems, itervalues, pickle
+from compat import PY2, PY3, iteritems, itervalues, pickle
 
 from extras import DotDict
 import dispatch
@@ -107,6 +107,8 @@ def load_methods(data):
 
 def launch_start(data):
 	from launch import run
+	if PY2:
+		data = {k: v.encode('utf-8') if isinstance(v, unicode) else v for k, v in data.items()}
 	prof_r, prof_w = os.pipe()
 	try:
 		child = os.fork()
