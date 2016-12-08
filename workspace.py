@@ -39,7 +39,7 @@ class WorkSpace:
 		except Exception:
 			if writeable:
 				print("WORKSPACE:  create %s in %s." % (SLICES_FILENAME, self.path))
-				with open(filename, 'wb') as F:
+				with open(filename, 'w') as F:
 					F.write(str(self.slices)+'\n')
 			else:
 				print("WORKSPACE:  not a workspace \"%s\" at \"%s\"" % (self.name, self.path,))
