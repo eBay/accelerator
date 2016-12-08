@@ -13,7 +13,7 @@ main_workspace=EXAMPLE
 remote_workspaces=EXAMPLE,EXAMPLE2
 
 # Methods are imported from these directories (comma separated)
-method_directories=analysis,default_analysis,analysis_cf
+method_directories=analysis,default_analysis
 
 # automata scripts save things here
 result_directory=${HOME}/results
