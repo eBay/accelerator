@@ -23,3 +23,8 @@ source_directory=/some/other/path
 
 logfilename=${HOME}/daemon.log
 hash_override=<hash_check_override>
+
+# python versions to use
+# (the left side here is what you put on the right side in methods.conf)
+py2=/usr/bin/python2.7
+py3=/usr/bin/python3.5
