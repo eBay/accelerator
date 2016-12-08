@@ -243,7 +243,7 @@ class XtdHandler(BaseWebHandler):
 def parse_args(argv):
 	parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 	parser.add_argument('--debug', action='store_true')
-	parser.add_argument('--config', default='../conf/FRAMEWORK_CONFIG', metavar='CONFIG_FILE', help='Configuration file')
+	parser.add_argument('--config', default='../conf/framework.conf', metavar='CONFIG_FILE', help='Configuration file')
 	group = parser.add_mutually_exclusive_group()
 	group.add_argument('--port', type=int, help='Listen on tcp port')
 	group.add_argument('--socket', help='Listen on unix socket', default='socket.dir/default')
