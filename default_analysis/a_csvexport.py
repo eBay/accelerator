@@ -1,5 +1,7 @@
 from __future__ import division
 
+from itertools import izip, imap
+
 from extras import OptionString, job_params
 from gzwrite import GzWrite
 
@@ -40,21 +42,30 @@ def csvexport(sliceno, filename):
 			return open(filename, "wb")
 	else:
 		raise Exception("Filename should end with .gz for compressed or .csv for uncompressed")
-	it = d.iterate_list(sliceno, options.labels, datasets.source)
+	iters = []
+	for label in options.labels:
+		it = d.iterate_list(sliceno, label, datasets.source)
+		t = d.columns[label].type
+		if t == 'unicode':
+			it = imap(lambda s: s.encode('utf-8'), it)
+		elif t not in ('ascii', 'bytes'):
+			it = imap(str, it)
+		iters.append(it)
+	it = izip(*iters)
 	with mkwrite(filename) as fh:
 		q = options.quote_fields
 		sep = options.separator
 		if q:
 			qq = q + q
 			if options.labelsonfirstline:
-				fh.write(sep.join(q + n.replace(q, qq) + q for n in options.labels) + '\n')
+				fh.write((sep.join(q + n.replace(q, qq) + q for n in options.labels) + '\n').encode('utf-8'))
 			for data in it:
-				fh.write(sep.join(q + str(n).replace(q, qq) + q for n in data) + '\n')
+				fh.write(sep.join(q + n.replace(q, qq) + q for n in data) + '\n')
 		else:
 			if options.labelsonfirstline:
-				fh.write(sep.join(options.labels) + '\n')
+				fh.write((sep.join(options.labels) + '\n').encode('utf-8'))
 			for data in it:
-				fh.write(sep.join(map(str, data)) + '\n')
+				fh.write(sep.join(data) + '\n')
 
 def analysis(sliceno):
 	if options.sliced:
