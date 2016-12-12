@@ -11,7 +11,7 @@ from itertools import compress
 from functools import partial
 from inspect import getargspec
 
-from compat import unicode, uni, ifilter, imap, izip, iteritems, str_types, builtins
+from compat import unicode, uni, ifilter, imap, izip, iteritems, str_types, builtins, open
 
 import blob
 from extras import DotDict, job_params
@@ -536,9 +536,10 @@ class Dataset(unicode):
 		res = {}
 		for part in minmax.values():
 			for name, mm in part.items():
-				omm = minmax_fixup(res.get(name, (None, None,)), mm)
-				mm = minmax_fixup(mm, omm)
-				res[name] = [min(mm[0], omm[0]), max(mm[1], omm[1])]
+				if mm != (None, None):
+					omm = minmax_fixup(res.get(name, (None, None,)), mm)
+					mm = minmax_fixup(mm, omm)
+					res[name] = [min(mm[0], omm[0]), max(mm[1], omm[1])]
 		return res
 
 	def _append(self, columns, filenames, minmax, filename, caption, previous, name):
@@ -613,7 +614,7 @@ class Dataset(unicode):
 		if not os.path.exists(self.name):
 			os.mkdir(self.name)
 		blob.save(self._data, self._name('pickle'), temp=False)
-		with open(self._name('txt'), 'wb') as fh:
+		with open(self._name('txt'), 'w', encoding='utf-8') as fh:
 			nl = False
 			if self.hashlabel:
 				fh.write('hashlabel %s\n' % (self.hashlabel,))

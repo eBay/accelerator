@@ -245,7 +245,7 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 			synthesis_res = synthesis_func(**args_for(synthesis_func))
 			if synthesis_res is not None:
 				blob.save(synthesis_res, temp=False)
-			for dw in dataset._datasetwriters.values():
+			for dw in list(dataset._datasetwriters.values()):
 				dw.finish()
 		t = time() - t
 		if synthesis_func is dummy:
