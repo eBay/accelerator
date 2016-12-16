@@ -1,9 +1,12 @@
 from __future__ import division
 
 from itertools import izip, imap
+from shutil import copyfileobj
+from os import unlink
 
 from extras import OptionString, job_params
 from gzwrite import GzWrite
+from status import status
 
 options = dict(
 	filename          = OptionString, # .csv or .gz
@@ -19,7 +22,7 @@ datasets = (['source'],) # normally just one, but you can specify several
 
 jobids = ('previous',)
 
-def csvexport(sliceno, filename):
+def csvexport(sliceno, filename, labelsonfirstline):
 	assert len(options.separator) == 1
 	assert options.quote_fields in ('', "'", '"',)
 	d = datasets.source[0]
@@ -57,20 +60,30 @@ def csvexport(sliceno, filename):
 		sep = options.separator
 		if q:
 			qq = q + q
-			if options.labelsonfirstline:
+			if labelsonfirstline:
 				fh.write((sep.join(q + n.replace(q, qq) + q for n in options.labels) + '\n').encode('utf-8'))
 			for data in it:
 				fh.write(sep.join(q + n.replace(q, qq) + q for n in data) + '\n')
 		else:
-			if options.labelsonfirstline:
+			if labelsonfirstline:
 				fh.write((sep.join(options.labels) + '\n').encode('utf-8'))
 			for data in it:
 				fh.write(sep.join(data) + '\n')
 
 def analysis(sliceno):
 	if options.sliced:
-		csvexport(sliceno, options.filename % (sliceno,))
+		csvexport(sliceno, options.filename % (sliceno,), options.labelsonfirstline)
+	else:
+		labelsonfirstline = (sliceno == 0 and options.labelsonfirstline)
+		filename = '%d.gz' if options.filename.lower().endswith('.gz') else '%d.csv'
+		csvexport(sliceno, filename % (sliceno,), labelsonfirstline)
 
-def synthesis():
+def synthesis(params):
 	if not options.sliced:
-		csvexport(None, options.filename)
+		filename = '%d.gz' if options.filename.lower().endswith('.gz') else '%d.csv'
+		with open(options.filename, "wb") as outfh:
+			for sliceno in range(params.slices):
+				with status("Assembling %s (%d/%d)" % (options.filename, sliceno, params.slices)):
+					with open(filename % sliceno, "rb") as infh:
+						copyfileobj(infh, outfh)
+					unlink(filename % sliceno)
