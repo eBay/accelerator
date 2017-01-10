@@ -772,14 +772,15 @@ def synthesis(params, analysis_res, prepare_res):
 		dw.set_minmax(sliceno, data[3])
 	d = dw.finish()
 	res.minmax = {k: (str(c.min), str(c.max),) if isinstance(c.min, (date, time,)) else (c.min, c.max,) for k, c in d.columns.iteritems() if c.min is not None}
-	lens = (max(len(column) for column in res.minmax),
-	        max(len(str(v[0])) for v in res.minmax.itervalues()),
-	        max(len(str(v[1])) for v in res.minmax.itervalues()),
-	       )
-	template = '%%%ds  %%-%ds  %%-%ds' % tuple(max(6, v) for v in lens)
-	r.println(template % ('column', 'min', 'max',))
-	for column, minmax in res.minmax.iteritems():
-		r.println(template % (column, minmax[0], minmax[1],))
+	if res.minmax:
+		lens = (max(len(column) for column in res.minmax),
+		        max(len(str(v[0])) for v in res.minmax.itervalues()),
+		        max(len(str(v[1])) for v in res.minmax.itervalues()),
+		       )
+		template = '%%%ds  %%-%ds  %%-%ds' % tuple(max(6, v) for v in lens)
+		r.println(template % ('column', 'min', 'max',))
+		for column, minmax in res.minmax.iteritems():
+			r.println(template % (column, minmax[0], minmax[1],))
 	res.good_line_count_per_slice = num_lines_per_split
 	res.good_line_count_total = sum(num_lines_per_split)
 	r.line()
