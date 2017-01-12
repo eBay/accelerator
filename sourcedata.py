@@ -28,6 +28,8 @@ def _mklistreader(inner_type, seq_type):
 	mk = getattr(builtins, seq_type.lower())
 	class GzXList(object):
 		def __init__(self, *a, **kw):
+			if 'max_count' in kw:
+				kw['max_count'] += 1
 			self.fh = reader(*a, **kw)
 			assert int(next(self.fh)) == 42001, "Wrong version"
 		def __next__(self):
@@ -54,6 +56,8 @@ for _seq_t in ('List', 'Set',):
 from ujson import loads
 class GzJson(object):
 	def __init__(self, *a, **kw):
+		if 'max_count' in kw:
+			kw['max_count'] += 1
 		self.fh = gzutil.GzBytesLines(*a, **kw)
 		assert next(self.fh) == "json0", "Wrong version"
 	def __next__(self):
