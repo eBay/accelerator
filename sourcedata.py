@@ -59,7 +59,7 @@ class GzJson(object):
 		if 'max_count' in kw:
 			kw['max_count'] += 1
 		self.fh = gzutil.GzBytesLines(*a, **kw)
-		assert next(self.fh) == "json0", "Wrong version"
+		assert next(self.fh) == b"json0", "Wrong version"
 	def __next__(self):
 		return loads(next(self.fh))
 	next = __next__

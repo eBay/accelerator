@@ -79,7 +79,7 @@ class GzWriteJson(object):
 	def __init__(self, *a, **kw):
 		assert 'default' not in kw, "default not supported for Json, sorry"
 		self.fh = gzutil.GzWriteBytesLines(*a, **kw)
-		self.fh.write("json0") # version marker
+		self.fh.write(b"json0") # version marker
 		self.count = 0
 	def write(self, o):
 		self.count += 1
