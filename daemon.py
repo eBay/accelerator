@@ -37,8 +37,8 @@ DEBUG_WRITE_JSON = False
 def gen_cookie(size=16):
 	return ''.join(random.choice(ascii_letters) for _ in range(size))
 
-# This contains cookie: {lock, last_error} for all jobs, main jobs have cookie None.
-job_tracking = {None: DotDict(lock=JLock(), last_error=None)}
+# This contains cookie: {lock, last_error, last_time} for all jobs, main jobs have cookie None.
+job_tracking = {None: DotDict(lock=JLock(), last_error=None, last_time=0)}
 
 
 # This needs .ctrl to work. It is set from main()
@@ -80,6 +80,8 @@ class XtdHandler(BaseWebHandler):
 				if data.last_error:
 					status.last_error = data.last_error
 					data.last_error = None
+				else:
+					status.last_time = data.last_time
 				data.lock.release()
 			elif path == ['status', 'full']:
 				status.status_stacks, status.current = status_stacks_export()
@@ -172,13 +174,14 @@ class XtdHandler(BaseWebHandler):
 									# This is not a race - all higher locks are locked too.
 									while passed_cookie in job_tracking:
 										passed_cookie = gen_cookie()
-									job_tracking[passed_cookie] = DotDict(lock=JLock(), last_error=None)
+									job_tracking[passed_cookie] = DotDict(lock=JLock(), last_error=None, last_time=0)
 									try:
 										self.ctrl.run_job(jobid, subjob_cookie=passed_cookie, parent_pid=setup.get('parent_pid', 0))
 										# update database since a new jobid was just created
-										self.ctrl.add_single_jobid(jobid)
+										job = self.ctrl.add_single_jobid(jobid)
 										with tlock:
 											link2job[jobid]['make'] = 'DONE'
+											link2job[jobid]['total_time'] = job.total
 									except JobError as e:
 										error.append([e.jobid, e.method, e.status])
 										with tlock:
@@ -214,13 +217,16 @@ class XtdHandler(BaseWebHandler):
 							del tlock
 							del t
 							# verify that all jobs got built.
+							total_time = 0
 							for j in link2job.values():
 								jobid = j['link']
 								if j['make'] == True:
 									# Well, crap.
 									error.append([jobid, "unknown", {"INTERNAL": "Not built"}])
 									print("INTERNAL ERROR IN JOB BUILDING!", file=sys.stderr)
+								total_time += j.get('total_time', 0)
 							data.last_error = error
+							data.last_time = total_time
 					except Exception as e:
 						if respond_after:
 							self.do_response(500, "text/json", {'error': str(e)})

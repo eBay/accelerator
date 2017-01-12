@@ -207,9 +207,10 @@ class DepTree:
 			if v['uid'] == uid:
 				return v
 
-	def set_link(self, uid, link):
+	def set_link(self, uid, job):
 		item = self.get_item_by_uid(uid)
-		item['link'] = link
+		item['link'] = job.id
+		item['total_time'] = job.total
 
 	def propagate_make(self):
 		self._recursive_propagate_make(self.top_method)

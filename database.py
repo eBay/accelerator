@@ -11,7 +11,7 @@ from safe_pool import Pool
 from extras import job_params, OptionEnum, OptionDefault
 
 
-Job = namedtuple('Job', 'id method params optset hash time')
+Job = namedtuple('Job', 'id method params optset hash time total')
 
 _control = None # control.Main instance, global for use in _mkjob, set when DataBase is initialized.
 
@@ -43,6 +43,7 @@ def _mkjob(setup):
 		optset = optset,
 		hash   = setup.hash,
 		time   = setup.starttime,
+		total  = setup.profile.total,
 	)
 	return job
 
@@ -72,6 +73,7 @@ class DataBase:
 	def add_single_jobid(self, jobid):
 		job = _mkjob(_paramsdict[jobid])
 		self.db_by_method[job.method].insert(0, job)
+		return job
 
 	def _update_workspace(self, WorkSpace, verbose=False):
 		"""Insert all items in WorkSpace in database (call update_finish too)"""
@@ -120,7 +122,7 @@ class DataBase:
 			# These are already sorted newest to oldest.
 			for job in self.db_by_method[method]:
 				if opttuple.issubset(job.optset):
-					yield uid, job.id
+					yield uid, job
 					break
 
 	def match_exact(self, reqlist):
@@ -128,5 +130,5 @@ class DataBase:
 			# These are already sorted newest to oldest.
 			for job in self.db_by_method[method]:
 				if opttuple == job.optset:
-					yield uid, job.id
+					yield uid, job
 					break

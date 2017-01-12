@@ -154,7 +154,7 @@ class Automata:
 			self.monitor.done()
 
 	def wait(self, t0=None):
-		idle, status_stacks, current = self._server_idle(0)
+		idle, status_stacks, current, last_time = self._server_idle(0)
 		if idle:
 			return
 		if t0 is None:
@@ -188,11 +188,11 @@ class Automata:
 						print('%d seconds, still waiting for %s (%d seconds)' % current)
 				else:
 					sys.stdout.write('\r\033[K           %.1f %s %.1f' % current)
-			idle, status_stacks, current = self._server_idle(1)
+			idle, status_stacks, current, last_time = self._server_idle(1)
 		if self.verbose == 'dots':
-			print('(%d)]' % (time.time() - t0,))
+			print('(%d)]' % (last_time,))
 		else:
-			print('\r\033[K           %d seconds' % (round(time.time() - t0),))
+			print('\r\033[K              %s' % (fmttime(last_time),))
 
 	def jobid(self, method):
 		"""
@@ -217,7 +217,7 @@ class Automata:
 				e = JobError(jobid, method, status)
 				print(e.format_msg(), file=sys.stderr)
 			raise e
-		return resp.idle, resp.status_stacks, resp.current
+		return resp.idle, resp.status_stacks, resp.current, resp.last_time
 
 	def _server_submit(self, json):
 		# submit json to server
@@ -241,6 +241,8 @@ class Automata:
 			print('        -  %44s' % method.ljust(44), end=' ')
 			print(' %s' % (make_msg,), end=' ')
 			print(' %s' % item.link, end=' ')
+			if item.make != True:
+				print(' %s' % fmttime(item.total_time), end=' ')
 			print()
 
 	def method_info(self, method):
@@ -336,6 +338,15 @@ class Automata:
 		for m in to_record:
 			self.record[record_in].insert(record_as.get(m, m), self.jobid(m))
 		return self.jobid(org_method)
+
+
+def fmttime(t):
+	unit = 'seconds'
+	units = ['hours', 'minutes']
+	while t > 60 * 3 and units:
+		unit = units.pop()
+		t /= 60
+	return '%.1f %s' % (t, unit,)
 
 
 class JobTuple(tuple):

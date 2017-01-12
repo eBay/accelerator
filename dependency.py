@@ -17,12 +17,12 @@ def find_possible_jobs(db, methods, job):
 	params = {method: job['params'][method]}
 	optset = methods.params2optset(params)
 	def inner():
-		for uid, jobid in db.match_exact([(method, 0, optset,)]):
-			yield jobid, ()
+		for uid, job in db.match_exact([(method, 0, optset,)]):
+			yield job.id, ()
 			return # no depjobs is enough - stop
 		for remset in combinations(optset, remcount):
-			for uid, jobid in db.match_complex([(method, 0, optset - set(remset),)]):
-				yield jobid, remset
+			for uid, job in db.match_complex([(method, 0, optset - set(remset),)]):
+				yield job.id, remset
 	res = {}
 	remcount = 0
 	while not res:
@@ -50,8 +50,8 @@ def initialise_jobs(setup, target_WorkSpace, DataBase, Methods, verbose=False):
 
 	# compare database to deptree
 	reqlist = DepTree.get_reqlist()
-	for uid, jobid in DataBase.match_exact(reqlist):
-		DepTree.set_link(uid, jobid)
+	for uid, job in DataBase.match_exact(reqlist):
+		DepTree.set_link(uid, job)
 	DepTree.propagate_make()
 	if setup.why_build:
 		orig_tree = deepcopy(DepTree.tree)
@@ -101,5 +101,5 @@ def initialise_jobs(setup, target_WorkSpace, DataBase, Methods, verbose=False):
 	else:
 		new_jobid_list = []
 
-	res = {j['method']: {'link': j['link'], 'make': j['make']} for j in joblist}
+	res = {j['method']: {k: v for k, v in j.items() if k in ('link', 'make', 'total_time')} for j in joblist}
 	return new_jobid_list, {'jobs': res}

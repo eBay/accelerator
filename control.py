@@ -124,7 +124,7 @@ class Main:
 	def add_single_jobid(self, jobid):
 		ws = self.workspaces[jobid.split('-', 1)[0]]
 		ws.add_single_jobid(jobid)
-		self.DataBase.add_single_jobid(jobid)
+		return self.DataBase.add_single_jobid(jobid)
 
 	def update_database(self):
 		"""Insert all new jobids (from all workspaces) in database,
