@@ -5,6 +5,7 @@ from __future__ import division
 from types import NoneType
 from collections import namedtuple
 from functools import partial
+import ujson
 
 __all__ = ('convfuncs', 'typerename', 'typesizes', 'minmaxfuncs',)
 
@@ -387,6 +388,7 @@ convfuncs = {
 	'asciistrip:*' : ConvTuple(0, None, partial(_mk_conv_ascii, strip=True)),
 	'number'       : ConvTuple(0, None, _conv_number    ), # integer when possible (up to +-2**1007-1), float otherwise.
 	'number:int'   : ConvTuple(0, None, _conv_number_int), # Never float, but accepts int.0 (or int.00 and so on)
+	'json'         : ConvTuple(0, None, ujson.loads),
 }
 
 # The actual type produced, when it is not the same as the key in convfuncs
