@@ -14,6 +14,7 @@ from os import environ
 from compat import quote_plus, PY3
 
 import automata_common
+from dispatch import JobError
 from autoflush import AutoFlush
 
 
@@ -55,7 +56,12 @@ def run_automata(options):
 		a.abort()
 		return
 
-	a.wait()
+	try:
+		a.wait(ignore_old_errors=not options.just_wait)
+	except JobError:
+		# An error occured in a job we didn't start, which is not our problem.
+		pass
+
 	if options.just_wait:
 		return
 

@@ -153,8 +153,8 @@ class Automata:
 		if self.monitor and not why_build:
 			self.monitor.done()
 
-	def wait(self, t0=None):
-		idle, status_stacks, current, last_time = self._server_idle(0)
+	def wait(self, t0=None, ignore_old_errors=False):
+		idle, status_stacks, current, last_time = self._server_idle(0, ignore_errors=ignore_old_errors)
 		if idle:
 			return
 		if t0 is None:
@@ -203,7 +203,7 @@ class Automata:
 	def dump_history(self):
 		return self.history
 
-	def _server_idle(self, timeout=0):
+	def _server_idle(self, timeout=0, ignore_errors=False):
 		"""ask server if it is idle, return (idle, status_stacks)"""
 		path = ['status']
 		if self.verbose:
@@ -211,7 +211,7 @@ class Automata:
 		path.append('?subjob_cookie=%s&timeout=%d' % (self.subjob_cookie or '', timeout,))
 		resp = self._url_json(*path)
 		last_error = resp.last_error
-		if last_error:
+		if last_error and not ignore_errors:
 			print("\nFailed to build jobs:", file=sys.stderr)
 			for jobid, method, status in last_error:
 				e = JobError(jobid, method, status)
