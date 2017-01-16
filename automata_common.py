@@ -548,8 +548,9 @@ def _urd_typeify(d):
 class Urd(object):
 	def __init__(self, a, info, user, password, horizon=None):
 		self._a = a
-		self._url = info.urd
-		assert '://' in str(info.urd), 'Bad urd URL: %s' % (info.urd,)
+		if info.urd:
+			assert '://' in str(info.urd), 'Bad urd URL: %s' % (info.urd,)
+		self._url = info.urd or ''
 		self._user = user
 		self._current = None
 		self.info = info
@@ -569,6 +570,7 @@ class Urd(object):
 		return path
 
 	def _call(self, url, data=None, fmt=_urd_typeify):
+		assert self._url, "No urd configured for this daemon"
 		url = url.replace(' ', '%20')
 		if data is not None:
 			req = Request(url, json_encode(data), self._headers)
@@ -645,6 +647,7 @@ class Urd(object):
 
 	def begin(self, path, timestamp=None, caption=None, update=False):
 		assert not self._current, 'Tried to begin %s while running %s' % (path, self._current,)
+		assert self._user, "Set URD_AUTH to be able to record jobs in urd"
 		self._current = self._path(path)
 		self._current_timestamp = timestamp
 		self._current_caption = caption

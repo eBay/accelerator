@@ -76,7 +76,10 @@ def run_automata(options):
 	module_ref = find_automata(a, options.package, options.script)
 
 	if getargspec(module_ref.main).args == ['urd']: # the future!
-		user, password = environ['URD_AUTH'].split(':', 1)
+		if 'URD_AUTH' in environ:
+			user, password = environ['URD_AUTH'].split(':', 1)
+		else:
+			user, password = None, None
 		info = a.info()
 		urd = automata_common.Urd(a, info, user, password, options.horizon)
 		if options.quick:
