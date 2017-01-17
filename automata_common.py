@@ -696,3 +696,21 @@ class Urd(object):
 		assert self._latest_joblist is not None, "Can't build_chained without a dependency to chain from"
 		datasets['previous'] = self._latest_joblist.get(name)
 		return self.build(method, options, datasets, jobids, name, caption, why_build)
+
+	def print_profile(self, verbose=True):
+		from extras import job_post
+		total = 0
+		seen = set()
+		per_method = defaultdict(int)
+		for method, jid in self.joblist:
+			if jid not in seen:
+				seen.add(jid)
+				t = job_post(jid).profile.total
+				total += t
+				per_method[method] += t
+		if verbose and per_method:
+			print("Time per method:")
+			tmpl = "   %%-%ds  %%s" % (max(len(method) for method in per_method),)
+			for method, t in sorted(per_method.items(), key=itemgetter(1), reverse=True):
+				print(tmpl % (method, fmttime(t),))
+		print("Total time", fmttime(total))
