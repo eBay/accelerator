@@ -5,6 +5,8 @@ import gzutil
 
 assert gzutil.version >= (2, 5, 0) and gzutil.version[0] == 2, gzutil.version
 
+from compat import PY3
+
 type2iter = {
 	'number'  : gzutil.GzNumber,
 	'float64' : gzutil.GzFloat64,
@@ -58,8 +60,11 @@ class GzJson(object):
 	def __init__(self, *a, **kw):
 		if 'max_count' in kw:
 			kw['max_count'] += 1
-		self.fh = gzutil.GzBytesLines(*a, **kw)
-		assert next(self.fh) == b"json0", "Wrong version"
+		if PY3:
+			self.fh = gzutil.GzUnicodeLines(*a, **kw)
+		else:
+			self.fh = gzutil.GzBytesLines(*a, **kw)
+		assert next(self.fh) == "json0", "Wrong version"
 	def __next__(self):
 		return loads(next(self.fh))
 	next = __next__

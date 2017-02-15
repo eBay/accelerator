@@ -2,7 +2,7 @@ from __future__ import print_function
 from __future__ import division
 
 import gzutil
-from compat import unicode, str_types
+from compat import unicode, str_types, PY3
 
 GzWrite = gzutil.GzWrite
 
@@ -78,8 +78,11 @@ class GzWriteJson(object):
 	min = max = None
 	def __init__(self, *a, **kw):
 		assert 'default' not in kw, "default not supported for Json, sorry"
-		self.fh = gzutil.GzWriteBytesLines(*a, **kw)
-		self.fh.write(b"json0") # version marker
+		if PY3:
+			self.fh = gzutil.GzWriteUnicodeLines(*a, **kw)
+		else:
+			self.fh = gzutil.GzWriteBytesLines(*a, **kw)
+		self.fh.write("json0") # version marker
 		self.count = 0
 	def write(self, o):
 		self.count += 1
