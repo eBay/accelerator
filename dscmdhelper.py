@@ -11,6 +11,7 @@ from locale import resetlocale
 from configfile import get_config
 from jobid import WORKSPACES
 from dataset import Dataset
+from jobid import get_path
 
 def init():
 	# initialize locale - for number formatting
@@ -43,4 +44,12 @@ def name2ds(n):
 		if WORKSPACES.get(k, base) != base:
 			print("### Overriding workspace %s to %s" % (k, base,))
 		WORKSPACES[k] = base
-	return Dataset(n)
+	ds = Dataset(n)
+	with open(join(get_path(ds.jobid), "slices.conf")) as fh:
+		slices = int(fh.read())
+	import g
+	if hasattr(g, 'SLICES'):
+		assert g.SLICES == slices, "Dataset %s needs %d slices, by we are already using %d slices" % (ds, slices, g.SLICES)
+	else:
+		g.SLICES = slices
+	return ds
