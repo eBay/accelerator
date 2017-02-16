@@ -7,8 +7,11 @@ from __future__ import division, print_function
 import sys
 import re
 from optparse import OptionParser
+from multiprocessing import Process
+import errno
 
 import dscmdhelper
+import g
 
 dscmdhelper.init()
 
@@ -52,9 +55,29 @@ def grep(lines):
 		if match:
 			print('\t'.join(p_items))
 
-for ds in datasets:
-	if options.chain:
-		f = ds.iterate_chain
-	else:
-		f = ds.iterate
-	grep(f(None, columns))
+def one_slice(sliceno):
+	try:
+		for ds in datasets:
+			if options.chain:
+				f = ds.iterate_chain
+			else:
+				f = ds.iterate
+			grep(f(sliceno, columns))
+	except KeyboardInterrupt:
+		return
+	except IOError as e:
+		if e.errno == errno.EPIPE:
+			return
+		else:
+			raise
+
+try:
+	children = []
+	for sliceno in range(g.SLICES):
+		p = Process(target=one_slice, args=(sliceno,), name='slice-%d' % (sliceno,))
+		p.start()
+		children.append(p)
+	for p in children:
+		p.join()
+except KeyboardInterrupt:
+	print()
