@@ -9,7 +9,6 @@ from resource import getpagesize
 from os import unlink, symlink
 from mmap import mmap, PROT_READ
 from itertools import imap
-from datetime import date, time
 from types import NoneType
 
 from extras import OptionEnum, json_save, DotDict
@@ -771,16 +770,6 @@ def synthesis(params, analysis_res, prepare_res):
 	for sliceno, data in enumerate(analysis_res):
 		dw.set_minmax(sliceno, data[3])
 	d = dw.finish()
-	res.minmax = {k: (str(c.min), str(c.max),) if isinstance(c.min, (date, time,)) else (c.min, c.max,) for k, c in d.columns.iteritems() if c.min is not None}
-	if res.minmax:
-		lens = (max(len(column) for column in res.minmax),
-		        max(len(str(v[0])) for v in res.minmax.itervalues()),
-		        max(len(str(v[1])) for v in res.minmax.itervalues()),
-		       )
-		template = '%%%ds  %%-%ds  %%-%ds' % tuple(max(6, v) for v in lens)
-		r.println(template % ('column', 'min', 'max',))
-		for column, minmax in res.minmax.iteritems():
-			r.println(template % (column, minmax[0], minmax[1],))
 	res.good_line_count_per_slice = num_lines_per_split
 	res.good_line_count_total = sum(num_lines_per_split)
 	r.line()
