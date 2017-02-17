@@ -28,7 +28,8 @@ def badargs():
 if len(args) < 2:
 	badargs()
 
-pat = re.compile(args[0], re.IGNORECASE if options.ignorecase else 0)
+pat_s = re.compile(args[0]                , re.IGNORECASE if options.ignorecase else 0)
+pat_b = re.compile(args[0].encode('utf-8'), re.IGNORECASE if options.ignorecase else 0)
 datasets = []
 columns = []
 
@@ -43,19 +44,20 @@ if not datasets:
 	badargs()
 
 def grep(lines):
-	for items in lines:
-		match = False
-		p_items = []
+	chk_b = pat_b.search
+	chk_s = pat_s.search
+	def match(items):
 		for item in items:
 			if isinstance(item, bytes):
-				item = item.decode('utf-8', 'replace')
+				if chk_b(item):
+					return True
 			else:
-				item = str(item)
-			p_items.append(item)
-			if pat.search(item):
-				match = True
-		if match:
-			print('\t'.join(p_items))
+				if chk_s(str(item)):
+					return True
+	for items in lines:
+		if match(items):
+			items = (item.decode('utf-8', 'replace') if isinstance(item, bytes) else str(item) for item in items)
+			print('\t'.join(items))
 
 def one_slice(sliceno):
 	try:
