@@ -47,7 +47,9 @@ def grep(lines):
 		match = False
 		p_items = []
 		for item in items:
-			if not isinstance(item, (bytes, str)):
+			if isinstance(item, bytes):
+				item = item.decode('utf-8', 'replace')
+			else:
 				item = str(item)
 			p_items.append(item)
 			if pat.search(item):
