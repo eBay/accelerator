@@ -56,6 +56,19 @@ for name, data, bad_cnt, res_data in (
 	r_name = "Gz" + name[6:] if name.startswith("Parsed") else "Gz" + name
 	r_typ = getattr(gzutil, r_name)
 	w_typ = getattr(gzutil, "GzWrite" + name)
+	# verify that failuses in init are handled reasonably.
+	for typ in (r_typ, w_typ,):
+		try:
+			typ("/NONEXISTENT")
+			raise Exception("%r does not give IOError for /NONEXISTENT" % (typ,))
+		except IOError:
+			pass
+		try:
+			typ("/NONEXISTENT", nonexistent_keyword="test")
+			raise Exception("%r does not give TypeError for bad keyword argument" % (typ,))
+		except TypeError:
+			pass
+	# test that the right data fails to write
 	with w_typ(TMP_FN) as fh:
 		count = 0
 		for ix, value in enumerate(data):

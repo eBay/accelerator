@@ -155,6 +155,7 @@ static int gzread_init(PyObject *self_, PyObject *args, PyObject *kwds)
 {
 	int res = -1;
 	GzRead *self = (GzRead *)self_;
+	char *name = 0;
 	int strip_bom = 0;
 	int fd = -1;
 	PY_LONG_LONG seek = 0;
@@ -163,14 +164,19 @@ static int gzread_init(PyObject *self_, PyObject *args, PyObject *kwds)
 	self->error = 0;
 	if (self_->ob_type == &GzBytesLines_Type) {
 		static char *kwlist[] = {"name", "strip_bom", "seek", "max_count", "hashfilter", 0};
-		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|iLLO", kwlist, Py_FileSystemDefaultEncoding, &self->name, &strip_bom, &seek, &self->max_count, &hashfilter)) return -1;
+		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|iLLO", kwlist, Py_FileSystemDefaultEncoding, &name, &strip_bom, &seek, &self->max_count, &hashfilter)) return -1;
 	} else if (self_->ob_type == &GzUnicodeLines_Type) {
 		static char *kwlist[] = {"name", "encoding", "errors", "seek", "max_count", "hashfilter", 0};
-		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|etetLLO", kwlist, Py_FileSystemDefaultEncoding, &self->name, "ascii", &self->encoding, "ascii", &self->errors, &seek, &self->max_count, &hashfilter)) return -1;
+		char *errors = 0;
+		char *encoding = 0;
+		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|etetLLO", kwlist, Py_FileSystemDefaultEncoding, &name, "ascii", &encoding, "ascii", &errors, &seek, &self->max_count, &hashfilter)) return -1;
+		self->errors = errors;
+		self->encoding = encoding;
 	} else {
 		static char *kwlist[] = {"name", "seek", "max_count", "hashfilter", 0};
-		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|LLO", kwlist, Py_FileSystemDefaultEncoding, &self->name, &seek, &self->max_count, &hashfilter)) return -1;
+		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|LLO", kwlist, Py_FileSystemDefaultEncoding, &name, &seek, &self->max_count, &hashfilter)) return -1;
 	}
+	self->name = name;
 	fd = open(self->name, O_RDONLY);
 	if (fd < 0) {
 		PyErr_SetFromErrnoWithFilename(PyExc_IOError, self->name);
@@ -733,10 +739,12 @@ static int gzwrite_init_GzWrite(PyObject *self_, PyObject *args, PyObject *kwds)
 {
 	static char *kwlist[] = {"name", "mode", 0};
 	GzWrite *self = (GzWrite *)self_;
+	char *name = 0;
 	char mode_buf[3] = {'w', 'b', 0};
 	const char *mode = mode_buf;
 	gzwrite_close_(self);
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|s", kwlist, Py_FileSystemDefaultEncoding, &self->name, &mode)) return -1;
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|s", kwlist, Py_FileSystemDefaultEncoding, &name, &mode)) return -1;
+	self->name = name;
 	if ((mode[0] != 'w' && mode[0] != 'a') || (mode[1] != 'b' && mode[1] != 0)) {
 		PyErr_Format(PyExc_IOError, "Bad mode '%s'", mode);
 		goto err;
@@ -758,11 +766,13 @@ static int gzwrite_init_GzWriteLines(PyObject *self_, PyObject *args, PyObject *
 {
 	static char *kwlist[] = {"name", "mode", "hashfilter", 0};
 	GzWrite *self = (GzWrite *)self_;
+	char *name = 0;
 	char mode_buf[3] = {'w', 'b', 0};
 	const char *mode = mode_buf;
 	PyObject *hashfilter = 0;
 	gzwrite_close_(self);
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|sO", kwlist, Py_FileSystemDefaultEncoding, &self->name, &mode, &hashfilter)) return -1;
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|sO", kwlist, Py_FileSystemDefaultEncoding, &name, &mode, &hashfilter)) return -1;
+	self->name = name;
 	if ((mode[0] != 'w' && mode[0] != 'a') || (mode[1] != 'b' && mode[1] != 0)) {
 		PyErr_Format(PyExc_IOError, "Bad mode '%s'", mode);
 		goto err;
@@ -1052,10 +1062,12 @@ MK_MINMAX_SET(Time    , unfmt_time((*(uint64_t *)cmp_value) >> 32, *(uint64_t *)
 	{                                                                                	\
 		static char *kwlist[] = {"name", "mode", "default", "hashfilter", 0};    	\
 		GzWrite *self = (GzWrite *)self_;                                        	\
+		char *name = 0;                                                          	\
 		const char *mode = "wb";                                                 	\
 		PyObject *hashfilter = 0;                                                	\
 		gzwrite_close_(self);                                                    	\
-		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|sOO", kwlist, Py_FileSystemDefaultEncoding, &self->name, &mode, &self->default_obj, &hashfilter)) return -1; \
+		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|sOO", kwlist, Py_FileSystemDefaultEncoding, &name, &mode, &self->default_obj, &hashfilter)) return -1; \
+		self->name = name;                                                       	\
 		if (self->default_obj) {                                                 	\
 			T value;                                                         	\
 			Py_INCREF(self->default_obj);                                    	\
@@ -1262,10 +1274,12 @@ static int gzwrite_init_GzWriteNumber(PyObject *self_, PyObject *args, PyObject 
 {
 	static char *kwlist[] = {"name", "mode", "default", "hashfilter", 0};
 	GzWrite *self = (GzWrite *)self_;
+	char *name = 0;
 	const char *mode = "wb";
 	PyObject *hashfilter = 0;
 	gzwrite_close_(self);
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|sOO", kwlist, Py_FileSystemDefaultEncoding, &self->name, &mode, &self->default_obj, &hashfilter)) return -1;
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|sOO", kwlist, Py_FileSystemDefaultEncoding, &name, &mode, &self->default_obj, &hashfilter)) return -1;
+	self->name = name;
 	if (self->default_obj) {
 		Py_INCREF(self->default_obj);
 #if PY_MAJOR_VERSION < 3
@@ -1721,7 +1735,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	PyObject *c_hash = PyCapsule_New((void *)hash, "gzutil._C_hash", 0);
 	if (!c_hash) return INITERR;
 	PyModule_AddObject(m, "_C_hash", c_hash);
-	PyObject *version = Py_BuildValue("(iii)", 2, 7, 2);
+	PyObject *version = Py_BuildValue("(iii)", 2, 7, 3);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;
