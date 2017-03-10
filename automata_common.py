@@ -341,6 +341,9 @@ class Automata:
 
 
 def fmttime(t):
+	if t == '':
+		# Failures have no time information and end up here
+		return ''
 	unit = 'seconds'
 	units = ['hours', 'minutes']
 	while t > 60 * 3 and units:
