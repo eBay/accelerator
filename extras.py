@@ -315,7 +315,7 @@ class ResultIterMagic(object):
 				return data
 		depth = 0
 		to_check = data
-		while hasattr(to_check, "itervalues"):
+		while hasattr(to_check, "values"):
 			if not to_check:
 				raise self._exc("Empty value at depth %d (index %d)" % (depth, ix,))
 			to_check = first_value(to_check)
@@ -323,7 +323,7 @@ class ResultIterMagic(object):
 		if hasattr(to_check, "update"): # like a set
 			depth += 1
 		if not depth:
-			raise self._exc("Top level has no .itervalues (index %d)" % (ix,))
+			raise self._exc("Top level has no .values (index %d)" % (ix,))
 		def upd(aggregate, part, level):
 			if level == depth:
 				aggregate.update(part)
