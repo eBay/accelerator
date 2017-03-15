@@ -124,22 +124,6 @@ class XtdHandler(BaseWebHandler):
 				os.killpg(child, signal.SIGKILL)
 			self.do_response(200, 'text/json', {'killed': len(tokill)})
 
-		elif path[0]=='update':
-			if job_tracking[None].lock.acquire(False):
-				try:
-					extra = False
-					if len(path)>2:
-						extra = path[2]
-					jobid = path[1]
-					self.do_response(200,'text/plain', 'Updating jobid \"%s\"\n'%jobid)
-					self.ctrl.update_database()
-					self.ctrl.run_job(jobid, partial=extra)
-				finally:
-					job_tracking[None].lock.release()
-			else:
-				self.do_response(200,"text/plain", "Busy doing work for you...\n" )
-			return
-
 		elif path==['submit']:
 			if self.ctrl.broken:
 				self.do_response(500, "text/json", {'broken': self.ctrl.broken, 'error': 'Broken methods: ' + ', '.join(sorted(m.split('.')[-1][2:] for m in self.ctrl.broken))})

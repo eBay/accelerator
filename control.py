@@ -166,7 +166,7 @@ class Main:
 		)
 
 
-	def run_job(self, jobid, partial=False, subjob_cookie=None, parent_pid=0):
+	def run_job(self, jobid, subjob_cookie=None, parent_pid=0):
 		""" Run analysis and synthesis for jobid in current workspace from WorkSpaceStorage """
 		W = self.workspaces[self.current_workspace]
 		#
@@ -175,20 +175,10 @@ class Main:
 			active_workspaces[name] = self.workspaces[name].get_path()
 		slices = self.workspaces[self.current_workspace].get_slices()
 
-		launcher = dispatch.launch_all
-		if partial:
-			print('RUN PARTIAL:', partial)
-			if jobid not in W.known_jobids:
-				print("ERROR, cannot update jobid \"%s\" - it does not exist" % jobid)
-				return
-			x = {
-				'analysis' : dispatch.launch_analysis,
-				'synthesis' : dispatch.launch_synthesis,}
-			launcher = x[partial]
 		t0 = time.time()
 		setup = update_setup(jobid, starttime=t0)
 		prof = setup.profile or DotDict()
-		new_prof, files, subjobs = launcher(W.path, setup, self.config, self.Methods, active_workspaces, slices, self.debug, self.daemon_url, subjob_cookie, parent_pid)
+		new_prof, files, subjobs = dispatch.launch(W.path, setup, self.config, self.Methods, active_workspaces, slices, self.debug, self.daemon_url, subjob_cookie, parent_pid)
 		if self.debug:
 			delete_from = Temp.TEMP
 		else:

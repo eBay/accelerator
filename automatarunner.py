@@ -65,14 +65,6 @@ def run_automata(options):
 	if options.just_wait:
 		return
 
-	if options.remake:
-		print("REMAKE")
-		remake = options.remake.lower()
-		if remake != 'all':
-			remake = {'p': 'prepare', 'a': 'analysis', 's': 'synthesis'}.get(remake[0])
-		a.remake(options.jobid, remake)
-		return
-
 	module_ref = find_automata(a, options.package, options.script)
 
 	if getargspec(module_ref.main).args == ['urd']: # the future!
@@ -116,8 +108,6 @@ def main(argv):
 	parser.add_option('-S', '--socket',   dest="socket",   default=None,        help="framework unix socket (default ./socket.dir/default)", )
 	parser.add_option('-s', '--script',   dest="script",   default=None      ,  help="automata script to run. package/[automata_]script.py. default \"automata\". Can be bare arg too.",)
 	parser.add_option('-P', '--package',  dest="package",  default=None      ,  help="package where to look for script, default all method directories in alphabetical order", )
-	parser.add_option('-r', '--remake',   dest="remake",   default=False,       help="Remake a previous job, \"all\", \"analysis\", or \"synthesis\".  Use with --jobid.", )
-	parser.add_option('-j', '--jobid',    dest="jobid",    default=False,       help="jobid, if remake is set.  Use with --remake.", )
 	parser.add_option('-f', '--flags',    dest="flags",    default='',          help="comma separated list of flags", )
 	parser.add_option('-A', '--abort',    dest="abort",    action='store_true', help="abort (fail) currently running job(s)", )
 	parser.add_option('-q', '--quick',    dest="quick",    action='store_true', help="skip method updates and checking workspaces for new jobs", )

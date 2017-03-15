@@ -142,7 +142,7 @@ def fmt_tb(skip_level):
 	return ''.join(msg)
 
 
-def execute_process(workdir, jobid, slices, result_directory, common_directory, source_directory, index=None, workspaces=None, all=False, analysis=False, synthesis=False, daemon_url=None, subjob_cookie=None, parent_pid=0):
+def execute_process(workdir, jobid, slices, result_directory, common_directory, source_directory, index=None, workspaces=None, daemon_url=None, subjob_cookie=None, parent_pid=0):
 	path = os.path.join(workdir, jobid)
 	try:
 		os.chdir(path)
@@ -201,17 +201,16 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 	def dummy():
 		pass
 
+	prepare_func   = getattr(method_ref, 'prepare'  , dummy)
 	analysis_func  = getattr(method_ref, 'analysis' , dummy)
 	synthesis_func = getattr(method_ref, 'synthesis', dummy)
 
-	analysis_needs_prepare  = 'prepare_res' in getargspec(analysis_func).args
-	synthesis_needs_prepare = 'prepare_res' in getargspec(synthesis_func).args
 	synthesis_needs_analysis = 'analysis_res' in getargspec(synthesis_func).args
 
 	prof = {}
-	if not analysis_needs_prepare and not synthesis_needs_prepare:
+	if prepare_func is dummy:
 		prof['prepare'] = 0 # truthish!
-	if hasattr(method_ref, 'prepare') and (all or (analysis and analysis_needs_prepare) or (synthesis and synthesis_needs_prepare)):
+	else:
 		t = time()
 		g.running = 'prepare'
 		g.subjob_cookie = subjob_cookie
@@ -222,32 +221,28 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 					dw.finish()
 		prof['prepare'] = time() - t
 	from extras import saved_files
-	if analysis or all:
-		if analysis_func is dummy:
-			prof['per_slice'] = []
-			prof['analysis'] = 0
-		else:
-			t = time()
-			g.running = 'analysis'
-			g.subjob_cookie = None # subjobs are not allowed from analysis
-			with status.status('Waiting for all slices to finish analysis'):
-				prof['per_slice'], files, g.analysis_res = fork_analysis(slices, analysis_func, args_for(analysis_func), synthesis_needs_analysis)
-			prof['analysis'] = time() - t
-			saved_files.update(files)
-	if synthesis or all:
+	if analysis_func is dummy:
+		prof['per_slice'] = []
+		prof['analysis'] = 0
+	else:
 		t = time()
-		g.running = 'synthesis'
-		g.subjob_cookie = subjob_cookie
-		with status.status(g.running):
-			synthesis_res = synthesis_func(**args_for(synthesis_func))
-			if synthesis_res is not None:
-				blob.save(synthesis_res, temp=False)
-			for dw in list(dataset._datasetwriters.values()):
-				dw.finish()
-		t = time() - t
-		if synthesis_func is dummy:
-			t = 0 # truthish!
-		prof['synthesis'] = t
+		g.running = 'analysis'
+		g.subjob_cookie = None # subjobs are not allowed from analysis
+		with status.status('Waiting for all slices to finish analysis'):
+			prof['per_slice'], files, g.analysis_res = fork_analysis(slices, analysis_func, args_for(analysis_func), synthesis_needs_analysis)
+		prof['analysis'] = time() - t
+		saved_files.update(files)
+	t = time()
+	g.running = 'synthesis'
+	g.subjob_cookie = subjob_cookie
+	with status.status(g.running):
+		synthesis_res = synthesis_func(**args_for(synthesis_func))
+		if synthesis_res is not None:
+			blob.save(synthesis_res, temp=False)
+		for dw in list(dataset._datasetwriters.values()):
+			dw.finish()
+	t = time() - t
+	prof['synthesis'] = t
 
 	from subjobs import _record
 	status._end()
@@ -257,10 +252,9 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 def main(argv):
 	sys.stdout = AutoFlush(sys.stdout)
 	sys.stderr = AutoFlush(sys.stderr)
-	opts, rem = getopt.getopt(argv[1:], '', ['index=', 'jobid=', 'workdir=', 'slices=', 'result_directory=', 'common_directory=', 'source_directory=', 'wstr=', 'prof_fd=', 'all', 'analysis', 'synthesis', 'debug', 'daemon_url=', 'subjob_cookie=', 'parent_pid='])
+	opts, rem = getopt.getopt(argv[1:], '', ['index=', 'jobid=', 'workdir=', 'slices=', 'result_directory=', 'common_directory=', 'source_directory=', 'wstr=', 'prof_fd=', 'debug', 'daemon_url=', 'subjob_cookie=', 'parent_pid='])
 	jobid = None
 	index = None
-	all = analysis = synthesis = False
 	result_directory = ''
 	common_directory = ''
 	workspaces = {}
@@ -283,12 +277,6 @@ def main(argv):
 			common_directory = arg
 		if opt=='--source_directory':
 			source_directory = arg
-		if opt=='--all':
-			all = True
-		if opt=='--analysis':
-			analysis = True
-		if opt=='--synthesis':
-			synthesis = True
 		if opt=='--wstr':
 			for x in arg.split(','):
 				name, path = x.split(':')
@@ -301,14 +289,13 @@ def main(argv):
 			subjob_cookie = arg or None
 		if opt=='--parent_pid':
 			parent_pid = int(arg or 0)
-	run(workdir, jobid, slices, result_directory, common_directory, source_directory, index=index, workspaces=workspaces, all=all, analysis=analysis, synthesis=synthesis, daemon_url=daemon_url, subjob_cookie=subjob_cookie, parent_pid=parent_pid, prof_fd=prof_fd)
+	run(workdir, jobid, slices, result_directory, common_directory, source_directory, index=index, workspaces=workspaces, daemon_url=daemon_url, subjob_cookie=subjob_cookie, parent_pid=parent_pid, prof_fd=prof_fd)
 
-def run(workdir, jobid, slices, result_directory, common_directory, source_directory, index=None, workspaces=None, all=False, analysis=False, synthesis=False, daemon_url=None, subjob_cookie=None, parent_pid=0, prof_fd=-1):
+def run(workdir, jobid, slices, result_directory, common_directory, source_directory, index=None, workspaces=None, daemon_url=None, subjob_cookie=None, parent_pid=0, prof_fd=-1):
 	global g_allesgut, _prof_fd
 	_prof_fd = prof_fd
-	assert sum([all, analysis, synthesis]) == 1, 'Specify exactly one of --all --analysis --synthesis'
 	try:
-		data = execute_process(workdir, jobid, slices, result_directory, common_directory, source_directory, index=index, workspaces=workspaces, all=all, analysis=analysis, synthesis=synthesis, daemon_url=daemon_url, subjob_cookie=subjob_cookie, parent_pid=parent_pid)
+		data = execute_process(workdir, jobid, slices, result_directory, common_directory, source_directory, index=index, workspaces=workspaces, daemon_url=daemon_url, subjob_cookie=subjob_cookie, parent_pid=parent_pid)
 		g_allesgut = True
 	except Exception:
 		print_exc()

@@ -76,17 +76,6 @@ class Automata:
 	def _url_json(self, *path, **kw):
 		return json_decode(self._url_get(*path, **kw))
 
-	def remake(self, jobid, part='all'):
-		path = ['update', jobid]
-		if part in ('prepare', 'analysis', 'synthesis',):
-			path.append(part)
-		elif part != 'all':
-			print("PROBLEM IN REMAKE!", jobid, part)
-			exit(1)
-		resp = self._url_get(*path)
-		print(resp)
-		self.wait()
-
 	def abort(self):
 		return self._url_json('abort')
 

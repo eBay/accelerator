@@ -3,7 +3,6 @@ from __future__ import division
 
 import os
 import time
-from functools import partial
 from signal import SIGTERM, SIGKILL
 
 from compat import PY3
@@ -73,7 +72,7 @@ def run(cmd, close_in_child, keep_in_child, with_pgrp=True):
 	os.execv(cmd[0], cmd)
 	os._exit()
 
-def launch_common(name, workdir, setup, config, Methods, active_workspaces, slices, debug, daemon_url, subjob_cookie, parent_pid):
+def launch(workdir, setup, config, Methods, active_workspaces, slices, debug, daemon_url, subjob_cookie, parent_pid):
 	starttime = time.time()
 	jobid = setup.jobid
 	method = setup.method
@@ -81,8 +80,8 @@ def launch_common(name, workdir, setup, config, Methods, active_workspaces, slic
 		print_prefix = ''
 	else:
 		print_prefix = '    '
-	print('%s| %s [%s]  %-20s|' % (print_prefix, jobid, method, name))
-	statmsg('| %s [%s]  %-20s|' % (jobid, method, name))
+	print('%s| %s [%s] |' % (print_prefix, jobid, method,))
+	statmsg('| %s [%s] |' % (jobid, method,))
 	args = dict(
 		workdir=workdir,
 		slices=slices,
@@ -95,7 +94,6 @@ def launch_common(name, workdir, setup, config, Methods, active_workspaces, slic
 		subjob_cookie=subjob_cookie,
 		parent_pid=parent_pid,
 	)
-	args[name] = True
 	from runner import runners
 	runner = runners[Methods.db[method].version]
 	child, prof_r = runner.launch_start(args)
@@ -133,7 +131,3 @@ def launch_common(name, workdir, setup, config, Methods, active_workspaces, slic
 	print('%s| %s [%s]  completed. (%5.1fs) |' % (print_prefix, jobid, method, time.time() -  starttime))
 	statmsg('| %s [%s]  completed.          |' % (jobid, method))
 	return data
-
-launch_all = partial(launch_common, 'all')
-launch_analysis = partial(launch_common, 'analysis')
-launch_synthesis = partial(launch_common, 'synthesis')
