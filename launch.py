@@ -1,12 +1,9 @@
 from __future__ import print_function
 from __future__ import division
 
-import atexit
 import os
 import signal
 import sys
-import getopt
-from autoflush import AutoFlush
 import jobid as jobid_module
 from inspect import getargspec
 from collections import defaultdict
@@ -249,48 +246,6 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 	return None, (prof, saved_files, _record)
 
 
-def main(argv):
-	sys.stdout = AutoFlush(sys.stdout)
-	sys.stderr = AutoFlush(sys.stderr)
-	opts, rem = getopt.getopt(argv[1:], '', ['index=', 'jobid=', 'workdir=', 'slices=', 'result_directory=', 'common_directory=', 'source_directory=', 'wstr=', 'prof_fd=', 'debug', 'daemon_url=', 'subjob_cookie=', 'parent_pid='])
-	jobid = None
-	index = None
-	result_directory = ''
-	common_directory = ''
-	workspaces = {}
-	daemon_url = None
-	subjob_cookie = None
-	parent_pid = 0
-	prof_fd = -1
-	for opt, arg in opts:
-		if opt=='--index':
-			index = int(arg)
-		if opt=='--workdir':
-			workdir = arg
-		if opt=='--jobid':
-			jobid = arg
-		if opt=='--slices':
-			slices = int(arg)
-		if opt=='--result_directory':
-			result_directory = arg
-		if opt=='--common_directory':
-			common_directory = arg
-		if opt=='--source_directory':
-			source_directory = arg
-		if opt=='--wstr':
-			for x in arg.split(','):
-				name, path = x.split(':')
-				workspaces[name] = path
-		if opt=='--prof_fd':
-			prof_fd = int(arg)
-		if opt=='--daemon_url':
-			daemon_url = arg
-		if opt=='--subjob_cookie':
-			subjob_cookie = arg or None
-		if opt=='--parent_pid':
-			parent_pid = int(arg or 0)
-	run(workdir, jobid, slices, result_directory, common_directory, source_directory, index=index, workspaces=workspaces, daemon_url=daemon_url, subjob_cookie=subjob_cookie, parent_pid=parent_pid, prof_fd=prof_fd)
-
 def run(workdir, jobid, slices, result_directory, common_directory, source_directory, index=None, workspaces=None, daemon_url=None, subjob_cookie=None, parent_pid=0, prof_fd=-1):
 	global g_allesgut, _prof_fd
 	_prof_fd = prof_fd
@@ -303,16 +258,7 @@ def run(workdir, jobid, slices, result_directory, common_directory, source_direc
 	os.write(prof_fd, json.dumps(data).encode('utf-8'))
 
 
-
-
-
-
 def exitfunction():
 	if not g_allesgut:
 		print('LAUNCH:  The deathening!')
 		os.killpg(os.getpgid(0), signal.SIGTERM)
-
-
-if __name__ == "__main__":
-	atexit.register(exitfunction)
-	sys.exit(main(sys.argv))
