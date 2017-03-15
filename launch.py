@@ -172,6 +172,10 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 	g.datasets         = datasets
 	g.jobids           = params.jobids
 
+	method_ref.options = params.options
+	method_ref.datasets= datasets
+	method_ref.jobids  = params.jobids
+
 	# compatibility names
 	g.SLICES           = slices
 	g.JOBID            = jobid
@@ -185,21 +189,14 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 	g.COMMON_DIRECTORY = common_directory
 	g.SOURCE_DIRECTORY = source_directory
 	g.OPTIONS          = params.options
-	g.options          = params.options
 	g.DATASETS         = datasets
-	g.datasets         = datasets
 	g.JOBIDS           = params.jobids
-	g.jobids           = params.jobids
 	g.SETUP            = SetupCompat(params)
 	g.index            = -1
 
 	g.daemon_url       = daemon_url
 	g.running          = 'launch'
 	status._start('%s %s' % (jobid, params.method,), parent_pid)
-
-	for v in dir(g):
-		if not v.startswith('__') and v not in g_always:
-			setattr(method_ref, v, getattr(g, v))
 
 	def dummy():
 		pass
