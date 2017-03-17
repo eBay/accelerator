@@ -204,6 +204,19 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 
 	synthesis_needs_analysis = 'analysis_res' in getargspec(synthesis_func).args
 
+	# A chain must be finished from the back, so sort on that.
+	sortnum_cache = {}
+	def dw_sortnum(name):
+		if name not in sortnum_cache:
+			dw = dataset._datasetwriters[name]
+			if dw.previous and dw.previous.startswith(jobid + '/'):
+				pname = dw.previous.split('/')[1]
+				num = dw_sortnum(pname) + 1
+			else:
+				num = 0
+			sortnum_cache[name] = num
+		return sortnum_cache[name]
+
 	prof = {}
 	if prepare_func is dummy:
 		prof['prepare'] = 0 # truthish!
@@ -213,9 +226,11 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 		g.subjob_cookie = subjob_cookie
 		with status.status(g.running):
 			g.prepare_res = method_ref.prepare(**args_for(method_ref.prepare))
-			for dw in dataset._datasetwriters.values():
-				if dw._started:
-					dw.finish()
+			to_finish = [dw.name for dw in dataset._datasetwriters.values() if dw._started]
+			if to_finish:
+				with status.status("Finishing datasets"):
+					for name in sorted(to_finish, key=dw_sortnum):
+						dataset._datasetwriters[name].finish()
 		prof['prepare'] = time() - t
 	from extras import saved_files
 	if analysis_func is dummy:
@@ -236,8 +251,10 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 		synthesis_res = synthesis_func(**args_for(synthesis_func))
 		if synthesis_res is not None:
 			blob.save(synthesis_res, temp=False)
-		for dw in list(dataset._datasetwriters.values()):
-			dw.finish()
+		if dataset._datasetwriters:
+			with status.status("Finishing datasets"):
+				for name in sorted(dataset._datasetwriters, key=dw_sortnum):
+					dataset._datasetwriters[name].finish()
 	t = time() - t
 	prof['synthesis'] = t
 
