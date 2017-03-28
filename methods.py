@@ -123,7 +123,7 @@ def _reprify(o):
 		# not reachable in PY3, the above "str" matches
 		return repr(o.encode('utf-8'))
 	if isinstance(o, set):
-		return '{%s}' % (', '.join(map(_reprify, sorted(o))),)
+		return '[%s]' % (', '.join(map(_reprify, sorted(o))),)
 	if isinstance(o, (list, tuple)):
 		return '[%s]' % (', '.join(map(_reprify, o)),)
 	if isinstance(o, dict):

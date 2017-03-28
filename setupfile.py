@@ -84,8 +84,10 @@ def encode_setup(data, sort_keys=True, as_str=False):
 			for k in sorted(src):
 				dst[k] = copy(src[k])
 			return dst
-		elif isinstance(src, (list, tuple, set,)):
+		elif isinstance(src, (list, tuple,)):
 			return [copy(v) for v in src]
+		elif isinstance(src, set):
+			return [copy(v) for v in sorted(src)]
 		elif isinstance(src, datetime):
 		    return [src.year, src.month, src.day, src.hour, src.minute, src.second, src.microsecond]
 		elif isinstance(src, date):
