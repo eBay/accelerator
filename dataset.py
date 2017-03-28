@@ -204,10 +204,19 @@ class Dataset(unicode):
 	def shape(self):
 		return (len(self.columns), sum(self.lines),)
 
-	def link_to_here(self, name='default'):
+	def link_to_here(self, name='default', column_filter=None):
 		"""Use this to expose a subjob as a dataset in your job:
 		Dataset(subjid).link_to_here()
-		will allow access to the subjob dataset under your jid."""
+		will allow access to the subjob dataset under your jid.
+		Specify column_filter as an iterable of columns to include
+		if you don't want all of them."""
+		if column_filter:
+			column_filter = set(column_filter)
+			filtered_columns = {k: v for k, v in self._data.columns.items() if k in column_filter}
+			left_over = column_filter - set(filtered_columns)
+			assert not left_over, "Columns in filter not available in dataset: %r" % (left_over,)
+			assert filtered_columns, "Filter produced no desired columns."
+			self._data.columns = filtered_columns
 		from g import JOBID
 		self._data.parent = '%s/%s' % (self.jobid, self.name,)
 		self.jobid = uni(JOBID)
