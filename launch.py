@@ -38,7 +38,8 @@ def call_analysis(analysis_func, sliceno_, q, preserve_result, parent_pid, **kw)
 				kw[stupid_inconsistent_name] = sliceno_
 			setattr(g, stupid_inconsistent_name, sliceno_)
 		for dw in dataset._datasetwriters.values():
-			dw._set_slice(sliceno_)
+			if dw._for_single_slice is None:
+				dw._set_slice(sliceno_)
 		res = analysis_func(**kw)
 		if preserve_result:
 			# Remove defaultdicts until we find one with a picklable default_factory.
@@ -75,9 +76,10 @@ def call_analysis(analysis_func, sliceno_, q, preserve_result, parent_pid, **kw)
 		dw_lens = {}
 		dw_minmax = {}
 		for name, dw in dataset._datasetwriters.items():
-			dw.close()
-			dw_lens[name] = dw._lens
-			dw_minmax[name] = dw._minmax
+			if dw._for_single_slice in (None, sliceno_,):
+				dw.close()
+				dw_lens[name] = dw._lens
+				dw_minmax[name] = dw._minmax
 		status._end()
 		q.put((sliceno_, time(), saved_files, dw_lens, dw_minmax, None,))
 	except:

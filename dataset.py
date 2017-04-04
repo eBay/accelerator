@@ -701,7 +701,7 @@ class DatasetWriter(object):
 
 	_split = _split_dict = _split_list = _allwriters_ = None
 
-	def __new__(cls, columns={}, filename=None, hashlabel=None, hashlabel_override=False, caption=None, previous=None, name='default', parent=None, meta_only=False):
+	def __new__(cls, columns={}, filename=None, hashlabel=None, hashlabel_override=False, caption=None, previous=None, name='default', parent=None, meta_only=False, for_single_slice=None):
 		"""columns can be {'name': 'type'} or {'name': DatasetColumn}
 		to simplify basing your dataset on another."""
 		name = uni(name)
@@ -709,7 +709,7 @@ class DatasetWriter(object):
 		from g import running
 		if running == 'analysis':
 			assert name in _datasetwriters, 'Dataset with name "%s" not created' % (name,)
-			assert not columns and not filename and not hashlabel and not caption and not parent, "Don't specify any arguments (except optionally name) in analysis"
+			assert not columns and not filename and not hashlabel and not caption and not parent and for_single_slice is None, "Don't specify any arguments (except optionally name) in analysis"
 			return _datasetwriters[name]
 		else:
 			assert name not in _datasetwriters, 'Duplicate dataset name "%s"' % (name,)
@@ -725,6 +725,7 @@ class DatasetWriter(object):
 			obj.parent = _dsid(parent)
 			obj.columns = {}
 			obj.meta_only = meta_only
+			obj._for_single_slice = for_single_slice
 			obj._clean_names = {}
 			if parent:
 				obj._pcolumns = Dataset(parent).columns
@@ -760,8 +761,8 @@ class DatasetWriter(object):
 			self._clean_names[colname] = _clean_name(colname, self._seen_n)
 
 	def set_slice(self, sliceno):
-		from g import running
-		assert running != 'analysis', "Don't try to set_slice in analysis"
+		import g
+		assert g.running != 'analysis' or self._for_single_slice == g.sliceno, "Only use set_slice in analysis together with for_single_slice"
 		self._set_slice(sliceno)
 
 	def _set_slice(self, sliceno):
@@ -857,6 +858,9 @@ class DatasetWriter(object):
 		return self._split_dict or self._mksplit()['split_dict']
 
 	def _mksplit(self):
+		import g
+		if g.running == 'analysis':
+			assert self._for_single_slice == g.sliceno, "Only use dataset in designated slice"
 		assert self._started != 1, "Don't use both a split writer and set_slice"
 		w_d = {}
 		names = [self._clean_names[n] for n in self._order]
@@ -894,20 +898,26 @@ class DatasetWriter(object):
 		self._split_dict = w_d['split_dict']
 		return w_d
 
-	def close(self):
-		if not hasattr(self, 'writers'):
-			return
+	def _close(self, sliceno, writers):
 		lens = {}
 		minmax = {}
-		for k, w in self.writers.items():
+		for k, w in writers.items():
 			lens[k] = w.count
 			minmax[k] = (w.min, w.max,)
 			w.close()
 		len_set = set(lens.values())
-		assert len(len_set) == 1, "Not all columns have the same linecount in slice %d: %r" % (self.sliceno, lens)
-		self._lens[self.sliceno] = len_set.pop()
-		self._minmax[self.sliceno] = minmax
-		del self.writers
+		assert len(len_set) == 1, "Not all columns have the same linecount in slice %d: %r" % (sliceno, lens)
+		self._lens[sliceno] = len_set.pop()
+		self._minmax[sliceno] = minmax
+
+	def close(self):
+		if self._started == 2:
+			for sliceno, writers in enumerate(self._allwriters):
+				self._close(sliceno, writers)
+		else:
+			if hasattr(self, 'writers'):
+				self._close(self.sliceno, self.writers)
+				del self.writers
 
 	def discard(self):
 		del _datasetwriters[self.name]
@@ -928,13 +938,7 @@ class DatasetWriter(object):
 		this first."""
 		from g import running, SLICES
 		assert running == self._running or running == 'synthesis', "Finish where you started or in synthesis"
-		if self._started == 2:
-			for sliceno, writers in enumerate(self._allwriters):
-				self.sliceno = sliceno
-				self.writers = writers
-				self.close()
-		else:
-			self.close()
+		self.close()
 		assert len(self._lens) == SLICES, "Not all slices written, missing %r" % (set(range(SLICES)) - set(self._lens),)
 		args = dict(
 			columns={k: v[0].split(':')[-1] for k, v in self.columns.items()},
