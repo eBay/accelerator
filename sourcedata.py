@@ -63,6 +63,7 @@ class GzJson(object):
 		if PY3:
 			self.fh = gzutil.GzUnicodeLines(*a, **kw)
 		else:
+			kw['strip_bom'] = True
 			self.fh = gzutil.GzBytesLines(*a, **kw)
 		assert next(self.fh) == "json0", "Wrong version"
 	def __next__(self):
