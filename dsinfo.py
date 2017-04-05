@@ -23,6 +23,7 @@ for n in sys.argv[1:]:
 	template = "    {0:%d}  {1:%d}" % (len_n, len_t,)
 	for n, c in ds.columns.items():
 		print(template.format(n, c.type))
+	print("{0:n} columns".format(len(ds.columns)))
 	print("{0:n} lines".format(sum(ds.lines)))
 	if ds.previous:
 		chain = ds.chain()
