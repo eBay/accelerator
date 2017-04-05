@@ -19,12 +19,6 @@
 // Up to +-(2**1007 - 1). Don't increase this.
 #define GZNUMBER_MAX_BYTES 127
 
-#define IDSTR_NUMBER   "\xff""Number\0"
-#define IDSTR_DATETIME "\xff""DtTm\0\0\0"
-#define IDSTR_DATE     "\xff""Date\0\0\0"
-#define IDSTR_TIME     "\xff""Time\0\0\0"
-#define IDSTR_BOOL     "\xff""Bool\0\0\0"
-
 #define BOM_STR "\xef\xbb\xbf"
 
 #define err1(v) if (v) goto err
@@ -166,10 +160,10 @@ static int gzread_init(PyObject *self_, PyObject *args, PyObject *kwds)
 		static char *kwlist[] = {"name", "strip_bom", "seek", "max_count", "hashfilter", 0};
 		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|iLLO", kwlist, Py_FileSystemDefaultEncoding, &name, &strip_bom, &seek, &self->max_count, &hashfilter)) return -1;
 	} else if (self_->ob_type == &GzUnicodeLines_Type) {
-		static char *kwlist[] = {"name", "encoding", "errors", "seek", "max_count", "hashfilter", 0};
+		static char *kwlist[] = {"name", "encoding", "errors", "strip_bom", "seek", "max_count", "hashfilter", 0};
 		char *errors = 0;
 		char *encoding = 0;
-		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|etetLLO", kwlist, Py_FileSystemDefaultEncoding, &name, "ascii", &encoding, "ascii", &errors, &seek, &self->max_count, &hashfilter)) return -1;
+		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|etetiLLO", kwlist, Py_FileSystemDefaultEncoding, &name, "ascii", &encoding, "ascii", &errors, &strip_bom, &seek, &self->max_count, &hashfilter)) return -1;
 		self->errors = errors;
 		self->encoding = encoding;
 	} else {
@@ -222,7 +216,6 @@ static int gzread_init(PyObject *self_, PyObject *args, PyObject *kwds)
 			self->encoding = PyMem_Malloc(6);
 			strcpy(self->encoding, "utf-8");
 		}
-		if (self->decodefunc == PyUnicode_DecodeUTF8) strip_bom = 1;
 	}
 	err1(parse_hashfilter(hashfilter, &self->hashfilter, &self->sliceno, &self->slices, &self->spread_None));
 	gzread_read_(self, 8);
@@ -230,15 +223,6 @@ static int gzread_init(PyObject *self_, PyObject *args, PyObject *kwds)
 		if (self->len >= 3 && !memcmp(self->buf, BOM_STR, 3)) {
 			self->pos = 3;
 		}
-	}
-	if (self->len >= 8) {
-		int typesig = 0;
-		if (self_->ob_type == &GzNumber_Type   && !memcmp(self->buf, IDSTR_NUMBER  , 8)) typesig = 1;
-		if (self_->ob_type == &GzDateTime_Type && !memcmp(self->buf, IDSTR_DATETIME, 8)) typesig = 2;
-		if (self_->ob_type == &GzDate_Type     && !memcmp(self->buf, IDSTR_DATE    , 8)) typesig = 3;
-		if (self_->ob_type == &GzTime_Type     && !memcmp(self->buf, IDSTR_TIME    , 8)) typesig = 4;
-		if (self_->ob_type == &GzBool_Type     && !memcmp(self->buf, IDSTR_BOOL    , 8)) typesig = 5;
-		if (typesig) self->pos = 8;
 	}
 	res = 0;
 err:
@@ -764,14 +748,20 @@ err:
 
 static int gzwrite_init_GzWriteLines(PyObject *self_, PyObject *args, PyObject *kwds)
 {
-	static char *kwlist[] = {"name", "mode", "hashfilter", 0};
 	GzWrite *self = (GzWrite *)self_;
 	char *name = 0;
 	char mode_buf[3] = {'w', 'b', 0};
 	const char *mode = mode_buf;
 	PyObject *hashfilter = 0;
+	int write_bom = 0;
 	gzwrite_close_(self);
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|sO", kwlist, Py_FileSystemDefaultEncoding, &name, &mode, &hashfilter)) return -1;
+	if (self_->ob_type == &GzWriteUnicodeLines_Type) {
+		static char *kwlist[] = {"name", "mode", "hashfilter", "write_bom", 0};
+		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|sOi", kwlist, Py_FileSystemDefaultEncoding, &name, &mode, &hashfilter, &write_bom)) return -1;
+	} else {
+		static char *kwlist[] = {"name", "mode", "hashfilter", 0};
+		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|sO", kwlist, Py_FileSystemDefaultEncoding, &name, &mode, &hashfilter)) return -1;
+	}
 	self->name = name;
 	if ((mode[0] != 'w' && mode[0] != 'a') || (mode[1] != 'b' && mode[1] != 0)) {
 		PyErr_Format(PyExc_IOError, "Bad mode '%s'", mode);
@@ -786,7 +776,7 @@ static int gzwrite_init_GzWriteLines(PyObject *self_, PyObject *args, PyObject *
 	}
 	self->count = 0;
 	self->len = 0;
-	if (mode[0] == 'w' && self_->ob_type == &GzWriteUnicodeLines_Type) {
+	if (write_bom) {
 		memcpy(self->buf, BOM_STR, 3);
 		self->len = 3;
 	}
@@ -1735,7 +1725,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	PyObject *c_hash = PyCapsule_New((void *)hash, "gzutil._C_hash", 0);
 	if (!c_hash) return INITERR;
 	PyModule_AddObject(m, "_C_hash", c_hash);
-	PyObject *version = Py_BuildValue("(iii)", 2, 7, 3);
+	PyObject *version = Py_BuildValue("(iii)", 2, 8, 0);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;

@@ -208,10 +208,16 @@ def test_read_bom(num, prefix=""):
 		assert data == [prefix.encode("utf-8") + b"a", b"\xef\xbb\xbfb"], (num, data)
 	with gzutil.GzUnicodeLines(TMP_FN) as fh:
 		data = list(fh)
+		assert data == [prefix + "\ufeffa", "\ufeffb"], (num, data)
+	with gzutil.GzUnicodeLines(TMP_FN, strip_bom=True) as fh:
+		data = list(fh)
 		assert data == [prefix + "a", "\ufeffb"], (num, data)
 	with gzutil.GzUnicodeLines(TMP_FN, "latin-1") as fh:
 		data = list(fh)
 		assert data == [prefix.encode("utf-8").decode("latin-1") + u"\xef\xbb\xbfa", u"\xef\xbb\xbfb"], (num, data)
+	with gzutil.GzUnicodeLines(TMP_FN, "latin-1", strip_bom=True) as fh:
+		data = list(fh)
+		assert data == [prefix.encode("utf-8").decode("latin-1") + u"a", u"\xef\xbb\xbfb"], (num, data)
 	with gzutil.GzUnicodeLines(TMP_FN, "ascii", "ignore") as fh:
 		data = list(fh)
 		assert data == ["a", "b"], (num, data)
@@ -226,14 +232,17 @@ def test_read_bom(num, prefix=""):
 with open(TMP_FN, "wb") as fh:
 	fh.write(b"\xef\xbb\xbfa\n\xef\xbb\xbfb")
 test_read_bom(0)
-with gzutil.GzWriteUnicodeLines(TMP_FN) as fh:
+with gzutil.GzWriteUnicodeLines(TMP_FN, write_bom=True) as fh:
 	fh.write("a")
 	fh.write("\ufeffb")
 test_read_bom(1)
-with gzutil.GzWriteUnicodeLines(TMP_FN) as fh:
+with gzutil.GzWriteUnicodeLines(TMP_FN, write_bom=True) as fh:
 	fh.write("\ufeffa")
 	fh.write("\ufeffb")
 test_read_bom(2, "\ufeff")
+with gzutil.GzWriteUnicodeLines(TMP_FN) as fh:
+	fh.write("a")
+assert next(gzutil.GzBytesLines(TMP_FN)) == b"a", "GzWriteUnicodeLines writes BOM when not requested"
 
 print("Append test")
 # And finally verify appending works as expected.
