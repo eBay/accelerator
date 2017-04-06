@@ -47,7 +47,6 @@ def _mklistwriter(inner_type, seq_type, len_type):
 		def __init__(self, *a, **kw):
 			assert 'default' not in kw, "default not supported for %s%s, sorry" % (inner_type, seq_type,)
 			self.fh = _convfuncs[inner_type.lower()](*a, **kw)
-			self.fh.write(len_type(42001)) # version marker
 			self.count = 0
 		def write(self, lst):
 			self.count += 1
@@ -82,7 +81,6 @@ class GzWriteJson(object):
 			self.fh = gzutil.GzWriteUnicodeLines(*a, **kw)
 		else:
 			self.fh = gzutil.GzWriteBytesLines(*a, **kw)
-		self.fh.write("json0") # version marker
 		self.count = 0
 	def write(self, o):
 		self.count += 1

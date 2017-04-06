@@ -130,8 +130,6 @@ convert_number_template = r'''
 // Up to +-(2**1007 - 1). Don't increase this.
 #define GZNUMBER_MAX_BYTES 127
 
-#define IDSTR_NUMBER   "\xff""Number\0"
-
 static inline int convert_number_do(const char *inptr, char * const outptr_, const int allow_float)
 {
 	unsigned char *outptr = (unsigned char *)outptr_;
@@ -246,7 +244,6 @@ err:
 	g.pos = g.len = 0;
 	outfh = gzopen(out_fn, "wb");
 	err1(!outfh);
-	err1(gzwrite(outfh, IDSTR_NUMBER, 8) != 8);
 	if (badmap_fd != -1) {
 		badmap = mmap(0, badmap_size, PROT_READ | PROT_WRITE, MAP_NOSYNC | MAP_SHARED, badmap_fd, 0);
 		err1(!badmap);
@@ -356,7 +353,6 @@ err:
 	gzFile minmaxfh = gzopen(minmax_fn, "wb");
 	err1(!minmaxfh);
 	res = 0;
-	if (gzwrite(minmaxfh, IDSTR_NUMBER, 8) != 8) res = 1;
 	if (minlen) {
 		if (gzwrite(minmaxfh, buf_col_min, minlen) != minlen) res = 1;
 		if (gzwrite(minmaxfh, buf_col_max, maxlen) != maxlen) res = 1;

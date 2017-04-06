@@ -3,7 +3,7 @@ from __future__ import division
 
 import gzutil
 
-assert gzutil.version >= (2, 5, 0) and gzutil.version[0] == 2, gzutil.version
+assert gzutil.version >= (2, 8, 1) and gzutil.version[0] == 2, gzutil.version
 
 from compat import PY3
 
@@ -33,7 +33,6 @@ def _mklistreader(inner_type, seq_type):
 			if 'max_count' in kw:
 				kw['max_count'] += 1
 			self.fh = reader(*a, **kw)
-			assert int(next(self.fh)) == 42001, "Wrong version"
 		def __next__(self):
 			llen = next(self.fh)
 			if llen is None:
@@ -63,9 +62,7 @@ class GzJson(object):
 		if PY3:
 			self.fh = gzutil.GzUnicodeLines(*a, **kw)
 		else:
-			kw['strip_bom'] = True
 			self.fh = gzutil.GzBytesLines(*a, **kw)
-		assert next(self.fh) == "json0", "Wrong version"
 	def __next__(self):
 		return loads(next(self.fh))
 	next = __next__

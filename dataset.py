@@ -25,7 +25,7 @@ kwlist.update({'False', 'None', 'True', 'nonlocal', 'async', 'await'})
 iskeyword = frozenset(kwlist).__contains__
 
 # A dataset is defined by a pickled DotDict containing at least the following (all strings are unicode):
-#     version = (2, 1,),
+#     version = (2, 2,),
 #     filename = "filename" or None,
 #     hashlabel = "column name" or None,
 #     caption = "caption",
@@ -34,23 +34,18 @@ iskeyword = frozenset(kwlist).__contains__
 #     parent = "parent_jid/datasetname" or None,
 #     lines = [line, count, per, slice,],
 #     cache = ((id, data), ...), # key is missing if there is no cache in this dataset
-#     cache_distance = datasets_since_last_cache, # key is missing before version 2, 1 or if previous is None
-# A version 1, 0 dataset has an older DatasetColumn with less specific filenames for the data and no offsets.
+#     cache_distance = datasets_since_last_cache, # key is missing if previous is None
 #
 # A DatasetColumn has these fields:
 #     type = "type", # something that exists in type2iter
 #     name = "name", # a clean version of the column name, valid in the filesystem and as a python identifier.
 #     location = something, # where the data for this column lives
-#         in version 1 this is "jobid/datasetname"
 #         in version 2 this is "jobid/path/to/file" if .offsets else "jobid/path/with/%s/for/sliceno"
 #     min = minimum value in this dataset or None
 #     max = maximum value in this dataset or None
 #     offsets = (offset, per, slice) or None for non-merged slices.
 #
-# Going from a DatasetColumn to a filename is like this for version 1 datasets:
-#     jid, name = dc.location.split('/')
-#     resolve_jobid_filename(jid, '%s/%d/%s' % (name, sliceno, dc.name,))
-# and like this for version 2 datasets:
+# Going from a DatasetColumn to a filename is like this for version 2 datasets:
 #     jid, path = dc.location.split('/', 1)
 #     if dc.offsets:
 #         resolve_jobid_filename(jid, path)
@@ -84,7 +79,6 @@ def _dsid(t):
 
 # If we want to add fields to later versions, using a versioned name will
 # allow still loading the old versions without messing with the constructor.
-_DatasetColumn_1_0 = namedtuple('_DatasetColumn_1_0', 'type name location min max')
 _DatasetColumn_2_0 = namedtuple('_DatasetColumn_2_0', 'type name location min max offsets')
 DatasetColumn = _DatasetColumn_2_0
 
@@ -147,7 +141,7 @@ class Dataset(unicode):
 		obj.name = uni(name or 'default')
 		if jobid is _new_dataset_marker:
 			obj._data = DotDict({
-				'version': (2, 1,),
+				'version': (2, 2,),
 				'filename': None,
 				'hashlabel': None,
 				'caption': '',
@@ -160,10 +154,7 @@ class Dataset(unicode):
 		else:
 			obj.jobid = jobid
 			obj._data = DotDict(_ds_load(obj))
-			if obj._data.version[0] == 1:
-				obj._data.columns = {k: DatasetColumn(type=c.type, name=c.name, location="%s/%%s/%s" % (c.location, c.name), min=c.min, max=c.max, offsets=None) for k, c in obj._data.columns.items()}
-				obj._data.version = (2, 0)
-			assert obj._data.version[0] == 2, "%s/%s: Unsupported dataset pickle version %r" % (jobid, name, obj._data.version,)
+			assert obj._data.version[0] == 2 and obj._data.version[1] >= 2, "%s/%s: Unsupported dataset pickle version %r" % (jobid, name, obj._data.version,)
 			obj._data.columns = dict(obj._data.columns)
 		return obj
 
