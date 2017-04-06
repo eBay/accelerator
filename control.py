@@ -122,7 +122,7 @@ class Main:
 
 
 	def add_single_jobid(self, jobid):
-		ws = self.workspaces[jobid.split('-', 1)[0]]
+		ws = self.workspaces[jobid.rsplit('-', 1)[0]]
 		ws.add_single_jobid(jobid)
 		return self.DataBase.add_single_jobid(jobid)
 

@@ -1,4 +1,5 @@
 import os
+import re
 
 
 # WORKSPACES should live in the Automata class, but only for callers
@@ -14,21 +15,20 @@ def put_workspaces(workspaces_dict):
 
 class Jobid:
 	def __init__(self, jobid):
-		self.wspace, tmp = jobid.split('-')
-		self.major, self.minor = (int(x) for x in tmp.split('_'))
-		self.number = self.major*1000+self.minor
+		self.wspace, tmp = jobid.rsplit('-', 1)
+		self.number = int(tmp)
 
 
-def globexpression(name):
-	return '%s-[0-9]*_*' % name
+def dirnamematcher(name):
+	return re.compile(re.escape(name) + r'-[0-9]+$').match
 
 
-def create(name, major, minor):
-	return name + '-%d_%d' % (major, minor)
+def create(name, number):
+	return '%s-%d' % (name, number,)
 
 
 def get_workspace_name(jobid):
-	return str(jobid).split('-',1)[0]
+	return jobid.rsplit('-', 1)[0]
 
 
 def get_path(jobid):

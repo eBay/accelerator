@@ -40,7 +40,7 @@ def name2ds(n):
 			# bare jid (no ds name)
 			base, jid = n.rsplit("/", 1)
 			n = jid
-		k = jid.split("-", 1)[0]
+		k = jid.rsplit("-", 1)[0]
 		if WORKSPACES.get(k, base) != base:
 			print("### Overriding workspace %s to %s" % (k, base,))
 		WORKSPACES[k] = base

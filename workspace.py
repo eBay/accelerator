@@ -67,11 +67,10 @@ class WorkSpace:
 	def update(self, parallelism=4):
 		"""find all new jobids on disk"""
 		from os.path import exists, join
-		from jobid import globexpression
-		import fnmatch
+		from jobid import dirnamematcher
 		from safe_pool import Pool
 		from itertools import compress
-		cand = set(fnmatch.filter(os.listdir(self.path), globexpression(self.name)))
+		cand = set(filter(dirnamematcher(self.name), os.listdir(self.path)))
 		bad = self.known_jobids - cand
 		for jid in bad:
 			self.known_jobids.discard(jid)
@@ -100,7 +99,7 @@ class WorkSpace:
 		from jobid import create
 		highest = self._get_highest_jobnumber()
 #		print('WORKSPACE:  Highest jobid is', highest)
-		jobidv = [create(self.name, highest + 1, x) for x in range(num_jobs)]
+		jobidv = [create(self.name, highest + 1 + x) for x in range(num_jobs)]
 		for jobid in jobidv:
 			fullpath = os.path.join(self.path, jobid)
 			print("WORKSPACE:  Allocate_job \"%s\"" % fullpath)
@@ -113,6 +112,6 @@ class WorkSpace:
 		""" get highest current jobid number """
 		if self.known_jobids:
 			from jobid import Jobid
-			return max(Jobid(jid).major for jid in self.known_jobids)
+			return max(Jobid(jid).number for jid in self.known_jobids)
 		else:
 			return -1
