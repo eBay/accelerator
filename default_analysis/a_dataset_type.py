@@ -714,7 +714,7 @@ def synthesis(params, analysis_res, prepare_res):
 		columns[options.rename.get(colname, colname)] = dataset_typing.typerename.get(coltype, coltype)
 	analysis_res = list(analysis_res)
 	if options.filter_bad:
-		num_lines_per_split = [num - data[1] for num, data in zip(d.get_num_lines_per_split(), analysis_res)]
+		num_lines_per_split = [num - data[1] for num, data in zip(d.lines, analysis_res)]
 		res.bad_line_count_per_slice = [data[1] for data in analysis_res]
 		res.bad_line_count_total = sum(res.bad_line_count_per_slice)
 		r.println('Slice   Bad line count')
