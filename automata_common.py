@@ -524,6 +524,8 @@ class EmptyUrdResponse(UrdResponse):
 		return False
 
 def _urd_typeify(d):
+	if PY3 and isinstance(d, bytes):
+		d = d.decode('utf-8')
 	if isinstance(d, str):
 		d = json.loads(d)
 		if not d or isinstance(d, unicode):
