@@ -1,7 +1,6 @@
 from __future__ import print_function
 from __future__ import division
 
-import os
 from collections import OrderedDict
 from json import dumps
 from datetime import datetime, date, time, timedelta
@@ -9,53 +8,6 @@ from datetime import datetime, date, time, timedelta
 from compat import iteritems, unicode, long, PY3
 
 from extras import DotDict, json_load, json_save, json_encode
-
-class SetupCompat:
-	"""A regrettable (compatible) API around job options"""
-
-	def __init__(self, dir_or_dict):
-		if isinstance(dir_or_dict, dict):
-			self.data = DotDict(dir_or_dict)
-		else:
-			fn = os.path.join(dir_or_dict, 'setup.json')
-			self.data = json_load(fn)
-
-	def method(self):
-		return self.data.method
-
-	def package(self):
-		return self.data.package
-
-	def caption(self):
-		return self.data.caption
-
-	def alloptions(self):
-		res = {}
-		for method, d in iteritems(self.data.params):
-			part = DotDict(d.options)
-			part.update(("dataset-" + k, v) for k, v in iteritems(d.datasets))
-			part.update(("jobid-" + k, v) for k, v in iteritems(d.jobids))
-			res[method] = part
-		return res
-
-	def options(self, default_options={}):
-		res = DotDict(default_options)
-		res.update(self.data.params[self.data.method].options)
-		return res
-
-	def inheritoptions(self, method):
-		return self.data.params[method].options
-
-	def alldepopts(self):
-		res = DotDict()
-		for method, d in iteritems(self.data.params):
-			res.update(("%s:%s" % (method, k), v) for k, v in iteritems(d.options))
-		return res
-
-	def alldepjobids(self):
-		return self.data.link
-
-setup = setup_from_string = SetupCompat
 
 def generate(caption, method, params, link=None, package=None, why_build=False):
 	data = DotDict()

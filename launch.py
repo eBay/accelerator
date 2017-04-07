@@ -11,7 +11,6 @@ import g
 from importlib import import_module
 from traceback import print_exc, format_tb, format_exception_only
 from extras import job_params, ResultIterMagic, DotDict
-from setupfile import SetupCompat
 from time import time, sleep
 import json
 from compat import pickle, iteritems
@@ -182,15 +181,10 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 	g.METHOD           = params.method
 	g.WORKSPACEPATH    = workdir
 	g.CAPTION          = params.caption
-	g.DEPJOBID         = params.link
 	g.PACKAGE          = params.package
 	g.RESULT_DIRECTORY = result_directory
 	g.COMMON_DIRECTORY = common_directory
 	g.SOURCE_DIRECTORY = source_directory
-	g.OPTIONS          = params.options
-	g.DATASETS         = datasets
-	g.JOBIDS           = params.jobids
-	g.SETUP            = SetupCompat(params)
 	g.index            = -1
 
 	g.daemon_url       = daemon_url
