@@ -14,15 +14,19 @@ dscmdhelper.init()
 for n in sys.argv[1:]:
 	ds = dscmdhelper.name2ds(n)
 	print("Parent:", ds.parent)
+	print("Hashlabel:", ds.hashlabel)
 	print("Columns:")
 	# there's a better way to do this, right?
 	len_n = len_t = 0
 	for n, c in ds.columns.items():
 		len_n = max(len_n, len(n))
 		len_t = max(len_t, len(c.type))
-	template = "    {0:%d}  {1:%d}" % (len_n, len_t,)
+	template = "  {2} {0:%d} {3} {1:%d}" % (len_n, len_t,)
 	for n, c in ds.columns.items():
-		print(template.format(n, c.type))
+		if n == ds.hashlabel:
+			print(template.format(n, c.type, "\x1b[1m*", "\x1b[m"))
+		else:
+			print(template.format(n, c.type, " ", ""))
 	print("{0:n} columns".format(len(ds.columns)))
 	print("{0:n} lines".format(sum(ds.lines)))
 	if ds.previous:
