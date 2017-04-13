@@ -719,26 +719,51 @@ static int gzwrite_close_(GzWrite *self)
 	return 1;
 }
 
+// Make sure mode matches [wa]b?(\d.?)?
+static int mode_fixup(const char * const mode, char buf[static 5])
+{
+	const char *modeptr;
+	if (mode && *mode) {
+		modeptr = mode;
+	} else {
+		modeptr = "w";
+	}
+	if (modeptr[0] != 'w' && modeptr[0] != 'a') goto bad;
+	*(buf++) = *(modeptr++);
+	if (*modeptr == 'b') modeptr++;
+	*(buf++) = 'b';
+	if (strlen(modeptr) > 2) goto bad;
+	if (*modeptr && (*modeptr < '0' || *modeptr > '9')) goto bad;
+	strcpy(buf, modeptr);
+	return 0;
+bad:
+	PyErr_Format(PyExc_IOError, "Bad mode '%s'", mode);
+	return 1;
+}
+
+// Wrap gzopen with mode_fixup and exception setting
+static int wrapped_gzopen(GzWrite *self, const char *mode)
+{
+	char mode_buf[5];
+	if (mode_fixup(mode, mode_buf)) return 1;
+	self->fh = gzopen(self->name, mode_buf);
+	if (!self->fh) {
+		PyErr_SetFromErrnoWithFilename(PyExc_IOError, self->name);
+		return 1;
+	}
+	return 0;
+}
+
 static int gzwrite_init_GzWrite(PyObject *self_, PyObject *args, PyObject *kwds)
 {
 	static char *kwlist[] = {"name", "mode", 0};
 	GzWrite *self = (GzWrite *)self_;
 	char *name = 0;
-	char mode_buf[3] = {'w', 'b', 0};
-	const char *mode = mode_buf;
+	const char *mode = 0;
 	gzwrite_close_(self);
 	if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|s", kwlist, Py_FileSystemDefaultEncoding, &name, &mode)) return -1;
 	self->name = name;
-	if ((mode[0] != 'w' && mode[0] != 'a') || (mode[1] != 'b' && mode[1] != 0)) {
-		PyErr_Format(PyExc_IOError, "Bad mode '%s'", mode);
-		goto err;
-	}
-	mode_buf[0] = mode[0]; // always [wa]b
-	self->fh = gzopen(self->name, mode_buf);
-	if (!self->fh) {
-		PyErr_SetFromErrnoWithFilename(PyExc_IOError, self->name);
-		goto err;
-	}
+	err1(wrapped_gzopen(self, mode));
 	self->count = 0;
 	self->len = 0;
 	return 0;
@@ -750,8 +775,7 @@ static int gzwrite_init_GzWriteLines(PyObject *self_, PyObject *args, PyObject *
 {
 	GzWrite *self = (GzWrite *)self_;
 	char *name = 0;
-	char mode_buf[3] = {'w', 'b', 0};
-	const char *mode = mode_buf;
+	const char *mode = 0;
 	PyObject *hashfilter = 0;
 	int write_bom = 0;
 	gzwrite_close_(self);
@@ -763,17 +787,8 @@ static int gzwrite_init_GzWriteLines(PyObject *self_, PyObject *args, PyObject *
 		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|sO", kwlist, Py_FileSystemDefaultEncoding, &name, &mode, &hashfilter)) return -1;
 	}
 	self->name = name;
-	if ((mode[0] != 'w' && mode[0] != 'a') || (mode[1] != 'b' && mode[1] != 0)) {
-		PyErr_Format(PyExc_IOError, "Bad mode '%s'", mode);
-		goto err;
-	}
 	err1(parse_hashfilter(hashfilter, &self->hashfilter, &self->sliceno, &self->slices, &self->spread_None));
-	mode_buf[0] = mode[0]; // always [wa]b
-	self->fh = gzopen(self->name, mode_buf);
-	if (!self->fh) {
-		PyErr_SetFromErrnoWithFilename(PyExc_IOError, self->name);
-		goto err;
-	}
+	err1(wrapped_gzopen(self, mode));
 	self->count = 0;
 	self->len = 0;
 	if (write_bom) {
@@ -1053,7 +1068,7 @@ MK_MINMAX_SET(Time    , unfmt_time((*(uint64_t *)cmp_value) >> 32, *(uint64_t *)
 		static char *kwlist[] = {"name", "mode", "default", "hashfilter", 0};    	\
 		GzWrite *self = (GzWrite *)self_;                                        	\
 		char *name = 0;                                                          	\
-		const char *mode = "wb";                                                 	\
+		const char *mode = 0;                                                    	\
 		PyObject *hashfilter = 0;                                                	\
 		gzwrite_close_(self);                                                    	\
 		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|sOO", kwlist, Py_FileSystemDefaultEncoding, &name, &mode, &self->default_obj, &hashfilter)) return -1; \
@@ -1079,11 +1094,7 @@ MK_MINMAX_SET(Time    , unfmt_time((*(uint64_t *)cmp_value) >> 32, *(uint64_t *)
 			memcpy(self->default_value, &value, sizeof(T));                  	\
 		}                                                                        	\
 		err1(parse_hashfilter(hashfilter, &self->hashfilter, &self->sliceno, &self->slices, &self->spread_None)); \
-		self->fh = gzopen(self->name, mode);                                     	\
-		if (!self->fh) {                                                         	\
-			PyErr_SetFromErrnoWithFilename(PyExc_IOError, self->name);       	\
-			goto err;                                                        	\
-		}                                                                        	\
+		err1(wrapped_gzopen(self, mode));                                        	\
 		self->count = 0;                                                         	\
 		self->len = 0;                                                           	\
 		return 0;                                                                	\
@@ -1265,7 +1276,7 @@ static int gzwrite_init_GzWriteNumber(PyObject *self_, PyObject *args, PyObject 
 	static char *kwlist[] = {"name", "mode", "default", "hashfilter", 0};
 	GzWrite *self = (GzWrite *)self_;
 	char *name = 0;
-	const char *mode = "wb";
+	const char *mode = 0;
 	PyObject *hashfilter = 0;
 	gzwrite_close_(self);
 	if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|sOO", kwlist, Py_FileSystemDefaultEncoding, &name, &mode, &self->default_obj, &hashfilter)) return -1;
@@ -1291,11 +1302,7 @@ static int gzwrite_init_GzWriteNumber(PyObject *self_, PyObject *args, PyObject 
 		}
 	}
 	err1(parse_hashfilter(hashfilter, &self->hashfilter, &self->sliceno, &self->slices, &self->spread_None));
-	self->fh = gzopen(self->name, mode);
-	if (!self->fh) {
-		PyErr_SetFromErrnoWithFilename(PyExc_IOError, self->name);
-		goto err;
-	}
+	err1(wrapped_gzopen(self, mode));
 	self->count = 0;
 	self->len = 0;
 	return 0;
@@ -1725,7 +1732,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	PyObject *c_hash = PyCapsule_New((void *)hash, "gzutil._C_hash", 0);
 	if (!c_hash) return INITERR;
 	PyModule_AddObject(m, "_C_hash", c_hash);
-	PyObject *version = Py_BuildValue("(iii)", 2, 8, 0);
+	PyObject *version = Py_BuildValue("(iii)", 2, 8, 1);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;
