@@ -20,8 +20,9 @@ import struct
 import json
 import io
 import tarfile
+from threading import Thread, Lock
 
-from compat import PY2, PY3, iteritems, itervalues, pickle
+from compat import PY2, PY3, iteritems, itervalues, pickle, Queue
 
 from extras import DotDict
 import dispatch
@@ -130,7 +131,15 @@ def launch_start(data):
 		os.close(prof_w)
 	return child, prof_r
 
-def launch_finish(data):
+def respond(cookie, data):
+	res = pickle.dumps((cookie, data), 2)
+	header = struct.pack('<cI', op, len(res))
+	with sock_lock:
+		sock.sendall(header + res)
+
+def launch_finish(cookie, data):
+	status = {'launcher': '[invalid data] (probably killed)'}
+	result = None
 	try:
 		child, prof_r, workdir, jobid, method = data
 		arc_name = os.path.join(workdir, jobid, 'method.tar.gz')
@@ -144,12 +153,12 @@ def launch_finish(data):
 				break
 			prof.append(data)
 		try:
-			status, data = json.loads(b''.join(prof).decode('utf-8'))
+			status, result = json.loads(b''.join(prof).decode('utf-8'))
 		except Exception:
-			status = {'launcher': '[invalid data] (probably killed)'}
-		return status, data
+			pass
 	finally:
 		os.close(prof_r)
+		respond(cookie, (status, result))
 
 # because a .recvall method is clearly too much to hope for
 # (MSG_WAITALL doesn't really sound like the same thing to me)
@@ -169,6 +178,27 @@ class Runner(object):
 	def __init__(self, pid, sock):
 		self.pid = pid
 		self.sock = sock
+		self.cookie = 0
+		self._waiters = {}
+		self._lock = Lock()
+		self._thread = Thread(
+			target=self._receiver,
+			name="%d receiver" % (pid,),
+		)
+		self._thread.daemon = True
+		self._thread.start()
+
+	# runs on it's own thread (in the daemon), one per Runner object
+	def _receiver(self):
+		while True:
+			try:
+				op, length = struct.unpack('<cI', recvall(self.sock, 5))
+				data = recvall(self.sock, length)
+				cookie, data = pickle.loads(data)
+				q = self._waiters.pop(cookie)
+				q.put(data)
+			except Exception:
+				break
 
 	def kill(self):
 		try:
@@ -184,13 +214,23 @@ class Runner(object):
 		except Exception:
 			pass
 
+	def _waiter(self, cookie):
+		q = Queue(1)
+		self._waiters[cookie] = q
+		return q.get
+
+	# this is called from request threads, so needs locking to avoid races
 	def _do(self, op, data):
-		data = pickle.dumps(data, 2)
-		header = struct.pack('<cI', op, len(data))
-		self.sock.sendall(header + data)
-		op, length = struct.unpack('<cI', recvall(self.sock, 5))
-		data = recvall(self.sock, length)
-		return pickle.loads(data)
+		with self._lock:
+			cookie = self.cookie
+			self.cookie += 1
+			# have to register waiter before we send packet (to avoid a race)
+			waiter = self._waiter(cookie)
+			data = pickle.dumps((cookie, data), 2)
+			header = struct.pack('<cI', op, len(data))
+			self.sock.sendall(header + data)
+		# must wait without the lock, otherwise all this threading gets us nothing.
+		return waiter()
 
 	def load_methods(self, data):
 		return self._do(b'm', data)
@@ -229,18 +269,23 @@ if __name__ == "__main__":
 	sys.stdout = AutoFlush(sys.stdout)
 	sys.stderr = AutoFlush(sys.stderr)
 	sock = socket.fromfd(int(sys.argv[1]), socket.AF_UNIX, socket.SOCK_STREAM)
+	sock_lock = Lock()
 	dispatch.update_valid_fds()
 
 	while True:
 		op, length = struct.unpack('<cI', recvall(sock, 5, True))
 		data = recvall(sock, length, True)
-		data = pickle.loads(data)
+		cookie, data = pickle.loads(data)
 		if op == b'm':
 			res = load_methods(data)
+			respond(cookie, res)
 		elif op == b's':
 			res = launch_start(data)
+			respond(cookie, res)
 		elif op == b'f':
-			res = launch_finish(data)
-		res = pickle.dumps(res, 2)
-		header = struct.pack('<cI', op, len(res))
-		sock.sendall(header + res)
+			# waits until job is done, so must run on a separate thread
+			Thread(
+				target=launch_finish,
+				args=(cookie, data,),
+				name=data[3], # jobid
+			).start()
