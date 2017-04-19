@@ -296,3 +296,10 @@ with gzutil.GzWriteNumber(TMP_FN) as fh:
 	fh.write(v)
 with gzutil.GzNumber(TMP_FN) as fh:
 	assert want == list(fh)
+
+print("Number max_count large end test")
+with gzutil.GzWriteNumber(TMP_FN) as fh:
+	fh.write(2 ** 1000)
+	fh.write(7)
+with gzutil.GzNumber(TMP_FN, max_count=1) as fh:
+	assert [2 ** 1000] == list(fh)

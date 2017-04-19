@@ -490,7 +490,7 @@ static PyObject *GzNumber_iternext(GzRead *self)
 		memcpy(buf, self->buf + self->pos, avail);
 		unsigned char * const ptr = buf + avail;
 		const int morelen = len - avail;
-		if (gzread_read_(self, SIZE_Number) || morelen > self->len) {
+		if (gzread_read_(self, GZNUMBER_MAX_BYTES) || morelen > self->len) {
 			self->error = 1;
 			PyErr_SetString(PyExc_ValueError, "File format error");
 			return 0;
@@ -1737,7 +1737,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	PyObject *c_hash = PyCapsule_New((void *)hash, "gzutil._C_hash", 0);
 	if (!c_hash) return INITERR;
 	PyModule_AddObject(m, "_C_hash", c_hash);
-	PyObject *version = Py_BuildValue("(iii)", 2, 8, 2);
+	PyObject *version = Py_BuildValue("(iii)", 2, 8, 3);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;
