@@ -185,8 +185,12 @@ static int gzread_init(PyObject *self_, PyObject *args, PyObject *kwds)
 		PyErr_SetFromErrnoWithFilename(PyExc_IOError, self->name);
 		goto err;
 	}
-	gzbuffer(self->fh, (self->max_count < 0 ? 64 : 16) * 1024);
 	fd = -1; // belongs to self->fh now
+	unsigned int buf_kb = 64;
+	if (self->max_count >= 0) {
+		if (self->max_count < 100000) buf_kb = 16;
+	}
+	gzbuffer(self->fh, buf_kb * 1024);
 	self->pos = self->len = 0;
 	if (self_->ob_type == &GzAsciiLines_Type) {
 		self->decodefunc = PyUnicode_DecodeASCII;
@@ -1733,7 +1737,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	PyObject *c_hash = PyCapsule_New((void *)hash, "gzutil._C_hash", 0);
 	if (!c_hash) return INITERR;
 	PyModule_AddObject(m, "_C_hash", c_hash);
-	PyObject *version = Py_BuildValue("(iii)", 2, 8, 1);
+	PyObject *version = Py_BuildValue("(iii)", 2, 8, 2);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;
