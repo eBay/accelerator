@@ -639,9 +639,10 @@ static PyMemberDef r_default_members[] = {
 	{0}
 };
 static PyMemberDef r_unicode_members[] = {
-	{"name"    , T_STRING, offsetof(GzRead, name    ), READONLY},
-	{"encoding", T_STRING, offsetof(GzRead, encoding), READONLY},
-	{"errors"  , T_STRING, offsetof(GzRead, errors  ), READONLY},
+	{"name"      , T_STRING   , offsetof(GzRead, name       ), READONLY},
+	{"hashfilter", T_OBJECT_EX, offsetof(GzRead, hashfilter ), READONLY},
+	{"encoding"  , T_STRING   , offsetof(GzRead, encoding   ), READONLY},
+	{"errors"    , T_STRING   , offsetof(GzRead, errors     ), READONLY},
 	{0}
 };
 MKTYPE(GzBytesLines, r_default_members);
