@@ -39,6 +39,7 @@ class Automata:
 		self.verbose = verbose
 		self.monitor = None
 		self.flags = flags or []
+		self.job_method = None
 		# Workspaces should be per Automata
 		from jobid import put_workspaces
 		put_workspaces(self.list_workspaces())
