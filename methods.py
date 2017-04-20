@@ -9,6 +9,7 @@ from compat import iteritems, itervalues, first_value, NoneType, unicode, long
 
 from extras import DotDict, OptionString, OptionEnum, OptionDefault, RequiredOption
 from runner import new_runners
+from setupfile import _sorted_set
 
 
 class MethodLoadException(Exception):
@@ -123,7 +124,7 @@ def _reprify(o):
 		# not reachable in PY3, the above "str" matches
 		return repr(o.encode('utf-8'))
 	if isinstance(o, set):
-		return '[%s]' % (', '.join(map(_reprify, sorted(o))),)
+		return '[%s]' % (', '.join(map(_reprify, _sorted_set(o))),)
 	if isinstance(o, (list, tuple)):
 		return '[%s]' % (', '.join(map(_reprify, o)),)
 	if isinstance(o, dict):

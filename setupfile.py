@@ -77,6 +77,17 @@ def update_setup(jobid, **kw):
 	return data
 
 # It's almost worth making your own json encoder. Almost.
+def _sorted_set(s):
+	# like sorted(s), except None is ok.
+	if None in s:
+		s = set(s)
+		s.remove(None)
+		res = sorted(s)
+		res.append(None)
+		return res
+	else:
+		return sorted(s)
+
 def encode_setup(data, sort_keys=True, as_str=False):
 	def copy(src):
 		if isinstance(src, dict):
@@ -87,7 +98,7 @@ def encode_setup(data, sort_keys=True, as_str=False):
 		elif isinstance(src, (list, tuple,)):
 			return [copy(v) for v in src]
 		elif isinstance(src, set):
-			return [copy(v) for v in sorted(src)]
+			return [copy(v) for v in _sorted_set(src)]
 		elif isinstance(src, datetime):
 		    return [src.year, src.month, src.day, src.hour, src.minute, src.second, src.microsecond]
 		elif isinstance(src, date):
