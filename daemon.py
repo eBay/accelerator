@@ -175,14 +175,15 @@ class XtdHandler(BaseWebHandler):
 										del job_tracking[passed_cookie]
 								# everything was built ok, update symlink
 								try:
-									dn = self.ctrl.workspaces[self.ctrl.current_workspace].path
-									ln = os.path.join(dn, "LATEST_")
+									wn = self.ctrl.current_workspace
+									dn = self.ctrl.workspaces[wn].path
+									ln = os.path.join(dn, wn + "-LATEST_")
 									try:
 										os.unlink(ln)
 									except OSError:
 										pass
 									os.symlink(jobid, ln)
-									os.rename(ln, os.path.join(dn, "LATEST"))
+									os.rename(ln, os.path.join(dn, wn + "-LATEST"))
 								except Exception:
 									pass # meh
 							t = Thread(target=run, name="job runner", args=(jobidv, tlock,))
