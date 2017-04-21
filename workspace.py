@@ -3,8 +3,6 @@ from __future__ import division
 
 import os
 
-SLICES_FILENAME = 'slices.conf'
-
 class WorkSpace:
 	""" Handle all access to a single "physical" workdir. """
 
@@ -27,7 +25,7 @@ class WorkSpace:
 
 	def _check_slices(self, writeable):
 		""" verify or write workdir specific slices file """
-		filename = os.path.join(self.path, SLICES_FILENAME)
+		filename = os.path.join(self.path, "%s-slices.conf" % (self.name,))
 		ok = True
 		try:
 			with open(filename) as F:
@@ -38,7 +36,7 @@ class WorkSpace:
 				self.slices = file_slices
 		except Exception:
 			if writeable:
-				print("WORKSPACE:  create %s in %s." % (SLICES_FILENAME, self.path))
+				print("WORKSPACE:  create %s-slices.conf in %s." % (self.name, self.path))
 				with open(filename, 'w') as F:
 					F.write(str(self.slices)+'\n')
 			else:

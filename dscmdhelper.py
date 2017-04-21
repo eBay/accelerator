@@ -11,7 +11,7 @@ from locale import resetlocale
 from configfile import get_config
 from jobid import WORKSPACES
 from dataset import Dataset
-from jobid import get_path
+from jobid import get_path, get_workspace_name
 
 def init():
 	# initialize locale - for number formatting
@@ -45,7 +45,7 @@ def name2ds(n):
 			print("### Overriding workspace %s to %s" % (k, base,))
 		WORKSPACES[k] = base
 	ds = Dataset(n)
-	with open(join(get_path(ds.jobid), "slices.conf")) as fh:
+	with open(join(get_path(ds.jobid), get_workspace_name(ds.jobid) + "-slices.conf")) as fh:
 		slices = int(fh.read())
 	import g
 	if hasattr(g, 'SLICES'):
