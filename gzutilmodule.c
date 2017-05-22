@@ -555,12 +555,14 @@ static PyObject *GzNumber_iternext(GzRead *self)
 		self->pos = morelen;
 	}
 	if (is_float) {
-		double v = *(double *)buf;
+		double v;
+		memcpy(&v, buf, sizeof(v));
 		HC_CHECK(hash_double(&v));
 		return PyFloat_FromDouble(v);
 	}
 	if (len == 8) {
-		int64_t v = *(int64_t *)buf;
+		int64_t v;
+		memcpy(&v, buf, sizeof(v));
 		HC_CHECK(hash_integer(&v));
 		return PyInt_FromLong(v);
 	}
@@ -721,19 +723,28 @@ MKTYPE(GzDate, r_default_members);
 MKTYPE(GzTime, r_default_members);
 
 
+typedef union {
+	double   as_double;
+	float    as_float;
+	int32_t  as_int32_t;
+	int64_t  as_int64_t;
+	uint8_t  as_uint8_t;
+	uint32_t as_uint32_t;
+	uint64_t as_uint64_t;
+} minmax_u;
+
 typedef struct gzwrite {
 	PyObject_HEAD
 	gzFile fh;
 	char *name;
-	void *default_value;
+	minmax_u *default_value;
 	unsigned long count;
 	PyObject *hashfilter;
 	PyObject *default_obj;
 	PyObject *min_obj;
 	PyObject *max_obj;
-	/* These are declared as double (biggest), but stored as whatever */
-	double   min_bin;
-	double   max_bin;
+	minmax_u min_u;
+	minmax_u max_u;
 	uint64_t spread_None;
 	int sliceno;
 	int slices;
@@ -1178,7 +1189,7 @@ err:                                                                            
 		if (PyErr_Occurred()) {                                                  	\
 			if (!self->default_value) return 0;                              	\
 			PyErr_Clear();                                                   	\
-			value = *(T *)self->default_value;                               	\
+			value = self->default_value->as_ ## T;                            	\
 			obj = self->default_obj;                                         	\
 		}                                                                        	\
 		if (self->slices) {                                                      	\
@@ -1189,11 +1200,11 @@ err:                                                                            
 		if (!actually_write) Py_RETURN_TRUE;                                     	\
 		if (obj && obj != Py_None) {                                             	\
 			T cmp_value = minmax_value(value);                               	\
-			if (!self->min_obj || (cmp_value < *(T *)&self->min_bin)) {      	\
-				minmax_set(&self->min_obj, obj, &self->min_bin, &cmp_value, sizeof(cmp_value));	\
+			if (!self->min_obj || (cmp_value < self->min_u.as_ ## T)) {      	\
+				minmax_set(&self->min_obj, obj, &self->min_u, &cmp_value, sizeof(cmp_value));	\
 			}                                                                	\
-			if (!self->max_obj || (cmp_value > *(T *)&self->max_bin)) {      	\
-				minmax_set(&self->max_obj, obj, &self->max_bin, &cmp_value, sizeof(cmp_value));	\
+			if (!self->max_obj || (cmp_value > self->max_u.as_ ## T)) {      	\
+				minmax_set(&self->max_obj, obj, &self->max_u, &cmp_value, sizeof(cmp_value));	\
 			}                                                                	\
 		}                                                                        	\
 		self->count++;                                                           	\
@@ -1793,7 +1804,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	PyObject *c_hash = PyCapsule_New((void *)hash, "gzutil._C_hash", 0);
 	if (!c_hash) return INITERR;
 	PyModule_AddObject(m, "_C_hash", c_hash);
-	PyObject *version = Py_BuildValue("(iii)", 2, 9, 0);
+	PyObject *version = Py_BuildValue("(iii)", 2, 9, 1);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;
