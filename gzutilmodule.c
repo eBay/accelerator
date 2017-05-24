@@ -537,7 +537,7 @@ static PyObject *GzNumber_iternext(GzRead *self)
 		PyErr_SetString(PyExc_ValueError, "File format error");
 		return 0;
 	}
-	unsigned char buf[len];
+	unsigned char buf[GZNUMBER_MAX_BYTES];
 	const int avail = self->len - self->pos;
 	if (avail >= len) {
 		memcpy(buf, self->buf + self->pos, len);
