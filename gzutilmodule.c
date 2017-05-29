@@ -1181,12 +1181,14 @@ err:                                                                            
 			return gzwrite_write_(self, (char *)&noneval_ ## T, sizeof(T));  	\
 		}                                                                        	\
 		T value = conv(obj);                                                     	\
-		if (withnone && !PyErr_Occurred() &&                                     	\
+		PyObject *pyerr = (value == (T)-1 ? PyErr_Occurred() : 0);               	\
+		if (withnone && !pyerr &&                                                	\
 		    !memcmp(&value, &noneval_ ## T, sizeof(T))                           	\
 		   ) {                                                                   	\
 			PyErr_SetString(PyExc_OverflowError, "Value becomes None-marker");	\
+			pyerr = PyErr_Occurred();                                        	\
 		}                                                                        	\
-		if (PyErr_Occurred()) {                                                  	\
+		if (pyerr) {                                                             	\
 			if (!self->default_value) return 0;                              	\
 			PyErr_Clear();                                                   	\
 			value = self->default_value->as_ ## T;                            	\
@@ -1249,6 +1251,7 @@ static int32_t pylong_asint32_t(PyObject *l)
 	int32_t real_value = value;
 	if (value != real_value) {
 		PyErr_SetString(PyExc_OverflowError, "Value doesn't fit in 32 bits");
+		return -1;
 	}
 	return value;
 }
@@ -1258,6 +1261,7 @@ static uint32_t pylong_asuint32_t(PyObject *l)
 	uint32_t real_value = value;
 	if (value != real_value) {
 		PyErr_SetString(PyExc_OverflowError, "Value doesn't fit in 32 bits");
+		return (uint32_t)-1;
 	}
 	return value;
 }
@@ -1266,6 +1270,7 @@ static uint8_t pylong_asbool(PyObject *l)
 	long value = PyLong_AsLong(l);
 	if (value != 0 && value != 1) {
 		PyErr_SetString(PyExc_OverflowError, "Value is not 0 or 1");
+		return (uint8_t)-1;
 	}
 	return value;
 }
@@ -1561,7 +1566,7 @@ MKPARSEDNUMBERWRAPPER(hash, PyObject)
 	static T parse ## name(PyObject *obj)                        	\
 	{                                                            	\
 		PyObject *parsed = inner(obj);                       	\
-		if (!parsed) return 0;                               	\
+		if (!parsed) return -1;                              	\
 		T res = conv(parsed);                                	\
 		Py_DECREF(parsed);                                   	\
 		return res;                                          	\
@@ -1804,7 +1809,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	PyObject *c_hash = PyCapsule_New((void *)hash, "gzutil._C_hash", 0);
 	if (!c_hash) return INITERR;
 	PyModule_AddObject(m, "_C_hash", c_hash);
-	PyObject *version = Py_BuildValue("(iii)", 2, 9, 1);
+	PyObject *version = Py_BuildValue("(iii)", 2, 9, 2);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;
