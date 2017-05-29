@@ -35,6 +35,7 @@ typedef struct gzread {
 	PY_LONG_LONG count;
 	PY_LONG_LONG break_count;
 	PY_LONG_LONG callback_interval;
+	PY_LONG_LONG callback_offset;
 	uint64_t spread_None;
 	gzFile fh;
 	int error;
@@ -57,6 +58,7 @@ static int gzread_close_(GzRead *self)
 	self->break_count = -1;
 	Py_CLEAR(self->callback);
 	self->callback_interval = 0;
+	self->callback_offset = 0;
 	if (self->fh) {
 		gzclose(self->fh);
 		self->fh = 0;
@@ -162,21 +164,22 @@ static int gzread_init(PyObject *self_, PyObject *args, PyObject *kwds)
 	PyObject *hashfilter = 0;
 	PyObject *callback = 0;
 	PY_LONG_LONG callback_interval = 0;
+	PY_LONG_LONG callback_offset = 0;
 	gzread_close_(self);
 	self->error = 0;
 	if (self_->ob_type == &GzBytesLines_Type) {
-		static char *kwlist[] = {"name", "strip_bom", "seek", "max_count", "hashfilter", "callback", "callback_interval", 0};
-		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|iLLOOL", kwlist, Py_FileSystemDefaultEncoding, &name, &strip_bom, &seek, &self->max_count, &hashfilter, &callback, &callback_interval)) return -1;
+		static char *kwlist[] = {"name", "strip_bom", "seek", "max_count", "hashfilter", "callback", "callback_interval", "callback_offset", 0};
+		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|iLLOOLL", kwlist, Py_FileSystemDefaultEncoding, &name, &strip_bom, &seek, &self->max_count, &hashfilter, &callback, &callback_interval, &callback_offset)) return -1;
 	} else if (self_->ob_type == &GzUnicodeLines_Type) {
-		static char *kwlist[] = {"name", "encoding", "errors", "strip_bom", "seek", "max_count", "hashfilter", "callback", "callback_interval", 0};
+		static char *kwlist[] = {"name", "encoding", "errors", "strip_bom", "seek", "max_count", "hashfilter", "callback", "callback_interval", "callback_offset", 0};
 		char *errors = 0;
 		char *encoding = 0;
-		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|etetiLLOOL", kwlist, Py_FileSystemDefaultEncoding, &name, "ascii", &encoding, "ascii", &errors, &strip_bom, &seek, &self->max_count, &hashfilter, &callback, &callback_interval)) return -1;
+		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|etetiLLOOLL", kwlist, Py_FileSystemDefaultEncoding, &name, "ascii", &encoding, "ascii", &errors, &strip_bom, &seek, &self->max_count, &hashfilter, &callback, &callback_interval, &callback_offset)) return -1;
 		self->errors = errors;
 		self->encoding = encoding;
 	} else {
-		static char *kwlist[] = {"name", "seek", "max_count", "hashfilter", "callback", "callback_interval", 0};
-		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|LLOOL", kwlist, Py_FileSystemDefaultEncoding, &name, &seek, &self->max_count, &hashfilter, &callback, &callback_interval)) return -1;
+		static char *kwlist[] = {"name", "seek", "max_count", "hashfilter", "callback", "callback_interval", "callback_offset", 0};
+		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|LLOOLL", kwlist, Py_FileSystemDefaultEncoding, &name, &seek, &self->max_count, &hashfilter, &callback, &callback_interval, &callback_offset)) return -1;
 	}
 	self->name = name;
 	if (callback && callback != Py_None) {
@@ -188,9 +191,10 @@ static int gzread_init(PyObject *self_, PyObject *args, PyObject *kwds)
 			PyErr_SetString(PyExc_ValueError, "callback interval must be > 0");
 			goto err;
 		}
+		Py_INCREF(callback);
 		self->callback = callback;
 		self->callback_interval = callback_interval;
-		Py_INCREF(callback);
+		self->callback_offset = callback_offset;
 	}
 	fd = open(self->name, O_RDONLY);
 	if (fd < 0) {
@@ -332,7 +336,7 @@ static int gzread_read_(GzRead *self, int itemsize)
 
 static inline int do_callback(GzRead *self)
 {
-	PyObject *res = PyObject_CallFunction(self->callback, "L", self->count);
+	PyObject *res = PyObject_CallFunction(self->callback, "L", self->count + self->callback_offset);
 	if (res) {
 		Py_DECREF(res);
 		PY_LONG_LONG bc = self->break_count + self->callback_interval;
@@ -1809,7 +1813,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	PyObject *c_hash = PyCapsule_New((void *)hash, "gzutil._C_hash", 0);
 	if (!c_hash) return INITERR;
 	PyModule_AddObject(m, "_C_hash", c_hash);
-	PyObject *version = Py_BuildValue("(iii)", 2, 9, 2);
+	PyObject *version = Py_BuildValue("(iii)", 2, 9, 3);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;

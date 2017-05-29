@@ -312,7 +312,7 @@ def callback(num_lines):
 	global cb_count
 	cb_count += 1
 	if cb_interval > 1:
-		assert num_lines in good_num_lines or num_lines == 1000
+		assert num_lines in good_num_lines or num_lines == 1000 + cb_offset
 for cb_interval, max_count, expected_cb_count in (
 	(300, -1, (3,)),
 	(250, 300, (1,)),
@@ -322,12 +322,13 @@ for cb_interval, max_count, expected_cb_count in (
 	(5, 12, (2,)),
 	(10000, -1, (0,)),
 ):
-	cb_count = 0
-	good_num_lines = range(cb_interval, 1000 if max_count == -1 else max_count, cb_interval)
-	with gzutil.GzNumber(TMP_FN, max_count=max_count, callback=callback, callback_interval=cb_interval) as fh:
-		lst = list(fh)
-		assert len(lst) == 1000 if max_count == -1 else max_count
-	assert cb_count in expected_cb_count
+	for cb_offset in (0, 50000000, -10000):
+		cb_count = 0
+		good_num_lines = range(cb_interval + cb_offset, (1000 if max_count == -1 else max_count) + cb_offset, cb_interval)
+		with gzutil.GzNumber(TMP_FN, max_count=max_count, callback=callback, callback_interval=cb_interval, callback_offset=cb_offset) as fh:
+			lst = list(fh)
+			assert len(lst) == 1000 if max_count == -1 else max_count
+		assert cb_count in expected_cb_count
 def callback2(num_lines):
 	raise StopIteration
 with gzutil.GzNumber(TMP_FN, callback=callback2, callback_interval=1) as fh:
