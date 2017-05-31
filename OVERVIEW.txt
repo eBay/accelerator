@@ -1,0 +1,58 @@
+Runnable files
+	daemon.py
+		Main daemon
+	automatarunner.py
+		Runs your automata scripts
+	dsgrep.py
+		Grep one or more datasets
+	dsinfo.py
+		Print some info about a dataset
+
+Bookeeping around jobs
+	control.py
+	database.py
+	dependency.py
+	deptree.py
+	methods.py
+	workspace.py
+
+Datasets and ds/jobchaining
+	chaining.py
+	dataset.py
+	sourcedata.py
+
+Launching of jobs, forking magic
+	dispatch.py
+	launch.py
+	runner.py
+
+Other
+	automata_common.py
+		support functions for automatarunner/subjobs
+	extras.py
+		dumping ground for a lot of useful utility functions
+	status.py
+		sending and recieving of status-tree messages (the ^T stuff)
+	subjobs.py
+		running jobs from within other jobs
+
+Not so interesting files
+	autoflush.py
+	blob.py
+	compat.py
+		py2/py3 compat
+	configfile.py
+	dscmdhelper.py
+	g.py
+	gzwrite.py
+	jobid.py
+	report.py
+	safe_pool.py
+	setupfile.py
+	status_messaging.py
+	unixhttp.py
+	web.py
+	workarounds.py
+
+default_analysis
+	Directory with the default methods.
