@@ -1,3 +1,72 @@
+This is a short overview of how this works, intended primarily for those
+who work on the code. More user focused documentation is available in
+separate repos.
+
+Processes
+=========
+
+There are a few different processes involved in a running system:
+main daemon
+	python version specific runner (runner.py)
+		when running a job this forks to create the actual job processes
+	maybe more runners (one per py\d line in the conf)
+	short lived worker pools when loading metadata about jobs.
+automata (asks the daemon to run jobs)
+
+Communication between the automata and the daemon is over http (by default
+over a unix socket). You can find the code in automata_common.py and
+daemon.py.
+
+Communication between the daemon and the runners is over anonymous sockets
+(from socketpair()), each packet is a length prefix followed by pickled
+data. All the communications code is in runner.py.
+
+Communication between the runner and the main job process is a single json
+object written back over a pipe. Job setup is partly loaded from setup.json
+in the job dir and partly inherited from the parent process (normal fork
+behaviour).
+
+Communication between the main job process and the analysis processes (the
+parallell part) is over a multiprocessing.Queue object.
+
+Yes, this has more variation than there is any reason for. Rewriting it is
+probably not useful though, all the communication methods work.
+
+
+setup.json
+==========
+
+The job parameters are all in setup.json in the job dir, which contains
+mostly a normalized version of the same things the automata sends to the
+daemon to dispatch the job. The valid contents are specified by the
+{options, datasets, jobids} variables in the method source. There is also
+some meta info about the method.
+
+There is also a short version of the profiling information for completed
+jobs.
+
+
+Identification of jobs for reuse
+================================
+
+When a job is requested a matching job is first searched for. A job with
+the same parameters is valid assuming the source code for the method has
+not been changed since it was run, or if the new code uses
+equivalent_hashes to indicate that it is compatible with the old code. This
+code (in control.py, database.py, dependency.py, deptree.py, methods.py,
+workspace.py) is much harder to follow than there is any reason for.
+database.Database.match_exact is called from dependency.initialise_jobs
+which is called from control.initialise_jobs which is called from the
+submit portion of daemon.py.
+
+The data about method versions and compatibility comes from the runners,
+the setup.json files are loaded directly by the daemon (using a worker
+pool).
+
+
+List of files
+=============
+
 Runnable files
 	daemon.py
 		Main daemon
