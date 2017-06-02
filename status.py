@@ -16,6 +16,21 @@
 #                                                                          #
 ############################################################################
 
+# In methods you only use the status function from this module.
+# It works like this:
+#
+# with status("some text") as update:
+#   long running code here
+#
+# then you can see how long your code has been doing that part in ^T.
+# If you want to change the status text (without resetting the time,
+# and possibly with other statuses nested below it) you can call the
+# update function with the new text. If you don't need to update the
+# text you can of course use just "with status(...):".
+#
+# Several built in functions will call this for you, notably dataset
+# iterators and pickle load/save functions.
+
 from __future__ import print_function
 from __future__ import division
 
@@ -54,17 +69,27 @@ class Children(set):
 children = Children()
 
 
+_cookie = 0
+
 @contextmanager
 def status(msg):
 	if g.running == 'daemon':
-		yield
+		yield lambda _: None
 		return
-	assert msg and isinstance(msg, str_types) and '\0' not in msg
-	_send('push', '%s\0%f' % (msg, time(),))
+	global _cookie
+	_cookie += 1
+	cookie = str(_cookie)
+	t = str(time())
+	typ = 'push'
+	def update(msg):
+		assert msg and isinstance(msg, str_types) and '\0' not in msg
+		_send(typ, '\0'.join((msg, t, cookie)))
+	update(msg)
+	typ = 'update'
 	try:
-		yield
+		yield update
 	finally:
-		_send('pop', '')
+		_send('pop', cookie)
 
 def _start(msg, parent_pid, is_analysis=''):
 	_send('start', '%d\0%s\0%s\0%f' % (parent_pid, is_analysis, msg, time(),))
@@ -81,7 +106,7 @@ def status_stacks_export():
 		for pid, d in sorted(iteritems(tree), key=lambda i: (i[1].stack or ((0,),))[0][0]):
 			last[0] = d
 			indent = start_indent
-			for msg, t in d.stack:
+			for msg, t, _ in d.stack:
 				res.append((pid, indent, msg, t))
 				indent += 1
 			fmt(d.children, indent)
@@ -91,7 +116,7 @@ def status_stacks_export():
 		if last[0]:
 			current = last[0].summary
 			if len(last[0].stack) > 1 and not current[1].endswith('analysis'):
-				msg, t = last[0].stack[1]
+				msg, t, _ = last[0].stack[1]
 				current = (current[0], '%s %s' % (current[1], msg,), t,)
 	except Exception:
 		print_exc()
@@ -106,6 +131,14 @@ def print_status_stacks(stacks=None):
 		print("%6d STATUS: %s%s (%.1f seconds)" % (pid, "    " * indent, msg, report_t - t))
 
 
+def _find(pid, cookie):
+	stack = status_all[pid].stack
+	# should normally be the last one, or at least close to it.
+	for ix in range(len(stack) -1, -1, -1):
+		if stack[ix][2] == cookie:
+			return stack, ix
+	return stack, None
+
 def statmsg_sink(logfilename, sock):
 	from extras import DotDict
 	print('write log to "%s".' % (logfilename,))
@@ -119,11 +152,22 @@ def statmsg_sink(logfilename, sock):
 				pid = int(pid)
 				with status_stacks_lock:
 					if typ == 'push':
-						msg, t = msg.split('\0', 2)
+						msg, t, cookie = msg.split('\0', 3)
 						t = float(t)
-						status_all[pid].stack.append((msg, t,))
+						status_all[pid].stack.append((msg, t, cookie))
 					elif typ == 'pop':
-						status_all[pid].stack.pop()
+						stack, ix = _find(pid, msg)
+						if ix == len(stack) - 1:
+							stack.pop()
+						else:
+							print('POP OF WRONG STATUS: %d:%s (index %s of %d)' % (pid, msg, ix, len(stack)))
+					elif typ == 'update':
+						msg, _, cookie = msg.split('\0', 3)
+						stack, ix = _find(pid, cookie)
+						if ix is None:
+							print('UPDATE TO UNKNOWN STATUS %d:%s: %s' % (pid, cookie, msg))
+						else:
+							stack[ix] = (msg, stack[ix][1], cookie)
 					elif typ == 'start':
 						parent_pid, is_analysis, msg, t = msg.split('\0', 3)
 						parent_pid = int(parent_pid)
@@ -131,11 +175,11 @@ def statmsg_sink(logfilename, sock):
 						d = DotDict(_default=None)
 						d.parent_pid = parent_pid
 						d.children   = {}
-						d.stack      = [(msg, t,)]
+						d.stack      = [(msg, t, None)]
 						d.summary    = (t, msg, t,)
 						if parent_pid in status_all:
 							if is_analysis:
-								msg, parent_t = status_all[parent_pid].stack[0]
+								msg, parent_t, _ = status_all[parent_pid].stack[0]
 								d.summary = (parent_t, msg + ' analysis', t,)
 							status_all[parent_pid].children[pid] = d
 						else:
