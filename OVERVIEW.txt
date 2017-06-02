@@ -64,6 +64,23 @@ the setup.json files are loaded directly by the daemon (using a worker
 pool).
 
 
+Datasets
+========
+
+Datasets are our main data storage system, suitable for data you stream
+through. (Other data is normally stored in pickles.) Each column is stored
+separately in one file per slice (except for small columns, where all
+slices are in one file). Each column has a single type, one of the types in
+sourcedata.type2iter (which is a few more than you see at the top of the
+file). Most of these types are handled through gzutil, a C extension
+available in a separate repo.
+
+Each job can contain any number of datasets. On disk each dataset is a
+directory containing a pickle with metainfo and all the column files.
+
+Look in dataset.py more details.
+
+
 List of files
 =============
 
