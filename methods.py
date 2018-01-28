@@ -40,6 +40,10 @@ class Methods(object):
 		self.package_list = package_list
 		self.db = {}
 		for package in self.package_list:
+			if not os.path.lexists(package):
+				src = os.path.join("..", package)
+				if os.path.exists(src):
+					os.symlink(src, package)
 			tmp = read_method_conf(os.path.join(package, configfilename))
 			for x in tmp:
 				if x in self.db:
