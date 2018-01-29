@@ -299,10 +299,14 @@ def main(options):
 	except OSError:
 		print("Failed to create process group - there is probably already one (daemontools).", file=sys.stderr)
 
-	# increase number of open file per process
+	# Set a low (but not too low) open file limit to make
+	# dispatch.update_valid_fds faster.
+	# The runners will set the highest limit they can
+	# before actually running any methods.
 	r1, r2 = resource.getrlimit(resource.RLIMIT_NOFILE)
-	resource.setrlimit(resource.RLIMIT_NOFILE, (r2, r2))
-	print("DAEMON:  Set max number of open files to (%d, %d)" % resource.getrlimit(resource.RLIMIT_NOFILE))
+	r1 = min(r1, r2, 1024)
+	resource.setrlimit(resource.RLIMIT_NOFILE, (r1, r2))
+	print("DAEMON:  Set max number of open files to %d (max %d)" % resource.getrlimit(resource.RLIMIT_NOFILE))
 
 	# setup statmsg sink and tell address using ENV
 	statmsg_rd, statmsg_wr = socket.socketpair(socket.AF_UNIX, socket.SOCK_DGRAM)

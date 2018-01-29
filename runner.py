@@ -38,6 +38,7 @@ import struct
 import json
 import io
 import tarfile
+import resource
 from threading import Thread, Lock
 
 from compat import PY2, PY3, iteritems, itervalues, pickle, Queue
@@ -289,6 +290,10 @@ if __name__ == "__main__":
 	sock = socket.fromfd(int(sys.argv[1]), socket.AF_UNIX, socket.SOCK_STREAM)
 	sock_lock = Lock()
 	dispatch.update_valid_fds()
+
+	# Set the highest open file limit we can.
+	_, r2 = resource.getrlimit(resource.RLIMIT_NOFILE)
+	resource.setrlimit(resource.RLIMIT_NOFILE, (r2, r2))
 
 	while True:
 		op, length = struct.unpack('<cI', recvall(sock, 5, True))
