@@ -21,6 +21,7 @@ from __future__ import division
 
 import os
 import datetime
+from time import time
 from collections import defaultdict
 
 from compat import iteritems, itervalues, first_value, NoneType, unicode, long
@@ -84,6 +85,7 @@ class Methods(object):
 class SubMethods(Methods):
 	def __init__(self, package_list, configfilename, daemon_config):
 		super(SubMethods, self).__init__(package_list, configfilename)
+		t0 = time()
 		self.runners = new_runners(daemon_config)
 		per_runner = defaultdict(list)
 		for key, val in iteritems(self.db):
@@ -126,6 +128,9 @@ class SubMethods(Methods):
 			prt(failed, 'FAILED to import ')
 			print('\033[m')
 			raise MethodLoadException(failed)
+		print("Updated %d methods on %d runners in %.1f seconds" % (
+		      len(self.hash), len(per_runner), time() - t0,
+		     ))
 
 	def params2optset(self, params):
 		optset = set()
