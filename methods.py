@@ -20,7 +20,7 @@ from __future__ import print_function
 from __future__ import division
 
 import os
-from datetime import datetime, date, time, timedelta
+import datetime
 from collections import defaultdict
 
 from compat import iteritems, itervalues, first_value, NoneType, unicode, long
@@ -151,7 +151,7 @@ def _reprify(o):
 		return '[%s]' % (', '.join(map(_reprify, o)),)
 	if isinstance(o, dict):
 		return '{%s}' % (', '.join('%s: %s' % (_reprify(k), _reprify(v),) for k, v in sorted(iteritems(o))),)
-	if isinstance(o, (datetime, date, time, timedelta,)):
+	if isinstance(o, (datetime.datetime, datetime.date, datetime.time, datetime.timedelta,)):
 		return str(o)
 	raise Exception('Unhandled %s in dependency resolution' % (type(o),))
 
@@ -180,7 +180,7 @@ def params2defaults(params):
 			return type(item)(l)
 		if isinstance(item, type):
 			return None
-		assert isinstance(item, (bytes, unicode, int, float, long, bool, OptionEnum, NoneType, datetime, date, time, timedelta)), type(item)
+		assert isinstance(item, (bytes, unicode, int, float, long, bool, OptionEnum, NoneType, datetime.datetime, datetime.date, datetime.time, datetime.timedelta)), type(item)
 		return item
 	def fixup0(item):
 		if isinstance(item, RequiredOption):
@@ -227,9 +227,9 @@ def options2typing(method, options):
 			typ = 'JobWithFile'
 		elif isinstance(value, set):
 			typ = 'set'
-		elif value in (datetime, date, time, timedelta,):
+		elif value in (datetime.datetime, datetime.date, datetime.time, datetime.timedelta,):
 			typ = value.__name__
-		elif isinstance(value, (datetime, date, time, timedelta,)):
+		elif isinstance(value, (datetime.datetime, datetime.date, datetime.time, datetime.timedelta,)):
 			typ = type(value).__name__
 		if typ:
 			return fmt % (typ,)
