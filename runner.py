@@ -39,6 +39,7 @@ import json
 import io
 import tarfile
 import resource
+import gc
 from threading import Thread, Lock
 
 from compat import PY2, PY3, iteritems, itervalues, pickle, Queue
@@ -130,7 +131,16 @@ def launch_start(data):
 	if PY2:
 		data = {k: v.encode('utf-8') if isinstance(v, unicode) else v for k, v in data.items()}
 	prof_r, prof_w = os.pipe()
+	# Disable the GC here, leaving it disabled in the child (the method).
+	# The idea is that most methods do not actually benefit from the GC, but
+	# they may well be significantly slowed by it.
+	# Additionally, as seen in https://bugs.python.org/issue31558
+	# the GC sometimes causes considerable extra COW after fork.
+	# (If prepare_res is something GC-tracked.)
+	# Once gc.freeze is available we will probably want to call that before
+	# splitting the analysis processes if the method has re-enabled gc.
 	try:
+		gc.disable()
 		child = os.fork()
 		if not child: # we are the child
 			try:
@@ -148,6 +158,7 @@ def launch_start(data):
 		raise
 	finally:
 		os.close(prof_w)
+		gc.enable()
 	return child, prof_r
 
 def respond(cookie, data):
