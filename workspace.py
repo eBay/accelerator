@@ -60,11 +60,7 @@ class WorkSpace:
 			else:
 				print("WORKSPACE:  not a workspace \"%s\" at \"%s\"" % (self.name, self.path,))
 				ok = False
-		if ok:
-			print("WORKSPACE:  Set up \"%s\" : \"%s\" : %d" % (self.name, self.path, self.slices))
-			return True
-		else:
-			return False
+		return ok
 
 
 	def get_slices(self):

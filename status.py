@@ -141,7 +141,7 @@ def _find(pid, cookie):
 
 def statmsg_sink(logfilename, sock):
 	from extras import DotDict
-	print('write log to "%s".' % (logfilename,))
+	print('Logging to "%s".' % (logfilename,))
 	with open(logfilename, 'w', encoding='utf-8') as fh:
 		ix = 0
 		while True:

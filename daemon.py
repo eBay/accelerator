@@ -306,7 +306,6 @@ def main(options):
 	r1, r2 = resource.getrlimit(resource.RLIMIT_NOFILE)
 	r1 = min(r1, r2, 1024)
 	resource.setrlimit(resource.RLIMIT_NOFILE, (r1, r2))
-	print("DAEMON:  Set max number of open files to %d (max %d)" % resource.getrlimit(resource.RLIMIT_NOFILE))
 
 	# setup statmsg sink and tell address using ENV
 	statmsg_rd, statmsg_wr = socket.socketpair(socket.AF_UNIX, socket.SOCK_DGRAM)
@@ -317,7 +316,7 @@ def main(options):
 	buf_up(statmsg_wr, socket.SO_SNDBUF)
 	buf_up(statmsg_rd, socket.SO_RCVBUF)
 
-	CONFIG = configfile.get_config(options.config)
+	CONFIG = configfile.get_config(options.config, verbose=False)
 
 	t = Thread(target=statmsg_sink, args=(CONFIG['logfilename'], statmsg_rd), name="statmsg sink")
 	t.daemon = True
@@ -348,17 +347,21 @@ def main(options):
 		daemon_url = configfile.resolve_socket_url(options.socket)
 
 	ctrl = control.Main(options, daemon_url)
-	print("DAEMON:  Available workspaces")
-	for x in ctrl.list_workspaces():
-		print("DAEMON:    %s" % x)
-	print("DAEMON:  Current workspace is          \"%s\"" % ctrl.get_current_workspace())
-	print("DAEMON:  Current remote workspaces are %s" % ', '.join(['\"' + x + '\"' for x in ctrl.get_current_remote_workspaces()]))
+	print()
+	ctrl.print_workspaces()
+	print()
 
 	XtdHandler.ctrl = ctrl
 
-	print("Start serving on port %s." % (options.port or options.socket,), file=sys.stderr)
-	print('-' * 79)
+	for n in ("result_directory", "source_directory", "urd"):
+		print("%16s: %s" % (n.replace("_", " "), CONFIG.get(n),))
 	print()
+
+	if options.port:
+		serving_on = "port %d" % (options.port,)
+	else:
+		serving_on = options.socket
+	print("Serving on %s\n" % (serving_on,), file=sys.stderr)
 	server.serve_forever()
 
 

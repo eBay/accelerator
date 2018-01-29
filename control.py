@@ -129,6 +129,20 @@ class Main:
 		return self.workspaces
 
 
+	def print_workspaces(self):
+		namelen = max(len(n) for n in self.workspaces)
+		templ = "    %%s %%%ds: %%s \x1b[m(%%d)" % (namelen,)
+		prefix = {n: "REMOTE  " for n in self.current_remote_workspaces}
+		prefix[self.current_workspace] = "CURRENT\x1b[1m "
+		print("Available workspaces:")
+		names = list(self.workspaces)
+		names.remove(self.current_workspace)
+		names.insert(0, self.current_workspace)
+		for n in names:
+			w = self.workspaces[n]
+			print(templ % (prefix.get(n, "DISABLED"), n, w.path, w.slices,))
+
+
 	def get_current_workspace(self):
 		""" return name of current workspace """
 		return self.current_workspace
