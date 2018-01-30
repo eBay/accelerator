@@ -35,7 +35,6 @@ import blob
 from extras import DotDict, job_params
 from jobid import resolve_jobid_filename
 from gzwrite import typed_writer
-from status import status
 
 kwlist = set(kwlist)
 # Add some python3 keywords
@@ -291,17 +290,17 @@ class Dataset(unicode):
 			chain.reverse()
 		return chain
 
-	def iterate_chain(self, sliceno, columns=None, length=-1, range=None, sloppy_range=False, reverse=False, hashlabel=None, stop_jobid=None, pre_callback=None, post_callback=None, filters=None, translators=None):
+	def iterate_chain(self, sliceno, columns=None, length=-1, range=None, sloppy_range=False, reverse=False, hashlabel=None, stop_jobid=None, pre_callback=None, post_callback=None, filters=None, translators=None, status_reporting=True):
 		"""Iterate a list of datasets. See .chain and .iterate_list for details."""
 		chain = self.chain(length, reverse, stop_jobid)
-		return self.iterate_list(sliceno, columns, chain, range=range, sloppy_range=sloppy_range, hashlabel=hashlabel, pre_callback=pre_callback, post_callback=post_callback, filters=filters, translators=translators)
+		return self.iterate_list(sliceno, columns, chain, range=range, sloppy_range=sloppy_range, hashlabel=hashlabel, pre_callback=pre_callback, post_callback=post_callback, filters=filters, translators=translators, status_reporting=status_reporting)
 
-	def iterate(self, sliceno, columns=None, hashlabel=None, filters=None, translators=None):
+	def iterate(self, sliceno, columns=None, hashlabel=None, filters=None, translators=None, status_reporting=True):
 		"""Iterate just this dataset. See .iterate_list for details."""
-		return self.iterate_list(sliceno, columns, [self], hashlabel=hashlabel, filters=filters, translators=translators)
+		return self.iterate_list(sliceno, columns, [self], hashlabel=hashlabel, filters=filters, translators=translators, status_reporting=status_reporting)
 
 	@staticmethod
-	def iterate_list(sliceno, columns, jobids, range=None, sloppy_range=False, hashlabel=None, pre_callback=None, post_callback=None, filters=None, translators=None):
+	def iterate_list(sliceno, columns, jobids, range=None, sloppy_range=False, hashlabel=None, pre_callback=None, post_callback=None, filters=None, translators=None, status_reporting=True):
 		"""Iterator over the specified columns from jobids (str or list)
 		callbacks are called before and after each dataset is iterated.
 
@@ -335,6 +334,13 @@ class Dataset(unicode):
 		only rows where start <= colvalue < stop will be returned.
 		If you set sloppy_range=True you may get all rows from datasets that
 		contain any rows you asked for. (This can be faster.)
+
+		status_reporting should normally be left as True, which will give you
+		information about this iteration in ^T, but there is one case where you
+		need to turn it off:
+		If you manually zip a bunch of iterators, only one should do status
+		reporting. (Otherwise it looks like you have nested iteration in ^T,
+		and you will get warnings about incorrect ending order of statuses.)
 		"""
 
 		if isinstance(jobids, Dataset):
@@ -385,7 +391,7 @@ class Dataset(unicode):
 		if sloppy_range:
 			range = None
 		from itertools import chain
-		return chain.from_iterable(Dataset._iterate_datasets(to_iter, columns, pre_callback, post_callback, filter_func, translation_func, translators, want_tuple, range))
+		return chain.from_iterable(Dataset._iterate_datasets(to_iter, columns, pre_callback, post_callback, filter_func, translation_func, translators, want_tuple, range, status_reporting))
 
 	@staticmethod
 	def _resolve_filters(columns, filters):
@@ -429,7 +435,7 @@ class Dataset(unicode):
 			return None, res
 
 	@staticmethod
-	def _iterate_datasets(to_iter, columns, pre_callback, post_callback, filter_func, translation_func, translators, want_tuple, range):
+	def _iterate_datasets(to_iter, columns, pre_callback, post_callback, filter_func, translation_func, translators, want_tuple, range, status_reporting):
 		skip_jobid = None
 		def argfixup(func, is_post):
 			if func:
@@ -461,6 +467,10 @@ class Dataset(unicode):
 					range_f = range_check
 			else:
 				has_range_column = False
+		if status_reporting:
+			from status import status
+		else:
+			from status import dummy_status as status
 		starting_at = '%s:%d' % (to_iter[0][0], to_iter[0][2],)
 		if len(to_iter) == 1:
 			msg = 'Iterating ' + starting_at

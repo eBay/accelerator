@@ -91,6 +91,12 @@ def status(msg):
 	finally:
 		_send('pop', cookie)
 
+# Same interface as status, but without the actual reporting
+@contextmanager
+def dummy_status(msg):
+	assert msg and isinstance(msg, str_types) and '\0' not in msg
+	yield lambda _: None
+
 def _start(msg, parent_pid, is_analysis=''):
 	_send('start', '%d\0%s\0%s\0%f' % (parent_pid, is_analysis, msg, time(),))
 
