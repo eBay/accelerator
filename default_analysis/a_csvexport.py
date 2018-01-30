@@ -64,8 +64,10 @@ def csvexport(sliceno, filename, labelsonfirstline):
 	else:
 		raise Exception("Filename should end with .gz for compressed or .csv for uncompressed")
 	iters = []
+	first = True
 	for label in options.labels:
-		it = d.iterate_list(sliceno, label, datasets.source)
+		it = d.iterate_list(sliceno, label, datasets.source, status_reporting=first)
+		first = False
 		t = d.columns[label].type
 		if t == 'unicode':
 			it = imap(lambda s: s.encode('utf-8'), it)
