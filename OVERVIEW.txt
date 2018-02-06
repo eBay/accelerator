@@ -140,5 +140,5 @@ Not so interesting files
 	web.py
 	workarounds.py
 
-default_analysis
-	Directory with the default methods.
+standard_methods
+	Directory with the bundled standard methods.
