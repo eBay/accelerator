@@ -367,8 +367,5 @@ def main(options):
 
 
 if __name__ == "__main__":
-	from warnings import filterwarnings
-	# Re-importing methods that use cffi should always be harmless here, don't bug the user.
-	filterwarnings("ignore", message=r"reimporting '_cffi[^']*' might overwrite older definitions", category=UserWarning)
 	options = parse_args(sys.argv[1:])
 	main(options)
