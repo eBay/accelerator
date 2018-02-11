@@ -108,8 +108,8 @@ def load_methods(data):
 				assert isinstance(v, tuple), 'Read the docs about equivalent_hashes'
 				for v in v:
 					assert isinstance(v, str), 'Read the docs about equivalent_hashes'
-				start = src.index('equivalent_hashes')
-				end   = src.index('}', start)
+				start = src.index(b'equivalent_hashes')
+				end   = src.index(b'}', start)
 				h = hashlib.sha1(src[:start])
 				h.update(src[end:])
 				verifier = "%040x" % (int(h.hexdigest(), 16) ^ hash_extra,)
