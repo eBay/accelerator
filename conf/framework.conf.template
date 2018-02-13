@@ -16,12 +16,12 @@ source_workdirs=EXAMPLE,EXAMPLE2
 method_directories=dev,standard_methods
 
 # automata scripts save things here
-result_directory=${HOME}/results
+result_directory=${HOME}/accelerator/results
 
 # import methods look under here
 source_directory=/some/other/path
 
-logfilename=${HOME}/daemon.log
+logfilename=${HOME}/accelerator/daemon.log
 hash_override=<hash_check_override>
 
 # python versions to use
