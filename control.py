@@ -62,7 +62,7 @@ class Main:
 		self._update_methods()
 		# initialise workspaces
 		self.workspaces = {}
-		for name, data in self.config['workspace'].items():
+		for name, data in self.config['workdir'].items():
 			path   = data[0]
 			slices = data[1]
 			w = workspace.WorkSpace(name, path, slices)
@@ -71,13 +71,13 @@ class Main:
 				self.workspaces[name] = w
 			else:
 				# hmm, maybe new target workspace
-				if name == self.config['main_workspace']:
+				if name == self.config['target_workdir']:
 					self.workspaces[name] = workspace.WorkSpace(name, path, slices, True)
 
 		put_workspaces({k: v.path for k, v in self.workspaces.items()})
 		# set current workspace pointers
-		self.set_workspace(self.config['main_workspace'])
-		self.set_remote_workspaces(self.config.get('remote_workspaces', ''))
+		self.set_workspace(self.config['target_workdir'])
+		self.set_remote_workspaces(self.config.get('source_workdirs', ''))
 		# and update contents
 		self.DataBase = database.DataBase(self)
 		self.update_database()
@@ -112,7 +112,7 @@ class Main:
 			if self.workspaces[name].get_slices() == slices:
 				self.current_remote_workspaces.add(name)
 			else:
-				print("Warning, could not add remote workspace \"%s\", since it has %d slices (and %d required from \"%s\")" % (
+				print("Warning, could not add remote workdir \"%s\", since it has %d slices (and %d required from \"%s\")" % (
 					name, self.workspaces[name].get_slices(), slices, self.current_workspace))
 
 
@@ -134,7 +134,7 @@ class Main:
 		templ = "    %%s %%%ds: %%s \x1b[m(%%d)" % (namelen,)
 		prefix = {n: "REMOTE  " for n in self.current_remote_workspaces}
 		prefix[self.current_workspace] = "CURRENT\x1b[1m "
-		print("Available workspaces:")
+		print("Available workdirs:")
 		names = list(self.workspaces)
 		names.remove(self.current_workspace)
 		names.insert(0, self.current_workspace)

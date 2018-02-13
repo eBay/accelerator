@@ -128,7 +128,7 @@ def main(argv):
 	parser.add_option('-P', '--package',  dest="package",  default=None      ,  help="package where to look for script, default all method directories in alphabetical order", )
 	parser.add_option('-f', '--flags',    dest="flags",    default='',          help="comma separated list of flags", )
 	parser.add_option('-A', '--abort',    dest="abort",    action='store_true', help="abort (fail) currently running job(s)", )
-	parser.add_option('-q', '--quick',    dest="quick",    action='store_true', help="skip method updates and checking workspaces for new jobs", )
+	parser.add_option('-q', '--quick',    dest="quick",    action='store_true', help="skip method updates and checking workdirs for new jobs", )
 	parser.add_option('-w', '--just_wait',dest="just_wait",action='store_true', help="just wait for running job, don't run any automata", )
 	parser.add_option('--verbose',        dest="verbose",  default='status',    help="verbosity style {no, status, dots, log}")
 	parser.add_option('--quiet',          dest="quiet",    action='store_true', help="same as --verbose=no")

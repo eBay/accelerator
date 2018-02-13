@@ -1,16 +1,16 @@
 # var=value, value can have ${VAR=DEFAULT} to import env vars.
 
-# workspace=NAME:PATH:SLICES
-# You can have as many workspace lines as you want
-workspace=EXAMPLE:${HOME}/workspaces/EXAMPLE:16
-workspace=EXAMPLE2:${HOME}/workspaces/EXAMPLE2:16
+# workdir=NAME:PATH:SLICES
+# You can have as many workdir lines as you want
+workdir=EXAMPLE:${HOME}/accelerator/workdirs/EXAMPLE:16
+workdir=EXAMPLE2:${HOME}/accelerator/workdirs/EXAMPLE2:16
 
-# You can only have one main workspace.
+# You can only have one target workdir.
 # All built jobs end up there.
-main_workspace=EXAMPLE
+target_workdir=EXAMPLE
 
-# List all other workspaces you want to import here (comma separated)
-remote_workspaces=EXAMPLE,EXAMPLE2
+# List all other workdirs you want to import here (comma separated)
+source_workdirs=EXAMPLE,EXAMPLE2
 
 # Methods are imported from these directories (comma separated)
 method_directories=dev,standard_methods

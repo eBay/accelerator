@@ -49,7 +49,7 @@ class WorkSpace:
 			with open(filename) as F:
 				file_slices = int(F.read())
 			if self.slices != file_slices:
-				print("WORKSPACE:  ERROR, workspace has %d slices, but config file stipulates %d!" % (file_slices, self.slices))
+				print("WORKSPACE:  ERROR, workdir has %d slices, but config file stipulates %d!" % (file_slices, self.slices))
 				print("WORKSPACE:  Consequence:  ignore config file, use SLICES=%d." % (file_slices))
 				self.slices = file_slices
 		except Exception:
@@ -58,7 +58,7 @@ class WorkSpace:
 				with open(filename, 'w') as F:
 					F.write(str(self.slices)+'\n')
 			else:
-				print("WORKSPACE:  not a workspace \"%s\" at \"%s\"" % (self.name, self.path,))
+				print("WORKSPACE:  not a workdir \"%s\" at \"%s\"" % (self.name, self.path,))
 				ok = False
 		return ok
 

@@ -42,7 +42,7 @@ def init():
 				cfg = get_config(fn, False)
 			except Exception:
 				continue
-			WORKSPACES.update({k: v[0] for k, v in cfg['workspace'].items()})
+			WORKSPACES.update({k: v[0] for k, v in cfg['workdir'].items()})
 
 def name2ds(n):
 	if exists(n):
@@ -60,7 +60,7 @@ def name2ds(n):
 			n = jid
 		k = jid.rsplit("-", 1)[0]
 		if WORKSPACES.get(k, base) != base:
-			print("### Overriding workspace %s to %s" % (k, base,))
+			print("### Overriding workdir %s to %s" % (k, base,))
 		WORKSPACES[k] = base
 	ds = Dataset(n)
 	with open(join(get_path(ds.jobid), get_workspace_name(ds.jobid) + "-slices.conf")) as fh:
