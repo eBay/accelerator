@@ -303,8 +303,22 @@ if __name__ == "__main__":
 	dispatch.update_valid_fds()
 
 	# Set the highest open file limit we can.
-	_, r2 = resource.getrlimit(resource.RLIMIT_NOFILE)
-	resource.setrlimit(resource.RLIMIT_NOFILE, (r2, r2))
+	# At least OS X seems to like claiming no limit as max without
+	# allowing that to be set, so let's do some retrying.
+	r1, r2 = resource.getrlimit(resource.RLIMIT_NOFILE)
+	limits = [500000, 100000, 50000, 10000, 5000, 1000, r1, r2]
+	limits = sorted((v for v in limits if r1 <= v <= r2), reverse=True)
+	for try_limit in limits:
+		try:
+			resource.setrlimit(resource.RLIMIT_NOFILE, (try_limit, r2))
+			break
+		except ValueError:
+			pass
+	r1, r2 = resource.getrlimit(resource.RLIMIT_NOFILE)
+	if r1 < r2:
+		print("WARNING: Failed to raise RLIMIT_NOFILE to %d. Set to %d." % (r2, r1,))
+	if r1 < 5000:
+		print("WARNING: RLIMIT_NOFILE is %d, that's not much." % (r1,))
 
 	while True:
 		op, length = struct.unpack('<cI', recvall(sock, 5, True))
