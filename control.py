@@ -112,7 +112,7 @@ class Main:
 			if self.workspaces[name].get_slices() == slices:
 				self.current_remote_workspaces.add(name)
 			else:
-				print("Warning, could not add remote workdir \"%s\", since it has %d slices (and %d required from \"%s\")" % (
+				print("Warning, could not add source workdir \"%s\", since it has %d slices (and %d required from \"%s\")" % (
 					name, self.workspaces[name].get_slices(), slices, self.current_workspace))
 
 
@@ -132,8 +132,8 @@ class Main:
 	def print_workspaces(self):
 		namelen = max(len(n) for n in self.workspaces)
 		templ = "    %%s %%%ds: %%s \x1b[m(%%d)" % (namelen,)
-		prefix = {n: "REMOTE  " for n in self.current_remote_workspaces}
-		prefix[self.current_workspace] = "CURRENT\x1b[1m "
+		prefix = {n: "SOURCE  " for n in self.current_remote_workspaces}
+		prefix[self.current_workspace] = "TARGET\x1b[1m  "
 		print("Available workdirs:")
 		names = list(self.workspaces)
 		names.remove(self.current_workspace)
