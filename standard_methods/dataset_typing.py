@@ -20,6 +20,8 @@
 # Used by methods that convert or filter such data.
 
 from __future__ import division
+from __future__ import absolute_import
+
 from types import NoneType
 from collections import namedtuple
 from functools import partial

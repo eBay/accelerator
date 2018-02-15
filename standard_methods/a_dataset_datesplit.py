@@ -17,6 +17,7 @@
 ############################################################################
 
 from __future__ import division
+from __future__ import absolute_import
 
 description = r'''
 Take a (chain of) dataset(s) and split it based on a date(time) column.
@@ -47,7 +48,7 @@ from os import unlink
 
 from extras import OptionString, json_save, job_params, DotDict
 from dataset import Dataset, DatasetWriter
-import dataset_typing
+from . import dataset_typing
 from sourcedata import type2iter
 import blob
 

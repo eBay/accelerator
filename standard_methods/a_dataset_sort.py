@@ -20,6 +20,7 @@
 # You'll have to type the sort column approprietly.
 
 from __future__ import division
+from __future__ import absolute_import
 
 from numpy import lexsort
 from os import symlink

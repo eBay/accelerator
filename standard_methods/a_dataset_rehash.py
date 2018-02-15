@@ -17,6 +17,7 @@
 ############################################################################
 
 from __future__ import division
+from __future__ import absolute_import
 
 description = r'''
 Rewrite a dataset (or chain to previous) with new hashlabel.

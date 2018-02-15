@@ -17,6 +17,7 @@
 ############################################################################
 
 from __future__ import division
+from __future__ import absolute_import
 
 description = r'''
 Extract anything discarded from a single dataset_datesplit.
@@ -25,8 +26,8 @@ Despite taking a previous (in case you want to use this in a chain) this
 will not chain from source to previous.options.source.
 '''
 
-import a_dataset_datesplit
-import dataset_typing
+from . import a_dataset_datesplit
+from . import dataset_typing
 from extras import job_params, json_load, json_save
 from dataset import Dataset
 import blob

@@ -17,6 +17,7 @@
 ############################################################################
 
 from __future__ import division
+from __future__ import absolute_import
 
 from extras import OptionEnum, JobWithFile
 from blob import load, save

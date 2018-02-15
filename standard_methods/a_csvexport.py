@@ -17,6 +17,7 @@
 ############################################################################
 
 from __future__ import division
+from __future__ import absolute_import
 
 from itertools import izip, imap
 from shutil import copyfileobj

@@ -17,6 +17,7 @@
 ############################################################################
 
 from __future__ import division
+from __future__ import absolute_import
 
 description = r'''
 Like dataset_type, but can guess the type of columns (number or ascii)

@@ -18,6 +18,7 @@
 
 from __future__ import division
 from __future__ import print_function
+from __future__ import absolute_import
 
 description = r'''
 Take a chain of datasets and make a checksum of one or more columns.

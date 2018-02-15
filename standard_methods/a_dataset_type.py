@@ -19,6 +19,7 @@
 # Convert one or more columns in a dataset to a binary type.
 
 from __future__ import division
+from __future__ import absolute_import
 
 import cffi
 from resource import getpagesize
@@ -31,7 +32,7 @@ from extras import OptionEnum, json_save, DotDict
 from gzwrite import typed_writer
 from dataset import DatasetWriter
 from report import report
-import dataset_typing
+from . import dataset_typing
 from sourcedata import type2iter
 
 depend_extra = (dataset_typing,)
