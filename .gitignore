@@ -1,7 +1,4 @@
-*~
 *.pyc
-*#
-*.swp
 log.txt
 
 default_analysis/__pycache__/
