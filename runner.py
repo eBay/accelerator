@@ -55,9 +55,11 @@ def load_methods(data):
 	res_hashes = {}
 	res_params = {}
 	for package, key in data:
-		filename = '%s/a_%s.py' % (package, key,)
 		modname = '%s.a_%s' % (package, key)
 		try:
+			mod = import_module(modname)
+			filename = mod.__file__
+			prefix = os.path.dirname(filename) + '/'
 			with open(filename, 'rb') as fh:
 				src = fh.read()
 			tar_fh = io.BytesIO()
@@ -65,8 +67,6 @@ def load_methods(data):
 			tar_o.add(filename, arcname='a_%s.py' % (key,))
 			h = hashlib.sha1(src)
 			hash = int(h.hexdigest(), 16)
-			mod = import_module(modname)
-			prefix = os.path.dirname(mod.__file__) + '/'
 			likely_deps = set()
 			for k in dir(mod):
 				v = getattr(mod, k)
@@ -319,6 +319,9 @@ if __name__ == "__main__":
 		print("WARNING: Failed to raise RLIMIT_NOFILE to %d. Set to %d." % (r2, r1,))
 	if r1 < 5000:
 		print("WARNING: RLIMIT_NOFILE is %d, that's not much." % (r1,))
+
+	# sys.path needs to contain .. (the project dir), put it after accelerator
+	sys.path.insert(1, os.path.dirname(sys.path[0]))
 
 	while True:
 		op, length = struct.unpack('<cI', recvall(sock, 5, True))

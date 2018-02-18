@@ -23,6 +23,7 @@ import os
 import datetime
 from time import time
 from collections import defaultdict
+from importlib import import_module
 
 from compat import iteritems, itervalues, first_value, NoneType, unicode, long
 
@@ -41,11 +42,9 @@ class Methods(object):
 		self.package_list = package_list
 		self.db = {}
 		for package in self.package_list:
-			if not os.path.lexists(package):
-				src = os.path.join("..", package)
-				if os.path.exists(src):
-					os.symlink(src, package)
-			tmp = read_method_conf(os.path.join(package, configfilename))
+			package_mod = import_module(package)
+			confname = os.path.join(os.path.dirname(package_mod.__file__), configfilename)
+			tmp = read_method_conf(confname)
 			for x in tmp:
 				if x in self.db:
 					print("METHOD:  ERROR, method \"%s\" defined both in \"%s\" and \"%s\"!" % (

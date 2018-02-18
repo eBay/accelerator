@@ -367,5 +367,7 @@ def main(options):
 
 
 if __name__ == "__main__":
+	# sys.path needs to contain .. (the project dir), put it after accelerator
+	sys.path.insert(1, os.path.dirname(sys.path[0]))
 	options = parse_args(sys.argv[1:])
 	main(options)
