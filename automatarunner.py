@@ -25,7 +25,7 @@ from __future__ import division
 from optparse import OptionParser
 import sys
 from importlib import import_module
-from os.path import realpath
+from os.path import realpath, dirname
 from inspect import getargspec
 from os import environ
 
@@ -148,6 +148,8 @@ def main(argv):
 
 
 if __name__ == "__main__":
+	# sys.path needs to contain .. (the project dir), put it after accelerator
+	sys.path.insert(1, dirname(sys.path[0]))
 	sys.stdout = AutoFlush(sys.stdout)
 	sys.stderr = AutoFlush(sys.stderr)
 	main(sys.argv[1:])
