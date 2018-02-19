@@ -73,6 +73,8 @@ def csvexport(sliceno, filename, labelsonfirstline):
 		t = d.columns[label].type
 		if t == 'unicode':
 			it = imap(lambda s: s.encode('utf-8'), it)
+		elif t in ('float32', 'float64', 'number'):
+			it = imap(repr, it)
 		elif t == 'json':
 			it = imap(dumps, it)
 		elif t not in ('ascii', 'bytes'):
