@@ -42,36 +42,6 @@ type2iter = {
 	'unicode' : gzutil.GzUnicodeLines,
 }
 
-def _mklistreader(inner_type, seq_type):
-	from compat import builtins
-	reader = type2iter[inner_type.lower()]
-	mk = getattr(builtins, seq_type.lower())
-	class GzXList(object):
-		def __init__(self, *a, **kw):
-			if 'max_count' in kw:
-				kw['max_count'] += 1
-			self.fh = reader(*a, **kw)
-		def __next__(self):
-			llen = next(self.fh)
-			if llen is None:
-				return None
-			return mk(next(self.fh) for _ in range(int(llen)))
-		next = __next__
-		def close(self):
-			self.fh.close()
-		def __iter__(self):
-			return self
-		def __enter__(self):
-			return self
-		def __exit__(self, type, value, traceback):
-			self.close()
-	GzXList.__name__ = 'Gz' + inner_type + seq_type
-	return GzXList
-
-for _seq_t in ('List', 'Set',):
-	for _t in ('Number', 'Ascii', 'Unicode',):
-		type2iter[(_t + _seq_t).lower()] = _mklistreader(_t, _seq_t)
-
 from ujson import loads
 class GzJson(object):
 	def __init__(self, *a, **kw):

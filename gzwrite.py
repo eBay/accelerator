@@ -59,37 +59,6 @@ def typed_reader(typename):
 		raise ValueError("Unknown reader for type %s" % (typename,))
 	return type2iter[typename]
 
-def _mklistwriter(inner_type, seq_type, len_type):
-	class GzWriteXList(object):
-		min = max = None
-		def __init__(self, *a, **kw):
-			assert 'default' not in kw, "default not supported for %s%s, sorry" % (inner_type, seq_type,)
-			self.fh = _convfuncs[inner_type.lower()](*a, **kw)
-			self.count = 0
-		def write(self, lst):
-			self.count += 1
-			if lst is None:
-				self.fh.write(None)
-				return
-			llen = len(lst)
-			assert llen < 65536, 'List too long (max 65535 elements)'
-			w = self.fh.write
-			w(len_type(llen))
-			for v in lst:
-				w(v)
-		def close(self):
-			self.fh.close()
-		def __enter__(self):
-			return self
-		def __exit__(self, type, value, traceback):
-			self.close()
-	GzWriteXList.__name__ = 'GzWrite%s%s' % (inner_type, seq_type,)
-	return GzWriteXList
-for _seq_type in ('List', 'Set',):
-	_convfuncs['number'  + _seq_type.lower()] = _mklistwriter('Number'  , _seq_type, int)
-	_convfuncs['ascii'   + _seq_type.lower()] = _mklistwriter('Ascii'   , _seq_type, str)
-	_convfuncs['unicode' + _seq_type.lower()] = _mklistwriter('Unicode' , _seq_type, unicode)
-
 from ujson import dumps, loads
 class GzWriteJson(object):
 	min = max = None
