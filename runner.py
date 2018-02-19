@@ -59,6 +59,8 @@ def load_methods(data):
 		try:
 			mod = import_module(modname)
 			filename = mod.__file__
+			if filename[-4:] in ('.pyc', '.pyo',):
+				filename = filename[:-1]
 			prefix = os.path.dirname(filename) + '/'
 			with open(filename, 'rb') as fh:
 				src = fh.read()
