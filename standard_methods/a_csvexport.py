@@ -22,6 +22,7 @@ from __future__ import absolute_import
 from itertools import izip, imap
 from shutil import copyfileobj
 from os import unlink
+from ujson import dumps
 
 from extras import OptionString, job_params
 from gzwrite import GzWrite
@@ -72,6 +73,8 @@ def csvexport(sliceno, filename, labelsonfirstline):
 		t = d.columns[label].type
 		if t == 'unicode':
 			it = imap(lambda s: s.encode('utf-8'), it)
+		elif t == 'json':
+			it = imap(dumps, it)
 		elif t not in ('ascii', 'bytes'):
 			it = imap(str, it)
 		iters.append(it)
