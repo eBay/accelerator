@@ -75,8 +75,6 @@ for _seq_t in ('List', 'Set',):
 from ujson import loads
 class GzJson(object):
 	def __init__(self, *a, **kw):
-		if 'max_count' in kw:
-			kw['max_count'] += 1
 		if PY3:
 			self.fh = gzutil.GzUnicodeLines(*a, **kw)
 		else:
