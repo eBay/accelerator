@@ -23,11 +23,9 @@ from __future__ import division
 from __future__ import absolute_import
 
 from numpy import lexsort
-from os import symlink
 from functools import partial
 
 from extras import OptionEnum, OptionString
-from jobid import resolve_jobid_filename
 from dataset import Dataset, DatasetWriter
 
 OrderEnum = OptionEnum('ascending descending')
@@ -82,7 +80,6 @@ def prepare(params):
 
 def analysis(sliceno, params, prepare_res):
 	dw, jobs, sort_idx = prepare_res
-	single_job = (len(jobs) == 1)
 	if options.sort_across_slices:
 		columniter = partial(Dataset.iterate_list, None, jobids=jobs)
 		per_slice = len(sort_idx) // params.slices
@@ -93,11 +90,6 @@ def analysis(sliceno, params, prepare_res):
 	else:
 		columniter = partial(Dataset.iterate_list, sliceno, jobids=jobs)
 		sort_idx = sort(columniter)
-	if single_job and not options.sort_across_slices and sort_idx == sorted(sort_idx):
-		# this slice is fully sorted as is.
-		slice_dir = '%02d' % (sliceno,)
-		symlink(resolve_jobid_filename(datasets.source, slice_dir), slice_dir)
-		return len(sort_idx)
 	for column in datasets.source.columns:
 		lst = list(columniter(column))
 		w = dw.writers[column].write
