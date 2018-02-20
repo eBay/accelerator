@@ -31,7 +31,7 @@ if sys.version_info[0] == 2:
 	from urllib import quote_plus, unquote_plus, urlencode
 	from urllib2 import urlopen, Request, URLError, HTTPError
 	from itertools import izip, imap, ifilter
-	from Queue import Queue
+	from Queue import Queue, Full as QueueFull
 	from types import NoneType
 	str_types = (str, unicode,)
 	int_types = (int, long,)
@@ -56,7 +56,7 @@ else:
 	izip = zip
 	imap = map
 	ifilter = filter
-	from queue import Queue
+	from queue import Queue, Full as QueueFull
 	NoneType = type(None)
 	str_types = (str,)
 	int_types = (int,)

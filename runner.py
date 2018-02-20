@@ -42,7 +42,7 @@ import resource
 import gc
 from threading import Thread, Lock
 
-from compat import PY2, PY3, iteritems, itervalues, pickle, Queue, str_types
+from compat import PY2, PY3, iteritems, itervalues, pickle, Queue, QueueFull, str_types
 
 from extras import DotDict
 import dispatch
@@ -232,6 +232,12 @@ class Runner(object):
 				q.put(data)
 			except Exception:
 				break
+		# All is lost, unblock anyone waiting
+		for q in itervalues(self._waiters):
+			try:
+				q.put(None, block=False)
+			except QueueFull:
+				pass
 
 	def kill(self):
 		try:
@@ -263,7 +269,10 @@ class Runner(object):
 			header = struct.pack('<cI', op, len(data))
 			self.sock.sendall(header + data)
 		# must wait without the lock, otherwise all this threading gets us nothing.
-		return waiter()
+		res = waiter()
+		if res is None:
+			raise Exception("Runner exited unexpectedly.")
+		return res
 
 	def load_methods(self, data):
 		return self._do(b'm', data)
