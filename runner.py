@@ -42,7 +42,7 @@ import resource
 import gc
 from threading import Thread, Lock
 
-from compat import PY2, PY3, iteritems, itervalues, pickle, Queue
+from compat import PY2, PY3, iteritems, itervalues, pickle, Queue, str_types
 
 from extras import DotDict
 import dispatch
@@ -85,7 +85,8 @@ def load_methods(data):
 					dep = dep.__file__
 					if dep[-4:] in ('.pyc', '.pyo',):
 						dep = dep[:-1]
-				if isinstance(dep, str):
+				if isinstance(dep, str_types):
+					dep = str(dep) # might be unicode on py2
 					if not dep.startswith('/'):
 						dep = prefix + dep
 					with open(dep, 'rb') as fh:
