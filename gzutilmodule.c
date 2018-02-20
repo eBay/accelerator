@@ -56,8 +56,8 @@ typedef struct gzread {
 	gzFile fh;
 	int error;
 	int pos, len;
-	int sliceno;
-	int slices;
+	unsigned int sliceno;
+	unsigned int slices;
 	char buf[Z + 1];
 } GzRead;
 
@@ -147,7 +147,7 @@ static uint64_t hash_double(const void *ptr)
 	return hash(&d, sizeof(d));
 }
 
-static int parse_hashfilter(PyObject *hashfilter, PyObject **r_hashfilter, int *r_sliceno, int *r_slices, uint64_t *r_spread_None)
+static int parse_hashfilter(PyObject *hashfilter, PyObject **r_hashfilter, unsigned int *r_sliceno, unsigned int *r_slices, uint64_t *r_spread_None)
 {
 	Py_CLEAR(*r_hashfilter);
 	*r_slices = 0;
@@ -155,17 +155,17 @@ static int parse_hashfilter(PyObject *hashfilter, PyObject **r_hashfilter, int *
 	*r_spread_None = 0;
 	if (!hashfilter || hashfilter == Py_None) return 0;
 	int spread_None = 0;
-	if (!PyArg_ParseTuple(hashfilter, "ii|i", r_sliceno, r_slices, &spread_None)) {
+	if (!PyArg_ParseTuple(hashfilter, "II|i", r_sliceno, r_slices, &spread_None)) {
 		PyErr_Clear();
 		PyErr_SetString(PyExc_ValueError, "hashfilter should be a tuple (sliceno, slices) or (sliceno, slices, spread_None)");
 		return 1;
 	}
-	if (*r_sliceno < 0 || *r_slices <= 0 || *r_sliceno >= *r_slices) {
+	if (*r_slices == 0 || *r_sliceno >= *r_slices) {
 		PyErr_Format(PyExc_ValueError, "Bad hashfilter (%d, %d)", *r_sliceno, *r_slices);
 		return 1;
 	}
 	*r_spread_None = !!spread_None;
-	*r_hashfilter = Py_BuildValue("(iiO)", *r_sliceno, *r_slices, spread_None ? Py_True : Py_False);
+	*r_hashfilter = Py_BuildValue("(IIO)", *r_sliceno, *r_slices, spread_None ? Py_True : Py_False);
 	return !*r_hashfilter;
 }
 
@@ -769,8 +769,8 @@ typedef struct gzwrite {
 	minmax_u min_u;
 	minmax_u max_u;
 	uint64_t spread_None;
-	int sliceno;
-	int slices;
+	unsigned int sliceno;
+	unsigned int slices;
 	int len;
 	char buf[Z];
 } GzWrite;
@@ -949,7 +949,7 @@ static PyObject *gzwrite_write_GzWrite(GzWrite *self, PyObject *obj)
 
 #define WRITE_NONE_SLICE_CHECK do {                                                   	\
 	if (self->spread_None) {                                                      	\
-		const int spread_slice = self->spread_None % self->slices;            	\
+		const unsigned int spread_slice = self->spread_None % self->slices;   	\
 		if (actually_write) self->spread_None++;                              	\
 		if (spread_slice != self->sliceno) {                                  	\
 			Py_RETURN_FALSE;                                              	\
@@ -1219,7 +1219,7 @@ err:                                                                            
 		}                                                                        	\
 		if (self->slices) {                                                      	\
 			const HT h_value = value;                                        	\
-			const int sliceno = hash(&h_value) % self->slices;               	\
+			const unsigned int sliceno = hash(&h_value) % self->slices;      	\
 			if (sliceno != self->sliceno) Py_RETURN_FALSE;                   	\
 		}                                                                        	\
 		if (!actually_write) Py_RETURN_TRUE;                                     	\
@@ -1434,7 +1434,7 @@ static PyObject *gzwrite_C_GzWriteNumber(GzWrite *self, PyObject *obj, int actua
 	if (PyFloat_Check(obj)) {
 		const double value = PyFloat_AS_DOUBLE(obj);
 		if (self->slices) {
-			const int sliceno = hash_double(&value) % self->slices;
+			const unsigned int sliceno = hash_double(&value) % self->slices;
 			if (sliceno != self->sliceno) Py_RETURN_FALSE;
 		}
 		if (!actually_write) Py_RETURN_TRUE;
@@ -1456,7 +1456,7 @@ static PyObject *gzwrite_C_GzWriteNumber(GzWrite *self, PyObject *obj, int actua
 	char buf[GZNUMBER_MAX_BYTES];
 	if (value != -1 || !PyErr_Occurred()) {
 		if (self->slices) {
-			const int sliceno = hash_integer(&value) % self->slices;
+			const unsigned int sliceno = hash_integer(&value) % self->slices;
 			if (sliceno != self->sliceno) Py_RETURN_FALSE;
 		}
 		if (!actually_write) Py_RETURN_TRUE;
@@ -1475,7 +1475,7 @@ static PyObject *gzwrite_C_GzWriteNumber(GzWrite *self, PyObject *obj, int actua
 		}
 	}
 	if (self->slices) {
-		const int sliceno = hash(buf + 1, buf[0]) % self->slices;
+		const unsigned int sliceno = hash(buf + 1, buf[0]) % self->slices;
 		if (sliceno != self->sliceno) Py_RETURN_FALSE;
 	}
 	if (!actually_write) Py_RETURN_TRUE;
@@ -1832,7 +1832,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	PyObject *c_hash = PyCapsule_New((void *)hash, "gzutil._C_hash", 0);
 	if (!c_hash) return INITERR;
 	PyModule_AddObject(m, "_C_hash", c_hash);
-	PyObject *version = Py_BuildValue("(iii)", 2, 9, 4);
+	PyObject *version = Py_BuildValue("(iii)", 2, 9, 5);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;
