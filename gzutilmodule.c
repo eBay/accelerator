@@ -522,11 +522,13 @@ static const uint8_t noneval_uint8_t = 255;
 	{                                                                    	\
 		ITERPROLOGUE(T);                                             	\
 		/* Z is a multiple of sizeof(T), so this never overruns. */  	\
-		const T res = *(T *)(self->buf + self->pos);                 	\
+		const char *ptr = self->buf + self->pos;                     	\
 		self->pos += sizeof(T);                                      	\
-		if (withnone && !memcmp(&res, &noneval_ ## T, sizeof(T))) {  	\
+		if (withnone && !memcmp(ptr, &noneval_ ## T, sizeof(T))) {   	\
 			HC_RETURN_NONE;                                      	\
 		}                                                            	\
+		T res;                                                       	\
+		memcpy(&res, ptr, sizeof(T));                                	\
 		if (self->slices) {                                          	\
 			HT v = res;                                          	\
 			HC_CHECK(hash(&v));                                  	\
@@ -607,12 +609,12 @@ static PyObject *GzDateTime_iternext(GzRead *self)
 {
 	ITERPROLOGUE(DateTime);
 	/* Z is a multiple of 8, so this never overruns. */
-	const uint32_t i0 = *(uint32_t *)(self->buf + self->pos);
-	const uint32_t i1 = *(uint32_t *)(self->buf + self->pos + 4);
+	uint32_t a[2];
+	memcpy(a, self->buf + self->pos, 8);
 	self->pos += 8;
-	if (!i0) HC_RETURN_NONE;
+	if (!a[0]) HC_RETURN_NONE;
 	HC_CHECK(hash_64bits(self->buf + self->pos - 8));
-	return unfmt_datetime(i0, i1);
+	return unfmt_datetime(a[0], a[1]);
 }
 
 static inline PyObject *unfmt_date(const uint32_t i0)
@@ -628,7 +630,8 @@ static PyObject *GzDate_iternext(GzRead *self)
 {
 	ITERPROLOGUE(Date);
 	/* Z is a multiple of 4, so this never overruns. */
-	const uint32_t i0 = *(uint32_t *)(self->buf + self->pos);
+	uint32_t i0;
+	memcpy(&i0, self->buf + self->pos, 4);
 	self->pos += 4;
 	if (!i0) HC_RETURN_NONE;
 	HC_CHECK(hash_32bits(self->buf + self->pos - 4));
@@ -649,12 +652,12 @@ static PyObject *GzTime_iternext(GzRead *self)
 {
 	ITERPROLOGUE(Time);
 	/* Z is a multiple of 8, so this never overruns. */
-	const uint32_t i0 = *(uint32_t *)(self->buf + self->pos);
-	const uint32_t i1 = *(uint32_t *)(self->buf + self->pos + 4);
+	uint32_t a[2];
+	memcpy(a, self->buf + self->pos, 8);
 	self->pos += 8;
-	if (!i0) HC_RETURN_NONE;
+	if (!a[0]) HC_RETURN_NONE;
 	HC_CHECK(hash_64bits(self->buf + self->pos - 8));
-	return unfmt_time(i0, i1);
+	return unfmt_time(a[0], a[1]);
 }
 
 static PyObject *gzany_exit(PyObject *self, PyObject *args)
@@ -1829,7 +1832,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	PyObject *c_hash = PyCapsule_New((void *)hash, "gzutil._C_hash", 0);
 	if (!c_hash) return INITERR;
 	PyModule_AddObject(m, "_C_hash", c_hash);
-	PyObject *version = Py_BuildValue("(iii)", 2, 9, 3);
+	PyObject *version = Py_BuildValue("(iii)", 2, 9, 4);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;
