@@ -386,7 +386,7 @@ class Dataset(unicode):
 				else:
 					rehash = False
 				to_iter.append((jobid, d, sliceno, rehash,))
-		filter_func = Dataset._resolve_filters(columns, filters)
+		filter_func = Dataset._resolve_filters(columns, filters, want_tuple)
 		translation_func, translators = Dataset._resolve_translators(columns, translators)
 		if sloppy_range:
 			range = None
@@ -394,10 +394,12 @@ class Dataset(unicode):
 		return chain.from_iterable(Dataset._iterate_datasets(to_iter, columns, pre_callback, post_callback, filter_func, translation_func, translators, want_tuple, range, status_reporting))
 
 	@staticmethod
-	def _resolve_filters(columns, filters):
+	def _resolve_filters(columns, filters, want_tuple):
 		if filters and not callable(filters):
 			# Sort in column order, to allow selecting an efficient order.
 			filters = sorted((columns.index(name), f,) for name, f in filters.items())
+			if not want_tuple:
+				return filters[0][1] or bool
 			# Build "lambda t: f0(t[0]) and f1(t[1]) and ..."
 			fs = []
 			arg_n = []
