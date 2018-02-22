@@ -16,11 +16,13 @@
 #                                                                          #
 ############################################################################
 
-# Stable sort a dataset based on one or more columns.
-# You'll have to type the sort column approprietly.
-
 from __future__ import division
 from __future__ import absolute_import
+
+description = r'''
+Stable sort a dataset based on one or more columns.
+You'll have to type the sort column(s) approprietly.
+'''
 
 from numpy import lexsort
 from functools import partial
