@@ -24,7 +24,6 @@ Stable sort a dataset based on one or more columns.
 You'll have to type the sort column(s) approprietly.
 '''
 
-from numpy import lexsort
 from functools import partial
 
 from extras import OptionEnum, OptionString
@@ -41,20 +40,9 @@ datasets = ('source', 'previous',)
 
 
 def sort(columniter):
-	def sortable_columnlist(column):
-		if datasets.source.columns[column] in ('datetime', 'date', 'time',):
-			return map(str, columniter(column))
-		else:
-			return list(columniter(column))
-	lst = [sortable_columnlist(c) for c in reversed(options.sort_columns)]
-	if options.sort_order == 'descending':
-		# Stupid lexsort doesn't take a direction, and we want stable sorting.
-		[e.reverse() for e in lst]
-		l = len(lst[0]) - 1
-		sort_idx = [l - i for i in reversed(lexsort(lst))]
-	else:
-		sort_idx = list(lexsort(lst)) # stable
-	return sort_idx
+	lst = list(columniter(options.sort_columns))
+	reverse = (options.sort_order == 'descending')
+	return sorted(range(len(lst)), key=lst.__getitem__, reverse=reverse)
 
 def prepare(params):
 	d = datasets.source
