@@ -42,7 +42,12 @@ class Methods(object):
 		self.package_list = package_list
 		self.db = {}
 		for package in self.package_list:
-			package_mod = import_module(package)
+			try:
+				package_mod = import_module(package)
+				if not hasattr(package_mod, "__file__"):
+					raise ImportError("no __file__")
+			except ImportError:
+				raise Exception("Failed to import %s, maybe missing __init__.py?" % (package,))
 			confname = os.path.join(os.path.dirname(package_mod.__file__), configfilename)
 			tmp = read_method_conf(confname)
 			for x in tmp:
