@@ -375,17 +375,16 @@ class Dataset(unicode):
 					continue
 				if range_bottom is not None and c.max < range_bottom:
 					continue
-			jobid = d.split('/')[0]
 			if sliceno is None:
 				for ix in builtins.range(SLICES):
-					to_iter.append((jobid, d, ix, False,))
+					to_iter.append((d, ix, False,))
 			else:
 				if hashlabel and d.hashlabel != hashlabel:
 					assert hashlabel in d.columns, "Can't rehash %s on non-existant column %s" % (d, hashlabel,)
 					rehash = hashlabel
 				else:
 					rehash = False
-				to_iter.append((jobid, d, sliceno, rehash,))
+				to_iter.append((d, sliceno, rehash,))
 		filter_func = Dataset._resolve_filters(columns, filters, want_tuple)
 		translation_func, translators = Dataset._resolve_translators(columns, translators)
 		if sloppy_range:
@@ -479,15 +478,16 @@ class Dataset(unicode):
 			else:
 				return '%s:%d' % (d, sliceno)
 		if len(to_iter) == 1:
-			msg_head = 'Iterating ' + fmt_dsname(*to_iter[0][1:])
+			msg_head = 'Iterating ' + fmt_dsname(*to_iter[0])
 			def update_status(update, ix, d, sliceno, rehash):
 				pass
 		else:
-			msg_head = 'Iterating %s to %s' % (fmt_dsname(*to_iter[0][1:]), fmt_dsname(*to_iter[-1][1:]),)
+			msg_head = 'Iterating %s to %s' % (fmt_dsname(*to_iter[0]), fmt_dsname(*to_iter[-1]),)
 			def update_status(update, ix, d, sliceno, rehash):
 				update('%s, %d/%d (%s)' % (msg_head, ix, len(to_iter), fmt_dsname(d, sliceno, rehash)))
 		with status(msg_head) as update:
-			for ix, (jobid, d, sliceno, rehash) in enumerate(to_iter, 1):
+			for ix, (d, sliceno, rehash) in enumerate(to_iter, 1):
+				jobid = d.split('/')[0]
 				if unsliced_post_callback:
 					post_callback(jobid)
 				update_status(update, ix, d, sliceno, rehash)
