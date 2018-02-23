@@ -56,7 +56,7 @@ def csvexport(sliceno, filename, labelsonfirstline):
 			prev_source = [None] * len(datasets.source)
 		lst = []
 		for src, stop in zip(datasets.source, prev_source):
-			lst.extend(src.chain(stop_jobid=stop))
+			lst.extend(src.chain(stop_ds=stop))
 		datasets.source = lst
 	if filename.lower().endswith('.gz'):
 		mkwrite = GzWrite

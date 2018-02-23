@@ -44,7 +44,7 @@ datasets = ('source', 'stop',)
 
 def synthesis():
 	sum = 0
-	jobs = datasets.source.chain(length=options.chain_length, stop_jobid=datasets.stop)
+	jobs = datasets.source.chain(length=options.chain_length, stop_ds=datasets.stop)
 	for src in jobs:
 		jid = build('dataset_checksum', options=dict(columns=options.columns, sort=options.sort), datasets=dict(source=src))
 		data = blob.load(jobid=jid)

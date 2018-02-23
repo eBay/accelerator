@@ -273,15 +273,13 @@ class Dataset(unicode):
 				sliceno = '%s'
 			return resolve_jobid_filename(jid, name % (sliceno,))
 
-	def chain(self, length=-1, reverse=False, stop_jobid=None):
-		if stop_jobid:
-			# resolve whatever format to the bare jobid
-			stop_jobid = Dataset(stop_jobid)
-			if stop_jobid:
-				stop_jobid = stop_jobid.jobid
+	def chain(self, length=-1, reverse=False, stop_ds=None):
+		if stop_ds:
+			# resolve all formats to the same format
+			stop_ds = Dataset(stop_ds)
 		chain = []
 		current = self
-		while length != len(chain) and current.jobid != stop_jobid:
+		while length != len(chain) and current != stop_ds:
 			chain.append(current)
 			if not current.previous:
 				break
@@ -290,9 +288,9 @@ class Dataset(unicode):
 			chain.reverse()
 		return chain
 
-	def iterate_chain(self, sliceno, columns=None, length=-1, range=None, sloppy_range=False, reverse=False, hashlabel=None, stop_jobid=None, pre_callback=None, post_callback=None, filters=None, translators=None, status_reporting=True):
+	def iterate_chain(self, sliceno, columns=None, length=-1, range=None, sloppy_range=False, reverse=False, hashlabel=None, stop_ds=None, pre_callback=None, post_callback=None, filters=None, translators=None, status_reporting=True):
 		"""Iterate a list of datasets. See .chain and .iterate_list for details."""
-		chain = self.chain(length, reverse, stop_jobid)
+		chain = self.chain(length, reverse, stop_ds)
 		return self.iterate_list(sliceno, columns, chain, range=range, sloppy_range=sloppy_range, hashlabel=hashlabel, pre_callback=pre_callback, post_callback=post_callback, filters=filters, translators=translators, status_reporting=status_reporting)
 
 	def iterate(self, sliceno, columns=None, hashlabel=None, filters=None, translators=None, status_reporting=True):
@@ -300,8 +298,9 @@ class Dataset(unicode):
 		return self.iterate_list(sliceno, columns, [self], hashlabel=hashlabel, filters=filters, translators=translators, status_reporting=status_reporting)
 
 	@staticmethod
-	def iterate_list(sliceno, columns, jobids, range=None, sloppy_range=False, hashlabel=None, pre_callback=None, post_callback=None, filters=None, translators=None, status_reporting=True):
-		"""Iterator over the specified columns from jobids (str or list)
+	def iterate_list(sliceno, columns, datasets, range=None, sloppy_range=False, hashlabel=None, pre_callback=None, post_callback=None, filters=None, translators=None, status_reporting=True):
+		"""Iterator over the specified columns from datasets
+		(iterable of dataset-specifiers, or single dataset-specifier).
 		callbacks are called before and after each dataset is iterated.
 
 		filters decide which rows to include and can be a callable
@@ -343,12 +342,9 @@ class Dataset(unicode):
 		and you will get warnings about incorrect ending order of statuses.)
 		"""
 
-		if isinstance(jobids, Dataset):
-			datasets = [jobids]
-		elif isinstance(jobids, str_types):
-			datasets = [Dataset(jid.strip()) for jid in jobids.split(',')]
-		else:
-			datasets = [jid if isinstance(jid, Dataset) else Dataset(jid) for jid in jobids]
+		if isinstance(datasets, str_types + (Dataset, dict)):
+			datasets = [datasets]
+		datasets = [ds if isinstance(ds, Dataset) else Dataset(ds) for ds in datasets]
 		if not columns:
 			columns = datasets[0].columns
 		if isinstance(columns, str_types):
@@ -437,19 +433,19 @@ class Dataset(unicode):
 
 	@staticmethod
 	def _iterate_datasets(to_iter, columns, pre_callback, post_callback, filter_func, translation_func, translators, want_tuple, range, status_reporting):
-		skip_jobid = None
+		skip_ds = None
 		def argfixup(func, is_post):
 			if func:
 				if len(getargspec(func).args) == 1:
-					seen_jobid = [None]
-					def wrapper(jobid, sliceno=None):
-						if jobid != seen_jobid[0]:
+					seen_ds = [None]
+					def wrapper(d, sliceno=None):
+						if d != seen_ds[0]:
 							if is_post:
-								if seen_jobid[0] and seen_jobid[0] != skip_jobid:
-									func(seen_jobid[0])
+								if seen_ds[0] and seen_ds[0] != skip_ds:
+									func(seen_ds[0])
 							else:
-								func(jobid)
-							seen_jobid[0] = jobid
+								func(d)
+							seen_ds[0] = d
 					return wrapper, True
 			return func, False
 		pre_callback, unsliced_pre_callback = argfixup(pre_callback, False)
@@ -487,21 +483,20 @@ class Dataset(unicode):
 				update('%s, %d/%d (%s)' % (msg_head, ix, len(to_iter), fmt_dsname(d, sliceno, rehash)))
 		with status(msg_head) as update:
 			for ix, (d, sliceno, rehash) in enumerate(to_iter, 1):
-				jobid = d.split('/')[0]
 				if unsliced_post_callback:
-					post_callback(jobid)
+					post_callback(d)
 				update_status(update, ix, d, sliceno, rehash)
 				if pre_callback:
-					if jobid == skip_jobid:
+					if d == skip_ds:
 						continue
 					try:
-						pre_callback(jobid, sliceno)
+						pre_callback(d, sliceno)
 					except SkipSlice:
 						if unsliced_pre_callback:
-							skip_jobid = jobid
+							skip_ds = d
 						continue
 					except SkipJob:
-						skip_jobid = jobid
+						skip_ds = d
 						continue
 				it = d._iterator(None if rehash else sliceno, columns)
 				for ix, trans in translators.items():
@@ -529,7 +524,7 @@ class Dataset(unicode):
 					it = ifilter(filter_func, it)
 				yield it
 				if post_callback and not unsliced_post_callback:
-					post_callback(jobid, sliceno)
+					post_callback(d, sliceno)
 			if unsliced_post_callback:
 				post_callback(None)
 

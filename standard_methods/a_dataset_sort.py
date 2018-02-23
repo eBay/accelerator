@@ -46,9 +46,9 @@ def sort(columniter):
 
 def prepare(params):
 	d = datasets.source
-	jobs = d.chain(stop_jobid={datasets.previous: 'source'})
+	ds_list = d.chain(stop_ds={datasets.previous: 'source'})
 	if options.sort_across_slices:
-		columniter = partial(Dataset.iterate_list, None, jobids=jobs)
+		columniter = partial(Dataset.iterate_list, None, datasets=ds_list)
 		sort_idx = sort(columniter)
 	else:
 		sort_idx = None
@@ -56,7 +56,7 @@ def prepare(params):
 		hashlabel = None
 	else:
 		hashlabel = d.hashlabel
-	if len(jobs) == 1:
+	if len(ds_list) == 1:
 		filename = d.filename
 	else:
 		filename = None
@@ -66,19 +66,19 @@ def prepare(params):
 		hashlabel=hashlabel,
 		filename=filename,
 	)
-	return dw, jobs, sort_idx
+	return dw, ds_list, sort_idx
 
 def analysis(sliceno, params, prepare_res):
-	dw, jobs, sort_idx = prepare_res
+	dw, ds_list, sort_idx = prepare_res
 	if options.sort_across_slices:
-		columniter = partial(Dataset.iterate_list, None, jobids=jobs)
+		columniter = partial(Dataset.iterate_list, None, datasets=ds_list)
 		per_slice = len(sort_idx) // params.slices
 		if sliceno + 1 ==  params.slices:
 			sort_idx = sort_idx[per_slice * sliceno:]
 		else:
 			sort_idx = sort_idx[per_slice * sliceno:per_slice * (sliceno + 1)]
 	else:
-		columniter = partial(Dataset.iterate_list, sliceno, jobids=jobs)
+		columniter = partial(Dataset.iterate_list, sliceno, datasets=ds_list)
 		sort_idx = sort(columniter)
 	for column in datasets.source.columns:
 		lst = list(columniter(column))

@@ -47,7 +47,7 @@ def analysis(sliceno, prepare_res):
 	iterator = datasets.source.iterate_chain(
 		sliceno,
 		(options.key_column, options.value_column,),
-		stop_jobid={jobids.previous: 'source'},
+		stop_ds={jobids.previous: 'source'},
 	)
 	# These break out into four versions for shorter runtime
 	if options.value_filter:

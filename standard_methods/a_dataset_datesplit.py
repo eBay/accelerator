@@ -428,7 +428,7 @@ def analysis(sliceno, params, prepare_res):
 			we_have_spill |= not stats[source].virtual_spill
 	if datasets.source:
 		prev_params = job_params(datasets.previous, default_empty=True)
-		for source in datasets.source.chain(stop_jobid=prev_params.datasets.source):
+		for source in datasets.source.chain(stop_ds=prev_params.datasets.source):
 			spilldata[source], stats[source] = process_one(sliceno, options, source, prepare_res)
 			we_have_spill |= not stats[source].virtual_spill
 	spilldata = [(k, v) for k, v in spilldata.iteritems() if v]

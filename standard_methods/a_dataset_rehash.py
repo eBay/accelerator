@@ -42,7 +42,7 @@ def prepare(params):
 	caption = options.caption % dict(caption=d.caption, hashlabel=options.hashlabel)
 	prev_p = job_params(datasets.previous, default_empty=True)
 	prev_source = prev_p.datasets.source
-	if len(d.chain(stop_jobid=prev_source, length=options.length)) == 1:
+	if len(d.chain(stop_ds=prev_source, length=options.length)) == 1:
 		filename = d.filename
 	else:
 		filename = None
@@ -77,7 +77,7 @@ def analysis(sliceno, prepare_res):
 	it = datasets.source.iterate_chain(
 		sliceno,
 		names,
-		stop_jobid=prev_source,
+		stop_ds=prev_source,
 		length=options.length,
 	)
 	write = dws[sliceno].get_split_write_list()

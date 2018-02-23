@@ -51,7 +51,7 @@ def analysis(sliceno, prepare_res):
 		_, stats[source] = a_dataset_datesplit.process_one(sliceno, source_params.options, source, prepare_res, data, save_discard=True)
 	source_params = job_params(datasets.source)
 	prev_params = job_params(source_params.datasets.previous, default_empty=True)
-	for source in Dataset(source_params.datasets.source).chain(stop_jobid=prev_params.datasets.source):
+	for source in Dataset(source_params.datasets.source).chain(stop_ds=prev_params.datasets.source):
 		_, stats[source] = a_dataset_datesplit.process_one(sliceno, source_params.options, source, prepare_res, save_discard=True)
 	blob.save(stats, 'stats', sliceno=sliceno, temp=False)
 
