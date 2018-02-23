@@ -473,15 +473,24 @@ class Dataset(unicode):
 			from status import status
 		else:
 			from status import dummy_status as status
-		starting_at = '%s:%d' % (to_iter[0][0], to_iter[0][2],)
+		def fmt_dsname(d, sliceno, rehash):
+			if rehash:
+				return d + ':REHASH'
+			else:
+				return '%s:%d' % (d, sliceno)
 		if len(to_iter) == 1:
-			msg = 'Iterating ' + starting_at
+			msg_head = 'Iterating ' + fmt_dsname(*to_iter[0][1:])
+			def update_status(update, ix, d, sliceno, rehash):
+				pass
 		else:
-			msg = 'Iterating %d dataset slices starting at %s' % (len(to_iter), starting_at,)
-		with status(msg):
-			for ix, (jobid, d, sliceno, rehash) in enumerate(to_iter):
+			msg_head = 'Iterating %s to %s' % (fmt_dsname(*to_iter[0][1:]), fmt_dsname(*to_iter[-1][1:]),)
+			def update_status(update, ix, d, sliceno, rehash):
+				update('%s, %d/%d (%s)' % (msg_head, ix, len(to_iter), fmt_dsname(d, sliceno, rehash)))
+		with status(msg_head) as update:
+			for ix, (jobid, d, sliceno, rehash) in enumerate(to_iter, 1):
 				if unsliced_post_callback:
 					post_callback(jobid)
+				update_status(update, ix, d, sliceno, rehash)
 				if pre_callback:
 					if jobid == skip_jobid:
 						continue
@@ -518,8 +527,7 @@ class Dataset(unicode):
 							it = compress(it, imap(range_check, filter_it))
 				if filter_func:
 					it = ifilter(filter_func, it)
-				with status('(%d/%d) %s:%s' % (ix, len(to_iter), jobid, 'REHASH' if rehash else sliceno,)):
-					yield it
+				yield it
 				if post_callback and not unsliced_post_callback:
 					post_callback(jobid, sliceno)
 			if unsliced_post_callback:
