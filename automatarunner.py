@@ -148,7 +148,11 @@ def main(argv):
 
 
 def print_minimal_traceback():
-	blacklist_fns = {automata_common.__file__}
+	ac_fn = automata_common.__file__
+	if ac_fn[-4:] in ('.pyc', '.pyo',):
+		# stupid python2
+		ac_fn = ac_fn[:-1]
+	blacklist_fns = {ac_fn}
 	last_interesting = None
 	_, e, tb = sys.exc_info()
 	while tb is not None:
