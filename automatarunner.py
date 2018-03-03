@@ -147,9 +147,32 @@ def main(argv):
 	run_automata(options)
 
 
+def print_minimal_traceback():
+	blacklist_fns = {automata_common.__file__}
+	last_interesting = None
+	_, e, tb = sys.exc_info()
+	while tb is not None:
+		code = tb.tb_frame.f_code
+		if code.co_filename not in blacklist_fns:
+			last_interesting = tb
+		tb = tb.tb_next
+	lineno = last_interesting.tb_lineno
+	filename = last_interesting.tb_frame.f_code.co_filename
+	print("Failed to build job %s on %s line %d" % (e.jobid, filename, lineno,))
+
+
 if __name__ == "__main__":
 	# sys.path needs to contain .. (the project dir), put it after accelerator
 	sys.path.insert(1, dirname(sys.path[0]))
 	sys.stdout = AutoFlush(sys.stdout)
 	sys.stderr = AutoFlush(sys.stderr)
-	main(sys.argv[1:])
+	res = 1
+	try:
+		main(sys.argv[1:])
+		res = 0
+	except JobError:
+		# If it's a JobError we don't care about the local traceback,
+		# we want to see the job traceback, and maybe know what line
+		# we built the job on.
+		print_minimal_traceback()
+	exit(res)
