@@ -31,7 +31,7 @@ from traceback import print_exc, format_tb, format_exception_only
 from extras import job_params, ResultIterMagic, DotDict
 from time import time, sleep
 import json
-from compat import pickle, iteritems
+from compat import pickle, iteritems, setproctitle
 from dispatch import JobError
 import blob
 import status
@@ -48,7 +48,9 @@ assert set(n for n in dir(g) if not n.startswith("__")) == g_always, "Don't put 
 
 def call_analysis(analysis_func, sliceno_, q, preserve_result, parent_pid, **kw):
 	try:
-		status._start('analysis(%d)' % (sliceno_,), parent_pid, 't')
+		slicename = 'analysis(%d)' % (sliceno_,)
+		status._start(slicename, parent_pid, 't')
+		setproctitle(slicename)
 		os.close(_prof_fd)
 		for stupid_inconsistent_name in ('sliceno', 'index'):
 			if stupid_inconsistent_name in kw:
@@ -159,6 +161,8 @@ def fmt_tb(skip_level):
 
 
 def execute_process(workdir, jobid, slices, result_directory, common_directory, source_directory, index=None, workspaces=None, daemon_url=None, subjob_cookie=None, parent_pid=0):
+	g.JOBID = jobid
+	setproctitle('launch')
 	path = os.path.join(workdir, jobid)
 	try:
 		os.chdir(path)
@@ -238,6 +242,7 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 		t = time()
 		g.running = 'prepare'
 		g.subjob_cookie = subjob_cookie
+		setproctitle(g.running)
 		with status.status(g.running):
 			g.prepare_res = method_ref.prepare(**args_for(method_ref.prepare))
 			to_finish = [dw.name for dw in dataset._datasetwriters.values() if dw._started]
@@ -246,6 +251,7 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 					for name in sorted(to_finish, key=dw_sortnum):
 						dataset._datasetwriters[name].finish()
 		prof['prepare'] = time() - t
+	setproctitle('launch')
 	from extras import saved_files
 	if analysis_func is dummy:
 		prof['per_slice'] = []
@@ -261,6 +267,7 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 	t = time()
 	g.running = 'synthesis'
 	g.subjob_cookie = subjob_cookie
+	setproctitle(g.running)
 	with status.status(g.running):
 		synthesis_res = synthesis_func(**args_for(synthesis_func))
 		if synthesis_res is not None:

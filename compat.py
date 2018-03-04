@@ -20,8 +20,13 @@
 
 from __future__ import print_function
 from __future__ import division
+from __future__ import unicode_literals
 
 import sys
+try:
+	from setproctitle import setproctitle as _setproctitle
+except ImportError:
+	def _setproctitle(title): pass
 
 if sys.version_info[0] == 2:
 	PY2 = True
@@ -86,3 +91,15 @@ def uni(s):
 		except UnicodeDecodeError:
 			return s.decode('iso-8859-1')
 	return unicode(s)
+
+# This is used in the method launcher to set different titles for each
+# phase/slice. You can use it in the method to override that if you want.
+def setproctitle(title):
+	import g
+	if hasattr(g, 'METHOD'):
+		title = '%s %s (%s)' % (g.JOBID, uni(title), g.METHOD,)
+	else:
+		title = '%s %s' % (g.JOBID, uni(title),)
+	if PY2:
+		title = title.encode('utf-8')
+	_setproctitle(title)
