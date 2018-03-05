@@ -40,7 +40,11 @@ datasets = ('source', 'previous',)
 
 
 def sort(columniter):
-	lst = list(columniter(options.sort_columns))
+	columns = options.sort_columns
+	if len(columns) == 1:
+		# Special case to not make tuples when there is only one column.
+		columns = columns[0]
+	lst = list(columniter(columns))
 	reverse = (options.sort_order == 'descending')
 	return sorted(range(len(lst)), key=lst.__getitem__, reverse=reverse)
 
