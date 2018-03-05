@@ -31,7 +31,7 @@ from traceback import print_exc, format_tb, format_exception_only
 from extras import job_params, ResultIterMagic, DotDict
 from time import time, sleep
 import json
-from compat import pickle, iteritems, setproctitle
+from compat import pickle, iteritems, setproctitle, QueueEmpty
 from dispatch import JobError
 import blob
 import status
@@ -120,8 +120,31 @@ def fork_analysis(slices, analysis_func, kw, preserve_result):
 		children.append(p)
 	per_slice = []
 	temp_files = {}
-	for p in children:
-		s_no, s_t, s_temp_files, s_dw_lens, s_dw_minmax, s_tb = q.get()
+	no_children_no_messages = False
+	while len(per_slice) < slices:
+		still_alive = []
+		for p in children:
+			if p.is_alive():
+				still_alive.append(p)
+			else:
+				p.join()
+				if p.exitcode:
+					raise Exception("%s terminated with exitcode %d" % (p.name, p.exitcode,))
+		children = still_alive
+		# If a process dies badly we may never get a message here.
+		# No need to handle that very quickly though, 10 seconds is fine.
+		# (Typically this is caused by running out of memory.)
+		try:
+			s_no, s_t, s_temp_files, s_dw_lens, s_dw_minmax, s_tb = q.get(timeout=10)
+		except QueueEmpty:
+			if not children:
+				# No children left, so they must have all sent their messages.
+				# Still, just to be sure there isn't a race, wait one iteration more.
+				if no_children_no_messages:
+					raise Exception("All analysis processes exited cleanly, but not all returned a result.")
+				else:
+					no_children_no_messages = True
+			continue
 		if s_tb:
 			data = [{'analysis(%d)' % (s_no,): s_tb}, None]
 			os.write(_prof_fd, json.dumps(data).encode('utf-8'))
