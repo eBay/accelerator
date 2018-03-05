@@ -89,3 +89,5 @@ def analysis(sliceno, params, prepare_res):
 		w = dw.writers[column].write
 		for idx in sort_idx:
 			w(lst[idx])
+		# Delete the list before making a new one, so we use less memory.
+		del lst
