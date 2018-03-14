@@ -288,17 +288,17 @@ class Dataset(unicode):
 			chain.reverse()
 		return chain
 
-	def iterate_chain(self, sliceno, columns=None, length=-1, range=None, sloppy_range=False, reverse=False, hashlabel=None, stop_ds=None, pre_callback=None, post_callback=None, filters=None, translators=None, status_reporting=True):
+	def iterate_chain(self, sliceno, columns=None, length=-1, range=None, sloppy_range=False, reverse=False, hashlabel=None, stop_ds=None, pre_callback=None, post_callback=None, filters=None, translators=None, status_reporting=True, rehash=False):
 		"""Iterate a list of datasets. See .chain and .iterate_list for details."""
 		chain = self.chain(length, reverse, stop_ds)
-		return self.iterate_list(sliceno, columns, chain, range=range, sloppy_range=sloppy_range, hashlabel=hashlabel, pre_callback=pre_callback, post_callback=post_callback, filters=filters, translators=translators, status_reporting=status_reporting)
+		return self.iterate_list(sliceno, columns, chain, range=range, sloppy_range=sloppy_range, hashlabel=hashlabel, pre_callback=pre_callback, post_callback=post_callback, filters=filters, translators=translators, status_reporting=status_reporting, rehash=rehash)
 
-	def iterate(self, sliceno, columns=None, hashlabel=None, filters=None, translators=None, status_reporting=True):
+	def iterate(self, sliceno, columns=None, hashlabel=None, filters=None, translators=None, status_reporting=True, rehash=False):
 		"""Iterate just this dataset. See .iterate_list for details."""
-		return self.iterate_list(sliceno, columns, [self], hashlabel=hashlabel, filters=filters, translators=translators, status_reporting=status_reporting)
+		return self.iterate_list(sliceno, columns, [self], hashlabel=hashlabel, filters=filters, translators=translators, status_reporting=status_reporting, rehash=rehash)
 
 	@staticmethod
-	def iterate_list(sliceno, columns, datasets, range=None, sloppy_range=False, hashlabel=None, pre_callback=None, post_callback=None, filters=None, translators=None, status_reporting=True):
+	def iterate_list(sliceno, columns, datasets, range=None, sloppy_range=False, hashlabel=None, pre_callback=None, post_callback=None, filters=None, translators=None, status_reporting=True, rehash=False):
 		"""Iterator over the specified columns from datasets
 		(iterable of dataset-specifiers, or single dataset-specifier).
 		callbacks are called before and after each dataset is iterated.
@@ -326,9 +326,16 @@ class Dataset(unicode):
 		You can also pass a single name (a str) as columns, in which case you
 		don't get a tuple back (just the values). Tuple-filters/translators also
 		get just the value in this case (column versions are unaffected).
-		
+
 		If you pass a false value for columns you get all columns in name order.
-		
+
+		If you specify a hashlabel and rehash=False (the default) you will
+		get an error if the a dataset does not use the specified hashlabel.
+		If you specify rehash=True such datasets will be rehashed during
+		iteration. You should usually build a new rehashed dataset (using
+		the dataset_rehash method), but this is available for when it makes
+		sense.
+
 		range limits which rows you see. Specify {colname: (start, stop)} and
 		only rows where start <= colvalue < stop will be returned.
 		If you set sloppy_range=True you may get all rows from datasets that
@@ -371,16 +378,18 @@ class Dataset(unicode):
 					continue
 				if range_bottom is not None and c.max < range_bottom:
 					continue
+			if hashlabel and d.hashlabel != hashlabel:
+				assert rehash, "%s has hashlabel %s, not %s" % (d, d.hashlabel, hashlabel,)
+				assert hashlabel in d.columns, "Can't rehash %s on non-existant column %s" % (d, hashlabel,)
+				rehash_on = hashlabel
+			else:
+				rehash_on = False
 			if sliceno is None:
 				for ix in builtins.range(SLICES):
+					# Ignore rehashing - order is generally not guaranteed with sliceno=None
 					to_iter.append((d, ix, False,))
 			else:
-				if hashlabel and d.hashlabel != hashlabel:
-					assert hashlabel in d.columns, "Can't rehash %s on non-existant column %s" % (d, hashlabel,)
-					rehash = hashlabel
-				else:
-					rehash = False
-				to_iter.append((d, sliceno, rehash,))
+				to_iter.append((d, sliceno, rehash_on,))
 		filter_func = Dataset._resolve_filters(columns, filters, want_tuple)
 		translation_func, translators = Dataset._resolve_translators(columns, translators)
 		if sloppy_range:
