@@ -701,7 +701,8 @@ class DatasetWriter(object):
 	arguments from the columns too.
 	
 	If you set hashlabel you can use dw.hashcheck(v) to check if v
-	belongs in this slice. You can also just call the writer, and it will
+	belongs in this slice. You can also call enable_hash_discard
+	(in each slice, or after each set_slice), then the writer will
 	discard anything that does not belong in this slice.
 	
 	If you are not in analysis and you wish to use the functions above
@@ -812,6 +813,13 @@ class DatasetWriter(object):
 			sliceno = self.sliceno
 		return '%s/%d.%s' % (self.name, sliceno, self._clean_names[colname],)
 
+	def enable_hash_discard(self):
+		"""Make the write functions silently discard data that does not
+		hash to the current slice."""
+		assert self.hashlabel, "Can't enable hash discard without hashlabel"
+		assert self._started == 1, "Call enable_hash_discard after set_slice"
+		self._mkwritefuncs(discard=True)
+
 	def _mkwriters(self, sliceno, filtered=True):
 		assert self.columns, "No columns in dataset"
 		if self.hashlabel:
@@ -833,10 +841,11 @@ class DatasetWriter(object):
 			writers[colname] = w
 		return writers
 
-	def _mkwritefuncs(self):
+	def _mkwritefuncs(self, discard=False):
 		hl = self.hashlabel
 		w_l = [self.writers[c].write for c in self._order]
 		w = {k: w.write for k, w in self.writers.items()}
+		wrong_slice_msg = "Attempted to write data for wrong slice"
 		if hl:
 			hw = w.pop(hl)
 			w_i = w.items()
@@ -844,6 +853,8 @@ class DatasetWriter(object):
 				if hw(values[hl]):
 					for k, w in w_i:
 						w(values[k])
+				elif not discard:
+					raise Exception(wrong_slice_msg)
 			self.write_dict = write_dict
 			hix = self._order.index(hl)
 		else:
@@ -868,6 +879,9 @@ class DatasetWriter(object):
 				if ix != hix:
 					f.append('  w%d(%s)' % (ix, names[ix],))
 					f_list.append('  w%d(values[%d])' % (ix, ix,))
+			if hl and not discard:
+				f.append(' else: raise Exception(%r)' % (wrong_slice_msg,))
+				f_list.append(' else: raise Exception(%r)' % (wrong_slice_msg,))
 		eval(compile('\n'.join(f), '<DatasetWriter generated write>', 'exec'), w_d)
 		self.write = w_d['write']
 		eval(compile('\n'.join(f_list), '<DatasetWriter generated write_list>', 'exec'), w_d)
