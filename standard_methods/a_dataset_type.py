@@ -247,8 +247,8 @@ err:
 	int  maxlen = 0;
 	PyObject *o_col_min = 0;
 	PyObject *o_col_max = 0;
-	double d_col_min;
-	double d_col_max;
+	double d_col_min = 0;
+	double d_col_max = 0;
 	char *badmap = 0;
 	const int allow_float = !fmt;
 	PyGILState_STATE gstate = PyGILState_Ensure();
