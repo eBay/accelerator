@@ -349,7 +349,7 @@ def single(user, automata, timestamp):
 @route('/add', method='POST')
 @auth_basic(auth)
 def add():
-	data = DotDict(request.json or {})
+	data = DotDict(json.load(request.body))
 	if data.user != request.auth[0]:
 		abort(401, "Error:  user does not match authentication!")
 	result = db.add(data)
