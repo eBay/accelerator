@@ -158,7 +158,6 @@ class DB:
 			if now != self._lasttime: break
 		self._lasttime = now
 		s = '|'.join([LOGFILEVERSION, now, action, data.timestamp, key,] + logdata)
-		print 'serialise', s
 		return s
 
 	def _is_ghost(self, data):
@@ -364,7 +363,6 @@ def truncate(user, automata, timestamp):
 	return db.truncate(user + '/' + automata, timestamp)
 
 
-#(setq indent-tabs-mode t)
 @route('/list')
 def slash_list():
 	return sorted(db.keys())
@@ -394,7 +392,7 @@ def jsonify(callback):
 if __name__ == "__main__":
 	from argparse import ArgumentParser
 	import os.path
-	parser = ArgumentParser(description='pelle')
+	parser = ArgumentParser()
 	parser.add_argument('--port', type=int, default=8080, help='server port')
 	parser.add_argument('--path', type=str, default='./', help='database directory')
 	args = parser.parse_args()
