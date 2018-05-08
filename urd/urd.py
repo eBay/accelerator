@@ -29,7 +29,7 @@ import re
 from datetime import datetime
 import operator
 
-LOGFILEVERSION = '2'
+LOGFILEVERSION = '3'
 
 lock = Lock()
 
@@ -93,7 +93,7 @@ class DB:
 	def _parse(self, line):
 		line = line.rstrip('\n').split('|')
 		logfileversion, writets = line[:2]
-		assert logfileversion == '2'
+		assert logfileversion == '3'
 		assert writets not in self._parsed
 		self._parsed[writets] = line[2:]
 
@@ -127,7 +127,7 @@ class DB:
 		self.truncate(key, timestamp)
 
 	def _validate_timestamp(self, timestamp):
-		assert re.match(r"\d{8}( \d\d(\d\d(\d\d)?)?)?", timestamp), timestamp
+		assert re.match(r"\d{4}-\d{2}-\d{2}(T\d{2}(:\d{2}(:\d{2})?)?)?", timestamp), timestamp
 
 	def _validate_data(self, data, with_deps=True):
 		if with_deps:
@@ -158,10 +158,12 @@ class DB:
 		elif action == 'truncate':
 			key = data.key
 			logdata = []
+			if data.timestamp != '0':
+				self._validate_timestamp(data.timestamp)
 		else:
 			assert "can't happen"
 		while True: # paranoia
-			now = datetime.utcnow().strftime("%Y%m%d %H%M%S.%f")
+			now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%f")
 			if now != self._lasttime: break
 		self._lasttime = now
 		s = '|'.join([LOGFILEVERSION, now, action, data.timestamp, key,] + logdata)
