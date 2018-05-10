@@ -70,13 +70,20 @@ class DB:
 		self.ghost_db = defaultdict(lambda: defaultdict(list))
 		if os.path.isdir(path):
 			files = glob(os.path.join(path, '*/*.urd'))
-			print 'init: ', files
 			self._parsed = {}
+			stat = {}
 			for fn in files:
 				with open(fn) as fh:
+					ix = 0
 					for line in fh:
 						self._parse(line)
+						ix += 1
+					stat[fn[len(path) + 1:-len('.urd')]] = ix
 			self._playback_parsed()
+			print("urd-list                          lines     ghosts     active")
+			for key, val in sorted(stat.items()):
+				print("%-30s  %7d    %7d    %7d" % (key, val, len(self.ghost_db[key]), len(self.db[key]),))
+			print
 		else:
 			print "Creating directory \"%s\"." % (path,)
 			os.makedirs(path)
