@@ -493,7 +493,10 @@ class Dataset(unicode):
 		with status(msg_head) as update:
 			for ix, (d, sliceno, rehash) in enumerate(to_iter, 1):
 				if unsliced_post_callback:
-					post_callback(d)
+					try:
+						post_callback(d)
+					except StopIteration:
+						return
 				update_status(update, ix, d, sliceno, rehash)
 				if pre_callback:
 					if d == skip_ds:
@@ -507,6 +510,8 @@ class Dataset(unicode):
 					except SkipJob:
 						skip_ds = d
 						continue
+					except StopIteration:
+						return
 				it = d._iterator(None if rehash else sliceno, columns)
 				for ix, trans in translators.items():
 					it[ix] = imap(trans, it[ix])
@@ -533,9 +538,15 @@ class Dataset(unicode):
 					it = ifilter(filter_func, it)
 				yield it
 				if post_callback and not unsliced_post_callback:
-					post_callback(d, sliceno)
+					try:
+						post_callback(d, sliceno)
+					except StopIteration:
+						return
 			if unsliced_post_callback:
-				post_callback(None)
+				try:
+					post_callback(None)
+				except StopIteration:
+					return
 
 	@staticmethod
 	def new(columns, filenames, lines, minmax={}, filename=None, hashlabel=None, caption=None, previous=None, name='default'):
