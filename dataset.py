@@ -101,6 +101,7 @@ DatasetColumn = _DatasetColumn_2_0
 
 class _New_dataset_marker(unicode): pass
 _new_dataset_marker = _New_dataset_marker('new')
+_no_override = object()
 
 _ds_cache = {}
 def _ds_load(obj):
@@ -212,12 +213,14 @@ class Dataset(unicode):
 	def shape(self):
 		return (len(self.columns), sum(self.lines),)
 
-	def link_to_here(self, name='default', column_filter=None):
+	def link_to_here(self, name='default', column_filter=None, override_previous=_no_override):
 		"""Use this to expose a subjob as a dataset in your job:
 		Dataset(subjid).link_to_here()
 		will allow access to the subjob dataset under your jid.
 		Specify column_filter as an iterable of columns to include
-		if you don't want all of them."""
+		if you don't want all of them.
+		Use override_previous to rechain (or unchain) the dataset.
+		"""
 		if column_filter:
 			column_filter = set(column_filter)
 			filtered_columns = {k: v for k, v in self._data.columns.items() if k in column_filter}
@@ -226,6 +229,12 @@ class Dataset(unicode):
 			assert filtered_columns, "Filter produced no desired columns."
 			self._data.columns = filtered_columns
 		from g import JOBID
+		if override_previous is not _no_override:
+			override_previous = _dsid(override_previous)
+			if override_previous:
+				# make sure it's valid
+				Dataset(override_previous)
+			self._data.previous = override_previous
 		self._data.parent = '%s/%s' % (self.jobid, self.name,)
 		self.jobid = uni(JOBID)
 		self.name = uni(name)
