@@ -236,6 +236,7 @@ class Dataset(unicode):
 				# make sure it's valid
 				Dataset(override_previous)
 			d._data.previous = override_previous
+			d._update_caches()
 		d._data.parent = '%s/%s' % (d.jobid, d.name,)
 		d.jobid = uni(JOBID)
 		d.name = uni(name)
@@ -639,6 +640,9 @@ class Dataset(unicode):
 		self._save()
 
 	def _update_caches(self):
+		for k in ('cache', 'cache_distance',):
+			if k in self._data:
+				del self._data[k]
 		if self.previous:
 			d = Dataset(self.previous)
 			cache_distance = d._data.get('cache_distance', 1) + 1
