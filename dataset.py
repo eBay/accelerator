@@ -221,24 +221,25 @@ class Dataset(unicode):
 		if you don't want all of them.
 		Use override_previous to rechain (or unchain) the dataset.
 		"""
+		d = Dataset(self)
 		if column_filter:
 			column_filter = set(column_filter)
-			filtered_columns = {k: v for k, v in self._data.columns.items() if k in column_filter}
+			filtered_columns = {k: v for k, v in d._data.columns.items() if k in column_filter}
 			left_over = column_filter - set(filtered_columns)
 			assert not left_over, "Columns in filter not available in dataset: %r" % (left_over,)
 			assert filtered_columns, "Filter produced no desired columns."
-			self._data.columns = filtered_columns
+			d._data.columns = filtered_columns
 		from g import JOBID
 		if override_previous is not _no_override:
 			override_previous = _dsid(override_previous)
 			if override_previous:
 				# make sure it's valid
 				Dataset(override_previous)
-			self._data.previous = override_previous
-		self._data.parent = '%s/%s' % (self.jobid, self.name,)
-		self.jobid = uni(JOBID)
-		self.name = uni(name)
-		self._save()
+			d._data.previous = override_previous
+		d._data.parent = '%s/%s' % (d.jobid, d.name,)
+		d.jobid = uni(JOBID)
+		d.name = uni(name)
+		d._save()
 
 	def _column_iterator(self, sliceno, col, **kw):
 		from sourcedata import type2iter
