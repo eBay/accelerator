@@ -29,7 +29,7 @@ import database
 import methods
 from extras import json_save
 from setupfile import update_setup
-from jobid import resolve_jobid_filename, put_workspaces
+from jobid import resolve_jobid_filename, put_workspaces, get_workspace_name
 from extras import DotDict, Temp
 
 from threading import Thread
@@ -190,17 +190,19 @@ class Main:
 
 	def initialise_jobs(self, setup):
 		""" Updata database, check deps, create jobids. """
+		ws = setup.get('workdir', self.current_workspace)
+		if ws not in self.workspaces:
+			raise Exception("Workdir %s does not exist" % (ws,))
 		return dependency.initialise_jobs(
 			setup,
-			self.workspaces[self.current_workspace],  # target workspace
+			self.workspaces[ws],
 			self.DataBase,
 			self.Methods,
 		)
 
 
 	def run_job(self, jobid, subjob_cookie=None, parent_pid=0):
-		""" Run analysis and synthesis for jobid in current workspace from WorkSpaceStorage """
-		W = self.workspaces[self.current_workspace]
+		W = self.workspaces[get_workspace_name(jobid)]
 		#
 		active_workspaces = {}
 		for name in [self.current_workspace] + list(self.current_remote_workspaces):

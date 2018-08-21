@@ -140,7 +140,7 @@ class Automata:
 		"""
 		self.params[method]['jobids'].update(jobiddict)
 
-	def submit(self, wait=True, why_build=False):
+	def submit(self, wait=True, why_build=False, workdir=None):
 		"""
 		Submit job to server and conditionaly wait for completion.
 		"""
@@ -152,6 +152,8 @@ class Automata:
 		if self.subjob_cookie:
 			data.subjob_cookie = self.subjob_cookie
 			data.parent_pid = os.getpid()
+		if workdir:
+			data.workdir = workdir
 		t0 = time.time()
 		self.job_retur = self._server_submit(data)
 		self.history.append((data, self.job_retur))
@@ -271,7 +273,7 @@ class Automata:
 	def list_workspaces(self):
 		return self._url_json('list_workspaces')
 
-	def call_method(self, method, defopt={}, defdata={}, defjob={}, options=(), datasets=(), jobids=(), record_in=None, record_as=None, why_build=False, caption=None):
+	def call_method(self, method, defopt={}, defdata={}, defjob={}, options=(), datasets=(), jobids=(), record_in=None, record_as=None, why_build=False, caption=None, workdir=None):
 		todo  = {method}
 		org_method = method
 		opted = set()
@@ -324,7 +326,7 @@ class Automata:
 			to_record.append(method)
 			todo.update(self.dep_methods[method])
 			todo.difference_update(opted)
-		self.submit(why_build=why_build)
+		self.submit(why_build=why_build, workdir=workdir)
 		if why_build: # specified by caller
 			return self.job_retur.why_build
 		if self.job_retur.why_build: # done by server anyway (because --flags why_build)
@@ -700,16 +702,16 @@ class Urd(object):
 		url = '%s/truncate/%s/%s' % (self._url, self._path(path), timestamp,)
 		return self._call(url, '')
 
-	def build(self, method, options={}, datasets={}, jobids={}, name=None, caption=None, why_build=False):
-		return self._a.call_method(method, options={method: options}, datasets={method: datasets}, jobids={method: jobids}, record_as=name, caption=caption, why_build=why_build)
+	def build(self, method, options={}, datasets={}, jobids={}, name=None, caption=None, why_build=False, workdir=None):
+		return self._a.call_method(method, options={method: options}, datasets={method: datasets}, jobids={method: jobids}, record_as=name, caption=caption, why_build=why_build, workdir=workdir)
 
-	def build_chained(self, method, options={}, datasets={}, jobids={}, name=None, caption=None, why_build=False):
+	def build_chained(self, method, options={}, datasets={}, jobids={}, name=None, caption=None, why_build=False, workdir=None):
 		datasets = dict(datasets or {})
 		assert 'previous' not in datasets, "Don't specify previous dataset to build_chained"
 		assert name, "build_chained must have 'name'"
 		assert self._latest_joblist is not None, "Can't build_chained without a dependency to chain from"
 		datasets['previous'] = self._latest_joblist.get(name)
-		return self.build(method, options, datasets, jobids, name, caption, why_build)
+		return self.build(method, options, datasets, jobids, name, caption, why_build, workdir)
 
 	def print_profile(self, verbose=True):
 		from extras import job_post
