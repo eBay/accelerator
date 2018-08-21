@@ -104,11 +104,6 @@ class Automata:
 	def config(self):
 		return self._url_json('config')
 
-	def set_workspace(self, workspace):
-		resp = self._url_get('set_workspace', workspace)
-		print(resp)
-
-
 	def new(self, method, caption=None):
 		"""
 		Prepare submission of a new job.

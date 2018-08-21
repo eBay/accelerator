@@ -124,14 +124,6 @@ class XtdHandler(BaseWebHandler):
 			method = path[1]
 			self.do_response(200, "text/json", self.ctrl.method_info(method))
 
-		elif path[0]=='set_workspace':
-			_ws = path[1]
-			if _ws not in self.ctrl.list_workspaces():
-				self.do_response(500,'text/plain', 'Undefined workspace \"%s\"\n' % _ws)
-			else:
-				self.ctrl.set_workspace(_ws)
-				self.do_response(200,'text/plain', 'Workspace set to \"%s\"\n' % _ws)
-
 		elif path[0]=='workspace_info':
 			self.do_response(200, 'text/json', self.ctrl.get_workspace_details())
 
