@@ -11,11 +11,11 @@ This is one of three repositories that are intended to be used together:
 2.    https://github.com/eBay/accelerator-gzutil
 3.    https://github.com/eBay/accelerator
 
-The purpose of the Accelerator project is to allow for fast data processing with big data. Extensive documentation on the purpose and how to use the Accelerator projects is covered in the reference manual found here:
+The purpose of the Accelerator project is to allow for fast data processing with big data. Extensive documentation on the purpose and how to use the Accelerator projects is covered in the following resources:
 
 [Reference Manual](https://berkeman.github.io/pdf/acc_manual.pdf) \
-[Installation Manual](https://berkeman.github.io/pdf/acc_install.pdf)
-
+[Installation Manual](https://berkeman.github.io/pdf/acc_install.pdf) \
+[Home Page](https://exax.org)
 
 
 
