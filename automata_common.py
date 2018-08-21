@@ -570,6 +570,7 @@ class Urd(object):
 		self.flags = set(a.flags)
 		self.horizon = horizon
 		self.joblist = a.jobs
+		self.workdir = None
 		auth = '%s:%s' % (user, password,)
 		if PY3:
 			auth = b64encode(auth.encode('utf-8')).decode('ascii')
@@ -702,8 +703,12 @@ class Urd(object):
 		url = '%s/truncate/%s/%s' % (self._url, self._path(path), timestamp,)
 		return self._call(url, '')
 
+	def set_workdir(self, workdir):
+		"""Build jobs in this workdir, None to restore default"""
+		self.workdir = workdir
+
 	def build(self, method, options={}, datasets={}, jobids={}, name=None, caption=None, why_build=False, workdir=None):
-		return self._a.call_method(method, options={method: options}, datasets={method: datasets}, jobids={method: jobids}, record_as=name, caption=caption, why_build=why_build, workdir=workdir)
+		return self._a.call_method(method, options={method: options}, datasets={method: datasets}, jobids={method: jobids}, record_as=name, caption=caption, why_build=why_build, workdir=workdir or self.workdir)
 
 	def build_chained(self, method, options={}, datasets={}, jobids={}, name=None, caption=None, why_build=False, workdir=None):
 		datasets = dict(datasets or {})
