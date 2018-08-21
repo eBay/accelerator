@@ -100,7 +100,7 @@ class Main:
 	def get_workspace_details(self):
 		""" Some information about main workspace, some parts of config """
 		return dict(
-			[(key, getattr(self.workspaces[self.target_workdir], key),) for key in ('name', 'path', 'slices',)] +
+			[(key, getattr(self.workspaces[self.target_workdir], key),) for key in ('slices',)] +
 			[(key, self.config.get(key),) for key in ('source_directory', 'result_directory', 'common_directory', 'urd',)]
 		)
 
