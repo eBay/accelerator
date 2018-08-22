@@ -37,8 +37,6 @@ from os import unlink
 from os.path import join
 
 METHODS_CONFIGFILENAME = 'methods.conf'
-#DIRECTORIES      = ['analysis', 'default_analysis', ]
-#Methods = methods.SubMethods(DIRECTORIES, CONFIGFILENAME)
 
 
 
