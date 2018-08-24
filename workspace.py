@@ -24,7 +24,7 @@ import os
 class WorkSpace:
 	""" Handle all access to a single "physical" workdir. """
 
-	def __init__(self, name, path, slices, writeable=False):
+	def __init__(self, name, path, slices):
 		""" name is workspace name, e.g. "churn" or "redlaser".  all jobids are prefixed by name.
 		    path is simply where all jobids are put.
 		    slices is number of slices for workdir, for example 12. """
@@ -34,33 +34,30 @@ class WorkSpace:
 		self.valid_jobids = set()
 		self.known_jobids = set()
 		self.recent_bad_jobids = set()
-		self.ok = self._check_slices(writeable)
+		if not self._check_metafile():
+			exit(1)
 
 
-	def make_writeable(self):
-		self._check_slices(True)
-
-
-	def _check_slices(self, writeable):
-		""" verify or write workdir specific slices file """
+	def _check_metafile(self):
+		""" verify or write metadata file in workdir """
 		filename = os.path.join(self.path, "%s-slices.conf" % (self.name,))
-		ok = True
-		try:
-			with open(filename) as F:
-				file_slices = int(F.read())
-			if self.slices != file_slices:
-				print("WORKSPACE:  ERROR, workdir has %d slices, but config file stipulates %d!" % (file_slices, self.slices))
-				print("WORKSPACE:  Consequence:  ignore config file, use SLICES=%d." % (file_slices))
-				self.slices = file_slices
-		except Exception:
-			if writeable:
-				print("WORKSPACE:  create %s-slices.conf in %s." % (self.name, self.path))
+		if not os.path.isdir(self.path):
+			print('\nERROR:  Directory \"%s\" does not exist!' % (self.path,))
+			return False
+		if not os.path.exists(filename):
+			print('\nCreate %s-slices.conf in %s.' % (self.name, self.path,))
+			try:
 				with open(filename, 'w') as F:
 					F.write(str(self.slices)+'\n')
-			else:
-				print("WORKSPACE:  not a workdir \"%s\" at \"%s\"" % (self.name, self.path,))
-				ok = False
-		return ok
+			except IOError:
+				print('\nERROR:  Could not create %s-slices.conf in %s.' % (self.name, self.path,))
+				return False
+		with open(filename) as F:
+			file_slices = int(F.read())
+		if file_slices != self.slices:
+			print('\nERROR:  Number of slices in workdir \"%s\" differs from config file!' % (self.name,))
+			return False
+		return True
 
 
 	def get_slices(self):
