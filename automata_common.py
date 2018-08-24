@@ -726,7 +726,8 @@ class Urd(object):
 				per_method[method] += t
 		if verbose and per_method:
 			print("Time per method:")
-			tmpl = "   %%-%ds  %%s" % (max(len(method) for method in per_method),)
+			tmpl = "   %%-%ds  %%s  (%%d%%%%)" % (max(len(method) for method in per_method),)
+			total_time = sum(per_method.values())
 			for method, t in sorted(per_method.items(), key=itemgetter(1), reverse=True):
-				print(tmpl % (method, fmttime(t),))
+				print(tmpl % (method, fmttime(t), round(100 * t / total_time) if total_time else 0.0))
 		print("Total time", fmttime(total))
