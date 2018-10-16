@@ -159,7 +159,7 @@ class Main:
 		# reading and parsing files. (So unless workspaces are on different
 		# disks this is probably better.)
 		self.DataBase._update_begin()
-		for name in [self.target_workdir] + list(self.source_workdirs):
+		for name in self.source_workdirs:
 			self.DataBase._update_workspace(self.workspaces[name])
 		self.DataBase._update_finish(self.Methods.hash)
 
@@ -181,7 +181,7 @@ class Main:
 		W = self.workspaces[get_workspace_name(jobid)]
 		#
 		active_workspaces = {}
-		for name in [self.target_workdir] + list(self.source_workdirs):
+		for name in self.source_workdirs:
 			active_workspaces[name] = self.workspaces[name].get_path()
 		slices = self.workspaces[self.target_workdir].get_slices()
 
