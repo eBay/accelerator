@@ -121,7 +121,7 @@ class Main:
 		names.insert(0, self.target_workdir)
 		for n in names:
 			w = self.workspaces[n]
-			print(templ % (prefix.get(n, "DISABLED"), n, w.path, w.slices,))
+			print(templ % (prefix[n], n, w.path, w.slices,))
 
 
 	def get_current_workspace(self):
