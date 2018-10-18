@@ -122,11 +122,6 @@ class Main:
 			print(templ % (prefix[n], n, w.path, w.slices,))
 
 
-	def get_current_workspace(self):
-		""" return name of current workspace """
-		return self.target_workdir
-
-
 	def add_single_jobid(self, jobid):
 		ws = self.workspaces[jobid.rsplit('-', 1)[0]]
 		ws.add_single_jobid(jobid)
