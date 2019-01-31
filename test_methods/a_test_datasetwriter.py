@@ -53,10 +53,20 @@ def analysis(sliceno, prepare_res):
 	if 0 < sliceno < test_data.value_cnt:
 		dw_passed.write_dict({k: v[sliceno] for k, v in test_data.data.items()})
 
-def synthesis(prepare_res):
+def synthesis(prepare_res, params):
 	dw_passed, _ = prepare_res
 	# Using set_slice on a dataset that was written in analysis is not
 	# actually supported, but since it currently works (as long as that
 	# particular slice wasn't written in analysis) let's test it.
 	dw_passed.set_slice(0)
 	dw_passed.write(**{k: v[0] for k, v in test_data.data.items()})
+	dw_synthesis_split = DatasetWriter(name="synthesis_split", hashlabel="a")
+	dw_synthesis_split.add("a", "int32")
+	dw_synthesis_split.add("b", "unicode")
+	dw_synthesis_split.get_split_write()(1, "a")
+	dw_synthesis_split.get_split_write_list()([2, "b"])
+	dw_synthesis_split.get_split_write_dict()({"a": 3, "b": "c"})
+	dw_synthesis_manual = DatasetWriter(name="synthesis_manual", columns={"sliceno": "int32"})
+	for sliceno in range(params.slices):
+		dw_synthesis_manual.set_slice(sliceno)
+		dw_synthesis_manual.write(sliceno)

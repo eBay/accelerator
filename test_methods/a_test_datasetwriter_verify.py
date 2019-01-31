@@ -27,6 +27,7 @@ Verify that each slice contains the expected data after test_datasetwriter.
 from datetime import date
 
 from dataset import Dataset
+from gzwrite import typed_writer
 from . import test_data
 
 depend_extra=(test_data,)
@@ -43,3 +44,10 @@ def analysis(sliceno, params):
 		passed = Dataset(datasets.source, "passed")
 		good = tuple(v[sliceno] for _, v in sorted(test_data.data.items()))
 		assert list(passed.iterate(sliceno)) == [good]
+	synthesis_split = Dataset(datasets.source, "synthesis_split")
+	values = zip((1, 2, 3,), "abc")
+	hash = typed_writer("int32").hash
+	good = [v for v in values if hash(v[0]) % params.slices == sliceno]
+	assert list(synthesis_split.iterate(sliceno)) == good
+	synthesis_manual = Dataset(datasets.source, "synthesis_manual")
+	assert list(synthesis_manual.iterate(sliceno, "sliceno")) == [sliceno]
