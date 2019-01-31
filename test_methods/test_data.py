@@ -48,3 +48,5 @@ data = {
 value_cnt = {len(v) for v in data.values()}
 assert len(value_cnt) == 1, "All tuples in data must have the same length."
 value_cnt = first_value(value_cnt)
+
+not_none_capable = {"bits64", "bits32",}

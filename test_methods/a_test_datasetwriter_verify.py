@@ -51,3 +51,6 @@ def analysis(sliceno, params):
 	assert list(synthesis_split.iterate(sliceno)) == good
 	synthesis_manual = Dataset(datasets.source, "synthesis_manual")
 	assert list(synthesis_manual.iterate(sliceno, "sliceno")) == [sliceno]
+	nonetest = Dataset(datasets.source, "nonetest")
+	good = tuple(v[0] if k in test_data.not_none_capable else None for k, v in sorted(test_data.data.items()))
+	assert list(nonetest.iterate(sliceno)) == [good]

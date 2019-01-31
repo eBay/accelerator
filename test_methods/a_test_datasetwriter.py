@@ -67,6 +67,9 @@ def synthesis(prepare_res, params):
 	dw_synthesis_split.get_split_write_list()([2, "b"])
 	dw_synthesis_split.get_split_write_dict()({"a": 3, "b": "c"})
 	dw_synthesis_manual = DatasetWriter(name="synthesis_manual", columns={"sliceno": "int32"})
+	dw_nonetest = DatasetWriter(name="nonetest", columns={t: t for t in test_data.data})
 	for sliceno in range(params.slices):
 		dw_synthesis_manual.set_slice(sliceno)
 		dw_synthesis_manual.write(sliceno)
+		dw_nonetest.set_slice(sliceno)
+		dw_nonetest.write(**{k: v[0] if k in test_data.not_none_capable else None for k, v in test_data.data.items()})
