@@ -38,3 +38,7 @@ def main(urd):
 	print()
 	print("Testing subjobs and dataset typing")
 	urd.build("test_subjobs_type", datasets=dict(typed=ds, untyped=reimp_csv))
+
+	print()
+	print("Testing dataset chaining, filtering and callbacks")
+	urd.build("test_selfchain")
