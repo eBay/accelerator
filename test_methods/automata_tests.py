@@ -40,5 +40,6 @@ def main(urd):
 	urd.build("test_subjobs_type", datasets=dict(typed=ds, untyped=reimp_csv))
 
 	print()
-	print("Testing dataset chaining, filtering and callbacks")
-	urd.build("test_selfchain")
+	print("Testing dataset chaining, filtering, callbacks and rechaining")
+	selfchain = urd.build("test_selfchain")
+	urd.build("test_rechain", jobids=dict(selfchain=selfchain))
