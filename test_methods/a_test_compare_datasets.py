@@ -20,21 +20,24 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import unicode_literals
 
-from jobid import resolve_jobid_filename
-from dataset import Dataset
+datasets = ("a", "b",)
 
-def main(urd):
-	print("Testing dataset creation, export, import")
-	source = urd.build("test_datasetwriter")
-	urd.build("test_datasetwriter_verify", datasets=dict(source=source))
-	ds = Dataset(source, "passed")
-	csvname = "out.csv.gz"
-	csv = urd.build("csvexport", options=dict(filename=csvname, separator="\t"), datasets=dict(source=ds))
-	csv_quoted = urd.build("csvexport", options=dict(filename=csvname, quote_fields='"'), datasets=dict(source=ds))
-	reimp_csv = urd.build("csvimport", options=dict(filename=resolve_jobid_filename(csv, csvname), separator="\t"))
-	reimp_csv_quoted = urd.build("csvimport", options=dict(filename=resolve_jobid_filename(csv_quoted, csvname), quote_support=True))
-	urd.build("test_compare_datasets", datasets=dict(a=reimp_csv, b=reimp_csv_quoted))
-
-	print()
-	print("Testing subjobs and dataset typing")
-	urd.build("test_subjobs_type", datasets=dict(typed=ds, untyped=reimp_csv))
+def analysis(sliceno):
+	assert sorted(datasets.a.columns) == sorted(datasets.b.columns)
+	iter_a = datasets.a.iterate(sliceno)
+	iter_b = datasets.b.iterate(sliceno, status_reporting=False)
+	# This doesn't use zip because then we can't see if one iterator is shorter
+	while True:
+		try:
+			a = next(iter_a)
+		except StopIteration:
+			try:
+				next(iter_b)
+				raise Exception("dataset b is longer than a")
+			except StopIteration:
+				break
+		try:
+			b = next(iter_b)
+		except StopIteration:
+			raise Exception("dataset a is longer than b")
+		assert a == b

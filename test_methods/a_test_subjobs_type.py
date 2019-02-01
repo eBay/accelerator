@@ -20,21 +20,31 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import unicode_literals
 
-from jobid import resolve_jobid_filename
-from dataset import Dataset
+description = r'''
+Type datasets.untyped the same as datasets.typed in a subjob, then verify
+(in another subjob) the the results are correct.
+'''
 
-def main(urd):
-	print("Testing dataset creation, export, import")
-	source = urd.build("test_datasetwriter")
-	urd.build("test_datasetwriter_verify", datasets=dict(source=source))
-	ds = Dataset(source, "passed")
-	csvname = "out.csv.gz"
-	csv = urd.build("csvexport", options=dict(filename=csvname, separator="\t"), datasets=dict(source=ds))
-	csv_quoted = urd.build("csvexport", options=dict(filename=csvname, quote_fields='"'), datasets=dict(source=ds))
-	reimp_csv = urd.build("csvimport", options=dict(filename=resolve_jobid_filename(csv, csvname), separator="\t"))
-	reimp_csv_quoted = urd.build("csvimport", options=dict(filename=resolve_jobid_filename(csv_quoted, csvname), quote_support=True))
-	urd.build("test_compare_datasets", datasets=dict(a=reimp_csv, b=reimp_csv_quoted))
+import subjobs
 
-	print()
-	print("Testing subjobs and dataset typing")
-	urd.build("test_subjobs_type", datasets=dict(typed=ds, untyped=reimp_csv))
+datasets=("typed", "untyped")
+
+def synthesis():
+	typerename = dict(
+		int64="int64_10",
+		int32="int32_10",
+		bits64="bits64_10",
+		bits32="bits32_10",
+		bool="strbool",
+		datetime="datetime:%Y-%m-%d %H:%M:%S.%f",
+		date="date:%Y-%m-%d",
+		time="time:%H:%M:%S.%f",
+		unicode="unicode:utf-8",
+	)
+	columns = {k: typerename.get(v.type, v.type) for k, v in datasets.typed.columns.items()}
+	retyped = subjobs.build(
+		"dataset_type",
+		options=dict(column2type=columns),
+		datasets=dict(source=datasets.untyped)
+	)
+	subjobs.build("test_compare_datasets", datasets=dict(a=datasets.typed, b=retyped))
