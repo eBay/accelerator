@@ -20,35 +20,19 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import unicode_literals
 
-from jobid import resolve_jobid_filename
-from dataset import Dataset
+description = r'''
+Generate data for test_sorting.
+'''
 
-def main(urd):
-	print("Testing dataset creation, export, import")
-	source = urd.build("test_datasetwriter")
-	urd.build("test_datasetwriter_verify", datasets=dict(source=source))
-	ds = Dataset(source, "passed")
-	csvname = "out.csv.gz"
-	csv = urd.build("csvexport", options=dict(filename=csvname, separator="\t"), datasets=dict(source=ds))
-	csv_quoted = urd.build("csvexport", options=dict(filename=csvname, quote_fields='"'), datasets=dict(source=ds))
-	reimp_csv = urd.build("csvimport", options=dict(filename=resolve_jobid_filename(csv, csvname), separator="\t"))
-	reimp_csv_quoted = urd.build("csvimport", options=dict(filename=resolve_jobid_filename(csv_quoted, csvname), quote_support=True))
-	urd.build("test_compare_datasets", datasets=dict(a=reimp_csv, b=reimp_csv_quoted))
-	urd.build("test_csvimport_separators")
+from dataset import DatasetWriter
+from . import test_data
 
-	print()
-	print("Testing subjobs and dataset typing")
-	urd.build("test_subjobs_type", datasets=dict(typed=ds, untyped=reimp_csv))
+depend_extra = (test_data,)
 
-	print()
-	print("Testing dataset chaining, filtering, callbacks and rechaining")
-	selfchain = urd.build("test_selfchain")
-	urd.build("test_rechain", jobids=dict(selfchain=selfchain))
+def prepare():
+	return DatasetWriter(columns={t: t for t in test_data.data})
 
-	print()
-	print("Testing dataset sorting (with subjobs again)")
-	urd.build("test_sorting")
-
-	print()
-	print("Test hashlabels")
-	urd.build("test_hashlabel")
+def analysis(sliceno, prepare_res):
+	dw = prepare_res
+	for d in test_data.sort_data_for_slice(sliceno):
+		dw.write(*d)

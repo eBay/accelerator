@@ -24,8 +24,18 @@ from __future__ import unicode_literals
 
 from datetime import date, time, datetime
 
-from compat import first_value
+from compat import first_value, num_types
 
+# Constraints on this data:
+#    Each tuple must be the same length.
+#    The tests will not work with less than len(tuple) slices.
+#    Time values may not have a 0 microsecond, because str() will omit that.
+#    No tuple should contain duplicate values (but bool has to).
+#    All values must be sortable (within the same tuple).
+#       Which means no tuple may contain None, even for types that support None.
+#    Numeric types other than int64 must have a low-ish first value.
+#    Most of the above doesn't apply to json (because it's handled specially.)
+# It's supposed to contain all types, but it doesn't really have to.
 data = {
 	"float64": (1/3, 1e100, -9.0),
 	"float32": (100.0, -0.0, 2.0),
@@ -42,7 +52,7 @@ data = {
 	"ascii": ("foo", "bar", "blutti",),
 	# big value - will change if it roundtrips through (any type of) float
 	"number": (1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000, -1.0, 1/3),
-	"json": (42, None, "bl\xe4"),
+	"json": ({"a": [1, 2, {"b": {}}]}, None, "bl\xe4"),
 }
 
 value_cnt = {len(v) for v in data.values()}
@@ -50,3 +60,26 @@ assert len(value_cnt) == 1, "All tuples in data must have the same length."
 value_cnt = first_value(value_cnt)
 
 not_none_capable = {"bits64", "bits32",}
+
+def sort_data_for_slice(sliceno):
+	# numeric types use only (modified) v[0], other types cycle through their values.
+	# int64 goes down one every other line,
+	# all other numeric columns go up sliceno + 1 every line.
+	# json starts as 0 (pretending to be a numeric type).
+	def add(offset):
+		res = []
+		for k, v in sorted(data.items()):
+			if k == "json":
+				v = [0]
+			if isinstance(v[0], num_types) and k != "bool":
+				v = v[0]
+				if k == "int64":
+					v -= offset // 2
+				else:
+					v += offset * (sliceno + 1)
+			else:
+				v = v[offset % len(v)]
+			res.append(v)
+		return tuple(res)
+	for offset in range(128):
+		yield add(offset)
