@@ -20,36 +20,54 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import unicode_literals
 
-from jobid import resolve_jobid_filename
-from dataset import Dataset
+description = r'''
+Test that dataset_sort sorts stably.
 
-def main(urd):
-	print("Testing dataset creation, export, import")
-	source = urd.build("test_datasetwriter")
-	urd.build("test_datasetwriter_verify", datasets=dict(source=source))
-	ds = Dataset(source, "passed")
-	csvname = "out.csv.gz"
-	csv = urd.build("csvexport", options=dict(filename=csvname, separator="\t"), datasets=dict(source=ds))
-	csv_quoted = urd.build("csvexport", options=dict(filename=csvname, quote_fields='"'), datasets=dict(source=ds))
-	reimp_csv = urd.build("csvimport", options=dict(filename=resolve_jobid_filename(csv, csvname), separator="\t"))
-	reimp_csv_quoted = urd.build("csvimport", options=dict(filename=resolve_jobid_filename(csv_quoted, csvname), quote_support=True))
-	urd.build("test_compare_datasets", datasets=dict(a=reimp_csv, b=reimp_csv_quoted))
-	urd.build("test_csvimport_separators")
+Also tests DatasetWriter (again), and also DatasetWriter.finish()
+'''
 
-	print()
-	print("Testing subjobs and dataset typing")
-	urd.build("test_subjobs_type", datasets=dict(typed=ds, untyped=reimp_csv))
+from dataset import Dataset, DatasetWriter
+import subjobs
 
-	print()
-	print("Testing dataset chaining, filtering, callbacks and rechaining")
-	selfchain = urd.build("test_selfchain")
-	urd.build("test_rechain", jobids=dict(selfchain=selfchain))
+def prepare():
+	dw = DatasetWriter()
+	dw.add("str", "ascii")
+	dw.add("num", "number")
+	return dw
 
-	print()
-	print("Testing dataset sorting (with subjobs again)")
-	urd.build("test_sorting")
-	urd.build("test_sort_stability")
+def analysis(sliceno, prepare_res):
+	dw = prepare_res
+	s = str(sliceno)
+	# we expect to get a repeating str of range(slices) in "str" after sorting
+	for ix in range(64):
+		dw.write(s, ix)
+	# less regular test case
+	if sliceno == 0:
+		dw.write("a", -1)
+		dw.write("b", -1)
+		dw.write("c", -2)
+		dw.write("d", -1)
+		dw.write("e", -1)
+		dw.write("f", -1)
+		dw.write("g", -2)
+	if sliceno == 1:
+		dw.write("h", -2)
+		dw.write("i", -1)
+		dw.write("j", -2)
 
-	print()
-	print("Test hashlabels")
-	urd.build("test_hashlabel")
+def synthesis(params, prepare_res):
+	dw = prepare_res
+	source = dw.finish()
+	jid = subjobs.build(
+		"dataset_sort",
+		options=dict(
+			sort_columns="num",
+			sort_across_slices=True,
+		),
+		datasets=dict(source=source),
+	)
+	ds = Dataset(jid)
+	data = list(ds.iterate(None, "str"))
+	good = list("cghjabdefi") + \
+	       [str(sliceno) for sliceno in range(params.slices)] * 64
+	assert data == good
