@@ -43,3 +43,7 @@ def main(urd):
 	print("Testing dataset chaining, filtering, callbacks and rechaining")
 	selfchain = urd.build("test_selfchain")
 	urd.build("test_rechain", jobids=dict(selfchain=selfchain))
+
+	print()
+	print("Test hashlabels")
+	urd.build("test_hashlabel")
