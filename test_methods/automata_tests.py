@@ -34,6 +34,7 @@ def main(urd):
 	reimp_csv = urd.build("csvimport", options=dict(filename=resolve_jobid_filename(csv, csvname), separator="\t"))
 	reimp_csv_quoted = urd.build("csvimport", options=dict(filename=resolve_jobid_filename(csv_quoted, csvname), quote_support=True))
 	urd.build("test_compare_datasets", datasets=dict(a=reimp_csv, b=reimp_csv_quoted))
+	urd.build("test_csvimport_separators")
 
 	print()
 	print("Testing subjobs and dataset typing")
