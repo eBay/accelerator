@@ -75,10 +75,28 @@ class Report():
 				self.println("  %s : %s " % (k, v,))
 
 	def close(self):
-		self.line()
-		with open('report.txt', 'w', encoding='utf-8') as F:
-			F.write(uni(self.s))
-		if self.stdout:
-			print(self.s)
+		self.__exit__(None, None, None)
+
+	def __exit__(self, type, value, tb):
+		# We don't care if an exception occured, we still want to save
+		# the report.
+		# But if saving the report produces an exception we want to
+		# ignore that and re-raise the original exception (or raise
+		# our own exception if no original exception exists).
+		try:
+			if tb is None:
+				self.line()
+			with open('report.txt', 'w', encoding='utf-8') as F:
+				F.write(uni(self.s))
+			if self.stdout:
+				print(self.s)
+			self.s = ''
+		except Exception:
+			# This logic looks backwards, but it isn't
+			if tb is None:
+				raise
+
+	def __enter__(self):
+		return self
 
 report = Report # compat
