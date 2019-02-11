@@ -137,5 +137,4 @@ def synthesis(params):
 	check_array(params, long_lines, "long lines.txt")
 	check_bad_file(params, "extra field", b"foo,bar\nwith,extra,field\nok,here\n")
 	check_bad_file(params, "missing field", b"foo,bar\nmissing\nok,here\n")
-# Currently just produces an empty dataset without failure.
-#	check_bad_file(params, "no valid lines", b"foo\na,b\nc,")
+	check_bad_file(params, "no valid lines", b"foo\nc,\n")

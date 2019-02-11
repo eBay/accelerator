@@ -362,6 +362,9 @@ def synthesis(prepare_res, analysis_res, params):
 
 	blob.save(res, 'import')
 
+	if res['num_broken_lines'] and not options.allow_bad:
+		raise Exception('%d bad lines without options.allow_bad' % (res['num_broken_lines'],))
+
 	# write report
 	r = report.report()
 	if not res['num_lines']:
@@ -382,6 +385,3 @@ def synthesis(prepare_res, analysis_res, params):
 
 	r.println('Number of columns              %9d' % len(labels,))
 	r.close()
-
-	if res['num_broken_lines'] and not options.allow_bad:
-		raise Exception('%d bad lines without options.allow_bad' % (res['num_broken_lines'],))
