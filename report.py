@@ -65,7 +65,7 @@ class Report():
 			return
 		self.println(title)
 		maxlen = max(len(k) for k in optionsdict)
-		for k, v in optionsdict.items():
+		for k, v in sorted(optionsdict.items()):
 			k = str(k).ljust(maxlen)
 			if isinstance(v, (list, tuple)):
 				self.println('  %s :' % (k,))
