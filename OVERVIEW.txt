@@ -142,3 +142,6 @@ Not so interesting files
 
 standard_methods
 	Directory with the bundled standard methods.
+
+test_methods
+	Directory with the bundled test methods.
