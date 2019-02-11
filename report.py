@@ -1,6 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
+# Modifications copyright (c) 2019 Carl Drougge                            #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -25,7 +26,7 @@ from compat import open, uni
 
 import g
 
-class report():
+class Report():
 	def __init__(self, stdout=False):
 		self.stdout = stdout
 		self.s = ''
@@ -79,3 +80,5 @@ class report():
 			F.write(uni(self.s))
 		if self.stdout:
 			print(self.s)
+
+report = Report # compat
