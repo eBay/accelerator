@@ -34,6 +34,10 @@ def main(urd):
 	reimp_csv = urd.build("csvimport", options=dict(filename=resolve_jobid_filename(csv, csvname), separator="\t"))
 	reimp_csv_quoted = urd.build("csvimport", options=dict(filename=resolve_jobid_filename(csv_quoted, csvname), quote_support=True))
 	urd.build("test_compare_datasets", datasets=dict(a=reimp_csv, b=reimp_csv_quoted))
+
+	print()
+	print("Testing csvimport with more difficult files")
+	urd.build("test_csvimport_corner_cases")
 	urd.build("test_csvimport_separators")
 
 	print()
