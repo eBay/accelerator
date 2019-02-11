@@ -301,7 +301,7 @@ def prepare(SOURCE_DIRECTORY):
 	assert len(labels) == len(set(labels)), "Duplicate labels: %r" % (labels,)
 
 	dw = DatasetWriter(
-		columns={n: 'bytes' for n in labels},
+		columns={n: 'bytes' for n in labels if n not in options.discard},
 		filename=orig_filename,
 		hashlabel=options.hashlabel,
 		caption='csvimport of ' + orig_filename,
