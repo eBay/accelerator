@@ -51,6 +51,7 @@ options = {
 
 datasets = ('previous', )
 
+equivalent_hashes = {'55c1c115e77f8fade8583dd5c56009c6669b031d': ('2dbb734115ebf0677ba3f81e02782b2f9bd42fcf',)}
 
 ffi = cffi.FFI()
 ffi.cdef('''
