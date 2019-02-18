@@ -27,7 +27,7 @@ from traceback import print_exc
 from collections import namedtuple, OrderedDict
 from sys import stderr, argv
 
-from compat import PY2, PY3, pickle, izip, iteritems, first_value, num_types, uni
+from compat import PY2, PY3, pickle, izip, iteritems, first_value, num_types, uni, unicode
 
 from jobid import resolve_jobid_filename
 from status import status
@@ -136,10 +136,23 @@ def json_save(variable, filename='result', jobid=None, sliceno=None, sort_keys=T
 		fh.write(_encoder(variable, sort_keys=sort_keys))
 		fh.write(b'\n')
 
-def json_decode(s):
-	return json.loads(s, object_pairs_hook=_json_hook)
+def _unicode_as_utf8bytes(obj):
+	if isinstance(obj, unicode):
+		return obj.encode('utf-8')
+	elif isinstance(obj, dict):
+		return DotDict((_unicode_as_utf8bytes(k), _unicode_as_utf8bytes(v)) for k, v in iteritems(obj))
+	elif isinstance(obj, list):
+		return [_unicode_as_utf8bytes(v) for v in obj]
+	else:
+		return obj
 
-def json_load(filename='result', jobid='', sliceno=None, default=None):
+def json_decode(s, unicode_as_utf8bytes=PY2):
+	if unicode_as_utf8bytes:
+		return _unicode_as_utf8bytes(json.loads(s))
+	else:
+		return json.loads(s, object_pairs_hook=DotDict)
+
+def json_load(filename='result', jobid='', sliceno=None, default=None, unicode_as_utf8bytes=PY2):
 	filename = full_filename(filename, '.json', sliceno, jobid)
 	if not filename and default is not None:
 		return default
@@ -150,7 +163,7 @@ def json_load(filename='result', jobid='', sliceno=None, default=None):
 		if default is not None:
 			return default
 		raise
-	return json_decode(data)
+	return json_decode(data, unicode_as_utf8bytes)
 
 
 def debug_print_options(options, title=''):
@@ -557,16 +570,3 @@ def _apply_typing(options, tl):
 			if v is not None:
 				v = t(v)
 			d[k] = v
-if PY3:
-	_json_hook = DotDict
-else:
-	# I wish we were using python 3..
-	def _json_hook(seq):
-		def enc(v):
-			if isinstance(v, unicode):
-				return v.encode('utf-8')
-			if isinstance(v, list):
-				return [enc(e) for e in v]
-			return v
-		return DotDict((enc(k), enc(v)) for k, v in seq)
-
