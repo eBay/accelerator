@@ -24,10 +24,10 @@ import time
 import datetime
 import json
 from traceback import print_exc
-from collections import namedtuple
+from collections import namedtuple, OrderedDict
 from sys import stderr, argv
 
-from compat import PY3, pickle, izip, iteritems, first_value, num_types
+from compat import PY2, PY3, pickle, izip, iteritems, first_value, num_types, uni
 
 from jobid import resolve_jobid_filename
 from status import status
@@ -103,19 +103,28 @@ def pickle_load(filename='result', jobid='', sliceno=None, verbose=False, defaul
 
 
 def json_encode(variable, sort_keys=True, as_str=False):
+	"""Return variable serialised as json bytes (or str with as_str=True).
+
+	You can pass tuples and sets (saved as lists).
+	On py2 you can also pass bytes that will be passed through compat.uni.
+
+	If you set sort_keys=False you can use OrderedDict to get whatever
+	order you like.
+	"""
 	if sort_keys:
-		def enc_elem(e):
-			if isinstance(e, dict):
-				return {k: enc_elem(v) for k, v in iteritems(e)}
-			elif isinstance(e, (list, tuple, set,)):
-				return [enc_elem(v) for v in e]
-			elif PY3:
-				return e
-			elif hasattr(e, 'encode'):
-				return e.encode('ascii')
-			else:
-				return e
-		variable = enc_elem(variable)
+		dict_type = dict
+	else:
+		dict_type = OrderedDict
+	def typefix(e):
+		if isinstance(e, dict):
+			return dict_type((typefix(k), typefix(v)) for k, v in iteritems(e))
+		elif isinstance(e, (list, tuple, set,)):
+			return [typefix(v) for v in e]
+		elif PY2 and isinstance(e, bytes):
+			return uni(e)
+		else:
+			return e
+	variable = typefix(variable)
 	res = json.dumps(variable, indent=4, sort_keys=sort_keys)
 	if PY3 and not as_str:
 		res = res.encode('ascii')
