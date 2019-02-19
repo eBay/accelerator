@@ -24,6 +24,8 @@ from jobid import resolve_jobid_filename
 from dataset import Dataset
 
 def main(urd):
+	urd.build("test_json")
+
 	print("Testing dataset creation, export, import")
 	source = urd.build("test_datasetwriter")
 	urd.build("test_datasetwriter_verify", datasets=dict(source=source))
