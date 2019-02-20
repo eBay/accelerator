@@ -3,6 +3,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
+# Modifications copyright (c) 2018-2019 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -47,6 +48,9 @@ tm0 = time(0, 0, 0, 0)
 tm1 = time(2, 42, 0, 3)
 tm2 = time(23, 59, 59, 999999)
 
+def forstrings(name):
+	return name.endswith("Lines") or name in ("Bytes", "Ascii", "Unicode")
+
 for name, data, bad_cnt, res_data in (
 	("Float64"       , ["0", float, 0   , 4.2, -0.01, 1e42, inf, ninf, None], 2, [0.0, 4.2, -0.01, 1e42, inf, ninf, None]),
 	("Float32"       , ["0", float, l(0), 4.2, -0.01, 1e42, inf, ninf, None], 2, [0.0, 4.199999809265137, -0.009999999776482582, inf , inf, ninf, None]),
@@ -59,6 +63,9 @@ for name, data, bad_cnt, res_data in (
 	("BytesLines"    , [42, str, b"\n", u"a", b"a", b"foo bar baz", None], 4, [b"a", b"foo bar baz", None]),
 	("AsciiLines"    , [42, str, b"\n", u"foo\xe4", b"foo\xe4", u"a", b"foo bar baz", None], 5, [str("a"), str("foo bar baz"), None]),
 	("UnicodeLines"  , [42, str, u"\n", b"a", u"a", u"foo bar baz", None], 4, [u"a", u"foo bar baz", None]),
+	("Bytes"         , [42, str, u"a", b"\n", b"\0", b"", None, b"long" * 1000, b"a\r", b"a\r\n", b"a\nb\0c"], 3, [b"\n", b"\0", b"", None, b"long" * 1000, b"a\r", b"a\r\n", b"a\nb\0c"]),
+	("Ascii"         , [42, str, u"foo\xe4", u"a", b"\n", b"\0", b"", None, b"long" * 1000, b"a\r", b"a\r\n", u"a\nb\0c"], 3, [str("a"), str("\n"), str("\0"), str(""), None, str("long" * 1000), str("a\r"), str("a\r\n"), str("a\nb\0c")]),
+	("Unicode"         , [42, str, b"a", u"foo\xe4", u"\n", u"\0", u"", None, u"long" * 1000, u"a\r", "a\r\n", "a\nb\0c"], 3, [u"foo\xe4", u"\n", u"\0", u"", None, u"long" * 1000, u"a\r", u"a\r\n", u"a\nb\0c"]),
 	("DateTime"      , [42, "now", tm0, dttm0, dttm1, dttm2, None], 3, [dttm0, dttm1, dttm2, None]),
 	("Date"          , [42, "now", tm0, dttm0, dttm1, dttm2, dt0, None], 3, [dttm0.date(), dttm1.date(), dttm2.date(), dt0, None]),
 	("Time"          , [42, "now", dttm0, tm0, tm1, tm2, None], 3, [tm0, tm1, tm2, None]),
@@ -97,7 +104,7 @@ for name, data, bad_cnt, res_data in (
 			except (ValueError, TypeError, OverflowError):
 				assert ix < bad_cnt, repr(value)
 		assert fh.count == count, "%s: %d lines written, claims %d" % (name, count, fh.count,)
-		if "Lines" not in name:
+		if not forstrings(name):
 			want_min = min(filter(lambda x: x is not None, res_data))
 			want_max = max(filter(lambda x: x is not None, res_data))
 			assert fh.min == want_min, "%s: claims min %r, not %r" % (name, fh.min, want_min,)
@@ -107,7 +114,7 @@ for name, data, bad_cnt, res_data in (
 		res = list(fh)
 		assert res == res_data, res
 	# Data comes back as expected.
-	if name.endswith("Lines"):
+	if forstrings(name):
 		continue # no default support
 	for ix, default in enumerate(data):
 		# Verify that defaults are accepted where expected
@@ -151,7 +158,7 @@ for name, data, bad_cnt, res_data in (
 					except (ValueError, TypeError, OverflowError):
 						assert ix < bad_cnt, repr(value)
 				assert fh.count == count, "%s (%d, %d): %d lines written, claims %d" % (name, sliceno, slices, count, fh.count,)
-				if "Lines" not in name:
+				if not forstrings(name):
 					got_min, got_max = fh.min, fh.max
 			total_count += count
 			with r_typ(TMP_FN) as fh:
@@ -163,7 +170,7 @@ for name, data, bad_cnt, res_data in (
 					assert w_typ.hash(v) == gzutil.hash(v), "Inconsistent hash for %r" % (v,)
 			res.extend(tmp)
 			sliced_res.append(tmp)
-			if "Lines" not in name:
+			if not forstrings(name):
 				tmp = list(filter(lambda x: x is not None, tmp))
 				if tmp:
 					want_min = min(tmp)
@@ -195,20 +202,39 @@ for name, data, bad_cnt, res_data in (
 				tmp = list(fh)
 				assert tmp == [None, None, None], "Bad spread_None for %d slices" % (slices,)
 
+print("Empty and None values in stringlike types")
+for name, value in (
+	("Bytes", b""), ("Ascii", ""), ("Unicode", ""),
+	("BytesLines", b""), ("AsciiLines", ""), ("UnicodeLines", ""),
+):
+	with getattr(gzutil, "GzWrite" + name)(TMP_FN) as fh:
+		fh.write(value)
+		fh.write(value)
+	with getattr(gzutil, "Gz" + name)(TMP_FN) as fh:
+		assert list(fh) == [value, value], name + " fails with just empty strings"
+	with getattr(gzutil, "GzWrite" + name)(TMP_FN) as fh:
+		fh.write(None)
+		fh.write(None)
+	with getattr(gzutil, "Gz" + name)(TMP_FN) as fh:
+		assert list(fh) == [None, None], name + " fails with just Nones"
+
 print("Hash testing, false things")
 for v in (None, "", b"", 0, 0.0, False,):
 	assert gzutil.hash(v) == 0, "%r doesn't hash to 0" % (v,)
 print("Hash testing, strings")
 for v in ("", "a", "0", "foo", "a slightly longer string", "\0", "a\0b",):
-	u = gzutil.GzWriteUnicodeLines.hash(v)
-	a = gzutil.GzWriteAsciiLines.hash(v)
-	b = gzutil.GzWriteBytesLines.hash(v.encode("utf-8"))
-	assert u == a == b, "%r doesn't hash the same" % (v,)
+	l_u = gzutil.GzWriteUnicodeLines.hash(v)
+	l_a = gzutil.GzWriteAsciiLines.hash(v)
+	l_b = gzutil.GzWriteBytesLines.hash(v.encode("utf-8"))
+	u = gzutil.GzWriteUnicode.hash(v)
+	a = gzutil.GzWriteAscii.hash(v)
+	b = gzutil.GzWriteBytes.hash(v.encode("utf-8"))
+	assert u == l_u == a == l_a == b == l_b, "%r doesn't hash the same" % (v,)
 assert gzutil.hash(b"\xe4") != gzutil.hash("\xe4"), "Unicode hash fail"
 assert gzutil.GzWriteBytesLines.hash(b"\xe4") != gzutil.GzWriteUnicodeLines.hash("\xe4"), "Unicode hash fail"
 try:
 	gzutil.GzWriteAsciiLines.hash(b"\xe4")
-	raise Exception("Ascii.hash acceptet non-ascii")
+	raise Exception("Ascii.hash accepted non-ascii")
 except ValueError:
 	pass
 print("Hash testing, numbers")
@@ -321,6 +347,14 @@ with gzutil.GzWriteNumber(TMP_FN) as fh:
 	fh.write(7)
 with gzutil.GzNumber(TMP_FN, max_count=1) as fh:
 	assert [2 ** 1000] == list(fh)
+
+print("Large ascii strings (with a size between blocks)")
+data = ["a" * (128 * 1024 - 6), "b" * (128 * 1024 - 6), "c" * (2090 * 1024), "d"]
+with gzutil.GzWriteAscii(TMP_FN) as fh:
+	for v in data:
+		fh.write(v)
+with gzutil.GzAscii(TMP_FN) as fh:
+	assert data == list(fh)
 
 print("Callback tests")
 with gzutil.GzWriteNumber(TMP_FN) as fh:

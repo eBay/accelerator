@@ -1,6 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
+# Modifications copyright (c) 2018-2019 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -20,4 +21,4 @@ from distutils.core import setup, Extension
 
 gzutilmodule = Extension("gzutil", sources = ["siphash24.c", "gzutilmodule.c"], libraries=["z"], extra_compile_args=['-std=c99', '-O3'])
 
-setup(name="gzutil", version="2.9.5", description="Read/write values from/to gz files", ext_modules=[gzutilmodule])
+setup(name="gzutil", version="2.10.0", description="Read/write values from/to gz files", ext_modules=[gzutilmodule])
