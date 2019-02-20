@@ -1006,29 +1006,28 @@ static PyObject *gzwrite_write_GzWrite(GzWrite *self, PyObject *obj)
 	Py_DECREF(ret);                                                               	\
 	self->count++;                                                                	\
 	return gzwrite_write_(self, "\n", 1);
-#define ASCIILINEDO(cleanup) \
+#define ASCIIVERIFY(cleanup) \
 	const unsigned char * const data_ = (unsigned char *)data;                    	\
-	for (int i = 0; i < len; i++) {                                               	\
+	for (Py_ssize_t i = 0; i < len; i++) {                                        	\
 		if (data_[i] > 127) {                                                 	\
 			cleanup;                                                      	\
-			PyErr_Format(PyExc_ValueError,                                	\
-			             "Value contains %d at position %d (line %ld): %s",	\
-			             data_[i], i, self->count + 1, data);             	\
+			if (len < 1000) {                                             	\
+				PyErr_Format(PyExc_ValueError,                        	\
+				             "Value contains %d at position %ld: %s", 	\
+				             data_[i], i, data);                      	\
+			} else {                                                      	\
+				PyErr_Format(PyExc_ValueError,                        	\
+				             "Value contains %d at position %ld.",     	\
+				             data_[i], i);                            	\
+			}                                                             	\
 			return 0;                                                     	\
 		}                                                                     	\
-	}                                                                             	\
+	}
+#define ASCIILINEDO(cleanup) \
+	ASCIIVERIFY(cleanup);                                                         	\
 	WRITELINEDO(cleanup);
 #define ASCIIHASHDO(cleanup) \
-	const unsigned char * const data_ = (unsigned char *)data;                    	\
-	for (int i = 0; i < len; i++) {                                               	\
-		if (data_[i] > 127) {                                                 	\
-			cleanup;                                                      	\
-			PyErr_Format(PyExc_ValueError,                                	\
-			             "Value contains %d at position %d: %s",          	\
-			             data_[i], i, data);                              	\
-			return 0;                                                     	\
-		}                                                                     	\
-	}                                                                             	\
+	ASCIIVERIFY(cleanup);                                                         	\
 	HASHLINEDO(cleanup);
 
 #if PY_MAJOR_VERSION < 3
