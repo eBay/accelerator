@@ -435,11 +435,6 @@ static inline PyObject *mkUnicode(GzRead *self, const char *ptr, int len)
 	HC_CHECK(hash(ptr, len));
 	return self->decodefunc(ptr, len, self->errors);
 }
-#if PY_MAJOR_VERSION < 3
-#  define mkAscii mkBytes
-#else
-#  define mkAscii mkUnicode
-#endif
 
 #define MKLINEITER(name, typename) \
 	static PyObject *name ## _iternext(GzRead *self)                                 	\
