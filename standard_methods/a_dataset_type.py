@@ -61,6 +61,10 @@ options = {
 
 datasets = ('source', 'previous',)
 
+equivalent_hashes = {
+	'1fcdd85dda9e7c1ae2f14a8f439346fd01cdf0a7': ('91105dcfc1d399ac33d50ee1ab8197d675dbf3af',)
+}
+
 ffi = cffi.FFI()
 convert_template = r'''
 %(proto)s
@@ -81,6 +85,8 @@ convert_template = r'''
 	if (!g.fh) goto errfd;
 	fd = -1;
 	g.pos = g.len = 0;
+	g.error = 0;
+	g.filename = in_fn;
 	outfh = gzopen(out_fn, "wb");
 	err1(!outfh);
 	if (badmap_fd != -1) {
@@ -129,7 +135,7 @@ convert_template = r'''
 	}
 	gzFile minmaxfh = gzopen(minmax_fn, "wb");
 	err1(!minmaxfh);
-	res = 0;
+	res = g.error;
 	if (gzwrite(minmaxfh, buf_col_min, %(datalen)s) != %(datalen)s) res = 1;
 	if (gzwrite(minmaxfh, buf_col_max, %(datalen)s) != %(datalen)s) res = 1;
 	if (gzclose(minmaxfh)) res = 1;
@@ -259,6 +265,8 @@ err:
 	if (!g.fh) goto errfd;
 	fd = -1;
 	g.pos = g.len = 0;
+	g.error = 0;
+	g.filename = in_fn;
 	outfh = gzopen(out_fn, "wb");
 	err1(!outfh);
 	if (badmap_fd != -1) {
@@ -369,7 +377,7 @@ err:
 	}
 	gzFile minmaxfh = gzopen(minmax_fn, "wb");
 	err1(!minmaxfh);
-	res = 0;
+	res = g.error;
 	if (minlen) {
 		if (gzwrite(minmaxfh, buf_col_min, minlen) != minlen) res = 1;
 		if (gzwrite(minmaxfh, buf_col_max, maxlen) != maxlen) res = 1;
@@ -431,6 +439,8 @@ int %(name)s(const char *in_fn, const char *out_fn, int badmap_fd, size_t badmap
 	if (!g.fh) goto errfd;
 	fd = -1;
 	g.pos = g.len = 0;
+	g.error = 0;
+	g.filename = in_fn;
 	outfh = gzopen(out_fn, "wb");
 	err1(!outfh);
 	if (badmap_fd != -1) {
@@ -447,7 +457,7 @@ int %(name)s(const char *in_fn, const char *out_fn, int badmap_fd, size_t badmap
 		err1(gzwrite(outfh, line, len) != len);
 		err1(gzwrite(outfh, "\n", 1) != 1);
 	}
-	res = 0;
+	res = g.error;
 err:
 	gzclose(g.fh);
 	if (outfh && gzclose(outfh)) res = 1;
@@ -495,6 +505,8 @@ typedef struct {
 	gzFile fh;
 	int len;
 	int pos;
+	int error;
+	const char *filename;
 	char buf[Z + 1];
 } g;
 
@@ -505,8 +517,12 @@ int numeric_comma(void)
 
 static int read_chunk(g *g, int offset)
 {
+	if (g->error) return 1;
 	const int len = gzread(g->fh, g->buf + offset, Z - offset);
-	if (len <= 0) return 1;
+	if (len <= 0) {
+		(void) gzerror(g->fh, &g->error);
+		return 1;
+	}
 	g->len = offset + len;
 	g->buf[g->len] = 0;
 	g->pos = 0;
@@ -530,7 +546,11 @@ static char *read_line(g *g)
 		}
 		ptr = g->buf;
 		end = strchr(ptr, '\n');
-		if (!end) end = ptr + g->len; // very long line - split it
+		if (!end) { // very long line - can't deal
+			fprintf(stderr, "%s: Line too long, bailing out\n", g->filename);
+			g->error = 1;
+			return 0;
+		}
 	}
 	const int linelen = end - ptr;
 	g->pos += linelen + 1;
