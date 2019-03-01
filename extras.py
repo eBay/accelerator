@@ -186,22 +186,6 @@ def symlink(filename, destpath):
 	os.rename(dest_fn + '_', dest_fn)
 
 
-def printresult(v, path, stdout=True):
-	"""
-	v = [ (string, filename), ...]
-
-	print string to stdout (if True), and to file in directory specified by path.
-	typically, path is set to RESULT_DIRECTORY
-
-	"""
-	for s, fname in v:
-		if stdout:
-			print(s)
-		with open(fname, 'wb') as F:
-			F.write(s)
-		symlink(fname, path)
-
-
 def stackup():
 	"""Returns (filename, lineno) for the first caller not
 	in the same file as the caller of this function"""
