@@ -45,6 +45,7 @@ def main(urd):
 	print()
 	print("Testing subjobs and dataset typing")
 	urd.build("test_subjobs_type", datasets=dict(typed=ds, untyped=reimp_csv))
+	urd.build("test_dataset_old_columns")
 
 	print()
 	print("Testing dataset chaining, filtering, callbacks and rechaining")

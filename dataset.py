@@ -3,6 +3,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
+# Modifications copyright (c) 2018-2019 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -42,7 +43,7 @@ kwlist.update({'False', 'None', 'True', 'nonlocal', 'async', 'await'})
 iskeyword = frozenset(kwlist).__contains__
 
 # A dataset is defined by a pickled DotDict containing at least the following (all strings are unicode):
-#     version = (2, 2,),
+#     version = (3, 0,),
 #     filename = "filename" or None,
 #     hashlabel = "column name" or None,
 #     caption = "caption",
@@ -54,15 +55,16 @@ iskeyword = frozenset(kwlist).__contains__
 #     cache_distance = datasets_since_last_cache, # key is missing if previous is None
 #
 # A DatasetColumn has these fields:
-#     type = "type", # something that exists in type2iter
+#     type = "type", # something that exists in type2iter and doesn't start with _
+#     backing_type = "type", # something that exists in type2iter (v2 uses type for this)
 #     name = "name", # a clean version of the column name, valid in the filesystem and as a python identifier.
 #     location = something, # where the data for this column lives
-#         in version 2 this is "jobid/path/to/file" if .offsets else "jobid/path/with/%s/for/sliceno"
+#         in version 2 and 3 this is "jobid/path/to/file" if .offsets else "jobid/path/with/%s/for/sliceno"
 #     min = minimum value in this dataset or None
 #     max = maximum value in this dataset or None
 #     offsets = (offset, per, slice) or None for non-merged slices.
 #
-# Going from a DatasetColumn to a filename is like this for version 2 datasets:
+# Going from a DatasetColumn to a filename is like this for version 2 and 3 datasets:
 #     jid, path = dc.location.split('/', 1)
 #     if dc.offsets:
 #         resolve_jobid_filename(jid, path)
@@ -97,7 +99,8 @@ def _dsid(t):
 # If we want to add fields to later versions, using a versioned name will
 # allow still loading the old versions without messing with the constructor.
 _DatasetColumn_2_0 = namedtuple('_DatasetColumn_2_0', 'type name location min max offsets')
-DatasetColumn = _DatasetColumn_2_0
+_DatasetColumn_3_0 = namedtuple('_DatasetColumn_3_0', 'type backing_type name location min max offsets')
+DatasetColumn = _DatasetColumn_3_0
 
 class _New_dataset_marker(unicode): pass
 _new_dataset_marker = _New_dataset_marker('new')
@@ -107,9 +110,35 @@ _ds_cache = {}
 def _ds_load(obj):
 	n = unicode(obj)
 	if n not in _ds_cache:
-		_ds_cache[n] = blob.load(obj._name('pickle'), obj.jobid)
-		_ds_cache.update(_ds_cache[n].get('cache', ()))
+		_ds_cache[n] = _v2_columntypefix(blob.load(obj._name('pickle'), obj.jobid))
+		_ds_cache.update(map(_v2_columntypefix, _ds_cache[n].get('cache', ())))
 	return _ds_cache[n]
+
+_type_v2to3backing = dict(
+	ascii="_v2_ascii",
+	bytes="_v2_bytes",
+	unicode="_v2_unicode",
+	json="_v2_json",
+)
+_type_v2compattov3t = {v: uni(k) for k, v in _type_v2to3backing.items()}
+def _dc_v2to3(dc):
+	return _DatasetColumn_3_0(
+		type=dc.type,
+		backing_type=_type_v2to3backing.get(dc.type, dc.type),
+		name=dc.name,
+		location=dc.location,
+		min=dc.min,
+		max=dc.max,
+		offsets=dc.offsets,
+	)
+def _v2_columntypefix(ds):
+	if ds.version[0] == 3:
+		return ds
+	assert ds.version[0] == 2 and ds.version[1] >= 2, "%s: Unsupported dataset pickle version %r" % (ds, ds.version,)
+	ds = DotDict(ds)
+	ds.columns = {name: _dc_v2to3(dc) for name, dc in ds.columns.items()}
+	ds.version = (3, 0)
+	return ds
 
 class Dataset(unicode):
 	"""
@@ -159,7 +188,7 @@ class Dataset(unicode):
 		obj.name = uni(name or 'default')
 		if jobid is _new_dataset_marker:
 			obj._data = DotDict({
-				'version': (2, 2,),
+				'version': (3, 0,),
 				'filename': None,
 				'hashlabel': None,
 				'caption': '',
@@ -172,7 +201,7 @@ class Dataset(unicode):
 		else:
 			obj.jobid = jobid
 			obj._data = DotDict(_ds_load(obj))
-			assert obj._data.version[0] == 2 and obj._data.version[1] >= 2, "%s/%s: Unsupported dataset pickle version %r" % (jobid, name, obj._data.version,)
+			assert obj._data.version[0] == 3 and obj._data.version[1] >= 0, "%s/%s: Unsupported dataset pickle version %r" % (jobid, name, obj._data.version,)
 			obj._data.columns = dict(obj._data.columns)
 		return obj
 
@@ -245,7 +274,7 @@ class Dataset(unicode):
 	def _column_iterator(self, sliceno, col, **kw):
 		from sourcedata import type2iter
 		dc = self.columns[col]
-		mkiter = partial(type2iter[dc.type], **kw)
+		mkiter = partial(type2iter[dc.backing_type], **kw)
 		def one_slice(sliceno):
 			fn = self.column_filename(col, sliceno)
 			if dc.offsets:
@@ -627,8 +656,10 @@ class Dataset(unicode):
 			if t not in type2iter:
 				raise Exception('Unknown type %s on column %s' % (t, n,))
 			mm = minmax.get(n, (None, None,))
+			t = uni(t)
 			self._data.columns[n] = DatasetColumn(
-				type=uni(t),
+				type=_type_v2compattov3t.get(t, t),
+				backing_type=t,
 				name=filenames[n],
 				location='%s/%s/%%s.%s' % (jobid, self.name, filenames[n]),
 				min=mm[0],

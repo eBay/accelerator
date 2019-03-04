@@ -3,6 +3,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
+# Modifications copyright (c) 2019 Carl Drougge                            #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -39,12 +40,16 @@ for n in sys.argv[1:]:
 	for n, c in ds.columns.items():
 		len_n = max(len_n, len(n))
 		len_t = max(len_t, len(c.type))
-	template = "  {2} {0:%d} {3} {1:%d}" % (len_n, len_t,)
+	template = "  {3} {0:%d} {4} {1:%d}  {2}" % (len_n, len_t,)
 	for n, c in ds.columns.items():
-		if n == ds.hashlabel:
-			print(template.format(n, c.type, "\x1b[1m*", "\x1b[m"))
+		if c.backing_type != c.type:
+			backing_type = c.backing_type
 		else:
-			print(template.format(n, c.type, " ", ""))
+			backing_type = ""
+		if n == ds.hashlabel:
+			print(template.format(n, c.type, backing_type, "\x1b[1m*", "\x1b[m"))
+		else:
+			print(template.format(n, c.type, backing_type, " ", ""))
 	print("{0:n} columns".format(len(ds.columns)))
 	print("{0:n} lines".format(sum(ds.lines)))
 	if ds.previous:

@@ -21,7 +21,7 @@ from __future__ import division
 
 import gzutil
 
-assert gzutil.version >= (2, 8, 1) and gzutil.version[0] == 2, gzutil.version
+assert gzutil.version >= (2, 10, 0) and gzutil.version[0] == 2, gzutil.version
 
 from compat import PY3
 
@@ -37,18 +37,22 @@ type2iter = {
 	'datetime': gzutil.GzDateTime,
 	'date'    : gzutil.GzDate,
 	'time'    : gzutil.GzTime,
-	'bytes'   : gzutil.GzBytesLines,
-	'ascii'   : gzutil.GzAsciiLines,
-	'unicode' : gzutil.GzUnicodeLines,
+	'bytes'   : gzutil.GzBytes,
+	'ascii'   : gzutil.GzAscii,
+	'unicode' : gzutil.GzUnicode,
+# These are for compatibility with older datasets, don't use them.
+	'_v2_bytes'  : gzutil.GzBytesLines,
+	'_v2_ascii'  : gzutil.GzAsciiLines,
+	'_v2_unicode': gzutil.GzUnicodeLines,
 }
 
 from ujson import loads
 class GzJson(object):
 	def __init__(self, *a, **kw):
 		if PY3:
-			self.fh = gzutil.GzUnicodeLines(*a, **kw)
+			self.fh = gzutil.GzUnicode(*a, **kw)
 		else:
-			self.fh = gzutil.GzBytesLines(*a, **kw)
+			self.fh = gzutil.GzBytes(*a, **kw)
 	def __next__(self):
 		return loads(next(self.fh))
 	next = __next__
@@ -61,6 +65,15 @@ class GzJson(object):
 	def __exit__(self, type, value, traceback):
 		self.close()
 type2iter['json'] = GzJson
+
+# Just like the base Lines-types we have a compat version of json
+class _V2_GzJson(GzJson):
+	def __init__(self, *a, **kw):
+		if PY3:
+			self.fh = gzutil.GzUnicodeLines(*a, **kw)
+		else:
+			self.fh = gzutil.GzBytesLines(*a, **kw)
+type2iter['_v2_json'] = _V2_GzJson
 
 def typed_reader(typename):
 	if typename not in type2iter:

@@ -51,7 +51,7 @@ options = {
 
 datasets = ('previous', )
 
-equivalent_hashes = {'55c1c115e77f8fade8583dd5c56009c6669b031d': ('2dbb734115ebf0677ba3f81e02782b2f9bd42fcf',)}
+equivalent_hashes = {'6b9be7be9255861047f398da9b41876912c01286': ('2dbb734115ebf0677ba3f81e02782b2f9bd42fcf', '52ac8f20b794713dc2fd7dd3b0f0eae6be61a027',)}
 
 ffi = cffi.FFI()
 ffi.cdef('''
@@ -302,7 +302,7 @@ def prepare(SOURCE_DIRECTORY):
 	assert len(labels) == len(set(labels)), "Duplicate labels: %r" % (labels,)
 
 	dw = DatasetWriter(
-		columns={n: 'bytes' for n in labels if n not in options.discard},
+		columns={n: '_v2_bytes' for n in labels if n not in options.discard},
 		filename=orig_filename,
 		hashlabel=options.hashlabel,
 		caption='csvimport of ' + orig_filename,

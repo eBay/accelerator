@@ -1,6 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
+# Modifications copyright (c) 2018-2019 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -20,7 +21,7 @@ from __future__ import print_function
 from __future__ import division
 
 import gzutil
-from compat import unicode, str_types, PY3
+from compat import str_types, PY3
 
 GzWrite = gzutil.GzWrite
 
@@ -36,9 +37,9 @@ _convfuncs = {
 	'datetime' : gzutil.GzWriteDateTime,
 	'date'     : gzutil.GzWriteDate,
 	'time'     : gzutil.GzWriteTime,
-	'bytes'    : gzutil.GzWriteBytesLines,
-	'ascii'    : gzutil.GzWriteAsciiLines,
-	'unicode'  : gzutil.GzWriteUnicodeLines,
+	'bytes'    : gzutil.GzWriteBytes,
+	'ascii'    : gzutil.GzWriteAscii,
+	'unicode'  : gzutil.GzWriteUnicode,
 	'parsed:number'   : gzutil.GzWriteParsedNumber,
 	'parsed:float64'  : gzutil.GzWriteParsedFloat64,
 	'parsed:float32'  : gzutil.GzWriteParsedFloat32,
@@ -46,6 +47,10 @@ _convfuncs = {
 	'parsed:int32'    : gzutil.GzWriteParsedInt32,
 	'parsed:bits64'   : gzutil.GzWriteParsedBits64,
 	'parsed:bits32'   : gzutil.GzWriteParsedBits32,
+# These are for compatibility with older datasets, don't use them.
+	'_v2_bytes'    : gzutil.GzWriteBytesLines,
+	'_v2_ascii'    : gzutil.GzWriteAsciiLines,
+	'_v2_unicode'  : gzutil.GzWriteUnicodeLines,
 }
 
 def typed_writer(typename):
@@ -65,9 +70,9 @@ class GzWriteJson(object):
 	def __init__(self, *a, **kw):
 		assert 'default' not in kw, "default not supported for Json, sorry"
 		if PY3:
-			self.fh = gzutil.GzWriteUnicodeLines(*a, **kw)
+			self.fh = gzutil.GzWriteUnicode(*a, **kw)
 		else:
-			self.fh = gzutil.GzWriteBytesLines(*a, **kw)
+			self.fh = gzutil.GzWriteBytes(*a, **kw)
 		self.count = 0
 	def write(self, o):
 		self.count += 1
