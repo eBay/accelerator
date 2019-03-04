@@ -62,7 +62,7 @@ options = {
 datasets = ('source', 'previous',)
 
 equivalent_hashes = {
-	'1fcdd85dda9e7c1ae2f14a8f439346fd01cdf0a7': ('91105dcfc1d399ac33d50ee1ab8197d675dbf3af',)
+	'16cf22b8f04c76e9a8eb9df2b228f9d88e5769c1': ('91105dcfc1d399ac33d50ee1ab8197d675dbf3af', '9ec658f76813db0afba412297ae3277a0a3edfb3',)
 }
 
 ffi = cffi.FFI()

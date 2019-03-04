@@ -1,6 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
+# Modifications copyright (c) 2018-2019 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -55,11 +56,11 @@ def _mk_conv_unicode(colname, fmt, strip=False):
 	''.decode(codec) # trigger error on unknown
 	if strip:
 		def conv(s):
-			return s.decode(codec, errors).strip()
+			return None if s is None else s.decode(codec, errors).strip()
 		return conv
 	else:
 		def conv(s):
-			return s.decode(codec, errors)
+			return None if s is None else s.decode(codec, errors)
 		return conv
 
 def _mk_conv_ascii(colname, errors, strip=False):
