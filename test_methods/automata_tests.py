@@ -26,6 +26,7 @@ from dataset import Dataset
 def main(urd):
 	urd.build("test_json")
 
+	print()
 	print("Testing dataset creation, export, import")
 	source = urd.build("test_datasetwriter")
 	urd.build("test_datasetwriter_verify", datasets=dict(source=source))
@@ -36,6 +37,7 @@ def main(urd):
 	reimp_csv = urd.build("csvimport", options=dict(filename=resolve_jobid_filename(csv, csvname), separator="\t"))
 	reimp_csv_quoted = urd.build("csvimport", options=dict(filename=resolve_jobid_filename(csv_quoted, csvname), quote_support=True))
 	urd.build("test_compare_datasets", datasets=dict(a=reimp_csv, b=reimp_csv_quoted))
+	urd.build("test_dataset_column_names")
 
 	print()
 	print("Testing csvimport with more difficult files")
