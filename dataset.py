@@ -38,8 +38,12 @@ from jobid import resolve_jobid_filename
 from gzwrite import typed_writer
 
 kwlist = set(kwlist)
-# Add some python3 keywords
-kwlist.update({'False', 'None', 'True', 'nonlocal', 'async', 'await'})
+# Add some keywords that are not in all versions
+kwlist.update({
+	'exec', 'print',                                       # only in py2
+	'False', 'None', 'True', 'nonlocal', 'async', 'await', # only in py3
+})
+
 iskeyword = frozenset(kwlist).__contains__
 
 # A dataset is defined by a pickled DotDict containing at least the following (all strings are unicode):
