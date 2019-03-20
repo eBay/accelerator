@@ -984,7 +984,6 @@ static int gzwrite_init_GzWriteBlob(PyObject *self_, PyObject *args, PyObject *k
 	char *name = 0;
 	const char *mode = 0;
 	PyObject *hashfilter = 0;
-	int write_bom = 0;
 	gzwrite_close_(self);
 	static char *kwlist[] = {"name", "mode", "hashfilter", 0};
 	if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|sO", kwlist, Py_FileSystemDefaultEncoding, &name, &mode, &hashfilter)) return -1;
