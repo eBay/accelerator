@@ -1259,9 +1259,10 @@ MKWLINE(Unicode);
 		cleanup;                                                              	\
 		Py_RETURN_TRUE;                                                       	\
 	}                                                                             	\
+	PyObject *ret;                                                                	\
 	if (len < 255) {                                                              	\
 		uint8_t short_len = len;                                              	\
-		PyObject *ret = gzwrite_write_(self, (char *)&short_len, 1);          	\
+		ret = gzwrite_write_(self, (char *)&short_len, 1);                    	\
 	} else {                                                                      	\
 		if (len > 0x7fffffff) {                                               	\
 			cleanup;                                                      	\
@@ -1272,14 +1273,14 @@ MKWLINE(Unicode);
 		uint8_t lenbuf[5];                                                    	\
 		lenbuf[0] = 255;                                                      	\
 		memcpy(lenbuf + 1, &long_len, 4);                                     	\
-		PyObject *ret = gzwrite_write_(self, (char *)lenbuf, 5);              	\
-		if (!ret) {                                                           	\
-			cleanup;                                                      	\
-			return 0;                                                     	\
-		}                                                                     	\
-		Py_DECREF(ret);                                                       	\
+		ret = gzwrite_write_(self, (char *)lenbuf, 5);                        	\
 	}                                                                             	\
-	PyObject *ret = gzwrite_write_(self, data, len);                              	\
+	if (!ret) {                                                                   	\
+		cleanup;                                                              	\
+		return 0;                                                             	\
+	}                                                                             	\
+	Py_DECREF(ret);                                                               	\
+	ret = gzwrite_write_(self, data, len);                                        	\
 	cleanup;                                                                      	\
 	if (!ret) return 0;                                                           	\
 	self->count++;                                                                	\
@@ -2050,7 +2051,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	PyObject *c_hash = PyCapsule_New((void *)hash, "gzutil._C_hash", 0);
 	if (!c_hash) return INITERR;
 	PyModule_AddObject(m, "_C_hash", c_hash);
-	PyObject *version = Py_BuildValue("(iii)", 2, 10, 0);
+	PyObject *version = Py_BuildValue("(iii)", 2, 10, 1);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;
