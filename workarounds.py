@@ -1,6 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
+# Modifications copyright (c) 2019 Carl Drougge                            #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -23,6 +24,7 @@ import signal
 import termios
 import fcntl
 import atexit
+from contextlib import contextmanager
 
 class SignalWrapper(object):
 	"""Some misguided kernels (like Linux) feel that SIGINFO is not needed.
@@ -55,11 +57,8 @@ class SignalWrapper(object):
 		self.tc_original = termios.tcgetattr(0)
 		tc_changed = list(self.tc_original)
 		tc_changed[3] &= ~(termios.ICANON | termios.IEXTEN)
-		self.fl_original = fcntl.fcntl(0, fcntl.F_GETFL)
-		fl_changed = self.fl_original | os.O_NONBLOCK
 		self.use_input = True
 		termios.tcsetattr(0, termios.TCSADRAIN, tc_changed)
-		fcntl.fcntl(0, fcntl.F_SETFL, fl_changed)
 
 	def cleanup(self):
 		if not self.clean:
@@ -68,18 +67,18 @@ class SignalWrapper(object):
 					old = signal.SIG_DFL
 				signal.signal(sig, old)
 			if self.use_input:
-				fcntl.fcntl(0, fcntl.F_SETFL, self.fl_original)
 				termios.tcsetattr(0, termios.TCSADRAIN, self.tc_original)
 			self.clean = True
 
 	def check(self):
 		if self.use_input:
-			while True:
-				try:
-					if ord(os.read(0, 1)) in self.key_values:
-						self.signal_set = True
-				except OSError:
-					break
+			with nonblocking():
+				while True:
+					try:
+						if ord(os.read(0, 1)) in self.key_values:
+							self.signal_set = True
+					except OSError:
+						break
 		if self.signal_set:
 			self.signal_set = False
 			return True
@@ -88,3 +87,13 @@ class SignalWrapper(object):
 
 	def signal_arrived(self, sig, frame):
 		self.signal_set = True
+
+@contextmanager
+def nonblocking():
+	fl_original = fcntl.fcntl(0, fcntl.F_GETFL)
+	fl_changed = fl_original | os.O_NONBLOCK
+	fcntl.fcntl(0, fcntl.F_SETFL, fl_changed)
+	try:
+		yield
+	finally:
+		fcntl.fcntl(0, fcntl.F_SETFL, fl_original)
