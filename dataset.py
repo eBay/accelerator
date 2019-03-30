@@ -115,7 +115,7 @@ def _ds_load(obj):
 	n = unicode(obj)
 	if n not in _ds_cache:
 		_ds_cache[n] = _v2_columntypefix(blob.load(obj._name('pickle'), obj.jobid))
-		_ds_cache.update(map(_v2_columntypefix, _ds_cache[n].get('cache', ())))
+		_ds_cache.update(_ds_cache[n].get('cache', ()))
 	return _ds_cache[n]
 
 _type_v2to3backing = dict(
@@ -141,6 +141,8 @@ def _v2_columntypefix(ds):
 	assert ds.version[0] == 2 and ds.version[1] >= 2, "%s: Unsupported dataset pickle version %r" % (ds, ds.version,)
 	ds = DotDict(ds)
 	ds.columns = {name: _dc_v2to3(dc) for name, dc in ds.columns.items()}
+	if 'cache' in ds:
+		ds.cache = [(k, _v2_columntypefix(v)) for k, v in ds.cache]
 	ds.version = (3, 0)
 	return ds
 
