@@ -71,3 +71,7 @@ def synthesis(jobid):
 	full_chain[-1].link_to_here("withcache", override_previous=full_chain[-3])
 	assert "cache" not in Dataset(jobid, "nocache")._data
 	assert "cache" in Dataset(jobid, "withcache")._data
+	# And make sure they both get the right data too.
+	assert list(Dataset(prev).iterate_chain(None, "ix")) == list(range(ix))
+	assert list(Dataset(jobid, "nocache").iterate_chain(None, "ix")) == [ix - 2]
+	assert list(Dataset(jobid, "withcache").iterate_chain(None, "ix")) == list(range(ix - 2)) + [ix - 1]
