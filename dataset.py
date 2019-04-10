@@ -986,7 +986,7 @@ class DatasetWriter(object):
 		hl = self.hashlabel
 		if hl:
 			w_d['h'] = self._allwriters[0][hl].hash
-			f_____.append('w_l = writers[h(%s) %% %d]' % (hl, SLICES,))
+			f_____.append('w_l = writers[h(%s) %% %d]' % (self._clean_names[hl], SLICES,))
 			f_list.append('w_l = writers[h(v[%d]) %% %d]' % (self._order.index(hl), SLICES,))
 			f_dict.append('w_l = writers[h(d[%r]) %% %d]' % (hl, SLICES,))
 		else:
