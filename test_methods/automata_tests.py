@@ -55,9 +55,10 @@ def main(urd):
 	urd.build("test_rechain", jobids=dict(selfchain=selfchain))
 
 	print()
-	print("Testing dataset sorting (with subjobs again)")
+	print("Testing dataset sorting and rehashing (with subjobs again)")
 	urd.build("test_sorting")
 	urd.build("test_sort_stability")
+	urd.build("test_rehash")
 
 	print()
 	print("Test hashlabels")
