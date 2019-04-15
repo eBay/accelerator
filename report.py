@@ -51,12 +51,12 @@ class Report():
 
 	def write(self, s):
 		assert not self._closed, 'Closed.'
-		self.s += s
+		self.s += uni(s)
 
 	def printvec(self, vec, columns):
 		spacing = 80 // columns - 6
 		for ix, x in enumerate(vec):
-			self.write( '  %3d %s'  % (ix, str(x).ljust(spacing),))
+			self.write( '  %3d %s'  % (ix, uni(x).ljust(spacing),))
 			if ix % columns == columns - 1:
 				self.write('\n')
 		if ix % columns != columns - 1:
@@ -68,13 +68,13 @@ class Report():
 		self.println(title)
 		maxlen = max(len(k) for k in optionsdict)
 		for k, v in sorted(optionsdict.items()):
-			k = str(k).ljust(maxlen)
+			k = uni(k).ljust(maxlen)
 			if isinstance(v, (list, tuple)):
 				self.println('  %s :' % (k,))
 				for t in v:
-					self.println('  %s   %s' % (' ' * maxlen, t,))
+					self.println('  %s   %s' % (' ' * maxlen, uni(t),))
 			else:
-				self.println("  %s : %s " % (k, v,))
+				self.println("  %s : %s " % (k, uni(v),))
 
 	def close(self):
 		assert not self._entered, 'Don\'t call close if you use "with report".'
