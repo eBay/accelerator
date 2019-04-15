@@ -29,6 +29,7 @@ import g
 class Report():
 	def __init__(self, stdout=False):
 		self.stdout = stdout
+		self._entered = self._closed = False
 		self.s = ''
 		self.line()
 		t = time.strftime('%a, %d %b %Y %H:%M:%S +0000', time.gmtime())
@@ -49,6 +50,7 @@ class Report():
 		self.write(s + '\n')
 
 	def write(self, s):
+		assert not self._closed, 'Closed.'
 		self.s += s
 
 	def printvec(self, vec, columns):
@@ -75,6 +77,8 @@ class Report():
 				self.println("  %s : %s " % (k, v,))
 
 	def close(self):
+		assert not self._entered, 'Don\'t call close if you use "with report".'
+		assert not self._closed, 'Only close once.'
 		self.__exit__(None, None, None)
 
 	def __exit__(self, type, value, tb):
@@ -90,13 +94,16 @@ class Report():
 				F.write(uni(self.s))
 			if self.stdout:
 				print(self.s)
-			self.s = ''
 		except Exception:
 			# This logic looks backwards, but it isn't
 			if tb is None:
 				raise
+		finally:
+			self._closed = True
 
 	def __enter__(self):
+		assert not self._entered, 'Don\'t "with report" more than once.'
+		self._entered = True
 		return self
 
 report = Report # compat
