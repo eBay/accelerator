@@ -1,6 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
+# Modifications copyright (c) 2019 Carl Drougge                            #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -25,14 +26,14 @@ import time
 
 sock = None
 
-def _send(typ, message):
+def _send(typ, message, pid=None):
 	global sock
 	if not sock:
 		fd = int(os.getenv('BD_STATUS_FD'))
 		sock = socket.fromfd(fd, socket.AF_UNIX, socket.SOCK_DGRAM)
 	if len(message) > 1400:
 		message = message[:300] + '\n....\n' + message[-1100:]
-	msg = ('%s\0%d\0%s' % (typ, os.getpid(), message,)).encode('utf-8')
+	msg = ('%s\0%d\0%s' % (typ, pid or os.getpid(), message,)).encode('utf-8')
 	for ix in range(5):
 		try:
 			sock.send(msg)

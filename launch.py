@@ -1,6 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
+# Modifications copyright (c) 2018-2019 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -155,6 +156,7 @@ def fork_analysis(slices, analysis_func, kw, preserve_result):
 			dataset._datasetwriters[name]._lens.update(lens)
 		for name, minmax in s_dw_minmax.items():
 			dataset._datasetwriters[name]._minmax.update(minmax)
+	g.update_top_status("Waiting for all slices to finish cleanup")
 	for p in children:
 		p.join()
 	if preserve_result:
@@ -283,8 +285,10 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 		t = time()
 		g.running = 'analysis'
 		g.subjob_cookie = None # subjobs are not allowed from analysis
-		with status.status('Waiting for all slices to finish analysis'):
+		with status.status('Waiting for all slices to finish analysis') as update:
+			g.update_top_status = update
 			prof['per_slice'], files, g.analysis_res = fork_analysis(slices, analysis_func, args_for(analysis_func), synthesis_needs_analysis)
+			del g.update_top_status
 		prof['analysis'] = time() - t
 		saved_files.update(files)
 	t = time()

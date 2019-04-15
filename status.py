@@ -1,6 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
+# Modifications copyright (c) 2018-2019 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -39,6 +40,7 @@ from time import time, strftime, sleep
 from traceback import print_exc
 from threading import Lock
 from weakref import WeakValueDictionary
+import os
 
 from compat import str_types, iteritems, open
 
@@ -81,9 +83,11 @@ def status(msg):
 	cookie = str(_cookie)
 	t = str(time())
 	typ = 'push'
+	# capture the PID here, because update might be called in a different process
+	pid = os.getpid()
 	def update(msg):
 		assert msg and isinstance(msg, str_types) and '\0' not in msg
-		_send(typ, '\0'.join((msg, t, cookie)))
+		_send(typ, '\0'.join((msg, t, cookie)), pid=pid)
 	update(msg)
 	typ = 'update'
 	try:
