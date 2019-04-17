@@ -24,6 +24,7 @@ from jobid import resolve_jobid_filename
 from dataset import Dataset
 
 def main(urd):
+	urd.build("test_report")
 	urd.build("test_json")
 
 	print()
