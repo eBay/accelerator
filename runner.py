@@ -1,6 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
+# Modifications copyright (c) 2018-2019 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -225,12 +226,16 @@ class Runner(object):
 	def _receiver(self):
 		while True:
 			try:
-				op, length = struct.unpack('<cI', recvall(self.sock, 5))
+				hdr = recvall(self.sock, 5)
+				if not hdr:
+					break
+				op, length = struct.unpack('<cI', hdr)
 				data = recvall(self.sock, length)
 				cookie, data = pickle.loads(data)
 				q = self._waiters.pop(cookie)
 				q.put(data)
 			except Exception:
+				print_exc()
 				break
 		# All is lost, unblock anyone waiting
 		for q in itervalues(self._waiters):
