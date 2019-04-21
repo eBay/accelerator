@@ -550,7 +550,7 @@ MKmkBlob(Unicode, PyUnicode_DecodeUTF8(ptr, len, 0))
 			ptr = self->buf + self->pos;                                     	\
 			left_in_buf = self->len - self->pos;                             	\
 		}                                                                        	\
-		if (size > left_in_buf) {                                                	\
+		if (size > Z) {                                                          	\
 			char *tmp = malloc(size);                                        	\
 			if (!tmp) {                                                      	\
 				return PyErr_NoMemory();                                 	\
@@ -567,6 +567,19 @@ MKmkBlob(Unicode, PyUnicode_DecodeUTF8(ptr, len, 0))
 			PyObject *res = mkblob ## typename(self, tmp, size);             	\
 			free(tmp);                                                       	\
 			return res;                                                      	\
+		}                                                                        	\
+		if (size > left_in_buf) {                                                	\
+			memmove(self->buf, ptr, left_in_buf);                            	\
+			ptr = self->buf + left_in_buf;                                   	\
+			int read_len = gzread(self->fh, ptr, Z - left_in_buf);           	\
+			if (read_len <= 0) {                                             	\
+				(void) gzerror(self->fh, &self->error);                  	\
+				goto fferror;                                            	\
+			}                                                                	\
+			if (read_len + left_in_buf < size) goto fferror;                 	\
+			self->len = read_len + left_in_buf;                              	\
+			self->pos = 0;                                                   	\
+			ptr = self->buf;                                                 	\
 		}                                                                        	\
 		self->pos += size;                                                       	\
 		return mkblob ## typename(self, ptr, size);                              	\
@@ -2051,7 +2064,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	PyObject *c_hash = PyCapsule_New((void *)hash, "gzutil._C_hash", 0);
 	if (!c_hash) return INITERR;
 	PyModule_AddObject(m, "_C_hash", c_hash);
-	PyObject *version = Py_BuildValue("(iii)", 2, 10, 1);
+	PyObject *version = Py_BuildValue("(iii)", 2, 10, 2);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;
