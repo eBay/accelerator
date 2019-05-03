@@ -84,15 +84,17 @@ for name, data, bad_cnt, res_data in (
 	# verify that failuses in init are handled reasonably.
 	for typ in (r_typ, w_typ,):
 		try:
-			typ("/NONEXISTENT")
-			raise Exception("%r does not give IOError for /NONEXISTENT" % (typ,))
+			typ("DOES/NOT/EXIST")
+			raise Exception("%r does not give IOError for DOES/NOT/EXIST" % (typ,))
 		except IOError:
 			pass
 		try:
-			typ("/NONEXISTENT", nonexistent_keyword="test")
-			raise Exception("%r does not give TypeError for bad keyword argument" % (typ,))
+			typ(TMP_FN, nonexistent_keyword="test")
+			assert False
 		except TypeError:
 			pass
+		except Exception:
+			raise Exception("%r does not give TypeError for bad keyword argument" % (typ,))
 	# test that the right data fails to write
 	with w_typ(TMP_FN) as fh:
 		count = 0
