@@ -81,7 +81,7 @@ for name, data, bad_cnt, res_data in (
 	r_name = "Gz" + name[6:] if name.startswith("Parsed") else "Gz" + name
 	r_typ = getattr(gzutil, r_name)
 	w_typ = getattr(gzutil, "GzWrite" + name)
-	# verify that failuses in init are handled reasonably.
+	# verify that failures in init are handled reasonably.
 	for typ in (r_typ, w_typ,):
 		try:
 			typ("DOES/NOT/EXIST")
