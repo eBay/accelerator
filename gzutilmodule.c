@@ -1422,7 +1422,8 @@ err:                                                                            
 	static PyObject *gzwrite_C_ ## tname(GzWrite *self, PyObject *obj, int actually_write)	\
 	{                                                                                	\
 		if (withnone && obj == Py_None) {                                        	\
-			WRITE_NONE_SLICE_CHECK;                                            	\
+is_none:                                                                                 	\
+			WRITE_NONE_SLICE_CHECK;                                          	\
 			self->count++;                                                   	\
 			return gzwrite_write_(self, (char *)&noneval_ ## T, sizeof(T));  	\
 		}                                                                        	\
@@ -1437,7 +1438,8 @@ err:                                                                            
 		if (pyerr) {                                                             	\
 			if (!self->default_value) return 0;                              	\
 			PyErr_Clear();                                                   	\
-			value = self->default_value->as_ ## T;                            	\
+			if (withnone && self->default_obj == Py_None) goto is_none;      	\
+			value = self->default_value->as_ ## T;                           	\
 			obj = self->default_obj;                                         	\
 		}                                                                        	\
 		if (self->slices) {                                                      	\
@@ -1446,14 +1448,12 @@ err:                                                                            
 			if (sliceno != self->sliceno) Py_RETURN_FALSE;                   	\
 		}                                                                        	\
 		if (!actually_write) Py_RETURN_TRUE;                                     	\
-		if (obj && obj != Py_None) {                                             	\
-			T cmp_value = minmax_value(value);                               	\
-			if (!self->min_obj || (cmp_value < self->min_u.as_ ## T)) {      	\
-				minmax_set(&self->min_obj, obj, &self->min_u, &cmp_value, sizeof(cmp_value));	\
-			}                                                                	\
-			if (!self->max_obj || (cmp_value > self->max_u.as_ ## T)) {      	\
-				minmax_set(&self->max_obj, obj, &self->max_u, &cmp_value, sizeof(cmp_value));	\
-			}                                                                	\
+		T cmp_value = minmax_value(value);                                       	\
+		if (!self->min_obj || (cmp_value < self->min_u.as_ ## T)) {              	\
+			minmax_set(&self->min_obj, obj, &self->min_u, &cmp_value, sizeof(cmp_value));	\
+		}                                                                        	\
+		if (!self->max_obj || (cmp_value > self->max_u.as_ ## T)) {              	\
+			minmax_set(&self->max_obj, obj, &self->max_u, &cmp_value, sizeof(cmp_value));	\
 		}                                                                        	\
 		self->count++;                                                           	\
 		return gzwrite_write_(self, (char *)&value, sizeof(value));              	\
@@ -2064,7 +2064,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	PyObject *c_hash = PyCapsule_New((void *)hash, "gzutil._C_hash", 0);
 	if (!c_hash) return INITERR;
 	PyModule_AddObject(m, "_C_hash", c_hash);
-	PyObject *version = Py_BuildValue("(iii)", 2, 10, 2);
+	PyObject *version = Py_BuildValue("(iii)", 2, 10, 3);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;

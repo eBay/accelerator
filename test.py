@@ -153,10 +153,11 @@ for name, data, bad_cnt, res_data in (
 				count = 0
 				for ix, value in enumerate(data):
 					try:
+						hc = fh.hashcheck(value)
 						wrote = fh.write(value)
 						count += wrote
 						assert ix >= bad_cnt, repr(value)
-						assert fh.hashcheck(value) == wrote or (spread_None and value is None), "Hashcheck disagrees with write"
+						assert hc == wrote, "Hashcheck disagrees with write"
 					except (ValueError, TypeError, OverflowError):
 						assert ix < bad_cnt, repr(value)
 				assert fh.count == count, "%s (%d, %d): %d lines written, claims %d" % (name, sliceno, slices, count, fh.count,)
@@ -197,12 +198,19 @@ for name, data, bad_cnt, res_data in (
 		slice_test(slices, True)
 		# and a simple check to verify that None actually gets spread too
 		if "Bits" not in name:
-			with w_typ(TMP_FN, hashfilter=(slices - 1, slices, True)) as fh:
-				for _ in range(slices * 3):
-					fh.write(None)
-			with r_typ(TMP_FN) as fh:
-				tmp = list(fh)
-				assert tmp == [None, None, None], "Bad spread_None for %d slices" % (slices,)
+			kw = dict(hashfilter=(slices - 1, slices, True))
+			value = None
+			for _ in range(2):
+				# first lap verifies with normal writing,
+				# second lap with invalid values writing the default.
+				with w_typ(TMP_FN, **kw) as fh:
+					for _ in range(slices * 3):
+						fh.write(value)
+				with r_typ(TMP_FN) as fh:
+					tmp = list(fh)
+					assert tmp == [None, None, None], "Bad spread_None %sfor %d slices" % ("from default " if "default" in kw else "", slices,)
+				kw["default"] = None
+				value = object
 
 print("Empty and None values in stringlike types")
 for name, value in (
