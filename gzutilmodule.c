@@ -26,6 +26,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <limits.h>
+#include <math.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/fcntl.h>
@@ -621,8 +622,10 @@ MKBLOBITER(GzUnicode, Unicode);
 
 
 // These are signaling NaNs with extra DEADness in the significand
-static const unsigned char noneval_double[8] = {0xde, 0xad, 0xde, 0xad, 0xde, 0xad, 0xf0, 0xff};
-static const unsigned char noneval_float[4] = {0xde, 0xad, 0x80, 0xff};
+static unsigned char noneval_double[8] = {0xde, 0xad, 0xde, 0xad, 0xde, 0xad, 0xf0, 0xff};
+static unsigned char noneval_float[4] = {0xde, 0xad, 0x80, 0xff};
+static const unsigned char BE_noneval_double[8] = {0xff, 0xf0, 0xde, 0xad, 0xde, 0xad, 0xde, 0xad};
+static const unsigned char BE_noneval_float[4] = {0xff, 0x80, 0xde, 0xad};
 
 // The smallest value is one less than -biggest, so that seems like a good signal value.
 static const int64_t noneval_int64_t = INT64_MIN;
@@ -2054,6 +2057,12 @@ static struct PyModuleDef moduledef = {
 	PyModule_AddObject(m, #name, (PyObject *) &name ## _Type);   	\
 } while (0)
 
+#define VERIFY_FLOATNONE(T) do {                                     	\
+	T value;                                                     	\
+	memcpy(&value, &noneval_ ## T, sizeof(T));                   	\
+	good &= !!isnan(value);                                      	\
+} while (0)
+
 PyMODINIT_FUNC INITFUNC(void)
 {
 	int good = (sizeof(py64T) == 8);
@@ -2061,15 +2070,26 @@ PyMODINIT_FUNC INITFUNC(void)
 	good &= (sizeof(double) == 8);
 	good &= (sizeof(float) == 4);
 	good &= (sizeof(long) >= 4);
-	union { int16_t s; uint8_t c[2]; } endian_test;
-	endian_test.s = -2;
-	good &= (endian_test.c[0] == 254);
-	good &= (endian_test.c[1] == 255);
+	if (good) { // only test this if sizes are right at least
+		union { int16_t s; uint8_t c[2]; } endian_test;
+		endian_test.s = -2;
+		if (endian_test.c[0] == 254 && endian_test.c[1] == 255) {
+			// little endian two's complement, as expected
+		} else if (endian_test.c[0] == 255 && endian_test.c[1] == 254) {
+			// big endian, we can work with this.
+			memcpy(&noneval_double, &BE_noneval_double, sizeof(noneval_double));
+			memcpy(&noneval_float, &BE_noneval_float, sizeof(noneval_float));
+		} else {
+			// wat?
+			good = 0;
+		}
+		VERIFY_FLOATNONE(double);
+		VERIFY_FLOATNONE(float);
+	}
 	if (!good) {
 		PyErr_SetString(PyExc_OverflowError,
 			"This module only works with two's complement "
-			"little endian integers, IEEE 754 binary floats "
-			"and 8 bit bytes."
+			"integers, IEEE 754 binary floats and 8 bit bytes."
 		);
 		return INITERR;
 	}
@@ -2134,7 +2154,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	PyObject *c_hash = PyCapsule_New((void *)hash, "gzutil._C_hash", 0);
 	if (!c_hash) return INITERR;
 	PyModule_AddObject(m, "_C_hash", c_hash);
-	PyObject *version = Py_BuildValue("(iii)", 2, 10, 4);
+	PyObject *version = Py_BuildValue("(iii)", 2, 10, 5);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;
