@@ -25,10 +25,37 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdint.h>
+#include <limits.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/fcntl.h>
 
+
+// Choose some python number functions based on the size of long.
+#if LONG_MAX == INT64_MAX
+#  define pyLong_AsS64   PyInt_AsLong
+#  define pyLong_AsU64   PyLong_AsUnsignedLong
+#  define pyInt_FromS32  PyInt_FromLong
+#  define pyInt_FromU32  PyInt_FromLong
+#  define pyInt_FromS64  PyInt_FromLong
+#  define pyInt_FromU64  PyLong_FromUnsignedLong
+#  define py64T          long
+#elif PY_LLONG_MAX == INT64_MAX
+#  define pyLong_AsS64   PyLong_AsLongLong
+#  define pyLong_AsU64   PyLong_AsUnsignedLongLong
+#  define pyInt_FromS32  PyInt_FromLong
+#  define pyInt_FromU32  PyLong_FromUnsignedLong
+#  define pyInt_FromS64  PyLong_FromLongLong
+#  define pyInt_FromU64  PyLong_FromUnsignedLongLong
+#  define py64T          PY_LONG_LONG
+#else
+#  error "Unable to find a 64 bit type for PyLong*"
+#endif
+#if LONG_MAX == INT32_MAX
+// If not these will be defined as functions further down
+#  define pyLong_AsS32 PyInt_AsLong
+#  define pyLong_AsU32 PyLong_AsUnsignedLong
+#endif
 
 // Must be a multiple of the largest fixed size type
 #define Z (128 * 1024)
@@ -95,6 +122,7 @@ static int gzread_close_(GzRead *self)
 #  define UNICODE_NAME    "str"
 #  define EITHER_NAME     "str or bytes"
 #  define PyInt_FromLong  PyLong_FromLong
+#  define PyInt_AsLong    PyLong_AsLong
 #  define PyNumber_Int    PyNumber_Long
 #  define INITFUNC        PyInit_gzutil
 #  define Integer_Check(o) PyLong_Check(o)
@@ -628,10 +656,10 @@ static const uint8_t noneval_uint8_t = 255;
 
 MKITER(GzFloat64, double  , PyFloat_FromDouble     , hash_double , double  , 1)
 MKITER(GzFloat32, float   , PyFloat_FromDouble     , hash_double , double  , 1)
-MKITER(GzInt64  , int64_t , PyInt_FromLong         , hash_integer, int64_t , 1)
-MKITER(GzInt32  , int32_t , PyInt_FromLong         , hash_integer, int64_t , 1)
-MKITER(GzBits64 , uint64_t, PyLong_FromUnsignedLong, hash_integer, uint64_t, 0)
-MKITER(GzBits32 , uint32_t, PyLong_FromUnsignedLong, hash_integer, uint64_t, 0)
+MKITER(GzInt64  , int64_t , pyInt_FromS64          , hash_integer, int64_t , 1)
+MKITER(GzInt32  , int32_t , pyInt_FromS32          , hash_integer, int64_t , 1)
+MKITER(GzBits64 , uint64_t, pyInt_FromU64          , hash_integer, uint64_t, 0)
+MKITER(GzBits32 , uint32_t, pyInt_FromU32          , hash_integer, uint64_t, 0)
 MKITER(GzBool   , uint8_t , PyBool_FromLong        , hash_bool   , uint8_t , 1)
 
 static PyObject *GzNumber_iternext(GzRead *self)
@@ -676,7 +704,7 @@ static PyObject *GzNumber_iternext(GzRead *self)
 		int64_t v;
 		memcpy(&v, buf, sizeof(v));
 		HC_CHECK(hash_integer(&v));
-		return PyInt_FromLong(v);
+		return pyInt_FromS64(v);
 	}
 	HC_CHECK(hash(buf, len));
 	return _PyLong_FromByteArray(buf, len, 1, 1);
@@ -1093,21 +1121,21 @@ static PyObject *gzwrite_write_GzWrite(GzWrite *self, PyObject *obj)
 	if (len == 1 && *data == 0) {                                                 	\
 		cleanup;                                                              	\
 		PyErr_Format(PyExc_ValueError,                                        	\
-		             "Value becomes None-marker (line %ld)",                  	\
+		             "Value becomes None-marker (line %lu)",                  	\
 		             self->count + 1);                                        	\
 		return 0;                                                             	\
 	}                                                                             	\
 	if (memchr(data, '\n', len)) {                                                	\
 		cleanup;                                                              	\
 		PyErr_Format(PyExc_ValueError,                                        	\
-		             "Value must not contain \\n (line %ld)",                 	\
+		             "Value must not contain \\n (line %lu)",                 	\
 		             self->count + 1);                                        	\
 		return 0;                                                             	\
 	}                                                                             	\
 	if (data[len - 1] == '\r') {                                                  	\
 		cleanup;                                                              	\
 		PyErr_Format(PyExc_ValueError,                                        	\
-		             "Value must not end with \\r (line %ld)",                	\
+		             "Value must not end with \\r (line %lu)",                	\
 		             self->count + 1);                                        	\
 		return 0;                                                             	\
 	}                                                                             	\
@@ -1135,11 +1163,11 @@ static PyObject *gzwrite_write_GzWrite(GzWrite *self, PyObject *obj)
 			if (len < 1000) {                                             	\
 				PyErr_Format(PyExc_ValueError,                        	\
 				             "Value contains %d at position %ld: %s", 	\
-				             data_[i], i, data);                      	\
+				             data_[i], (long) i, data);               	\
 			} else {                                                      	\
 				PyErr_Format(PyExc_ValueError,                        	\
-				             "Value contains %d at position %ld.",     	\
-				             data_[i], i);                            	\
+				             "Value contains %d at position %ld.",    	\
+				             data_[i], (long) i);                     	\
 			}                                                             	\
 			return 0;                                                     	\
 		}                                                                     	\
@@ -1174,7 +1202,7 @@ static PyObject *gzwrite_write_GzWrite(GzWrite *self, PyObject *obj)
 		return 0;                                                                     	\
 	}
 #define HASHLINEDO(cleanup) \
-	PyObject *res = PyLong_FromUnsignedLong(hash(data, len));    	\
+	PyObject *res = pyInt_FromU64(hash(data, len));              	\
 	cleanup;                                                     	\
 	return res;
 
@@ -1256,7 +1284,7 @@ MKWLINE(Unicode);
 	if (checktype) {                                                              	\
 		PyErr_Format(PyExc_TypeError,                                         	\
 		             "For your protection, only " errname                     	\
-		             " objects are accepted (line %ld)",                      	\
+		             " objects are accepted (line %lu)",                      	\
 		             self->count + 1);                                        	\
 		return 0;                                                             	\
 	}
@@ -1371,10 +1399,10 @@ static inline uint64_t minmax_value_datetime(uint64_t value) {
 	}
 MK_MINMAX_SET(Float64 , PyFloat_FromDouble(*(double *)cmp_value));
 MK_MINMAX_SET(Float32 , PyFloat_FromDouble(*(float *)cmp_value));
-MK_MINMAX_SET(Int64   , PyInt_FromLong(*(int64_t *)cmp_value));
-MK_MINMAX_SET(Int32   , PyInt_FromLong(*(int32_t *)cmp_value));
-MK_MINMAX_SET(Bits64  , PyLong_FromUnsignedLong(*(uint64_t *)cmp_value));
-MK_MINMAX_SET(Bits32  , PyLong_FromUnsignedLong(*(uint32_t *)cmp_value));
+MK_MINMAX_SET(Int64   , pyInt_FromS64(*(int64_t *)cmp_value));
+MK_MINMAX_SET(Int32   , pyInt_FromS32(*(int32_t *)cmp_value));
+MK_MINMAX_SET(Bits64  , pyInt_FromU64(*(uint64_t *)cmp_value));
+MK_MINMAX_SET(Bits32  , pyInt_FromU32(*(uint32_t *)cmp_value));
 MK_MINMAX_SET(Bool    , PyBool_FromLong(*(uint8_t *)cmp_value));
 MK_MINMAX_SET(DateTime, unfmt_datetime((*(uint64_t *)cmp_value) >> 32, *(uint64_t *)cmp_value));
 MK_MINMAX_SET(Date    , unfmt_date(*(uint32_t *)cmp_value));
@@ -1481,19 +1509,52 @@ is_none:                                                                        
 			const HT h_value = value;                                        	\
 			h = hash(&h_value);                                              	\
 		}                                                                        	\
-		return PyLong_FromUnsignedLong(h);                                       	\
+		return pyInt_FromU64(h);                                                 	\
 	}
-static uint64_t pylong_asuint64_t(PyObject *l)
-{
-	uint64_t value = PyLong_AsUnsignedLong(l);
-	if (value == (uint64_t)-1 && PyErr_Occurred()) {
-		PyErr_SetString(PyExc_OverflowError, "Value doesn't fit in 64 bits");
+
+#if PY_MAJOR_VERSION < 3
+// Passing a non-int object to some of the As functions in py2 gives
+// SystemError, but we want TypeError.
+#  define MKpy2AsFix(T, TN, bitcnt) \
+	static T fix_pyLong_As ## TN(PyObject *l)                                        	\
+	{                                                                                	\
+		T value = pyLong_As ## TN(l);                                            	\
+		if (value == (T)-1 && PyErr_Occurred()) {                                	\
+			if (Integer_Check(l)) {                                          	\
+				PyErr_SetString(PyExc_OverflowError,                     	\
+					"Value doesn't fit in " #bitcnt " bits"          	\
+				);                                                       	\
+			} else {                                                         	\
+				PyErr_Format(PyExc_TypeError,                            	\
+					"%s is not an integer type.",                    	\
+					l->ob_type->tp_name                              	\
+				);                                                       	\
+			}                                                                	\
+		}                                                                        	\
+		return value;                                                            	\
 	}
-	return value;
-}
-static int32_t pylong_asint32_t(PyObject *l)
+
+   MKpy2AsFix(uint64_t, U64, 64);
+#  undef pyLong_AsU64
+#  define pyLong_AsU64 fix_pyLong_AsU64
+
+#  ifdef pyLong_AsS32
+     MKpy2AsFix(int32_t, S32, 32);
+#    undef pyLong_AsS32
+#    define pyLong_AsS32 fix_pyLong_AsS32
+#  endif
+
+#  ifdef pyLong_AsU32
+     MKpy2AsFix(uint32_t, U32, 32);
+#    undef pyLong_AsU32
+#    define pyLong_AsU32 fix_pyLong_AsU32
+#  endif
+#endif
+
+#ifndef pyLong_AsS32
+static int32_t pyLong_AsS32(PyObject *l)
 {
-	int64_t value = PyLong_AsLong(l);
+	int64_t value = pyLong_AsS64(l);
 	int32_t real_value = value;
 	if (value != real_value) {
 		PyErr_SetString(PyExc_OverflowError, "Value doesn't fit in 32 bits");
@@ -1501,9 +1562,12 @@ static int32_t pylong_asint32_t(PyObject *l)
 	}
 	return value;
 }
-static uint32_t pylong_asuint32_t(PyObject *l)
+#endif
+
+#ifndef pyLong_AsU32
+static uint32_t pyLong_AsU32(PyObject *l)
 {
-	uint64_t value = pylong_asuint64_t(l);
+	uint64_t value = pyLong_AsU64(l);
 	uint32_t real_value = value;
 	if (value != real_value) {
 		PyErr_SetString(PyExc_OverflowError, "Value doesn't fit in 32 bits");
@@ -1511,22 +1575,25 @@ static uint32_t pylong_asuint32_t(PyObject *l)
 	}
 	return value;
 }
-static uint8_t pylong_asbool(PyObject *l)
+#endif
+
+static uint8_t pyLong_AsBool(PyObject *l)
 {
-	long value = PyLong_AsLong(l);
+	long value = PyInt_AsLong(l);
 	if (value != 0 && value != 1) {
 		PyErr_SetString(PyExc_OverflowError, "Value is not 0 or 1");
 		return (uint8_t)-1;
 	}
 	return value;
 }
+
 MKWRITER(GzWriteFloat64, double  , double  , PyFloat_AsDouble , 1, , minmax_set_Float64, hash_double );
 MKWRITER(GzWriteFloat32, float   , double  , PyFloat_AsDouble , 1, , minmax_set_Float32, hash_double );
-MKWRITER(GzWriteInt64  , int64_t , int64_t , PyLong_AsLong    , 1, , minmax_set_Int64  , hash_integer);
-MKWRITER(GzWriteInt32  , int32_t , int64_t , pylong_asint32_t , 1, , minmax_set_Int32  , hash_integer);
-MKWRITER(GzWriteBits64 , uint64_t, uint64_t, pylong_asuint64_t, 0, , minmax_set_Bits64 , hash_integer);
-MKWRITER(GzWriteBits32 , uint32_t, uint64_t, pylong_asuint32_t, 0, , minmax_set_Bits32 , hash_integer);
-MKWRITER(GzWriteBool   , uint8_t , uint8_t , pylong_asbool    , 1, , minmax_set_Bool   , hash_bool   );
+MKWRITER(GzWriteInt64  , int64_t , int64_t , pyLong_AsS64     , 1, , minmax_set_Int64  , hash_integer);
+MKWRITER(GzWriteInt32  , int32_t , int64_t , pyLong_AsS32     , 1, , minmax_set_Int32  , hash_integer);
+MKWRITER(GzWriteBits64 , uint64_t, uint64_t, pyLong_AsU64     , 0, , minmax_set_Bits64 , hash_integer);
+MKWRITER(GzWriteBits32 , uint32_t, uint64_t, pyLong_AsU32     , 0, , minmax_set_Bits32 , hash_integer);
+MKWRITER(GzWriteBool   , uint8_t , uint8_t , pyLong_AsBool    , 1, , minmax_set_Bool   , hash_bool   );
 static uint64_t fmt_datetime(PyObject *dt)
 {
 	if (!PyDateTime_Check(dt)) {
@@ -1675,7 +1742,7 @@ static PyObject *gzwrite_C_GzWriteNumber(GzWrite *self, PyObject *obj, int actua
 		PyErr_SetString(PyExc_ValueError, "Only integers/floats accepted");
 		return 0;
 	}
-	const int64_t value = PyLong_AsLong(obj);
+	const int64_t value = pyLong_AsS64(obj);
 	char buf[GZNUMBER_MAX_BYTES];
 	if (value != -1 || !PyErr_Occurred()) {
 		if (self->slices) {
@@ -1725,14 +1792,14 @@ static PyObject *gzwrite_hash_GzWriteNumber(PyObject *dummy, PyObject *obj)
 	} else {
 		if (PyFloat_Check(obj)) {
 			const double value = PyFloat_AS_DOUBLE(obj);
-			return PyLong_FromUnsignedLong(hash_double(&value));
+			return pyInt_FromU64(hash_double(&value));
 		}
 		if (!Integer_Check(obj)) {
 			PyErr_SetString(PyExc_ValueError, "Only integers/floats accepted");
 			return 0;
 		}
 		uint64_t h;
-		const int64_t value = PyLong_AsLong(obj);
+		const int64_t value = pyLong_AsS64(obj);
 		if (value != -1 || !PyErr_Occurred()) {
 			h = hash_integer(&value);
 		} else {
@@ -1740,7 +1807,7 @@ static PyObject *gzwrite_hash_GzWriteNumber(PyObject *dummy, PyObject *obj)
 			if (gzwrite_GzWriteNumber_serialize_Long(obj, buf, "Value")) return 0;
 			h = hash(buf + 1, buf[0]);
 		}
-		return PyLong_FromUnsignedLong(h);
+		return pyInt_FromU64(h);
 	}
 }
 
@@ -1820,10 +1887,10 @@ MKPARSEDNUMBERWRAPPER(hash, PyObject)
 	MKWRITER(GzWriteParsed ## name, T, HT, parse ## name, withnone, , minmax_set, hash)
 MKPARSED(Float64, double  , double  , PyNumber_Float, PyFloat_AsDouble , 1, minmax_set_Float64, hash_double);
 MKPARSED(Float32, float   , double  , PyNumber_Float, PyFloat_AsDouble , 1, minmax_set_Float32, hash_double);
-MKPARSED(Int64  , int64_t , int64_t , PyNumber_Int  , PyLong_AsLong    , 1, minmax_set_Int64  , hash_integer);
-MKPARSED(Int32  , int32_t , int64_t , PyNumber_Int  , pylong_asint32_t , 1, minmax_set_Int32  , hash_integer);
-MKPARSED(Bits64 , uint64_t, uint64_t, PyNumber_Int  , pylong_asuint64_t, 0, minmax_set_Bits64 , hash_integer);
-MKPARSED(Bits32 , uint32_t, uint64_t, PyNumber_Int  , pylong_asuint32_t, 0, minmax_set_Bits32 , hash_integer);
+MKPARSED(Int64  , int64_t , int64_t , PyNumber_Int  , pyLong_AsS64     , 1, minmax_set_Int64  , hash_integer);
+MKPARSED(Int32  , int32_t , int64_t , PyNumber_Int  , pyLong_AsS32     , 1, minmax_set_Int32  , hash_integer);
+MKPARSED(Bits64 , uint64_t, uint64_t, PyNumber_Long , pyLong_AsU64     , 0, minmax_set_Bits64 , hash_integer);
+MKPARSED(Bits32 , uint32_t, uint64_t, PyNumber_Int  , pyLong_AsU32     , 0, minmax_set_Bits32 , hash_integer);
 
 static PyMemberDef w_default_members[] = {
 	{"name"      , T_STRING   , offsetof(GzWrite, name       ), READONLY},
@@ -1955,7 +2022,7 @@ static PyObject *siphash24(PyObject *dummy, PyObject *args)
 	}
 	uint64_t res;
 	siphash((uint8_t *)&res, v, v_len, k);
-	return PyLong_FromUnsignedLong(res);
+	return pyInt_FromU64(res);
 }
 
 static PyMethodDef module_methods[] = {
@@ -1989,17 +2056,20 @@ static struct PyModuleDef moduledef = {
 
 PyMODINIT_FUNC INITFUNC(void)
 {
-	int good = (sizeof(long) == 8);
+	int good = (sizeof(py64T) == 8);
 	good &= (sizeof(int64_t) == 8);
 	good &= (sizeof(double) == 8);
+	good &= (sizeof(float) == 4);
+	good &= (sizeof(long) >= 4);
 	union { int16_t s; uint8_t c[2]; } endian_test;
 	endian_test.s = -2;
 	good &= (endian_test.c[0] == 254);
 	good &= (endian_test.c[1] == 255);
 	if (!good) {
 		PyErr_SetString(PyExc_OverflowError,
-			"This module only works with twos complement "
-			"little endian 64 bit longs (and 8 bit bytes)."
+			"This module only works with two's complement "
+			"little endian integers, IEEE 754 binary floats "
+			"and 8 bit bytes."
 		);
 		return INITERR;
 	}
@@ -2064,7 +2134,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	PyObject *c_hash = PyCapsule_New((void *)hash, "gzutil._C_hash", 0);
 	if (!c_hash) return INITERR;
 	PyModule_AddObject(m, "_C_hash", c_hash);
-	PyObject *version = Py_BuildValue("(iii)", 2, 10, 3);
+	PyObject *version = Py_BuildValue("(iii)", 2, 10, 4);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;
