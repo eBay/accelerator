@@ -24,8 +24,8 @@ import cffi
 from resource import getpagesize
 from os import unlink, symlink
 from mmap import mmap, PROT_READ
-from itertools import imap
-from types import NoneType
+
+from compat import NoneType, unicode, imap, iteritems, itervalues
 
 from extras import OptionEnum, json_save, DotDict
 from gzwrite import typed_writer
@@ -65,7 +65,7 @@ options = {
 datasets = ('source', 'previous',)
 
 equivalent_hashes = {
-	'4ffebdc1d3f0c183ea89c55a7edfb5f21126f74c': ('91105dcfc1d399ac33d50ee1ab8197d675dbf3af', '9ec658f76813db0afba412297ae3277a0a3edfb3',)
+	'bbb67d48a910db8af49d2539b955400bb65aafe0': ('91105dcfc1d399ac33d50ee1ab8197d675dbf3af', '9ec658f76813db0afba412297ae3277a0a3edfb3', '9bc49140b0c16dfd88e5c312d2a3225787c937f0',)
 }
 
 ffi = cffi.FFI()
@@ -214,7 +214,7 @@ static inline int convert_number_do(const char *inptr, char * const outptr_, con
 		errno = 0;
 		const int64_t value = strtol(inptr, &end, 10);
 		if (errno || end != inptr + inlen) { // big or invalid
-			PyObject *s = PyString_FromStringAndSize(inptr, inlen);
+			PyObject *s = PyBytes_FromStringAndSize(inptr, inlen);
 			if (!s) exit(1); // All is lost
 			PyObject *i = PyNumber_Long(s);
 			if (!i) PyErr_Clear();
@@ -397,7 +397,7 @@ errfd:
 }
 '''
 
-proto_template = 'int convert_column_%s(const char *in_fn, const char *out_fn, const char *minmax_fn, const char *default_value, int default_value_is_None, const char *fmt, int record_bad, int skip_bad, int badmap_fd, size_t badmap_size, uint64_t *bad_count, uint64_t *default_count, size_t offset, int64_t max_count, int backing_format)'
+proto_template = 'int convert_column_%s(const char *in_fn, const char *out_fn, const char *minmax_fn, const char *default_value, int default_value_is_None, const char *fmt, int record_bad, int skip_bad, int badmap_fd, size_t badmap_size, uint64_t *bad_count, uint64_t *default_count, off_t offset, int64_t max_count, int backing_format)'
 
 protos = []
 funcs = [dataset_typing.minmax_data, dataset_typing.noneval_data]
@@ -407,7 +407,7 @@ code = convert_number_template % dict(proto=proto,)
 protos.append(proto + ';')
 funcs.append(code)
 
-for name, ct in dataset_typing.convfuncs.iteritems():
+for name, ct in iteritems(dataset_typing.convfuncs):
 	if not ct.conv_code_str:
 		continue
 	if ':' in name:
@@ -424,7 +424,7 @@ for name, ct in dataset_typing.convfuncs.iteritems():
 	funcs.append(code)
 
 filter_string_template = r'''
-int %(name)s(const char *in_fn, const char *out_fn, int badmap_fd, size_t badmap_size, size_t offset, int64_t max_count, int backing_format)
+int %(name)s(const char *in_fn, const char *out_fn, int badmap_fd, size_t badmap_size, off_t offset, int64_t max_count, int backing_format)
 {
 	g g;
 	gzFile outfh;
@@ -476,14 +476,14 @@ errfd:
 	return res;
 }
 '''
-protos.append('int filter_strings(const char *in_fn, const char *out_fn, int badmap_fd, size_t badmap_size, size_t offset, int64_t max_count, int backing_format);')
-protos.append('int filter_stringstrip(const char *in_fn, const char *out_fn, int badmap_fd, size_t badmap_size, size_t offset, int64_t max_count, int backing_format);')
+protos.append('int filter_strings(const char *in_fn, const char *out_fn, int badmap_fd, size_t badmap_size, off_t offset, int64_t max_count, int backing_format);')
+protos.append('int filter_stringstrip(const char *in_fn, const char *out_fn, int badmap_fd, size_t badmap_size, off_t offset, int64_t max_count, int backing_format);')
 protos.append('int numeric_comma(void);')
 funcs.append(filter_string_template % dict(name='filter_strings', conv=r'''
-		uint32_t len = g.linelen;
+		int32_t len = g.linelen;
 '''))
 funcs.append(filter_string_template % dict(name='filter_stringstrip', conv=r'''
-		uint32_t len = g.linelen;
+		int32_t len = g.linelen;
 		while (*line == 32 || (*line >= 9 && *line <= 13)) {
 			line++;
 			len--;
@@ -491,6 +491,10 @@ funcs.append(filter_string_template % dict(name='filter_stringstrip', conv=r'''
 		while (len && (line[len - 1] == 32 || (line[len - 1] >= 9 && line[len - 1] <= 13))) len--;
 '''))
 
+# cffi apparently doesn't know about off_t.
+# "typedef int... off_t" isn't allowed with verify,
+# so I guess we'll just assume that ssize_t is the same as off_t.
+ffi.cdef('typedef ssize_t off_t;')
 ffi.cdef(''.join(protos))
 backend = ffi.verify(r'''
 #include <zlib.h>
@@ -505,6 +509,8 @@ backend = ffi.verify(r'''
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/fcntl.h>
+#include <unistd.h>
+#include <bytesobject.h>
 
 #ifndef MAP_NOSYNC
 #  define MAP_NOSYNC 0
@@ -520,7 +526,7 @@ typedef struct {
 	int error;
 	int backing_format;
 	uint32_t saved_size;
-	uint32_t linelen;
+	int32_t linelen;
 	const char *filename;
 	char *largetmp;
 	char buf[Z + 1];
@@ -571,7 +577,7 @@ static inline const char *read_line_v2(g *g)
 	char *ptr = g->buf + g->pos;
 	char *end = memchr(ptr, '\n', g->len - g->pos);
 	if (!end) {
-		const uint32_t linelen = g->len - g->pos;
+		const int32_t linelen = g->len - g->pos;
 		memmove(g->buf, g->buf + g->pos, linelen);
 		if (read_chunk(g, linelen)) { // if eof
 			g->pos = g->len;
@@ -587,7 +593,7 @@ static inline const char *read_line_v2(g *g)
 			return 0;
 		}
 	}
-	uint32_t linelen = end - ptr;
+	int32_t linelen = end - ptr;
 	g->pos += linelen + 1;
 	if (linelen == 1 && *ptr == 0) {
 		g->linelen = 0;
@@ -641,7 +647,7 @@ size_again:
 			return 0;
 		}
 	}
-	int avail = g->len - g->pos;
+	unsigned int avail = g->len - g->pos;
 	if (size > Z) {
 		g->largetmp = malloc(size + 1);
 		if (!g->largetmp) {
@@ -697,7 +703,7 @@ static inline const char *read_line(g *g)
 def prepare():
 	d = datasets.source
 	columns = {}
-	for colname, coltype in options.column2type.iteritems():
+	for colname, coltype in iteritems(options.column2type):
 		assert d.columns[colname].type in ('bytes', 'ascii',), colname
 		coltype = coltype.split(':', 1)[0]
 		columns[options.rename.get(colname, colname)] = dataset_typing.typerename.get(coltype, coltype)
@@ -723,9 +729,9 @@ def analysis(sliceno):
 	if options.filter_bad:
 		badmap_fh = open('badmap%d' % (sliceno,), 'w+b')
 		bad_count, default_count, minmax, link_candidates = analysis_lap(sliceno, badmap_fh, True)
-		if sum(bad_count.itervalues()):
+		if sum(itervalues(bad_count)):
 			final_bad_count, default_count, minmax, link_candidates = analysis_lap(sliceno, badmap_fh, False)
-			final_bad_count = max(final_bad_count.itervalues())
+			final_bad_count = max(itervalues(final_bad_count))
 		else:
 			final_bad_count = 0
 		badmap_fh.close()
@@ -735,6 +741,10 @@ def analysis(sliceno):
 	for src, dst in link_candidates:
 		symlink(src, dst)
 	return bad_count, final_bad_count, default_count, minmax
+
+# make any unicode args bytes, for cffi calls.
+def bytesargs(*a):
+	return [v.encode('ascii') if isinstance(v, unicode) else v for v in a]
 
 def analysis_lap(sliceno, badmap_fh, first_lap):
 	known_line_count = 0
@@ -752,8 +762,8 @@ def analysis_lap(sliceno, badmap_fh, first_lap):
 		skip_bad = options.filter_bad
 	minmax_fn = 'minmax%d' % (sliceno,)
 	dw = DatasetWriter()
-	for colname, coltype in options.column2type.iteritems():
-		out_fn = dw.column_filename(options.rename.get(colname, colname)).encode('ascii')
+	for colname, coltype in iteritems(options.column2type):
+		out_fn = dw.column_filename(options.rename.get(colname, colname))
 		if ':' in coltype and not coltype.startswith('number:'):
 			coltype, fmt = coltype.split(':', 1)
 			_, cfunc, pyfunc = dataset_typing.convfuncs[coltype + ':*']
@@ -781,7 +791,7 @@ def analysis_lap(sliceno, badmap_fh, first_lap):
 			backing_format = 2
 		else:
 			backing_format = 3
-		in_fn = d.column_filename(colname, sliceno).encode('ascii')
+		in_fn = d.column_filename(colname, sliceno)
 		if d.columns[colname].offsets:
 			offset = d.columns[colname].offsets[sliceno]
 			max_count = d.lines[sliceno]
@@ -804,7 +814,7 @@ def analysis_lap(sliceno, badmap_fh, first_lap):
 			bad_count = ffi.new('uint64_t [1]', [0])
 			default_count = ffi.new('uint64_t [1]', [0])
 			c = getattr(backend, 'convert_column_' + coltype)
-			res = c(in_fn, out_fn, minmax_fn, default_value, default_value_is_None, fmt, record_bad, skip_bad, badmap_fd, badmap_size, bad_count, default_count, offset, max_count, backing_format)
+			res = c(*bytesargs(in_fn, out_fn, minmax_fn, default_value, default_value_is_None, fmt, record_bad, skip_bad, badmap_fd, badmap_size, bad_count, default_count, offset, max_count, backing_format))
 			assert not res, 'Failed to convert ' + colname
 			res_bad_count[colname] = bad_count[0]
 			res_default_count[colname] = default_count[0]
@@ -818,14 +828,14 @@ def analysis_lap(sliceno, badmap_fh, first_lap):
 			# We can't do that if the file is not slice-specific though.
 			# And we also can't do it if the column is in the wrong (old) format.
 			if skip_bad or '%s' not in d.column_filename(colname, '%s') or backing_format != 3:
-				res = backend.filter_strings(in_fn, out_fn, badmap_fd, badmap_size, offset, max_count, backing_format);
+				res = backend.filter_strings(*bytesargs(in_fn, out_fn, badmap_fd, badmap_size, offset, max_count, backing_format))
 				assert not res, 'Failed to convert ' + colname
 			else:
 				link_candidates.append((in_fn, out_fn,))
 			res_bad_count[colname] = 0
 			res_default_count[colname] = 0
 		elif pyfunc is str.strip:
-			res = backend.filter_stringstrip(in_fn, out_fn, badmap_fd, badmap_size, offset, max_count, backing_format);
+			res = backend.filter_stringstrip(*bytesargs(in_fn, out_fn, badmap_fd, badmap_size, offset, max_count, backing_format))
 			assert not res, 'Failed to convert ' + colname
 			res_bad_count[colname] = 0
 			res_default_count[colname] = 0
@@ -843,7 +853,10 @@ def analysis_lap(sliceno, badmap_fh, first_lap):
 				badmap = mmap(badmap_fd, badmap_size)
 			bad_count = 0
 			default_count = 0
-			with typed_writer(dataset_typing.typerename.get(coltype, coltype))(out_fn) as fh:
+			dont_minmax_types = {'bytes', 'ascii', 'unicode', 'json'}
+			real_coltype = dataset_typing.typerename.get(coltype, coltype)
+			do_minmax = real_coltype not in dont_minmax_types
+			with typed_writer(real_coltype)(out_fn) as fh:
 				col_min = col_max = None
 				for ix, v in enumerate(d.iterate(sliceno, colname)):
 					if skip_bad:
@@ -863,7 +876,7 @@ def analysis_lap(sliceno, badmap_fh, first_lap):
 							continue
 						else:
 							raise Exception("Invalid value %r with no default in %s" % (v, colname,))
-					if not isinstance(v, (NoneType, str, unicode,)):
+					if do_minmax and not isinstance(v, NoneType):
 						if col_min is None:
 							col_min = col_max = v
 						if v < col_min: col_min = v

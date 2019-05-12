@@ -23,26 +23,30 @@
 from __future__ import division
 from __future__ import absolute_import
 
-from types import NoneType
 from collections import namedtuple
 from functools import partial
 import ujson
 
+from compat import NoneType, iteritems, PY3
+
 __all__ = ('convfuncs', 'typerename', 'typesizes', 'minmaxfuncs',)
 
-def _mk_conv_datetime(coltype, fmt):
+def _mk_conv_datetime_inner(coltype, fmt, suffix):
 	import datetime
-	strptime = datetime.datetime.strptime
-	def conv(v):
-		return strptime(v.strip(), fmt)
-	return conv
+	d = dict(fmt=fmt, strptime=datetime.datetime.strptime)
+	if PY3:
+		dec = '.decode("utf-8")'
+	else:
+		dec = ''
+	f = 'def conv(v): return strptime(v.strip()' + dec + ', fmt)' + suffix
+	eval(compile(f, '<generated datetime conv>', 'exec'), d)
+	return d['conv']
+
+def _mk_conv_datetime(coltype, fmt):
+	return _mk_conv_datetime_inner(coltype, fmt, '')
 
 def _mk_conv_time(coltype, fmt):
-	import datetime
-	strptime = datetime.datetime.strptime
-	def conv(v):
-		return strptime(v.strip(), fmt).time()
-	return conv
+	return _mk_conv_datetime_inner(coltype, fmt, '.time()')
 
 def _unsupported_fmt(coltype, fmt):
 	raise Exception('Unsupported format "%s" for coltype %s (%%f only works on non-i datetimes)' % (fmt, coltype,))
@@ -53,7 +57,7 @@ def _mk_conv_unicode(colname, fmt, strip=False):
 	else:
 		codec, errors = fmt, 'strict'
 	assert errors in ('strict', 'replace', 'ignore',)
-	''.decode(codec) # trigger error on unknown
+	b''.decode(codec) # trigger error on unknown
 	if strip:
 		def conv(s):
 			return None if s is None else s.decode(codec, errors).strip()
@@ -107,10 +111,10 @@ _c_conv_date_template = r'''
 	struct tm tm;
 	memset(&tm, 0, sizeof(tm));
 	char *pres = strptime(line, fmt, &tm);
-	if (%(whole)d && pres) {
+	if ((%(whole)d) && pres) {
 		while (*pres == 32 || (*pres >= 9 && *pres <= 13)) pres++;
 	}
-	if (pres && (!%(whole)d || !*pres)) {
+	if (pres && ((!%(whole)d) || !*pres)) {
 		uint32_t *p = (uint32_t *)ptr;
 %(conv)s
 	} else {
@@ -164,7 +168,7 @@ _c_conv_int_template = r'''
 		} else {
 			%(type)s *p = (%(type)s *)ptr;
 			*p = value;
-			if (value != *p || (%(nonemarker)s && value == %(nonemarker)s)) {
+			if (value != *p || ((%(nonemarker)s) && value == %(nonemarker)s)) {
 				// Over/underflow (values that don't fit are not ok)
 				ptr = 0;
 			}
@@ -475,7 +479,7 @@ typesizes = {typerename.get(key.split(':')[0], key.split(':')[0]): convfuncs[key
 # and something approaching the right type of data.
 def _test():
 	from gzwrite import typed_writer
-	for key, data in convfuncs.iteritems():
+	for key, data in iteritems(convfuncs):
 		key = key.split(":")[0]
 		typed_writer(typerename.get(key, key))
 		assert data.size in (0, 1, 4, 8,), (key, data)
@@ -483,7 +487,7 @@ def _test():
 		if data.conv_code_str:
 			assert typerename.get(key, key) in minmaxfuncs
 		assert data.pyfunc is None or callable(data.pyfunc), (key, data)
-	for key, mm in minmaxfuncs.iteritems():
+	for key, mm in iteritems(minmaxfuncs):
 		for v in mm:
 			assert isinstance(v, str), key
 _test()
