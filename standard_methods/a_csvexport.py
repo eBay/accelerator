@@ -1,6 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
+# Modifications copyright (c) 2019 Carl Drougge                            #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -19,13 +20,15 @@
 from __future__ import division
 from __future__ import absolute_import
 
-from itertools import izip, imap
 from shutil import copyfileobj
 from os import unlink
+from contextlib import contextmanager
 from ujson import dumps
 
+from compat import PY3, PY2, izip, imap
+
 from extras import OptionString, job_params
-from gzwrite import GzWrite
+from gzutil import GzWriteUnicodeLines, GzWriteBytesLines
 from status import status
 
 options = dict(
@@ -41,6 +44,32 @@ options = dict(
 datasets = (['source'],) # normally just one, but you can specify several
 
 jobids = ('previous',)
+
+equivalent_hashes = {
+	'385c688228d277602cb5380c89fe25eb46b487d5': ('b57e7c870ff6a8f02ed7d719d295761ce15634f9',)
+}
+
+@contextmanager
+def mkwrite_gz(filename):
+	w = GzWriteUnicodeLines if PY3 else GzWriteBytesLines
+	with w(filename) as fh:
+		yield fh.write
+
+@contextmanager
+def mkwrite_uncompressed(filename):
+	if PY2:
+		fh = open(filename, 'wb')
+	else:
+		fh = open(filename, 'w', encoding='utf-8')
+	with fh:
+		def write(s):
+			fh.write(s + '\n')
+		yield write
+
+if PY3:
+	enc = str
+else:
+	enc = lambda s: s.encode('utf-8')
 
 def csvexport(sliceno, filename, labelsonfirstline):
 	assert len(options.separator) == 1
@@ -59,10 +88,9 @@ def csvexport(sliceno, filename, labelsonfirstline):
 			lst.extend(src.chain(stop_ds=stop))
 		datasets.source = lst
 	if filename.lower().endswith('.gz'):
-		mkwrite = GzWrite
+		mkwrite = mkwrite_gz
 	elif filename.lower().endswith('.csv'):
-		def mkwrite(filename):
-			return open(filename, "wb")
+		mkwrite = mkwrite_uncompressed
 	else:
 		raise Exception("Filename should end with .gz for compressed or .csv for uncompressed")
 	iters = []
@@ -71,30 +99,32 @@ def csvexport(sliceno, filename, labelsonfirstline):
 		it = d.iterate_list(sliceno, label, datasets.source, status_reporting=first)
 		first = False
 		t = d.columns[label].type
-		if t == 'unicode':
-			it = imap(lambda s: s.encode('utf-8'), it)
+		if t == 'unicode' and PY2:
+			it = imap(enc, it)
+		elif t == 'bytes' and PY3:
+			it = imap(lambda s: s.decode('utf-8', errors='backslashreplace'), it)
 		elif t in ('float32', 'float64', 'number'):
 			it = imap(repr, it)
 		elif t == 'json':
 			it = imap(dumps, it)
-		elif t not in ('ascii', 'bytes'):
+		elif t not in ('unicode', 'ascii', 'bytes'):
 			it = imap(str, it)
 		iters.append(it)
 	it = izip(*iters)
-	with mkwrite(filename) as fh:
+	with mkwrite(filename) as write:
 		q = options.quote_fields
 		sep = options.separator
 		if q:
 			qq = q + q
 			if labelsonfirstline:
-				fh.write((sep.join(q + n.replace(q, qq) + q for n in options.labels) + '\n').encode('utf-8'))
+				write(enc(sep.join(q + n.replace(q, qq) + q for n in options.labels)))
 			for data in it:
-				fh.write(sep.join(q + n.replace(q, qq) + q for n in data) + '\n')
+				write(sep.join(q + n.replace(q, qq) + q for n in data))
 		else:
 			if labelsonfirstline:
-				fh.write((sep.join(options.labels) + '\n').encode('utf-8'))
+				write(enc(sep.join(options.labels)))
 			for data in it:
-				fh.write(sep.join(data) + '\n')
+				write(sep.join(data))
 
 def analysis(sliceno):
 	if options.sliced:

@@ -33,10 +33,14 @@ def main(urd):
 	urd.build("test_datasetwriter_verify", datasets=dict(source=source))
 	ds = Dataset(source, "passed")
 	csvname = "out.csv.gz"
+	csvname_uncompressed = "out.csv"
 	csv = urd.build("csvexport", options=dict(filename=csvname, separator="\t"), datasets=dict(source=ds))
+	csv_uncompressed = urd.build("csvexport", options=dict(filename=csvname_uncompressed, separator="\t"), datasets=dict(source=ds))
 	csv_quoted = urd.build("csvexport", options=dict(filename=csvname, quote_fields='"'), datasets=dict(source=ds))
 	reimp_csv = urd.build("csvimport", options=dict(filename=resolve_jobid_filename(csv, csvname), separator="\t"))
+	reimp_csv_uncompressed = urd.build("csvimport", options=dict(filename=resolve_jobid_filename(csv_uncompressed, csvname_uncompressed), separator="\t"))
 	reimp_csv_quoted = urd.build("csvimport", options=dict(filename=resolve_jobid_filename(csv_quoted, csvname), quote_support=True))
+	urd.build("test_compare_datasets", datasets=dict(a=reimp_csv, b=reimp_csv_uncompressed))
 	urd.build("test_compare_datasets", datasets=dict(a=reimp_csv, b=reimp_csv_quoted))
 	urd.build("test_dataset_column_names")
 
