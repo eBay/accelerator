@@ -635,6 +635,7 @@ class Dataset(unicode):
 		res = {}
 		for part in minmax.values():
 			for name, mm in part.items():
+				mm = tuple(mm)
 				if mm != (None, None):
 					omm = minmax_fixup(res.get(name, (None, None,)), mm)
 					mm = minmax_fixup(mm, omm)
