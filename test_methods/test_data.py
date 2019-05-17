@@ -71,7 +71,10 @@ def sort_data_for_slice(sliceno):
 		for k, v in sorted(data.items()):
 			if k == "json":
 				v = [0]
-			if isinstance(v[0], num_types) and k != "bool":
+			if offset == 42 and k.startswith('float'):
+				# Should sort last.
+				v = float('NaN')
+			elif isinstance(v[0], num_types) and k != "bool":
 				v = v[0]
 				if k == "int64":
 					v -= offset // 2
@@ -81,5 +84,18 @@ def sort_data_for_slice(sliceno):
 				v = v[offset % len(v)]
 			res.append(v)
 		return tuple(res)
-	for offset in range(128):
+	for offset in range(sliceno + 2):
+		yield add(offset)
+	# Add some Nones in the middle
+	# (Sorts first except for date/times where they sort last.)
+	res = []
+	for k in sorted(data):
+		if k in not_none_capable:
+			res.append(data[k][0])
+		elif k == 'json':
+			res.append(0)
+		else:
+			res.append(None)
+	yield tuple(res)
+	for offset in range(sliceno, 128):
 		yield add(offset)
