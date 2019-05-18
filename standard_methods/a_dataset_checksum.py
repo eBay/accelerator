@@ -38,6 +38,7 @@ datasets. (So one GB per 20M lines or so.)
 from hashlib import md5
 from itertools import chain
 from extras import DotDict
+from compat import PY2
 
 options = dict(
 	columns      = set(),
@@ -51,13 +52,18 @@ def prepare():
 
 def analysis(sliceno, prepare_res):
 	columns = prepare_res
+	if len(columns) == 1:
+		columns = columns[0]
 	src = datasets.source.iterate(sliceno, columns)
-	return [md5('\0'.join(map(str, line))).digest() for line in src]
+	if PY2:
+		return [md5(repr(line)).digest() for line in src]
+	else:
+		return [md5(repr(line).encode("utf-8")).digest() for line in src]
 
 def synthesis(prepare_res, analysis_res):
 	all = chain.from_iterable(analysis_res)
 	if options.sort:
 		all = sorted(all)
-	res = md5(''.join(all)).hexdigest()
+	res = md5(b''.join(all)).hexdigest()
 	print("%s: %s" % (datasets.source, res,))
 	return DotDict(sum=int(res, 16), sort=options.sort, columns=prepare_res, source=datasets.source)
