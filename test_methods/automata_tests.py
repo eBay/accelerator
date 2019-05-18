@@ -68,3 +68,7 @@ def main(urd):
 	print()
 	print("Test hashlabels")
 	urd.build("test_hashlabel")
+
+	print()
+	print("Test dataset_checksum")
+	urd.build("test_dataset_checksum")
