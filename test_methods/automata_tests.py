@@ -73,3 +73,7 @@ def main(urd):
 	print()
 	print("Test dataset_checksum")
 	urd.build("test_dataset_checksum")
+
+	print()
+	print("Test csvimport_zip")
+	urd.build("test_csvimport_zip")
