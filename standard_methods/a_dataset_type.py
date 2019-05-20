@@ -65,7 +65,7 @@ options = {
 datasets = ('source', 'previous',)
 
 equivalent_hashes = {
-	'bbb67d48a910db8af49d2539b955400bb65aafe0': ('91105dcfc1d399ac33d50ee1ab8197d675dbf3af', '9ec658f76813db0afba412297ae3277a0a3edfb3', '9bc49140b0c16dfd88e5c312d2a3225787c937f0',)
+	'0a0ec93d0e605b550c86efd3dae688a5c9ec9271': ('91105dcfc1d399ac33d50ee1ab8197d675dbf3af', '9ec658f76813db0afba412297ae3277a0a3edfb3', '9bc49140b0c16dfd88e5c312d2a3225787c937f0', '56ee025d30cce4cc7a7bffd8bfde09702cec1aa6',)
 }
 
 ffi = cffi.FFI()
@@ -212,7 +212,7 @@ static inline int convert_number_do(const char *inptr, char * const outptr_, con
 	} else {
 		char *end;
 		errno = 0;
-		const int64_t value = strtol(inptr, &end, 10);
+		const int64_t value = %(strtol_f)s(inptr, &end, 10);
 		if (errno || end != inptr + inlen) { // big or invalid
 			PyObject *s = PyBytes_FromStringAndSize(inptr, inlen);
 			if (!s) exit(1); // All is lost
@@ -222,8 +222,9 @@ static inline int convert_number_do(const char *inptr, char * const outptr_, con
 			if (!i) return 0;
 			const size_t len_bits = _PyLong_NumBits(i);
 			err1(len_bits == (size_t)-1);
-			const size_t len_bytes = len_bits / 8 + 1;
+			size_t len_bytes = len_bits / 8 + 1;
 			err1(len_bytes >= GZNUMBER_MAX_BYTES);
+			if (len_bytes < 8) len_bytes = 8; // Could happen for "42L" or similar.
 			*outptr = len_bytes;
 			err1(_PyLong_AsByteArray((PyLongObject *)i, outptr + 1, len_bytes, 1, 1) < 0);
 			Py_DECREF(i);
@@ -400,10 +401,10 @@ errfd:
 proto_template = 'int convert_column_%s(const char *in_fn, const char *out_fn, const char *minmax_fn, const char *default_value, int default_value_is_None, const char *fmt, int record_bad, int skip_bad, int badmap_fd, size_t badmap_size, uint64_t *bad_count, uint64_t *default_count, off_t offset, int64_t max_count, int backing_format)'
 
 protos = []
-funcs = [dataset_typing.minmax_data, dataset_typing.noneval_data]
+funcs = [dataset_typing.noneval_data]
 
 proto = proto_template % ('number',)
-code = convert_number_template % dict(proto=proto,)
+code = convert_number_template % dict(proto=proto, strtol_f=dataset_typing.strtol_f)
 protos.append(proto + ';')
 funcs.append(code)
 

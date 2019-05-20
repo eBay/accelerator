@@ -26,6 +26,8 @@ from __future__ import absolute_import
 from collections import namedtuple
 from functools import partial
 import ujson
+import sys
+import struct
 
 from compat import NoneType, iteritems, PY3
 
@@ -306,8 +308,8 @@ _c_minmax_datetime = MinMaxTuple(
 )
 
 minmaxfuncs = {
-	'float64'  : _c_minmax_simple('double'  , 'DBL_MIN'   , 'DBL_MAX'   , 'memcmp(ptr, noneval_double, 8)'),
-	'float32'  : _c_minmax_simple('float'   , 'FLT_MIN'   , 'FLT_MAX'   , 'memcmp(ptr, noneval_float, 4)'),
+	'float64'  : _c_minmax_simple('double'  , 'DBL_MIN'   , 'DBL_MAX'   , 'memcmp(ptr, noneval_float64, 8)'),
+	'float32'  : _c_minmax_simple('float'   , 'FLT_MIN'   , 'FLT_MAX'   , 'memcmp(ptr, noneval_float32, 4)'),
 	'int64'    : _c_minmax_simple('int64_t' , '-INT64_MAX', 'INT64_MAX' , 'cand_value != INT64_MIN'),
 	'int32'    : _c_minmax_simple('int32_t' , '-INT32_MAX', 'INT32_MAX' , 'cand_value != INT32_MIN'),
 	'bits64'   : _c_minmax_simple('uint64_t', '0'         , 'UINT64_MAX', '1'),
@@ -318,17 +320,35 @@ minmaxfuncs = {
 	'time'     : _c_minmax_datetime,
 }
 
-minmax_data = r'''
-// These are signaling NaNs with extra DEADness in the significand
-static const unsigned char noneval_double[8] = {0xde, 0xad, 0xde, 0xad, 0xde, 0xad, 0xf0, 0xff};
-static const unsigned char noneval_float[4] = {0xde, 0xad, 0x80, 0xff};
-'''
+if len(struct.pack("@L", 0)) == 8:
+	strtol_f = 'strtol'
+	strtoul_f = 'strtoul'
+	long_t = 'long'
+	ulong_t = 'unsigned long'
+elif len(struct.pack("@q", 0)) == 8:
+	strtol_f = 'strtoll'
+	strtoul_f = 'strtoull'
+	long_t = 'long long'
+	ulong_t = 'unsigned long long'
+else:
+	raise Exception("Unable to find a suitable 64 bit integer type")
 
-noneval_data = r'''
-// These are signaling NaNs with extra DEADness in the significand
-static const unsigned char noneval_float64[8] = {0xde, 0xad, 0xde, 0xad, 0xde, 0xad, 0xf0, 0xff};
-static const unsigned char noneval_float32[4] = {0xde, 0xad, 0x80, 0xff};
+if sys.byteorder == 'little':
+	noneval_data = r'''
+	// These are signaling NaNs with extra DEADness in the significand
+	static const unsigned char noneval_float64[8] = {0xde, 0xad, 0xde, 0xad, 0xde, 0xad, 0xf0, 0xff};
+	static const unsigned char noneval_float32[4] = {0xde, 0xad, 0x80, 0xff};
+	'''
+elif sys.byteorder == 'big':
+	noneval_data = r'''
+	// These are signaling NaNs with extra DEADness in the significand
+	static const unsigned char noneval_float64[8] = {0xff, 0xf0, 0xde, 0xad, 0xde, 0xad, 0xde, 0xad};
+	static const unsigned char noneval_float32[4] = {0xff, 0x80, 0xde, 0xad};
+	'''
+else:
+	raise Exception('Unknown byteorder ' + sys.byteorder)
 
+noneval_data += r'''
 // The smallest value is one less than -biggest, so that seems like a good signal value.
 static const int64_t noneval_int64 = INT64_MIN;
 static const int32_t noneval_int32 = INT32_MIN;
@@ -358,37 +378,37 @@ convfuncs = {
 	'floatint32ei' : ConvTuple(4, _c_conv_floatint_exact_template % dict(bitsize=32, whole=0, biggest='INT32_MAX', smallest='-INT32_MAX'), None),
 	'floatint64si' : ConvTuple(8, _c_conv_floatint_saturate_template % dict(bitsize=64, whole=0), None),
 	'floatint32si' : ConvTuple(4, _c_conv_floatint_saturate_template % dict(bitsize=32, whole=0), None),
-	'int64_0'      : ConvTuple(8, _c_conv_int_template % dict(type='int64_t' , rtype='long'         , func='strtol' , nonemarker='INT64_MIN', whole=1, base=0 ), int),
+	'int64_0'      : ConvTuple(8, _c_conv_int_template % dict(type='int64_t' , rtype=long_t         , func=strtol_f , nonemarker='INT64_MIN', whole=1, base=0 ), int),
 	'int32_0'      : ConvTuple(4, _c_conv_int_template % dict(type='int32_t' , rtype='long'         , func='strtol' , nonemarker='INT32_MIN', whole=1, base=0 ), int),
-	'bits64_0'     : ConvTuple(8, _c_conv_int_template % dict(type='uint64_t', rtype='unsigned long', func='strtoul', nonemarker='0'        , whole=1, base=0 ), int),
+	'bits64_0'     : ConvTuple(8, _c_conv_int_template % dict(type='uint64_t', rtype=ulong_t        , func=strtoul_f, nonemarker='0'        , whole=1, base=0 ), int),
 	'bits32_0'     : ConvTuple(4, _c_conv_int_template % dict(type='uint32_t', rtype='unsigned long', func='strtoul', nonemarker='0'        , whole=1, base=0 ), int),
-	'int64_8'      : ConvTuple(8, _c_conv_int_template % dict(type='int64_t' , rtype='long'         , func='strtol' , nonemarker='INT64_MIN', whole=1, base=8 ), lambda v: int(v, 8)),
+	'int64_8'      : ConvTuple(8, _c_conv_int_template % dict(type='int64_t' , rtype=long_t         , func=strtol_f , nonemarker='INT64_MIN', whole=1, base=8 ), lambda v: int(v, 8)),
 	'int32_8'      : ConvTuple(4, _c_conv_int_template % dict(type='int32_t' , rtype='long'         , func='strtol' , nonemarker='INT32_MIN', whole=1, base=8 ), lambda v: int(v, 8)),
-	'int64_10'     : ConvTuple(8, _c_conv_int_template % dict(type='int64_t' , rtype='long'         , func='strtol' , nonemarker='INT64_MIN', whole=1, base=10), lambda v: int(v, 10)),
+	'int64_10'     : ConvTuple(8, _c_conv_int_template % dict(type='int64_t' , rtype=long_t         , func=strtol_f , nonemarker='INT64_MIN', whole=1, base=10), lambda v: int(v, 10)),
 	'int32_10'     : ConvTuple(4, _c_conv_int_template % dict(type='int32_t' , rtype='long'         , func='strtol' , nonemarker='INT32_MIN', whole=1, base=10), lambda v: int(v, 10)),
-	'int64_16'     : ConvTuple(8, _c_conv_int_template % dict(type='int64_t' , rtype='long'         , func='strtol' , nonemarker='INT64_MIN', whole=1, base=16), lambda v: int(v, 16)),
+	'int64_16'     : ConvTuple(8, _c_conv_int_template % dict(type='int64_t' , rtype=long_t         , func=strtol_f , nonemarker='INT64_MIN', whole=1, base=16), lambda v: int(v, 16)),
 	'int32_16'     : ConvTuple(4, _c_conv_int_template % dict(type='int32_t' , rtype='long'         , func='strtol' , nonemarker='INT32_MIN', whole=1, base=16), lambda v: int(v, 16)),
-	'bits64_8'     : ConvTuple(8, _c_conv_int_template % dict(type='uint64_t', rtype='unsigned long', func='strtoul', nonemarker='0'        , whole=1, base=8 ), lambda v: int(v, 8)),
+	'bits64_8'     : ConvTuple(8, _c_conv_int_template % dict(type='uint64_t', rtype=ulong_t        , func=strtoul_f, nonemarker='0'        , whole=1, base=8 ), lambda v: int(v, 8)),
 	'bits32_8'     : ConvTuple(4, _c_conv_int_template % dict(type='uint32_t', rtype='unsigned long', func='strtoul', nonemarker='0'        , whole=1, base=8 ), lambda v: int(v, 8)),
-	'bits64_10'    : ConvTuple(8, _c_conv_int_template % dict(type='uint64_t', rtype='unsigned long', func='strtoul', nonemarker='0'        , whole=1, base=10), lambda v: int(v, 10)),
+	'bits64_10'    : ConvTuple(8, _c_conv_int_template % dict(type='uint64_t', rtype=ulong_t        , func=strtoul_f, nonemarker='0'        , whole=1, base=10), lambda v: int(v, 10)),
 	'bits32_10'    : ConvTuple(4, _c_conv_int_template % dict(type='uint32_t', rtype='unsigned long', func='strtoul', nonemarker='0'        , whole=1, base=10), lambda v: int(v, 10)),
-	'bits64_16'    : ConvTuple(8, _c_conv_int_template % dict(type='uint64_t', rtype='unsigned long', func='strtoul', nonemarker='0'        , whole=1, base=16), lambda v: int(v, 16)),
+	'bits64_16'    : ConvTuple(8, _c_conv_int_template % dict(type='uint64_t', rtype=ulong_t        , func=strtoul_f, nonemarker='0'        , whole=1, base=16), lambda v: int(v, 16)),
 	'bits32_16'    : ConvTuple(4, _c_conv_int_template % dict(type='uint32_t', rtype='unsigned long', func='strtoul', nonemarker='0'        , whole=1, base=16), lambda v: int(v, 16)),
-	'int64_0i'     : ConvTuple(8, _c_conv_int_template % dict(type='int64_t' , rtype='long'         , func='strtol' , nonemarker='INT64_MIN', whole=0, base=0 ), None),
+	'int64_0i'     : ConvTuple(8, _c_conv_int_template % dict(type='int64_t' , rtype=long_t         , func=strtol_f , nonemarker='INT64_MIN', whole=0, base=0 ), None),
 	'int32_0i'     : ConvTuple(4, _c_conv_int_template % dict(type='int32_t' , rtype='long'         , func='strtol' , nonemarker='INT32_MIN', whole=0, base=0 ), None),
-	'bits64_0i'    : ConvTuple(8, _c_conv_int_template % dict(type='uint64_t', rtype='unsigned long', func='strtoul', nonemarker='0'        , whole=0, base=0 ), None),
+	'bits64_0i'    : ConvTuple(8, _c_conv_int_template % dict(type='uint64_t', rtype=ulong_t        , func=strtoul_f, nonemarker='0'        , whole=0, base=0 ), None),
 	'bits32_0i'    : ConvTuple(4, _c_conv_int_template % dict(type='uint32_t', rtype='unsigned long', func='strtoul', nonemarker='0'        , whole=0, base=0 ), None),
-	'int64_8i'     : ConvTuple(8, _c_conv_int_template % dict(type='int64_t' , rtype='long'         , func='strtol' , nonemarker='INT64_MIN', whole=0, base=8 ), None),
+	'int64_8i'     : ConvTuple(8, _c_conv_int_template % dict(type='int64_t' , rtype=long_t         , func=strtol_f , nonemarker='INT64_MIN', whole=0, base=8 ), None),
 	'int32_8i'     : ConvTuple(4, _c_conv_int_template % dict(type='int32_t' , rtype='long'         , func='strtol' , nonemarker='INT32_MIN', whole=0, base=8 ), None),
-	'int64_10i'    : ConvTuple(8, _c_conv_int_template % dict(type='int64_t' , rtype='long'         , func='strtol' , nonemarker='INT64_MIN', whole=0, base=10), None),
+	'int64_10i'    : ConvTuple(8, _c_conv_int_template % dict(type='int64_t' , rtype=long_t         , func=strtol_f , nonemarker='INT64_MIN', whole=0, base=10), None),
 	'int32_10i'    : ConvTuple(4, _c_conv_int_template % dict(type='int32_t' , rtype='long'         , func='strtol' , nonemarker='INT32_MIN', whole=0, base=10), None),
-	'int64_16i'    : ConvTuple(8, _c_conv_int_template % dict(type='int64_t' , rtype='long'         , func='strtol' , nonemarker='INT64_MIN', whole=0, base=16), None),
+	'int64_16i'    : ConvTuple(8, _c_conv_int_template % dict(type='int64_t' , rtype=long_t         , func=strtol_f , nonemarker='INT64_MIN', whole=0, base=16), None),
 	'int32_16i'    : ConvTuple(4, _c_conv_int_template % dict(type='int32_t' , rtype='long'         , func='strtol' , nonemarker='INT32_MIN', whole=0, base=16), None),
-	'bits64_8i'    : ConvTuple(8, _c_conv_int_template % dict(type='uint64_t', rtype='unsigned long', func='strtoul', nonemarker='0'        , whole=0, base=8 ), None),
+	'bits64_8i'    : ConvTuple(8, _c_conv_int_template % dict(type='uint64_t', rtype=ulong_t        , func=strtoul_f, nonemarker='0'        , whole=0, base=8 ), None),
 	'bits32_8i'    : ConvTuple(4, _c_conv_int_template % dict(type='uint32_t', rtype='unsigned long', func='strtoul', nonemarker='0'        , whole=0, base=8 ), None),
-	'bits64_10i'   : ConvTuple(8, _c_conv_int_template % dict(type='uint64_t', rtype='unsigned long', func='strtoul', nonemarker='0'        , whole=0, base=10), None),
+	'bits64_10i'   : ConvTuple(8, _c_conv_int_template % dict(type='uint64_t', rtype=ulong_t        , func=strtoul_f, nonemarker='0'        , whole=0, base=10), None),
 	'bits32_10i'   : ConvTuple(4, _c_conv_int_template % dict(type='uint32_t', rtype='unsigned long', func='strtoul', nonemarker='0'        , whole=0, base=10), None),
-	'bits64_16i'   : ConvTuple(8, _c_conv_int_template % dict(type='uint64_t', rtype='unsigned long', func='strtoul', nonemarker='0'        , whole=0, base=16), None),
+	'bits64_16i'   : ConvTuple(8, _c_conv_int_template % dict(type='uint64_t', rtype=ulong_t        , func=strtoul_f, nonemarker='0'        , whole=0, base=16), None),
 	'bits32_16i'   : ConvTuple(4, _c_conv_int_template % dict(type='uint32_t', rtype='unsigned long', func='strtoul', nonemarker='0'        , whole=0, base=16), None),
 	'strbool'      : ConvTuple(1, _c_conv_strbool, lambda v: v.lower() not in ('false', '0', 'f', 'no', 'off', 'nil', 'null', '',)),
 	'floatbool'    : ConvTuple(1, _c_conv_floatbool_template % dict(whole=1)                   , lambda v: float(v) != 0.0),
