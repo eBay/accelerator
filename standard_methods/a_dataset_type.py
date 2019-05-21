@@ -65,7 +65,7 @@ options = {
 datasets = ('source', 'previous',)
 
 equivalent_hashes = {
-	'0a0ec93d0e605b550c86efd3dae688a5c9ec9271': ('91105dcfc1d399ac33d50ee1ab8197d675dbf3af', '9ec658f76813db0afba412297ae3277a0a3edfb3', '9bc49140b0c16dfd88e5c312d2a3225787c937f0', '56ee025d30cce4cc7a7bffd8bfde09702cec1aa6',)
+	'82abffe5195f69c738e1d8d34895cb86e2449f36': ('91105dcfc1d399ac33d50ee1ab8197d675dbf3af', '9ec658f76813db0afba412297ae3277a0a3edfb3', '9bc49140b0c16dfd88e5c312d2a3225787c937f0', '56ee025d30cce4cc7a7bffd8bfde09702cec1aa6', '10065d3baeb571890001fd90a38d5ae06b162d0d',)
 }
 
 ffi = cffi.FFI()
@@ -502,6 +502,7 @@ backend = ffi.verify(r'''
 #include <time.h>
 #include <stdlib.h>
 #include <strings.h>
+#include <ctype.h>
 #include <errno.h>
 #include <sys/mman.h>
 #include <math.h>
