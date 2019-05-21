@@ -65,7 +65,7 @@ options = {
 datasets = ('source', 'previous',)
 
 equivalent_hashes = {
-	'82abffe5195f69c738e1d8d34895cb86e2449f36': ('91105dcfc1d399ac33d50ee1ab8197d675dbf3af', '9ec658f76813db0afba412297ae3277a0a3edfb3', '9bc49140b0c16dfd88e5c312d2a3225787c937f0', '56ee025d30cce4cc7a7bffd8bfde09702cec1aa6', '10065d3baeb571890001fd90a38d5ae06b162d0d',)
+	'42f6178a6070bbd85c120d39bf240704ac24c2c4': ('91105dcfc1d399ac33d50ee1ab8197d675dbf3af', '9ec658f76813db0afba412297ae3277a0a3edfb3', '9bc49140b0c16dfd88e5c312d2a3225787c937f0', '56ee025d30cce4cc7a7bffd8bfde09702cec1aa6', '10065d3baeb571890001fd90a38d5ae06b162d0d', 'f9667a4809ae8f5140c7b7887966403849e32cad',)
 }
 
 ffi = cffi.FFI()
@@ -165,7 +165,7 @@ static inline int convert_number_do(const char *inptr, char * const outptr_, con
 	while (1) {
 		const char c = inptr[inlen];
 		if (!c) break;
-		if (c == '.' || c == ',') {
+		if (c == decimal_separator) {
 			if (hasdot || hasexp) return 0;
 			hasdot = 1;
 		}
@@ -186,7 +186,7 @@ static inline int convert_number_do(const char *inptr, char * const outptr_, con
 	if (hasdot && !hasexp) {
 		while (inlen && inptr[inlen - 1] == '0') inlen--;
 		// And remove the dot if it's the last character.
-		if (inlen && inptr[inlen - 1] == '.') {
+		if (inlen && inptr[inlen - 1] == decimal_separator) {
 			// Woo, it was an int in disguise!
 			inlen--;
 			hasdot = 0;
@@ -535,6 +535,7 @@ typedef struct {
 } g;
 
 static const char NoneMarker[1] = {0};
+static char decimal_separator = '.';
 
 static void g_init(g *g, int backing_format, const char *filename)
 {
@@ -554,6 +555,7 @@ static int g_cleanup(g *g)
 
 int numeric_comma(void)
 {
+	decimal_separator = ',';
 	return !setlocale(LC_NUMERIC, "sv_SE.UTF-8");
 }
 
