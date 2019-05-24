@@ -29,29 +29,9 @@ import ujson
 import sys
 import struct
 
-from compat import NoneType, iteritems, PY3
+from compat import NoneType, iteritems
 
 __all__ = ('convfuncs', 'typerename', 'typesizes', 'minmaxfuncs',)
-
-def _mk_conv_datetime_inner(coltype, fmt, suffix):
-	import datetime
-	d = dict(fmt=fmt, strptime=datetime.datetime.strptime)
-	if PY3:
-		dec = '.decode("utf-8")'
-	else:
-		dec = ''
-	f = 'def conv(v): return strptime(v.strip()' + dec + ', fmt)' + suffix
-	eval(compile(f, '<generated datetime conv>', 'exec'), d)
-	return d['conv']
-
-def _mk_conv_datetime(coltype, fmt):
-	return _mk_conv_datetime_inner(coltype, fmt, '')
-
-def _mk_conv_time(coltype, fmt):
-	return _mk_conv_datetime_inner(coltype, fmt, '.time()')
-
-def _unsupported_fmt(coltype, fmt):
-	raise Exception('Unsupported format "%s" for coltype %s (%%f only works on non-i datetimes)' % (fmt, coltype,))
 
 def _mk_conv_unicode(colname, fmt, strip=False):
 	if '/' in fmt:
@@ -110,30 +90,129 @@ def _conv_number(v):
 		return float(v)
 
 _c_conv_date_template = r'''
+	const char *pres;
 	struct tm tm;
 	memset(&tm, 0, sizeof(tm));
-	char *pres = strptime(line, fmt, &tm);
-	if ((%(whole)d) && pres) {
-		while (*pres == 32 || (*pres >= 9 && *pres <= 13)) pres++;
-	}
-	if (pres && ((!%(whole)d) || !*pres)) {
-		uint32_t *p = (uint32_t *)ptr;
-%(conv)s
+	tm.tm_year = 70;
+	tm.tm_mday = 1;
+	if (*fmt) {
+		pres = strptime(line, fmt, &tm);
 	} else {
-		ptr = 0;
+		pres = line;
+	}
+	if (fmt_b) { // There is %%f in the fmt
+		if (pres) {
+			const char *lres;
+			size_t plen = strlen(pres);
+			int32_t f;
+			if (plen > 6) {
+				char tmp[7];
+				char *end;
+				memcpy(tmp, pres, 6);
+				tmp[6] = 0;
+				f = strtol(tmp, &end, 10);
+				lres = pres + (end - tmp);
+			} else {
+				char *end;
+				f = strtol(pres, &end, 10);
+				lres = end;
+			}
+			// "123000", "123" and "123   " should probably be equivalent.
+			for (int digitcnt = lres - pres; digitcnt < 6; digitcnt++) {
+				f *= 10;
+				if (isspace(*lres)) lres++;
+			}
+			if (pres == lres || f < 0) {
+				pres = 0;
+			} else if (*fmt_b) {
+				pres = strptime(lres, fmt_b, &tm);
+			} else {
+				pres = lres;
+			}
+			if ((%(whole)d) && pres) {
+				while (*pres == 32 || (*pres >= 9 && *pres <= 13)) pres++;
+			}
+			if (pres && ((!%(whole)d) || !*pres)) {
+				uint32_t *p = (uint32_t *)ptr;
+%(conv)s
+			} else {
+				ptr = 0;
+			}
+		} else {
+			ptr = 0;
+		}
+	} else {
+		if ((%(whole)d) && pres) {
+			while (*pres == 32 || (*pres >= 9 && *pres <= 13)) pres++;
+		}
+		if (pres && ((!%(whole)d) || !*pres)) {
+			uint32_t *p = (uint32_t *)ptr;
+			const int32_t f = 0;
+%(conv)s
+		} else {
+			ptr = 0;
+		}
 	}
 '''
 _c_conv_datetime = r'''
-		p[0] = (uint32_t)(tm.tm_year + 1900) << 14 | (uint32_t)(tm.tm_mon + 1) << 10 |
-		       (uint32_t)tm.tm_mday << 5 | tm.tm_hour;
-		p[1] = (uint32_t)tm.tm_min << 26 | (uint32_t)tm.tm_sec << 20;
+		const uint32_t year = tm.tm_year + 1900;
+		const uint32_t mon  = tm.tm_mon + 1;
+		const uint32_t mday = tm.tm_mday;
+		const uint32_t hour = tm.tm_hour;
+		const uint32_t min  = tm.tm_min;
+		const uint32_t sec  = tm.tm_sec;
+		// Our definition of a valid date is whatever Python will accept.
+		// On Python 2 that's unfortunately pretty much anything.
+		// We validate the time ourselves because that's easy, but the
+		// date part will just be broken on python 2 unless your strptime
+		// validates more than most implementations.
+		if (
+			hour >= 0 && hour < 24 &&
+			min >= 0 && min < 60 &&
+			sec >= 0 && sec < 60
+		) {
+			PyObject *o = PyDateTime_FromDateAndTime(year, mon, mday, hour, min, sec, f);
+			if (o) {
+				Py_DECREF(o);
+				p[0] = year << 14 | mon << 10 | mday << 5 | hour;
+				p[1] = min << 26 | sec << 20 | f;
+			} else {
+				PyErr_Clear();
+				ptr = 0;
+			}
+		} else {
+			ptr = 0;
+		}
 '''
 _c_conv_date = r'''
-		p[0] = (uint32_t)(tm.tm_year + 1900) << 9 | (uint32_t)(tm.tm_mon + 1) << 5 | tm.tm_mday;
+		const uint32_t year = tm.tm_year + 1900;
+		const uint32_t mon  = tm.tm_mon + 1;
+		const uint32_t mday = tm.tm_mday;
+		// Our definition of a valid date is whatever Python will accept.
+		// On Python 2 that's unfortunately pretty much anything.
+		PyObject *o = PyDate_FromDate(year, mon, mday);
+		if (o) {
+			Py_DECREF(o);
+			p[0] = year << 9 | mon << 5 | mday;
+		} else {
+			PyErr_Clear();
+			ptr = 0;
+		}
 '''
 _c_conv_time = r'''
-		p[0] = 32277536 | tm.tm_hour; // 1970 if read as datetime
-		p[1] = (uint32_t)tm.tm_min << 26 | (uint32_t)tm.tm_sec << 20;
+		const uint32_t hour = tm.tm_hour;
+		const uint32_t min  = tm.tm_min;
+		const uint32_t sec  = tm.tm_sec;
+		if (
+			hour >= 0 && hour < 24 &&
+			min >= 0 && min < 60 &&
+			sec >= 0 && sec < 60
+		) {
+			p[0] = 32277536 | hour; // 1970 if read as datetime
+			p[1] = min << 26 | sec << 20 | f;
+		} else {
+			ptr = 0;
+		}
 '''
 
 _c_conv_float_template = r'''
@@ -372,8 +451,8 @@ static const uint8_t noneval_bool = 255;
 
 ConvTuple = namedtuple('ConvTuple', 'size conv_code_str pyfunc')
 # Size is bytes per value, or 0 for newline separated.
-# Only one of conv_code_str or pyfunc needs to be specified, except
-# the date/time types always use the python_func when the format contains %f.
+# Only one of conv_code_str or pyfunc needs to be specified.
+# The date/time types need fmt split on %f (into fmt, fmt_b).
 # If conv_code_str is set, the destination type must exist in minmaxfuncs.
 convfuncs = {
 	'float64'      : ConvTuple(8, _c_conv_float_template % dict(type='double', func='strtod', whole=1), float),
@@ -423,12 +502,12 @@ convfuncs = {
 	'strbool'      : ConvTuple(1, _c_conv_strbool, lambda v: v.lower() not in ('false', '0', 'f', 'no', 'off', 'nil', 'null', '',)),
 	'floatbool'    : ConvTuple(1, _c_conv_floatbool_template % dict(whole=1)                   , lambda v: float(v) != 0.0),
 	'floatbooli'   : ConvTuple(1, _c_conv_floatbool_template % dict(whole=0)                   , None),
-	'datetime:*'   : ConvTuple(8, _c_conv_date_template % dict(whole=1, conv=_c_conv_datetime,), _mk_conv_datetime),
-	'date:*'       : ConvTuple(4, _c_conv_date_template % dict(whole=1, conv=_c_conv_date,    ), _mk_conv_datetime),
-	'time:*'       : ConvTuple(8, _c_conv_date_template % dict(whole=1, conv=_c_conv_time,    ), _mk_conv_time),
-	'datetimei:*'  : ConvTuple(8, _c_conv_date_template % dict(whole=0, conv=_c_conv_datetime,), _unsupported_fmt),
-	'datei:*'      : ConvTuple(4, _c_conv_date_template % dict(whole=0, conv=_c_conv_date,    ), _unsupported_fmt),
-	'timei:*'      : ConvTuple(8, _c_conv_date_template % dict(whole=0, conv=_c_conv_time,    ), _unsupported_fmt),
+	'datetime:*'   : ConvTuple(8, _c_conv_date_template % dict(whole=1, conv=_c_conv_datetime,), None),
+	'date:*'       : ConvTuple(4, _c_conv_date_template % dict(whole=1, conv=_c_conv_date,    ), None),
+	'time:*'       : ConvTuple(8, _c_conv_date_template % dict(whole=1, conv=_c_conv_time,    ), None),
+	'datetimei:*'  : ConvTuple(8, _c_conv_date_template % dict(whole=0, conv=_c_conv_datetime,), None),
+	'datei:*'      : ConvTuple(4, _c_conv_date_template % dict(whole=0, conv=_c_conv_date,    ), None),
+	'timei:*'      : ConvTuple(8, _c_conv_date_template % dict(whole=0, conv=_c_conv_time,    ), None),
 	'bytes'        : ConvTuple(0, None, str),
 	'bytesstrip'   : ConvTuple(0, None, str.strip),
 	# unicode[strip]:encoding or unicode[strip]:encoding/errorhandling

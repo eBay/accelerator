@@ -44,7 +44,7 @@ data = {
 	"bits64": (0, 18446744073709551615, 0x55aa55aa55aa55aa),
 	"bits32": (0, 4294967295, 0xaa55aa55),
 	"bool": (True, False, True,),
-	"datetime": (datetime(1816, 2, 29, 23, 59, 59, 999999), datetime(1816, 2, 29, 23, 59, 59, 999998), datetime(1970, 1, 1, 0, 0, 0, 1)),
+	"datetime": (datetime(1916, 2, 29, 23, 59, 59, 999999), datetime(1916, 2, 29, 23, 59, 59, 999998), datetime(1970, 1, 1, 0, 0, 0, 1)),
 	"date": (date(2016, 2, 29), date(2016, 2, 28), date(2017, 6, 27),),
 	"time": (time(12, 0, 0, 999999), time(12, 0, 0, 999998), time(0, 1, 2, 3)),
 	"bytes": (b"foo", b"bar", b"blutti",),

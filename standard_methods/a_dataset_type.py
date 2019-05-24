@@ -65,13 +65,14 @@ options = {
 datasets = ('source', 'previous',)
 
 equivalent_hashes = {
-	'42f6178a6070bbd85c120d39bf240704ac24c2c4': ('91105dcfc1d399ac33d50ee1ab8197d675dbf3af', '9ec658f76813db0afba412297ae3277a0a3edfb3', '9bc49140b0c16dfd88e5c312d2a3225787c937f0', '56ee025d30cce4cc7a7bffd8bfde09702cec1aa6', '10065d3baeb571890001fd90a38d5ae06b162d0d', 'f9667a4809ae8f5140c7b7887966403849e32cad',)
+	'a78835197c1e324d3124ab30f0548a7e7237c150': ('91105dcfc1d399ac33d50ee1ab8197d675dbf3af', '9ec658f76813db0afba412297ae3277a0a3edfb3', '9bc49140b0c16dfd88e5c312d2a3225787c937f0', '56ee025d30cce4cc7a7bffd8bfde09702cec1aa6', '10065d3baeb571890001fd90a38d5ae06b162d0d', 'f9667a4809ae8f5140c7b7887966403849e32cad', '41ebc06a7e99e1e67b95ab6b798930aaf76e61a8',)
 }
 
 ffi = cffi.FFI()
 convert_template = r'''
 %(proto)s
 {
+	PyGILState_STATE gstate = PyGILState_Ensure();
 	g g;
 	gzFile outfh;
 	const char *line;
@@ -146,6 +147,7 @@ err:
 	if (badmap) munmap(badmap, badmap_size);
 errfd:
 	if (fd >= 0) close(fd);
+	PyGILState_Release(gstate);
 	return res;
 }
 '''
@@ -398,7 +400,7 @@ errfd:
 }
 '''
 
-proto_template = 'int convert_column_%s(const char *in_fn, const char *out_fn, const char *minmax_fn, const char *default_value, int default_value_is_None, const char *fmt, int record_bad, int skip_bad, int badmap_fd, size_t badmap_size, uint64_t *bad_count, uint64_t *default_count, off_t offset, int64_t max_count, int backing_format)'
+proto_template = 'int convert_column_%s(const char *in_fn, const char *out_fn, const char *minmax_fn, const char *default_value, int default_value_is_None, const char *fmt, const char *fmt_b, int record_bad, int skip_bad, int badmap_fd, size_t badmap_size, uint64_t *bad_count, uint64_t *default_count, off_t offset, int64_t max_count, int backing_format)'
 
 protos = []
 funcs = [dataset_typing.noneval_data]
@@ -480,6 +482,7 @@ errfd:
 protos.append('int filter_strings(const char *in_fn, const char *out_fn, int badmap_fd, size_t badmap_size, off_t offset, int64_t max_count, int backing_format);')
 protos.append('int filter_stringstrip(const char *in_fn, const char *out_fn, int badmap_fd, size_t badmap_size, off_t offset, int64_t max_count, int backing_format);')
 protos.append('int numeric_comma(void);')
+protos.append('void init(void);')
 funcs.append(filter_string_template % dict(name='filter_strings', conv=r'''
 		int32_t len = g.linelen;
 '''))
@@ -513,6 +516,7 @@ backend = ffi.verify(r'''
 #include <sys/fcntl.h>
 #include <unistd.h>
 #include <bytesobject.h>
+#include <datetime.h>
 
 #ifndef MAP_NOSYNC
 #  define MAP_NOSYNC 0
@@ -702,9 +706,20 @@ static inline const char *read_line(g *g)
 	if (g->backing_format == 2) return read_line_v2(g);
 	return read_line_v3(g);
 }
+
+void init(void)
+{
+	PyGILState_STATE gstate = PyGILState_Ensure();
+	PyDateTime_IMPORT;
+	PyGILState_Release(gstate);
+	// strptime parses %s in whatever timezone is set, so set UTC.
+	if (setenv("TZ", "UTC", 1)) exit(1);
+	tzset();
+}
 ''' + ''.join(funcs), libraries=['z'], extra_compile_args=['-std=c99'])
 
 def prepare():
+	backend.init()
 	d = datasets.source
 	columns = {}
 	for colname, coltype in iteritems(options.column2type):
@@ -768,17 +783,19 @@ def analysis_lap(sliceno, badmap_fh, first_lap):
 	dw = DatasetWriter()
 	for colname, coltype in iteritems(options.column2type):
 		out_fn = dw.column_filename(options.rename.get(colname, colname))
+		fmt = fmt_b = ffi.NULL
 		if ':' in coltype and not coltype.startswith('number:'):
 			coltype, fmt = coltype.split(':', 1)
 			_, cfunc, pyfunc = dataset_typing.convfuncs[coltype + ':*']
-			if '%f' in fmt:
-				# needs to fall back to python version
-				cfunc = None
+			if 'date' in coltype or 'time' in coltype:
+				assert '%' in fmt, 'format "%s:%s" has no %% in it' % (coltype, fmt,)
+				if '%f' in fmt:
+					assert coltype not in ('date', 'datei',), '%f format not supported for ' + coltype
+					fmt, fmt_b = fmt.split('%f')
 			if not cfunc:
 				pyfunc = pyfunc(coltype, fmt)
 		else:
 			_, cfunc, pyfunc = dataset_typing.convfuncs[coltype]
-			fmt = ffi.NULL
 		d = datasets.source
 		assert d.columns[colname].type in ('bytes', 'ascii',), colname
 		if options.filter_bad:
@@ -818,7 +835,7 @@ def analysis_lap(sliceno, badmap_fh, first_lap):
 			bad_count = ffi.new('uint64_t [1]', [0])
 			default_count = ffi.new('uint64_t [1]', [0])
 			c = getattr(backend, 'convert_column_' + coltype)
-			res = c(*bytesargs(in_fn, out_fn, minmax_fn, default_value, default_value_is_None, fmt, record_bad, skip_bad, badmap_fd, badmap_size, bad_count, default_count, offset, max_count, backing_format))
+			res = c(*bytesargs(in_fn, out_fn, minmax_fn, default_value, default_value_is_None, fmt, fmt_b, record_bad, skip_bad, badmap_fd, badmap_size, bad_count, default_count, offset, max_count, backing_format))
 			assert not res, 'Failed to convert ' + colname
 			res_bad_count[colname] = bad_count[0]
 			res_default_count[colname] = default_count[0]
