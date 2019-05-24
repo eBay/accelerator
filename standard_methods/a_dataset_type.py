@@ -25,7 +25,7 @@ from resource import getpagesize
 from os import unlink, symlink
 from mmap import mmap, PROT_READ
 
-from compat import NoneType, unicode, imap, iteritems, itervalues
+from compat import NoneType, unicode, imap, iteritems, itervalues, PY2
 
 from extras import OptionEnum, json_save, DotDict
 from gzwrite import typed_writer
@@ -765,6 +765,18 @@ def analysis(sliceno):
 def bytesargs(*a):
 	return [v.encode('ascii') if isinstance(v, unicode) else v for v in a]
 
+# In python3 indexing into bytes gives integers (b'a'[0] == 97),
+# this gives the same behaviour on python2. (For use with mmap.)
+class IntegerBytesWrapper(object):
+	def __init__(self, inner):
+		self.inner = inner
+	def close(self):
+		self.inner.close()
+	def __getitem__(self, key):
+		return ord(self.inner[key])
+	def __setitem__(self, key, value):
+		self.inner[key] = chr(value)
+
 def analysis_lap(sliceno, badmap_fh, first_lap):
 	known_line_count = 0
 	badmap_size = 0
@@ -873,6 +885,8 @@ def analysis_lap(sliceno, badmap_fh, first_lap):
 				default_value = nodefault
 			if options.filter_bad:
 				badmap = mmap(badmap_fd, badmap_size)
+				if PY2:
+					badmap = IntegerBytesWrapper(badmap)
 			bad_count = 0
 			default_count = 0
 			dont_minmax_types = {'bytes', 'ascii', 'unicode', 'json'}
@@ -882,7 +896,7 @@ def analysis_lap(sliceno, badmap_fh, first_lap):
 				col_min = col_max = None
 				for ix, v in enumerate(d.iterate(sliceno, colname)):
 					if skip_bad:
-						if ord(badmap[ix // 8]) & (1 << (ix % 8)):
+						if badmap[ix // 8] & (1 << (ix % 8)):
 							bad_count += 1
 							continue
 					try:
@@ -893,8 +907,8 @@ def analysis_lap(sliceno, badmap_fh, first_lap):
 							default_count += 1
 						elif record_bad:
 							bad_count += 1
-							bv = ord(badmap[ix // 8])
-							badmap[ix // 8] = chr(bv | (1 << (ix % 8)))
+							bv = badmap[ix // 8]
+							badmap[ix // 8] = bv | (1 << (ix % 8))
 							continue
 						else:
 							raise Exception("Invalid value %r with no default in %s" % (v, colname,))
