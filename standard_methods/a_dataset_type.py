@@ -864,10 +864,11 @@ def analysis_lap(sliceno, badmap_fh, first_lap):
 			# python func
 			nodefault = object()
 			if colname in options.defaults:
-				if options.defaults[colname] is None:
-					default_value = None
-				else:
-					default_value = pyfunc(options.defaults[colname])
+				default_value = options.defaults[colname]
+				if default_value is not None:
+					if isinstance(default_value, unicode):
+						default_value = default_value.encode('utf-8')
+					default_value = pyfunc(default_value)
 			else:
 				default_value = nodefault
 			if options.filter_bad:
