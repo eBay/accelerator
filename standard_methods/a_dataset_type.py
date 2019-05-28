@@ -163,7 +163,7 @@ static inline int convert_number_do(const char *inptr, char * const outptr_, con
 	while (*inptr == 32 || (*inptr >= 9 && *inptr <= 13)) inptr++;
 	// Then check length and what symbols we have
 	int inlen = 0;
-	int hasdot = 0, hasexp = 0;
+	int hasdot = 0, hasexp = 0, hasletter = 0;
 	while (1) {
 		const char c = inptr[inlen];
 		if (!c) break;
@@ -179,6 +179,10 @@ static inline int convert_number_do(const char *inptr, char * const outptr_, con
 			// Avoid accepting strange float formats that only some C libs accept.
 			// (Things like "0x1.5p+5", which as I'm sure you can see is 42.)
 			return 0;
+		}
+		if (c == 'n' || c == 'N') {
+			// Could be 'nan' or 'inf', both of which are ok floats.
+			hasletter = 1;
 		}
 		inlen++;
 	}
@@ -199,7 +203,7 @@ static inline int convert_number_do(const char *inptr, char * const outptr_, con
 		memset(outptr + 1, 0, 8);
 		return 9;
 	}
-	if (hasdot || hasexp) { // Float
+	if (hasdot || hasexp || hasletter) { // Float
 		if (!allow_float) return 0;
 		char *end;
 		errno = 0;
