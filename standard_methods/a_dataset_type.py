@@ -37,7 +37,7 @@ from sourcedata import type2iter
 depend_extra = (dataset_typing,)
 
 description = r'''
-Convert one or more columns in a dataset from bytes/ascii to any type.
+Convert one or more columns in a dataset from bytes/ascii/unicode to any type.
 '''
 
 # Without filter_bad the method fails when a value fails to convert and
@@ -67,6 +67,8 @@ datasets = ('source', 'previous',)
 equivalent_hashes = {
 	'a78835197c1e324d3124ab30f0548a7e7237c150': ('91105dcfc1d399ac33d50ee1ab8197d675dbf3af', '9ec658f76813db0afba412297ae3277a0a3edfb3', '9bc49140b0c16dfd88e5c312d2a3225787c937f0', '56ee025d30cce4cc7a7bffd8bfde09702cec1aa6', '10065d3baeb571890001fd90a38d5ae06b162d0d', 'f9667a4809ae8f5140c7b7887966403849e32cad', '41ebc06a7e99e1e67b95ab6b798930aaf76e61a8',)
 }
+
+byteslike_types = ('bytes', 'ascii', 'unicode',)
 
 ffi = cffi.FFI()
 convert_template = r'''
@@ -727,7 +729,7 @@ def prepare():
 	d = datasets.source
 	columns = {}
 	for colname, coltype in iteritems(options.column2type):
-		assert d.columns[colname].type in ('bytes', 'ascii',), colname
+		assert d.columns[colname].type in byteslike_types, colname
 		coltype = coltype.split(':', 1)[0]
 		columns[options.rename.get(colname, colname)] = dataset_typing.typerename.get(coltype, coltype)
 	if options.filter_bad or options.discard_untyped:
@@ -813,7 +815,7 @@ def analysis_lap(sliceno, badmap_fh, first_lap):
 		else:
 			_, cfunc, pyfunc = dataset_typing.convfuncs[coltype]
 		d = datasets.source
-		assert d.columns[colname].type in ('bytes', 'ascii',), colname
+		assert d.columns[colname].type in byteslike_types, colname
 		if options.filter_bad:
 			line_count = d.lines[sliceno]
 			if known_line_count:
@@ -898,7 +900,7 @@ def analysis_lap(sliceno, badmap_fh, first_lap):
 			do_minmax = real_coltype not in dont_minmax_types
 			with typed_writer(real_coltype)(out_fn) as fh:
 				col_min = col_max = None
-				for ix, v in enumerate(d.iterate(sliceno, colname)):
+				for ix, v in enumerate(d._column_iterator(sliceno, colname, _type='bytes' if backing_format == 3 else '_v2_bytes')):
 					if skip_bad:
 						if badmap[ix // 8] & (1 << (ix % 8)):
 							bad_count += 1

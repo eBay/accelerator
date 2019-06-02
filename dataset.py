@@ -277,10 +277,10 @@ class Dataset(unicode):
 		d.name = uni(name)
 		d._save()
 
-	def _column_iterator(self, sliceno, col, **kw):
+	def _column_iterator(self, sliceno, col, _type=None, **kw):
 		from sourcedata import type2iter
 		dc = self.columns[col]
-		mkiter = partial(type2iter[dc.backing_type], **kw)
+		mkiter = partial(type2iter[_type or dc.backing_type], **kw)
 		def one_slice(sliceno):
 			fn = self.column_filename(col, sliceno)
 			if dc.offsets:
