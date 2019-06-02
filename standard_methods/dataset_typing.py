@@ -28,49 +28,223 @@ from functools import partial
 import ujson
 import sys
 import struct
+import codecs
 
 from compat import NoneType, iteritems
 
 __all__ = ('convfuncs', 'typerename', 'typesizes', 'minmaxfuncs',)
 
-def _mk_conv_unicode(colname, fmt, strip=False):
+def _resolve_datetime(coltype):
+	cfunc, fmt = coltype.split(':', 1)
+	if '%f' in fmt:
+		fmt, fmt_b = fmt.split('%f')
+	else:
+		fmt_b = None
+	return cfunc, fmt, fmt_b
+
+def _resolve_unicode(coltype, strip=False):
+	_, fmt = coltype.split(':', 1)
 	if '/' in fmt:
 		codec, errors = fmt.split('/')
 	else:
 		codec, errors = fmt, 'strict'
 	assert errors in ('strict', 'replace', 'ignore',)
 	b''.decode(codec) # trigger error on unknown
+	canonical = codecs.lookup(codec).name
+	if canonical == codecs.lookup('utf-8').name:
+		selected = 'unicode_utf8'
+	elif canonical == codecs.lookup('iso-8859-1').name:
+		selected = 'unicode_latin1'
+	elif canonical == codecs.lookup('ascii').name:
+		if errors == 'strict':
+			selected = 'ascii_strict'
+		else:
+			selected = 'unicode_ascii'
+	else:
+		selected = 'unicode'
 	if strip:
-		def conv(s):
-			return None if s is None else s.decode(codec, errors).strip()
-		return conv
-	else:
-		def conv(s):
-			return None if s is None else s.decode(codec, errors)
-		return conv
+		if '_' in selected:
+			selected = selected.replace('_', 'strip_', 1)
+		else:
+			selected += 'strip'
+	return selected, codec, errors
 
-def _mk_conv_ascii(colname, errors, strip=False):
-	assert errors in ('replace', 'encode', 'strict',)
-	if errors == 'strict':
-		# The writer will enforce the invariant
-		if strip:
-			return str.strip
-		else:
-			return str
-	else:
-		import re
-		if errors == 'encode':
-			pattern = re.compile(b'[\x80-\xff\\\\]')
-		else:
-			pattern = re.compile(b'[\x80-\xff]')
-		def replace(m):
-			return '\\%03o' % ord(m.group(0))
-		if strip:
-			def conv(s):
-				return pattern.sub(replace, s.strip())
-			return conv
-		else:
-			return partial(pattern.sub, replace)
+_c_conv_bytes_template = r'''
+	int32_t len = g.linelen;
+#if %(strip)d
+	while (*line == 32 || (*line >= 9 && *line <= 13)) {
+		line++;
+		len--;
+	}
+	while (len && (line[len - 1] == 32 || (line[len - 1] >= 9 && line[len - 1] <= 13))) len--;
+#endif
+	const uint8_t *ptr = (uint8_t *)line;
+'''
+
+_c_conv_ascii_template = r'''
+	int32_t len = g.linelen;
+#if %(strip)d
+	while (*line == 32 || (*line >= 9 && *line <= 13)) {
+		line++;
+		len--;
+	}
+	while (len && (line[len - 1] == 32 || (line[len - 1] >= 9 && line[len - 1] <= 13))) len--;
+#endif
+	const uint8_t *ptr = (uint8_t *)line;
+	char *free_ptr = 0;
+	int32_t enc_cnt = 0;
+	for (uint32_t i = 0; i < (uint32_t)len; i++) {
+		enc_cnt += (%%(enctest)s);
+	}
+	if (enc_cnt) {
+		int64_t elen = (int64_t)len + ((int64_t)enc_cnt * 3);
+		err1(elen > 0x7fffffff);
+		char *buf = PyMem_Malloc(elen);
+		err1(!buf);
+		free_ptr = buf;
+		int32_t bi = 0;
+		for (uint32_t i = 0; i < (uint32_t)len; i++) {
+%(conv)s
+		}
+		ptr = (uint8_t *)buf;
+		len = elen;
+	}
+'''
+_c_conv_ascii_encode_template = r'''
+			if (%(enctest)s) {
+				buf[bi++] = '\\';
+				buf[bi++] = '0' + (ptr[i] >> 6);
+				buf[bi++] = '0' + ((ptr[i] >> 3) & 7);
+				buf[bi++] = '0' + (ptr[i] & 7);
+			} else {
+				buf[bi++] = ptr[i];
+			}
+'''
+_c_conv_ascii_cleanup = r'''
+		if (free_ptr) PyMem_Free(free_ptr);
+'''
+
+_c_conv_ascii_strict_template = r'''
+	int32_t len = g.linelen;
+#if %(strip)d
+	while (*line == 32 || (*line >= 9 && *line <= 13)) {
+		line++;
+		len--;
+	}
+	while (len && (line[len - 1] == 32 || (line[len - 1] >= 9 && line[len - 1] <= 13))) len--;
+#endif
+	const uint8_t *ptr = (uint8_t *)line;
+	for (uint32_t i = 0; i < (uint32_t)len; i++) {
+		if (ptr[i] > 127) {
+			ptr = 0;
+			break;
+		}
+	}
+'''
+
+_c_conv_unicode_setup = r'''
+	PyObject *decoder = PyCodec_Decoder(fmt);
+	if (!decoder) {
+		printf("No decoder for '%s'.\n", fmt);
+		goto err;
+	}
+	int good = 0;
+	PyObject *dec_args = PyTuple_New(2);
+	err1(!dec_args);
+	PyObject *dec_errors = PyUnicode_FromString(fmt_b);
+	err1(!dec_errors);
+	PyObject *tst_bytes = PyBytes_FromStringAndSize("a", 1);
+	if (tst_bytes) {
+		PyTuple_SET_ITEM(dec_args, 0, tst_bytes);
+		PyTuple_SET_ITEM(dec_args, 1, dec_errors);
+		PyObject *tst_res = PyEval_CallObject(decoder, dec_args);
+		if (tst_res) {
+			if (PyTuple_Check(tst_res)) {
+				if (PyUnicode_Check(PyTuple_GetItem(tst_res, 0))) {
+					good = 1;
+				} else {
+					printf("Decoder for '%s' does not produce unicode.\n", fmt);
+				}
+			}
+			Py_DECREF(tst_res);
+		}
+	}
+	PyErr_Clear();
+	err1(!good);
+'''
+_c_conv_unicode_template = r'''
+	int32_t len = g.linelen;
+#if %(strip)d
+	while (*line == 32 || (*line >= 9 && *line <= 13)) {
+		line++;
+		len--;
+	}
+	while (len && (line[len - 1] == 32 || (line[len - 1] >= 9 && line[len - 1] <= 13))) len--;
+#endif
+	const uint8_t *ptr = 0;
+	PyObject *tmp_bytes = PyBytes_FromStringAndSize(line, len);
+	err1(!tmp_bytes);
+	PyObject *tmp_prev = PyTuple_GET_ITEM(dec_args, 0);
+	PyTuple_SET_ITEM(dec_args, 0, tmp_bytes);
+	Py_DECREF(tmp_prev);
+	PyObject *tmp_res = PyEval_CallObject(decoder, dec_args);
+	if (tmp_res) {
+#if PY_MAJOR_VERSION < 3
+		PyObject *tmp_utf8bytes = PyUnicode_AsUTF8String(PyTuple_GET_ITEM(tmp_res, 0));
+		err1(!tmp_utf8bytes);
+		Py_DECREF(tmp_res);
+		tmp_res = tmp_utf8bytes;
+		ptr = (const uint8_t *)PyBytes_AS_STRING(tmp_utf8bytes);
+		Py_ssize_t newlen = PyBytes_GET_SIZE(tmp_utf8bytes);
+#else
+		PyObject *tmp_uni = PyTuple_GET_ITEM(tmp_res, 0);
+		Py_ssize_t newlen;
+		ptr = (const uint8_t *)PyUnicode_AsUTF8AndSize(tmp_uni, &newlen);
+#endif
+		if (newlen > 0x7fffffff) {
+			ptr = 0;
+		} else {
+			len = newlen;
+		}
+	} else {
+		PyErr_Clear();
+	}
+'''
+_c_conv_unicode_cleanup = r'''
+		Py_XDECREF(tmp_res);
+'''
+_c_conv_unicode_specific_template = r'''
+	int32_t len = g.linelen;
+#if %(strip)d
+	while (*line == 32 || (*line >= 9 && *line <= 13)) {
+		line++;
+		len--;
+	}
+	while (len && (line[len - 1] == 32 || (line[len - 1] >= 9 && line[len - 1] <= 13))) len--;
+#endif
+	const uint8_t *ptr = 0;
+	PyObject *tmp_res = %(func)s(line, len, fmt_b);
+	if (tmp_res) {
+#if PY_MAJOR_VERSION < 3
+		PyObject *tmp_utf8bytes = PyUnicode_AsUTF8String(tmp_res);
+		err1(!tmp_utf8bytes);
+		Py_DECREF(tmp_res);
+		tmp_res = tmp_utf8bytes;
+		ptr = (const uint8_t *)PyBytes_AS_STRING(tmp_utf8bytes);
+		Py_ssize_t newlen = PyBytes_GET_SIZE(tmp_utf8bytes);
+#else
+		Py_ssize_t newlen;
+		ptr = (const uint8_t *)PyUnicode_AsUTF8AndSize(tmp_res, &newlen);
+#endif
+		if (newlen > 0x7fffffff) {
+			ptr = 0;
+		} else {
+			len = newlen;
+		}
+	} else {
+		PyErr_Clear();
+	}
+'''
 
 _c_conv_date_template = r'''
 	const char *pres;
@@ -168,6 +342,7 @@ _c_conv_datetime = r'''
 		}
 '''
 _c_conv_date = r'''
+		(void) f; // not used for dates, but we don't want the compiler complaining.
 		const uint32_t year = tm.tm_year + 1900;
 		const uint32_t mon  = tm.tm_mon + 1;
 		const uint32_t mday = tm.tm_mday;
@@ -433,10 +608,13 @@ static const uint8_t noneval_bool = 255;
 '''
 
 ConvTuple = namedtuple('ConvTuple', 'size conv_code_str pyfunc')
-# Size is bytes per value, or 0 for newline separated.
-# Only one of conv_code_str or pyfunc needs to be specified.
-# The date/time types need fmt split on %f (into fmt, fmt_b).
-# If conv_code_str is set, the destination type must exist in minmaxfuncs.
+# Size is bytes per value, or 0 for variable size.
+# If pyfunc is specified it is called with the type string
+# and can return either (type, fmt, fmt_b) or a callable for
+# doing the conversion. type needs not be the same type that
+# was passed in, but the passed type determines the actual
+# type in the dataset.
+# If conv_code_str and size is set, the destination type must exist in minmaxfuncs.
 convfuncs = {
 	'float64'      : ConvTuple(8, _c_conv_float_template % dict(type='double', func='strtod', whole=1), None),
 	'float32'      : ConvTuple(4, _c_conv_float_template % dict(type='float', func='strtof', whole=1) , None),
@@ -485,31 +663,48 @@ convfuncs = {
 	'strbool'      : ConvTuple(1, _c_conv_strbool, None),
 	'floatbool'    : ConvTuple(1, _c_conv_floatbool_template % dict(whole=1)                   , None),
 	'floatbooli'   : ConvTuple(1, _c_conv_floatbool_template % dict(whole=0)                   , None),
-	'datetime:*'   : ConvTuple(8, _c_conv_date_template % dict(whole=1, conv=_c_conv_datetime,), None),
+	'datetime:*'   : ConvTuple(8, _c_conv_date_template % dict(whole=1, conv=_c_conv_datetime,), _resolve_datetime),
 	'date:*'       : ConvTuple(4, _c_conv_date_template % dict(whole=1, conv=_c_conv_date,    ), None),
-	'time:*'       : ConvTuple(8, _c_conv_date_template % dict(whole=1, conv=_c_conv_time,    ), None),
-	'datetimei:*'  : ConvTuple(8, _c_conv_date_template % dict(whole=0, conv=_c_conv_datetime,), None),
+	'time:*'       : ConvTuple(8, _c_conv_date_template % dict(whole=1, conv=_c_conv_time,    ), _resolve_datetime),
+	'datetimei:*'  : ConvTuple(8, _c_conv_date_template % dict(whole=0, conv=_c_conv_datetime,), _resolve_datetime),
 	'datei:*'      : ConvTuple(4, _c_conv_date_template % dict(whole=0, conv=_c_conv_date,    ), None),
-	'timei:*'      : ConvTuple(8, _c_conv_date_template % dict(whole=0, conv=_c_conv_time,    ), None),
-	'bytes'        : ConvTuple(0, None, str),
-	'bytesstrip'   : ConvTuple(0, None, str.strip),
+	'timei:*'      : ConvTuple(8, _c_conv_date_template % dict(whole=0, conv=_c_conv_time,    ), _resolve_datetime),
+	'bytes'        : ConvTuple(0, _c_conv_bytes_template % dict(strip=0), None),
+	'bytesstrip'   : ConvTuple(0, _c_conv_bytes_template % dict(strip=1), None),
 	# unicode[strip]:encoding or unicode[strip]:encoding/errorhandling
 	# errorhandling can be one of strict (fail, default), replace (with \ufffd) or ignore (remove char)
-	'unicode:*'    : ConvTuple(0, None, _mk_conv_unicode),
-	'unicodestrip:*':ConvTuple(0, None, partial(_mk_conv_unicode, strip=True)),
-	'ascii'        : ConvTuple(0, None, _mk_conv_ascii(None, 'replace')),
-	'asciistrip'   : ConvTuple(0, None, _mk_conv_ascii(None, 'replace', True)),
-	# ascii[strip]:errorhandling, can be replace (default, replace >128 with \ooo),
-	# encode (same as replace, plus \ becomes \134) or strict (>128 is an error).
-	'ascii:*'      : ConvTuple(0, None, _mk_conv_ascii),
-	'asciistrip:*' : ConvTuple(0, None, partial(_mk_conv_ascii, strip=True)),
+	'unicode:*'    : ConvTuple(0, [_c_conv_unicode_setup, _c_conv_unicode_template % dict(strip=0), _c_conv_unicode_cleanup], _resolve_unicode),
+	'unicodestrip:*':ConvTuple(0, [_c_conv_unicode_setup, _c_conv_unicode_template % dict(strip=1), _c_conv_unicode_cleanup], partial(_resolve_unicode, strip=True)),
+	# ascii[strip]:errorhandling, can be replace (default, replace >127 with \ooo),
+	# encode (same as replace, plus \ becomes \134) or strict (>127 is an error).
+	'ascii'             : ConvTuple(0, None, lambda _: ('ascii_replace', None, None),),
+	'asciistrip'        : ConvTuple(0, None, lambda _: ('asciistrip_replace', None, None),),
+	'ascii:replace'     : ConvTuple(0, ['', _c_conv_ascii_template % dict(strip=0, conv=_c_conv_ascii_encode_template) % dict(enctest="ptr[i] > 127"), _c_conv_ascii_cleanup], None),
+	'asciistrip:replace': ConvTuple(0, ['', _c_conv_ascii_template % dict(strip=1, conv=_c_conv_ascii_encode_template) % dict(enctest="ptr[i] > 127"), _c_conv_ascii_cleanup], None),
+	'ascii:encode'      : ConvTuple(0, ['', _c_conv_ascii_template % dict(strip=0, conv=_c_conv_ascii_encode_template) % dict(enctest="ptr[i] > 127 || ptr[i] == '\\\\'"), _c_conv_ascii_cleanup], None),
+	'asciistrip:encode' : ConvTuple(0, ['', _c_conv_ascii_template % dict(strip=1, conv=_c_conv_ascii_encode_template) % dict(enctest="ptr[i] > 127 || ptr[i] == '\\\\'"), _c_conv_ascii_cleanup], None),
+	'ascii:strict'      : ConvTuple(0, _c_conv_ascii_strict_template % dict(strip=0), None),
+	'asciistrip:strict' : ConvTuple(0, _c_conv_ascii_strict_template % dict(strip=1), None),
 	# The number type is handled specially, so no code here.
 	'number'       : ConvTuple(0, None, None), # integer when possible (up to +-2**1007-1), float otherwise.
 	'number:int'   : ConvTuple(0, None, None), # Never float, but accepts int.0 (or int.00 and so on)
-	'json'         : ConvTuple(0, None, ujson.loads),
+	'json'         : ConvTuple(0, None, lambda _: ujson.loads),
+}
+
+# These are not made available as valid values in column2type, but they
+# can be selected based on the :fmt specified in those values.
+hidden_convfuncs = {
+	'unicode_utf8'       : ConvTuple(0, ['', _c_conv_unicode_specific_template % dict(strip=0, func='PyUnicode_DecodeUTF8'), _c_conv_unicode_cleanup], None),
+	'unicodestrip_utf8'  : ConvTuple(0, ['', _c_conv_unicode_specific_template % dict(strip=1, func='PyUnicode_DecodeUTF8'), _c_conv_unicode_cleanup], None),
+	'unicode_latin1'     : ConvTuple(0, ['', _c_conv_unicode_specific_template % dict(strip=0, func='PyUnicode_DecodeLatin1'), _c_conv_unicode_cleanup], None),
+	'unicodestrip_latin1': ConvTuple(0, ['', _c_conv_unicode_specific_template % dict(strip=1, func='PyUnicode_DecodeLatin1'), _c_conv_unicode_cleanup], None),
+	'unicode_ascii'      : ConvTuple(0, ['', _c_conv_unicode_specific_template % dict(strip=0, func='PyUnicode_DecodeASCII'), _c_conv_unicode_cleanup], None),
+	'unicodestrip_ascii' : ConvTuple(0, ['', _c_conv_unicode_specific_template % dict(strip=1, func='PyUnicode_DecodeASCII'), _c_conv_unicode_cleanup], None),
 }
 
 # The actual type produced, when it is not the same as the key in convfuncs
+# Note that this is based on the user-specified type, not whatever the
+# resolving function returns.
 typerename = {
 	'strbool'      : 'bool',
 	'floatbool'    : 'bool',
@@ -576,8 +771,12 @@ def _test():
 		key = key.split(":")[0]
 		typed_writer(typerename.get(key, key))
 		assert data.size in (0, 1, 4, 8,), (key, data)
-		assert isinstance(data.conv_code_str, (str, NoneType)), (key, data)
-		if data.conv_code_str:
+		if isinstance(data.conv_code_str, list):
+			for v in data.conv_code_str:
+				assert isinstance(v, (str, NoneType)), (key, data)
+		else:
+			assert isinstance(data.conv_code_str, (str, NoneType)), (key, data)
+		if data.conv_code_str and data.size:
 			assert typerename.get(key, key) in minmaxfuncs
 		assert data.pyfunc is None or callable(data.pyfunc), (key, data)
 	for key, mm in iteritems(minmaxfuncs):

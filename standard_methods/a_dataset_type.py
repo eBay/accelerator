@@ -65,7 +65,7 @@ options = {
 datasets = ('source', 'previous',)
 
 equivalent_hashes = {
-	'a78835197c1e324d3124ab30f0548a7e7237c150': ('91105dcfc1d399ac33d50ee1ab8197d675dbf3af', '9ec658f76813db0afba412297ae3277a0a3edfb3', '9bc49140b0c16dfd88e5c312d2a3225787c937f0', '56ee025d30cce4cc7a7bffd8bfde09702cec1aa6', '10065d3baeb571890001fd90a38d5ae06b162d0d', 'f9667a4809ae8f5140c7b7887966403849e32cad', '41ebc06a7e99e1e67b95ab6b798930aaf76e61a8',)
+	'6693c50364efe831b9e445f080ba189daba7efde': ('91105dcfc1d399ac33d50ee1ab8197d675dbf3af', '9ec658f76813db0afba412297ae3277a0a3edfb3', '9bc49140b0c16dfd88e5c312d2a3225787c937f0', '56ee025d30cce4cc7a7bffd8bfde09702cec1aa6', '10065d3baeb571890001fd90a38d5ae06b162d0d', 'f9667a4809ae8f5140c7b7887966403849e32cad', '41ebc06a7e99e1e67b95ab6b798930aaf76e61a8',)
 }
 
 byteslike_types = ('bytes', 'ascii', 'unicode',)
@@ -101,6 +101,7 @@ convert_template = r'''
 		err1(default_value_is_None);
 		char *ptr = defbuf;
 		line = default_value;
+		g.linelen = default_len;
 		%(convert)s;
 		err1(!ptr);
 	}
@@ -406,7 +407,7 @@ errfd:
 }
 '''
 
-proto_template = 'int convert_column_%s(const char *in_fn, const char *out_fn, const char *minmax_fn, const char *default_value, int default_value_is_None, const char *fmt, const char *fmt_b, int record_bad, int skip_bad, int badmap_fd, size_t badmap_size, uint64_t *bad_count, uint64_t *default_count, off_t offset, int64_t max_count, int backing_format)'
+proto_template = 'int convert_column_%s(const char *in_fn, const char *out_fn, const char *minmax_fn, const char *default_value, uint32_t default_len, int default_value_is_None, const char *fmt, const char *fmt_b, int record_bad, int skip_bad, int badmap_fd, size_t badmap_size, uint64_t *bad_count, uint64_t *default_count, off_t offset, int64_t max_count, int backing_format)'
 
 protos = []
 funcs = [dataset_typing.noneval_data]
@@ -416,29 +417,15 @@ code = convert_number_template % dict(proto=proto, strtol_f=dataset_typing.strto
 protos.append(proto + ';')
 funcs.append(code)
 
-for name, ct in iteritems(dataset_typing.convfuncs):
-	if not ct.conv_code_str:
-		continue
-	if ':' in name:
-		shortname = name.split(':', 1)[0]
-	else:
-		shortname = name
-	proto = proto_template % (shortname,)
-	destname = dataset_typing.typerename.get(shortname, shortname)
-	mm = dataset_typing.minmaxfuncs[destname]
-	noneval_support = not destname.startswith('bits')
-	noneval_name = 'noneval_' + destname
-	code = convert_template % dict(proto=proto, datalen=ct.size, convert=ct.conv_code_str, minmax_setup=mm.setup, minmax_code=mm.code, noneval_support=noneval_support, noneval_name=noneval_name)
-	protos.append(proto + ';')
-	funcs.append(code)
-
-filter_string_template = r'''
-int %(name)s(const char *in_fn, const char *out_fn, int badmap_fd, size_t badmap_size, off_t offset, int64_t max_count, int backing_format)
+convert_blob_template = r'''
+%(proto)s
 {
+	PyGILState_STATE gstate = PyGILState_Ensure();
 	g g;
 	gzFile outfh;
 	const char *line;
 	int res = 1;
+	uint8_t *defbuf = 0;
 	char *badmap = 0;
 	int fd = open(in_fn, O_RDONLY);
 	if (fd < 0) goto errfd;
@@ -453,53 +440,113 @@ int %(name)s(const char *in_fn, const char *out_fn, int badmap_fd, size_t badmap
 		badmap = mmap(0, badmap_size, PROT_READ | PROT_WRITE, MAP_NOSYNC | MAP_SHARED, badmap_fd, 0);
 		err1(!badmap);
 	}
+%(setup)s
+	if (default_value) {
+		err1(default_value_is_None);
+		line = default_value;
+		g.linelen = default_len;
+%(convert)s
+		err1(!ptr);
+		defbuf = malloc((uint32_t)len + 5);
+		err1(!defbuf);
+		if (len < 255) {
+			defbuf[0] = len;
+			memcpy(defbuf + 1, ptr, len);
+			default_len = len + 1;
+		} else {
+			defbuf[0] = 255;
+			memcpy(defbuf + 1, &len, 4);
+			memcpy(defbuf + 5, ptr, len);
+			default_len = (uint32_t)len + 5;
+		}
+		default_value = (const char *)defbuf;
+%(cleanup)s
+	}
+	if (default_value_is_None) {
+		default_value = "\xff\0\0\0\0";
+		default_len = 5;
+	}
 	if (max_count < 0) max_count = INT64_MAX;
 	for (int i = 0; (line = read_line(&g)) && i < max_count; i++) {
-		if (badmap && badmap[i / 8] & (1 << (i %% 8))) {
+		if (skip_bad && badmap[i / 8] & (1 << (i %% 8))) {
+			*bad_count += 1;
 			continue;
 		}
 		if (line == NoneMarker) {
 			err1(gzwrite(outfh, "\xff\0\0\0\0", 5) != 5);
 			continue;
 		}
-		// Yes this could be more efficient, but filter_strings isn't enough of a priority.
-%(conv)s
-		if (len > 254) {
-			uint8_t lenbuf[5];
-			lenbuf[0] = 255;
-			memcpy(lenbuf + 1, &len, 4);
-			err1(gzwrite(outfh, lenbuf, 5) != 5);
+%(convert)s
+		if (ptr) {
+			if (len > 254) {
+				uint8_t lenbuf[5];
+				lenbuf[0] = 255;
+				memcpy(lenbuf + 1, &len, 4);
+				err1(gzwrite(outfh, lenbuf, 5) != 5);
+			} else {
+				uint8_t len8 = len;
+				err1(gzwrite(outfh, &len8, 1) != 1);
+			}
 		} else {
-			uint8_t len8 = len;
-			err1(gzwrite(outfh, &len8, 1) != 1);
+			if (record_bad && !default_value) {
+				badmap[i / 8] |= 1 << (i %% 8);
+				*bad_count += 1;
+%(cleanup)s
+				continue;
+			}
+			if (!default_value) {
+				fprintf(stderr, "\n    Failed to convert \"%%s\" from %%s line %%d\n\n", line, in_fn, i + 1);
+				goto err;
+			}
+			ptr = (const uint8_t *)default_value;
+			len = default_len;
+			*default_count += 1;
 		}
-		err1(gzwrite(outfh, line, len) != len);
+		err1(gzwrite(outfh, ptr, len) != len);
+%(cleanup)s
 	}
+	gzFile minmaxfh = gzopen(minmax_fn, "wb");
+	err1(!minmaxfh);
 	res = g.error;
+	if (gzwrite(minmaxfh, "\xff\0\0\0\0\xff\0\0\0\0", 10) != 10) res = 1;
+	if (gzclose(minmaxfh)) res = 1;
 err:
+	if (defbuf) free(defbuf);
 	if (g_cleanup(&g)) res = 1;
 	if (outfh && gzclose(outfh)) res = 1;
 	if (badmap) munmap(badmap, badmap_size);
 errfd:
 	if (fd >= 0) close(fd);
+	PyGILState_Release(gstate);
 	return res;
 }
 '''
-protos.append('int filter_strings(const char *in_fn, const char *out_fn, int badmap_fd, size_t badmap_size, off_t offset, int64_t max_count, int backing_format);')
-protos.append('int filter_stringstrip(const char *in_fn, const char *out_fn, int badmap_fd, size_t badmap_size, off_t offset, int64_t max_count, int backing_format);')
+
+for name, ct in sorted(list(dataset_typing.convfuncs.items()) + list(dataset_typing.hidden_convfuncs.items())):
+	if not ct.conv_code_str:
+		continue
+	if ct.size:
+		if ':' in name:
+			shortname = name.split(':', 1)[0]
+		else:
+			shortname = name
+		proto = proto_template % (shortname,)
+		destname = dataset_typing.typerename.get(shortname, shortname)
+		mm = dataset_typing.minmaxfuncs[destname]
+		noneval_support = not destname.startswith('bits')
+		noneval_name = 'noneval_' + destname
+		code = convert_template % dict(proto=proto, datalen=ct.size, convert=ct.conv_code_str, minmax_setup=mm.setup, minmax_code=mm.code, noneval_support=noneval_support, noneval_name=noneval_name)
+	else:
+		proto = proto_template % (name.replace(':*', '').replace(':', '_'),)
+		args = dict(proto=proto, convert=ct.conv_code_str, setup='', cleanup='')
+		if isinstance(ct.conv_code_str, list):
+			args['setup'], args['convert'], args['cleanup'] = ct.conv_code_str
+		code = convert_blob_template % args
+	protos.append(proto + ';')
+	funcs.append(code)
+
 protos.append('int numeric_comma(void);')
 protos.append('void init(void);')
-funcs.append(filter_string_template % dict(name='filter_strings', conv=r'''
-		int32_t len = g.linelen;
-'''))
-funcs.append(filter_string_template % dict(name='filter_stringstrip', conv=r'''
-		int32_t len = g.linelen;
-		while (*line == 32 || (*line >= 9 && *line <= 13)) {
-			line++;
-			len--;
-		}
-		while (len && (line[len - 1] == 32 || (line[len - 1] >= 9 && line[len - 1] <= 13))) len--;
-'''))
 
 # cffi apparently doesn't know about off_t.
 # "typedef int... off_t" isn't allowed with verify,
@@ -769,7 +816,7 @@ def analysis(sliceno):
 
 # make any unicode args bytes, for cffi calls.
 def bytesargs(*a):
-	return [v.encode('ascii') if isinstance(v, unicode) else v for v in a]
+	return [v.encode('utf-8') if isinstance(v, unicode) else ffi.NULL if v is None else v for v in a]
 
 # In python3 indexing into bytes gives integers (b'a'[0] == 97),
 # this gives the same behaviour on python2. (For use with mmap.)
@@ -801,19 +848,31 @@ def analysis_lap(sliceno, badmap_fh, first_lap):
 	dw = DatasetWriter()
 	for colname, coltype in iteritems(options.column2type):
 		out_fn = dw.column_filename(options.rename.get(colname, colname))
-		fmt = fmt_b = ffi.NULL
-		if ':' in coltype and not coltype.startswith('number:'):
-			coltype, fmt = coltype.split(':', 1)
-			_, cfunc, pyfunc = dataset_typing.convfuncs[coltype + ':*']
-			if 'date' in coltype or 'time' in coltype:
-				assert '%' in fmt, 'format "%s:%s" has no %% in it' % (coltype, fmt,)
-				if '%f' in fmt:
-					assert coltype not in ('date', 'datei',), '%f format not supported for ' + coltype
-					fmt, fmt_b = fmt.split('%f')
-			if not cfunc:
-				pyfunc = pyfunc(coltype, fmt)
-		else:
+		fmt = fmt_b = None
+		if coltype in dataset_typing.convfuncs:
+			shorttype = coltype
 			_, cfunc, pyfunc = dataset_typing.convfuncs[coltype]
+		else:
+			shorttype, fmt = coltype.split(':', 1)
+			_, cfunc, pyfunc = dataset_typing.convfuncs[shorttype + ':*']
+		if cfunc:
+			cfunc = shorttype.replace(':', '_')
+		if pyfunc:
+			tmp = pyfunc(coltype)
+			if callable(tmp):
+				pyfunc = tmp
+				cfunc = None
+			else:
+				pyfunc = None
+				cfunc, fmt, fmt_b = tmp
+		if coltype == 'number':
+			cfunc = 'number'
+		elif coltype == 'number:int':
+			coltype = 'number'
+			cfunc = 'number'
+			fmt = "int"
+		assert cfunc or pyfunc, coltype + " didn't have cfunc or pyfunc"
+		coltype = shorttype
 		d = datasets.source
 		assert d.columns[colname].type in byteslike_types, colname
 		if options.filter_bad:
@@ -837,47 +896,29 @@ def analysis_lap(sliceno, badmap_fh, first_lap):
 		else:
 			offset = 0
 			max_count = -1
-		if coltype == 'number':
-			cfunc = True
-		if coltype == 'number:int':
-			coltype = 'number'
-			cfunc = True
-			fmt = "int"
 		if cfunc:
 			default_value = options.defaults.get(colname, ffi.NULL)
+			default_len = 0
 			if default_value is None:
 				default_value = ffi.NULL
 				default_value_is_None = True
 			else:
 				default_value_is_None = False
+				if default_value != ffi.NULL:
+					if isinstance(default_value, unicode):
+						default_value = default_value.encode("utf-8")
+					default_len = len(default_value)
 			bad_count = ffi.new('uint64_t [1]', [0])
 			default_count = ffi.new('uint64_t [1]', [0])
-			c = getattr(backend, 'convert_column_' + coltype)
-			res = c(*bytesargs(in_fn, out_fn, minmax_fn, default_value, default_value_is_None, fmt, fmt_b, record_bad, skip_bad, badmap_fd, badmap_size, bad_count, default_count, offset, max_count, backing_format))
+			c = getattr(backend, 'convert_column_' + cfunc)
+			res = c(*bytesargs(in_fn, out_fn, minmax_fn, default_value, default_len, default_value_is_None, fmt, fmt_b, record_bad, skip_bad, badmap_fd, badmap_size, bad_count, default_count, offset, max_count, backing_format))
 			assert not res, 'Failed to convert ' + colname
 			res_bad_count[colname] = bad_count[0]
 			res_default_count[colname] = default_count[0]
+			coltype = coltype.split(':', 1)[0]
 			with type2iter[dataset_typing.typerename.get(coltype, coltype)](minmax_fn) as it:
 				res_minmax[colname] = list(it)
 			unlink(minmax_fn)
-		elif pyfunc is str:
-			# We skip it the first time around, and link it from
-			# the source dataset if there were no bad lines.
-			# (That happens at the end of analysis.)
-			# We can't do that if the file is not slice-specific though.
-			# And we also can't do it if the column is in the wrong (old) format.
-			if skip_bad or '%s' not in d.column_filename(colname, '%s') or backing_format != 3:
-				res = backend.filter_strings(*bytesargs(in_fn, out_fn, badmap_fd, badmap_size, offset, max_count, backing_format))
-				assert not res, 'Failed to convert ' + colname
-			else:
-				link_candidates.append((in_fn, out_fn,))
-			res_bad_count[colname] = 0
-			res_default_count[colname] = 0
-		elif pyfunc is str.strip:
-			res = backend.filter_stringstrip(*bytesargs(in_fn, out_fn, badmap_fd, badmap_size, offset, max_count, backing_format))
-			assert not res, 'Failed to convert ' + colname
-			res_bad_count[colname] = 0
-			res_default_count[colname] = 0
 		else:
 			# python func
 			nodefault = object()
