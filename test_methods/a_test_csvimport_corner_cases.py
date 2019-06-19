@@ -24,21 +24,25 @@ description = r'''
 Verify various corner cases in csvimport.
 '''
 
+from itertools import permutations
+from collections import Counter
+
 import subjobs
 from dispatch import JobError
 from extras import resolve_jobid_filename
 from dataset import Dataset
-from compat import PY3
+from compat import PY3, uni
 
 def openx(filename):
 	return open(filename, "xb" if PY3 else "wbx")
 
 def check_array(params, lines, filename, bad_lines=(), **options):
 	d = {}
+	d_bad = {}
 	with openx(filename) as fh:
 		for ix, data in enumerate(bad_lines, 1):
-			ix = str(ix).encode("ascii")
-			fh.write(ix + b"," + data + b"," + data + b"\n")
+			d_bad[ix] = str(ix).encode("ascii") + b"," + data + b"," + data
+			fh.write(d_bad[ix] + b"\n")
 		for ix, data in enumerate(lines, len(bad_lines) + 1):
 			if isinstance(data, tuple):
 				data, d[ix] = data
@@ -52,9 +56,9 @@ def check_array(params, lines, filename, bad_lines=(), **options):
 		labelsonfirstline=False,
 		labels=["ix", "0", "1"],
 	)
-	verify_ds(options, d, filename)
+	verify_ds(options, d, d_bad, {}, filename)
 
-def verify_ds(options, d, filename):
+def verify_ds(options, d, d_bad, d_skipped, filename):
 	jid = subjobs.build("csvimport", options=options)
 	# Order varies depending on slice count, so we use a dict {ix: data}
 	for ix, a, b in Dataset(jid).iterate(None, ["ix", "0", "1"]):
@@ -63,10 +67,23 @@ def verify_ds(options, d, filename):
 		except ValueError:
 			# We have a few non-numeric ones
 			pass
-		assert ix in d, "Bad index %r in %r (%s)" % (ix, filename, jid)
+		assert ix in d, "Bad index %r in %r (%s)" % (ix, filename, jid,)
 		assert a == b == d[ix], "Wrong data for line %r in %r (%s)" % (ix, filename, jid,)
 		del d[ix]
 	assert not d, "Not all lines returned from %r (%s), %r missing" % (filename, jid, set(d.keys()),)
+	if options.get("allow_bad"):
+		for ix, data in Dataset(jid, "bad").iterate(None, ["lineno", "data"]):
+			assert ix in d_bad, "Bad bad_lineno %d in %r (%s/bad) %r" % (ix, filename, jid, data,)
+			assert data == d_bad[ix], "Wrong saved bad line %d in %r (%s/bad).\nWanted %r.\nGot    %r." % (ix, filename, jid, d_bad[ix], data,)
+			del d_bad[ix]
+	assert not d_bad, "Not all bad lines returned from %r (%s), %r missing" % (filename, jid, set(d_bad.keys()),)
+
+	if options.get("comment") or options.get("skip_lines"):
+		for ix, data in Dataset(jid, "skipped").iterate(None, ["lineno", "data"]):
+			assert ix in d_skipped, "Bad skipped_lineno %d in %r (%s/skipped) %r" % (ix, filename, jid, data,)
+			assert data == d_skipped[ix], "Wrong saved skipped line %d in %r (%s/skipped).\nWanted %r.\nGot    %r." % (ix, filename, jid, d_skipped[ix], data,)
+			del d_skipped[ix]
+	assert not d_skipped, "Not all bad lines returned from %r (%s), %r missing" % (filename, jid, set(d_skipped.keys()),)
 
 def require_failure(name, options):
 	try:
@@ -84,39 +101,95 @@ def check_bad_file(params, name, data):
 	)
 	require_failure(name, options)
 
-def check_good_file(params, name, data, d, **options):
+if PY3:
+	def bytechr(i):
+		return chr(i).encode("iso-8859-1")
+else:
+	bytechr = chr
+
+def byteline(start, stop, nl, q):
+	s = b''.join(bytechr(i) for i in range(start, stop) if i != nl)
+	if q is None:
+		return s
+	else:
+		return s.lstrip(bytechr(q))
+
+# Check that no separator is fine with various newlines, and with various quotes
+def check_no_separator(params):
+	def write(data):
+		fh.write(data + nl_b)
+		wrote_c[data] += 1
+		if q_b:
+			data = q_b + data + q_b
+			fh.write(q_b + data.replace(q_b, q_b + q_b) + q_b + nl_b)
+			wrote_c[data] += 1
+	for nl in (10, 0, 255):
+		for q in (None, 0, 34, 13, 10, 228):
+			if nl == q:
+				continue
+			filename = "no separator.%r.%r.txt" % (nl, q,)
+			nl_b = bytechr(nl)
+			q_b = bytechr(q) if q else b''
+			wrote_c = Counter()
+			with openx(filename) as fh:
+				for splitpoint in range(256):
+					write(byteline(0, splitpoint, nl, q))
+					write(byteline(splitpoint, 256, nl, q))
+			try:
+				jid = subjobs.build("csvimport", options=dict(
+					filename=resolve_jobid_filename(params.jobid, filename),
+					quotes=q_b.decode("iso-8859-1"),
+					newline=nl_b.decode("iso-8859-1"),
+					separator='',
+					labelsonfirstline=False,
+					labels=["data"],
+				))
+			except JobError:
+				raise Exception("Importing %r failed" % (filename,))
+			got_c = Counter(Dataset(jid).iterate(None, "data"))
+			assert got_c == wrote_c, "Importing %r (%s) gave wrong contents" % (filename, jid,)
+
+def check_good_file(params, name, data, d, d_bad={}, d_skipped={}, **options):
 	filename = name + ".txt"
 	with openx(filename) as fh:
 		fh.write(data)
 	options.update(
 		filename=resolve_jobid_filename(params.jobid, filename),
 	)
-	verify_ds(options, d, filename)
+	verify_ds(options, d, d_bad, d_skipped, filename)
 
 def synthesis(params):
 	check_good_file(params, "mixed line endings", b"ix,0,1\r\n1,a,a\n2,b,b\r\n3,c,c", {1: b"a", 2: b"b", 3: b"c"})
 	check_good_file(params, "ignored quotes", b"ix,0,1\n1,'a,'a\n2,'b','b'\n3,\"c\",\"c\"\n4,d',d'\n", {1: b"'a", 2: b"'b'", 3: b'"c"', 4: b"d'"})
-	check_good_file(params, "ignored quotes and extra fields", b"ix,0,1\n1,\"a,\"a\n2,'b,c',d\n3,d\",d\"\n", {1: b'"a', 3: b'd"'}, allow_bad=True)
+	check_good_file(params, "ignored quotes and extra fields", b"ix,0,1\n1,\"a,\"a\n2,'b,c',d\n3,d\",d\"\n", {1: b'"a', 3: b'd"'}, allow_bad=True, d_bad={3: b"2,'b,c',d"})
 	check_good_file(params, "spaces and quotes", b"ix,0,1\none,a,a\ntwo, b, b\n three,c,c\n4,\"d\"\"\",d\"\n5, 'e',\" 'e'\"\n", {b"one": b"a", b"two": b" b", b" three": b"c", 4: b'd"', 5: b" 'e'"}, quotes=True)
 	check_good_file(params, "empty fields", b"ix,0,1\n1,,''\n2,,\n3,'',\n4,\"\",", {1: b"", 2: b"", 3: b"", 4: b""}, quotes=True)
 	check_good_file(params, "renamed fields", b"0,1,2\n0,foo,foo", {0: b"foo"}, rename={"0": "ix", "2": "0"})
 	check_good_file(params, "discarded field", b"ix,0,no,1\n0,yes,no,yes\n1,a,'foo,bar',a", {0: b"yes", 1: b"a"}, quotes=True, discard={"no"})
-# Should ignore the lines with bad quotes, but currently does not.
-#	check_good_file(params, "bad quotes", b"""ix,0,1\n1,a,a\n2,"b,"b\n\n3,'c'c','c'c'\n4,"d",'d'\n""", {1: b"a", 4: b"d"}, quotes=True, allow_bad=True)
+	check_good_file(params, "bad quotes", b"""ix,0,1\n1,a,a\n2,"b,"b\n\n3,'c'c','c'c'\n4,"d",'d'\n""", {1: b"a", 4: b"d"}, quotes=True, allow_bad=True, d_bad={3: b'2,"b,"b', 4: b"", 5: b"3,'c'c','c'c'"})
+	check_good_file(params, "comments", b"""# blah\nix,0,1\n1,a,a\n2,b,b\n#3,c,c\n4,#d,#d\n""", {1: b"a", 2: b"b", 4: b"#d"}, comment="#", d_skipped={1: b"# blah", 5: b"#3,c,c"})
+	check_good_file(params, "not comments", b"""ix,0,1\n1,a,a\n2,b,b\n#3,c,c\n4,#d,#d\n""", {1: b"a", 2: b"b", b"#3": b"c", 4: b"#d"})
+	check_good_file(params, "a little of everything", b""";not,1,labels\na,2,1\n;a,3,;a\n";b",4,;b\n'c,5,c'\r\n d,6,' d'\ne,7,e,\n,8,""", {4: b";b", 6: b" d", 8: b""}, allow_bad=True, rename={"a": "0", "2": "ix"}, quotes=True, comment=";", d_bad={5: b"'c,5,c'", 7: b"e,7,e,"}, d_skipped={1: b";not,1,labels", 3: b";a,3,;a"})
+	check_good_file(params, "skipped lines", b"""just some text\n\nix,0,1\n1,a,a\n2,b,b""", {1: b"a", 2: b"b"}, skip_lines=2, d_skipped={1: b"just some text", 2: b""})
+	check_good_file(params, "skipped and bad lines", b"""not data here\nnor here\nix,0,1\n1,a,a\n2,b\n3,c,c""", {1: b"a", 3: b"c"}, skip_lines=2, allow_bad=True, d_bad={5: b"2,b"}, d_skipped={1: b"not data here", 2: b"nor here"})
+	check_good_file(params, "override labels", b"""a,b,c\n0,foo,foo""", {0: b"foo"}, labels=["ix", "0", "1"])
+	check_good_file(params, "only labels", b"""ix,0,1""", {})
+	check_good_file(params, "empty file", b"", {}, labels=["ix", "0", "1"])
+
 	bad_lines = [
 		b"bad,bad",
 		b",",
 		b"bad,",
 		b",bad",
 		b"',',",
-# These should be considered bad, but currently are not.
-#		b"'lo there broken line",
-#		b"'nope\"",
-#		b"'bad quotes''",
-#		b'"bad quote " inside"',
-#		b'"more bad quotes """ inside"',
+		b"'lo there broken line",
+		b"'nope\"",
+		b"'bad quotes''",
+		b'"bad quote " inside"',
+		b'"more ""bad"" quotes """ inside"',
 	]
 	good_lines = [
+		b"\x00",
 		(b"'good, good'", b"good, good"),
 		(b'"also good, yeah!"', b"also good, yeah!"),
 		(b"'single quote''s inside'", b"single quote's inside"),
@@ -127,14 +200,42 @@ def synthesis(params):
 		b"I'm not",
 		b" unquoted but with spaces around ",
 		(b"','", b","),
-# These should work, but currently do not.
-#		b"\xff\x00\x08\x00",
-#		(b"'lot''s of ''quotes'' around here: '''''''' '", b"lot's of 'quotes' around here: '''' ")
+		b"\x00\xff",
+		b"\xff\x00\x08\x00",
+		(b"'lot''s of ''quotes'' around here: '''''''' '", b"lot's of 'quotes' around here: '''' ")
 	]
 	check_array(params, good_lines, "strange values.txt", bad_lines, quotes=True)
 	# The lines will be 2 * length + 3 bytes (plus lf)
-	long_lines = [b"a" * length for length in (64 * 1024 - 2, 999, 999, 1999, 3000, 65000)]
+	long_lines = [b"a" * length for length in (64 * 1024 - 2, 999, 999, 1999, 3000, 65000, 8 * 1024 * 1024 - 99)]
 	check_array(params, long_lines, "long lines.txt")
 	check_bad_file(params, "extra field", b"foo,bar\nwith,extra,field\nok,here\n")
 	check_bad_file(params, "missing field", b"foo,bar\nmissing\nok,here\n")
 	check_bad_file(params, "no valid lines", b"foo\nc,\n")
+
+	# let's also check some really idiotic combinations
+	for combo in permutations([0, 10, 13, 255], 3):
+		name = "idiotic.%d.%d.%d" % combo
+		sep, newline, comment = (uni(chr(x)) for x in combo)
+		data = [
+			comment,
+			sep.join(["ix", "0", "1"]),
+			sep.join(["0", "a", "a"]),
+			sep.join([comment + "1", "b", "b"]),
+			sep.join(["2", "", ""]),
+			comment + sep,
+			sep.join(["", "", ""]),
+			sep.join(["4", ",", ","]),
+			comment,
+		]
+		check_good_file(
+			params,
+			name,
+			data=newline.join(data).encode("iso-8859-1"),
+			d={0: b"a", 2: b"", b"": b"", 4: b","},
+			d_skipped={k: data[k - 1].encode("iso-8859-1") for k in (1, 4, 6, 9)},
+			separator=sep,
+			newline=newline,
+			comment=comment,
+		)
+
+	check_no_separator(params)

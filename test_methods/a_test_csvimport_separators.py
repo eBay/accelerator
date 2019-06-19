@@ -21,7 +21,7 @@ from __future__ import division
 from __future__ import unicode_literals
 
 description = r'''
-Verify that various separators and both line endings work in csvimport,
+Verify that various separators and line endings work in csvimport,
 with and without quoting.
 '''
 
@@ -29,6 +29,7 @@ import subjobs
 from dispatch import JobError
 from extras import resolve_jobid_filename
 from dataset import Dataset
+from compat import open, uni
 
 # different types so verify_failure can tell them apart
 class CSVImportException(Exception):
@@ -48,52 +49,55 @@ def verify_failure(params, sep, data, testing_what, want_exc, **kw):
 		return
 	raise Exception("Self test failure, check didn't fail for " + testing_what)
 
-def check_one(params, line_sep, sep, data, want_res=None, prefix="", quotes=False, leave_bad=False):
-	sep_c = chr(sep)
+def check_one(params, newline, sep, data, want_res=None, prefix="", quotes=False, leave_bad=False):
+	sep_c = uni(chr(sep))
 	# Can't have separator character in unquoted values
 	if not quotes and not leave_bad:
 		data = [[el.replace(sep_c, "") for el in line] for line in data]
 	if not want_res:
 		want_res = [tuple(s.encode("ascii") for s in line) for line in data[1:]]
-	filename = "%s_csv.%d.%r.txt" % (prefix, sep, line_sep)
-	with open(filename, "w") as fh:
+	filename = "%s_csv.%d.%s.txt" % (prefix, sep, "CRLF" if newline == "\r\n" else ord(newline))
+	newline = uni(newline)
+	with open(filename, "w", encoding="iso-8859-1") as fh:
 		for line in data:
 			if quotes:
 				line = [quotes + el.replace(quotes, quotes + quotes) + quotes for el in line]
 			fh.write(sep_c.join(line))
-			fh.write(line_sep)
+			fh.write(newline)
 	try:
 		jid = subjobs.build("csvimport", options=dict(
 			filename=resolve_jobid_filename(params.jobid, filename),
 			separator=sep_c,
-			quotes=bool(quotes),
+			quotes=quotes,
+			newline='' if "\n" in newline else newline,
 		))
 	except JobError as e:
-		raise CSVImportException("Failed to csvimport for separator %d with line separator %r, csvimport error was:\n%s" % (sep, line_sep, e.format_msg()))
+		raise CSVImportException("Failed to csvimport for separator %d with newline %r, csvimport error was:\n%s" % (sep, newline, e.format_msg()))
 	ds = Dataset(jid)
 	labels = sorted(ds.columns)
 	if labels != data[0]:
-		raise WrongLabelsException("csvimport gave wrong labels for separator %d with line separator %r: %r (expected %r)" % (sep, line_sep, labels, data[0],))
+		raise WrongLabelsException("csvimport gave wrong labels for separator %d with newline %r: %r (expected %r)" % (sep, newline, labels, data[0],))
 	res = list(ds.iterate(None, data[0]))
 	if res != want_res:
-		raise WrongDataException("csvimport gave wrong data for separator %d with line separator %r: %r (expected %r)" % (sep, line_sep, res, want_res,))
+		raise WrongDataException("csvimport gave wrong data for separator %d with newline %r: %r (expected %r)" % (sep, newline, res, want_res,))
 
 def synthesis(params):
-	# Any ascii character except \r or \n is a valid separator, but let's
-	# try only a few popular or likely problem-characters to save time.
+	# Any iso-8859-1 character is a valid separator, but let's try
+	# only a few popular or likely problem-characters to save time.
 	separators = (
-#		0,  # NUL is often problematic (it doesn't work here for instance)
+		0,  # NUL is often problematic
 		1,  # popular in hadoop
-		8,  # backspace is an odd choice
 		9,  # tab
 		30, # record separator
 		32, # space
 		34, # double quote
 		39, # single quote
 		44, # comma
-		46, # period
 		92, # backslash
 		127,# delete
+		155,# single character CSI (or single right-pointing guillemet in windows-1252)
+		160,# nbsp
+		255,# highest value
 	)
 	# Don't use more than two lines after labels - order might change then.
 	data = [
@@ -110,10 +114,10 @@ def synthesis(params):
 	verify_failure(params, 44, [["a", "b,c"]], "wrong labels", WrongLabelsException, leave_bad=True)
 
 	# check that all the combinations we expect to work do in fact work
-	for line_sep in ("\n", "\r\n"):
+	for newline in ("\n", "\r\n", "\r", "\xfe"):
 		for sep in separators:
-			check_one(params, line_sep, sep, data, prefix="unquoted", quotes=False)
+			check_one(params, newline, sep, data, prefix="unquoted", quotes=False)
 			if sep != 34:
-				check_one(params, line_sep, sep, data, prefix="doublequoted", quotes='"')
+				check_one(params, newline, sep, data, prefix="doublequoted", quotes='"')
 			if sep != 39:
-				check_one(params, line_sep, sep, data, prefix="singlequoted", quotes="'")
+				check_one(params, newline, sep, data, prefix="singlequoted", quotes="'")
