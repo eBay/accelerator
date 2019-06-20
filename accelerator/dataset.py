@@ -1218,3 +1218,51 @@ def job_datasets(jobid):
 	for name in reversed(names):
 		res.append(Dataset(jobid, name))
 	return list(reversed(res))
+
+def _parents_set(ds):
+	tips = set()
+	if isinstance(ds, list):
+		parents = ds
+	else:
+		parents = [ds]
+	for p in parents:
+		pds = Dataset(p)
+		if pds.parent:
+			tips.update(_parents_set(pds.parent))
+		else:
+			tips.add(pds)
+	return tips
+
+def merge_datasets(datasets, name="default", previous=None, allow_unrelated=False):
+	from accelerator.g import job
+	parents = [_dsid(ds) for ds in datasets]
+	hashlabels = set()
+	assert len(parents) >= 2, "You need at least two datasets to join"
+	assert None not in parents, "dataset %r did not resolve to a dataset" % (datasets[parents.index(None)],)
+	assert len(parents) == len(set(parents)), "Only specify each dataset once"
+	a = Dataset(parents[0])
+	hashlabels.add(a.hashlabel)
+	if not allow_unrelated:
+		related = _parents_set(a)
+		for ds in parents[1:]:
+			related.intersection_update(_parents_set(ds))
+			assert related, "%s is unrelated to at least one earlier dataset" % (ds,)
+	for ds in map(Dataset, parents[1:]):
+		hashlabels.add(ds.hashlabel)
+		assert ds.lines == a.lines, "%s and %s don't have the same line counts" % (ds, a,)
+		a._data.columns.update(ds._data.columns)
+	hashlabels.discard(None)
+	if hashlabels:
+		assert len(hashlabels) == 1, "Not all datasets have the same hashlabel, %r" % (hashlabels,)
+		a._data.hashlabel = hashlabels.pop()
+	else:
+		a._data.hashlabel = None
+	a.jobid = job
+	a.name = name
+	a._data.previous = previous
+	a._data.parent = parents
+	a._data.filename = None
+	a._data.caption = None
+	a._update_caches()
+	a._save()
+	return job.dataset(name)
