@@ -1046,7 +1046,7 @@ class DatasetWriter(object):
 		"""Normally you don't need to call this, but if you want to
 		pass yourself as a dataset to a subjob you need to call
 		this first."""
-		from g import running, SLICES
+		from g import running, SLICES, JOBID
 		assert running == self._running or running == 'synthesis', "Finish where you started or in synthesis"
 		self.close()
 		assert len(self._lens) == SLICES, "Not all slices written, missing %r" % (set(range(SLICES)) - set(self._lens),)
@@ -1064,6 +1064,7 @@ class DatasetWriter(object):
 		if self.parent:
 			res = Dataset(self.parent)
 			res.append(hashlabel_override=self.hashlabel_override, **args)
+			res = Dataset((JOBID, self.name))
 		else:
 			res = Dataset.new(**args)
 		del _datasetwriters[self.name]
