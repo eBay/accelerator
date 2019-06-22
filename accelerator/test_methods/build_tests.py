@@ -43,6 +43,7 @@ def main(urd):
 	urd.build("test_compare_datasets", datasets=dict(a=reimp_csv, b=reimp_csv_uncompressed))
 	urd.build("test_compare_datasets", datasets=dict(a=reimp_csv, b=reimp_csv_quoted))
 	urd.build("test_dataset_column_names")
+	urd.build("test_dataset_merge")
 
 	print()
 	print("Testing csvimport with more difficult files")
