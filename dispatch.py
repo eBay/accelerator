@@ -122,15 +122,16 @@ def launch(workdir, setup, config, Methods, active_workspaces, slices, debug, da
 		status, data = runner.launch_finish(child, prof_r, workdir, jobid, method)
 		if status:
 			os.killpg(child, SIGTERM) # give it a chance to exit gracefully
+			# The dying process won't have sent an end message, so it has
+			# the endwait time until we SIGKILL it.
 			msg = json_encode(status, as_str=True)
 			print('%s| %s [%s]  failed!    (%5.1fs) |' % (print_prefix, jobid, method, time.time() -  starttime))
 			statmsg('| %s [%s]  failed!             |' % (jobid, method))
 			statmsg(msg)
-			time.sleep(1) # give it a little time to do whatever cleanup it feels the need to do
 		# There is a race where stuff on the status socket has not arrived when
 		# the sending process exits. This is basically benign, but let's give
 		# it a chance to arrive to cut down on confusing warnings.
-		statmsg_endwait(child, 0.25)
+		statmsg_endwait(child, 0.1)
 	finally:
 		try:
 			os.killpg(child, SIGKILL) # this should normally be a no-op, but in case it left anything.
