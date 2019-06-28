@@ -21,13 +21,33 @@ from __future__ import division
 from __future__ import unicode_literals
 
 import sys
-from os.path import dirname, realpath, join, exists
+from os import getcwd, chdir
+from os.path import dirname, realpath, join
 from locale import resetlocale
+from glob import glob
 
 cfg = None
 
 class UserError(Exception):
 	pass
+
+def find_cfgs(basedir='.'):
+	cfgname = 'accelerator.conf'
+	pattern = 'accelerator*.conf'
+	orgdir = getcwd()
+	basedir = realpath(basedir)
+	while basedir != '/':
+		try:
+			chdir(basedir)
+			fns = glob(pattern)
+		finally:
+			chdir(orgdir)
+		if cfgname in fns:
+			fns.remove(cfgname)
+			fns.insert(0, cfgname)
+		for fn in fns:
+			yield join(basedir, fn)
+		basedir = dirname(basedir)
 
 def load_cfg(basedir='.'):
 	global cfg
@@ -36,15 +56,12 @@ def load_cfg(basedir='.'):
 	from jobid import WORKSPACES
 
 	basedir = realpath(basedir)
-	dn = basedir
-	while dn != '/':
-		fn = join(dn, 'accelerator.conf')
-		if exists(fn):
-			cfg = get_config(fn, False)
-			break
-		dn = dirname(dn)
-	if not cfg:
+	try:
+		fn = next(find_cfgs(basedir))
+	except StopIteration:
 		raise UserError("Could not find 'accelerator.conf' in %r or any of its parents." % (basedir,))
+
+	cfg = get_config(fn, False)
 	WORKSPACES.update((k, v[0]) for k, v in cfg['workdir'].items())
 	return cfg
 
