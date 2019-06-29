@@ -97,12 +97,12 @@ def synthesis(params):
 	check_good_file(params, "mixed line endings", b"ix,0,1\r\n1,a,a\n2,b,b\r\n3,c,c", {1: b"a", 2: b"b", 3: b"c"})
 	check_good_file(params, "ignored quotes", b"ix,0,1\n1,'a,'a\n2,'b','b'\n3,\"c\",\"c\"\n4,d',d'\n", {1: b"'a", 2: b"'b'", 3: b'"c"', 4: b"d'"})
 	check_good_file(params, "ignored quotes and extra fields", b"ix,0,1\n1,\"a,\"a\n2,'b,c',d\n3,d\",d\"\n", {1: b'"a', 3: b'd"'}, allow_bad=True)
-	check_good_file(params, "spaces and quotes", b"ix,0,1\none,a,a\ntwo, b, b\n three,c,c\n4,\"d\"\"\",d\"\n5, 'e',\" 'e'\"\n", {b"one": b"a", b"two": b" b", b" three": b"c", 4: b'd"', 5: b" 'e'"}, quote_support=True)
-	check_good_file(params, "empty fields", b"ix,0,1\n1,,''\n2,,\n3,'',\n4,\"\",", {1: b"", 2: b"", 3: b"", 4: b""}, quote_support=True)
+	check_good_file(params, "spaces and quotes", b"ix,0,1\none,a,a\ntwo, b, b\n three,c,c\n4,\"d\"\"\",d\"\n5, 'e',\" 'e'\"\n", {b"one": b"a", b"two": b" b", b" three": b"c", 4: b'd"', 5: b" 'e'"}, quotes=True)
+	check_good_file(params, "empty fields", b"ix,0,1\n1,,''\n2,,\n3,'',\n4,\"\",", {1: b"", 2: b"", 3: b"", 4: b""}, quotes=True)
 	check_good_file(params, "renamed fields", b"0,1,2\n0,foo,foo", {0: b"foo"}, rename={"0": "ix", "2": "0"})
-	check_good_file(params, "discarded field", b"ix,0,no,1\n0,yes,no,yes\n1,a,'foo,bar',a", {0: b"yes", 1: b"a"}, quote_support=True, discard={"no"})
+	check_good_file(params, "discarded field", b"ix,0,no,1\n0,yes,no,yes\n1,a,'foo,bar',a", {0: b"yes", 1: b"a"}, quotes=True, discard={"no"})
 # Should ignore the lines with bad quotes, but currently does not.
-#	check_good_file(params, "bad quotes", b"""ix,0,1\n1,a,a\n2,"b,"b\n\n3,'c'c','c'c'\n4,"d",'d'\n""", {1: b"a", 4: b"d"}, quote_support=True, allow_bad=True)
+#	check_good_file(params, "bad quotes", b"""ix,0,1\n1,a,a\n2,"b,"b\n\n3,'c'c','c'c'\n4,"d",'d'\n""", {1: b"a", 4: b"d"}, quotes=True, allow_bad=True)
 	bad_lines = [
 		b"bad,bad",
 		b",",
@@ -131,7 +131,7 @@ def synthesis(params):
 #		b"\xff\x00\x08\x00",
 #		(b"'lot''s of ''quotes'' around here: '''''''' '", b"lot's of 'quotes' around here: '''' ")
 	]
-	check_array(params, good_lines, "strange values.txt", bad_lines, quote_support=True)
+	check_array(params, good_lines, "strange values.txt", bad_lines, quotes=True)
 	# The lines will be 2 * length + 3 bytes (plus lf)
 	long_lines = [b"a" * length for length in (64 * 1024 - 2, 999, 999, 1999, 3000, 65000)]
 	check_array(params, long_lines, "long lines.txt")

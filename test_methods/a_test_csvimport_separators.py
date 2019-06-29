@@ -66,7 +66,7 @@ def check_one(params, line_sep, sep, data, want_res=None, prefix="", quotes=Fals
 		jid = subjobs.build("csvimport", options=dict(
 			filename=resolve_jobid_filename(params.jobid, filename),
 			separator=sep_c,
-			quote_support=bool(quotes),
+			quotes=bool(quotes),
 		))
 	except JobError as e:
 		raise CSVImportException("Failed to csvimport for separator %d with line separator %r, csvimport error was:\n%s" % (sep, line_sep, e.format_msg()))

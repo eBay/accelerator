@@ -39,7 +39,7 @@ def main(urd):
 	csv_quoted = urd.build("csvexport", options=dict(filename=csvname, quote_fields='"'), datasets=dict(source=ds))
 	reimp_csv = urd.build("csvimport", options=dict(filename=resolve_jobid_filename(csv, csvname), separator="\t"))
 	reimp_csv_uncompressed = urd.build("csvimport", options=dict(filename=resolve_jobid_filename(csv_uncompressed, csvname_uncompressed), separator="\t"))
-	reimp_csv_quoted = urd.build("csvimport", options=dict(filename=resolve_jobid_filename(csv_quoted, csvname), quote_support=True))
+	reimp_csv_quoted = urd.build("csvimport", options=dict(filename=resolve_jobid_filename(csv_quoted, csvname), quotes=True))
 	urd.build("test_compare_datasets", datasets=dict(a=reimp_csv, b=reimp_csv_uncompressed))
 	urd.build("test_compare_datasets", datasets=dict(a=reimp_csv, b=reimp_csv_quoted))
 	urd.build("test_dataset_column_names")
