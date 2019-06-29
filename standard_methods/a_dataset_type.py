@@ -65,7 +65,7 @@ options = {
 datasets = ('source', 'previous',)
 
 equivalent_hashes = {
-	'6693c50364efe831b9e445f080ba189daba7efde': ('91105dcfc1d399ac33d50ee1ab8197d675dbf3af', '9ec658f76813db0afba412297ae3277a0a3edfb3', '9bc49140b0c16dfd88e5c312d2a3225787c937f0', '56ee025d30cce4cc7a7bffd8bfde09702cec1aa6', '10065d3baeb571890001fd90a38d5ae06b162d0d', 'f9667a4809ae8f5140c7b7887966403849e32cad', '41ebc06a7e99e1e67b95ab6b798930aaf76e61a8',)
+	'0aa5f862a30c10bd5a45fa45827da95be03c0fee': ('91105dcfc1d399ac33d50ee1ab8197d675dbf3af', '9ec658f76813db0afba412297ae3277a0a3edfb3', '9bc49140b0c16dfd88e5c312d2a3225787c937f0', '56ee025d30cce4cc7a7bffd8bfde09702cec1aa6', '10065d3baeb571890001fd90a38d5ae06b162d0d', 'f9667a4809ae8f5140c7b7887966403849e32cad', '41ebc06a7e99e1e67b95ab6b798930aaf76e61a8', '9aa96e43fe4cb1bb5c0733290d2942ea123cf652',)
 }
 
 byteslike_types = ('bytes', 'ascii', 'unicode',)
@@ -545,7 +545,7 @@ for name, ct in sorted(list(dataset_typing.convfuncs.items()) + list(dataset_typ
 	protos.append(proto + ';')
 	funcs.append(code)
 
-protos.append('int numeric_comma(void);')
+protos.append('int numeric_comma(const char *localename);')
 protos.append('void init(void);')
 
 # cffi apparently doesn't know about off_t.
@@ -610,10 +610,13 @@ static int g_cleanup(g *g)
 	return gzclose(g->fh);
 }
 
-int numeric_comma(void)
+int numeric_comma(const char *localename)
 {
 	decimal_separator = ',';
-	return !setlocale(LC_NUMERIC, "sv_SE.UTF-8");
+	if (setlocale(LC_NUMERIC, localename)) {
+		return strtod("1,5", 0) != 1.5;
+	}
+	return 1;
 }
 
 static int read_chunk(g *g, int offset)
@@ -796,8 +799,19 @@ def prepare():
 
 def analysis(sliceno):
 	if options.numeric_comma:
-		if backend.numeric_comma():
-			raise Exception("Failed to enable numeric_comma")
+		try_locales = [
+			'da_DK', 'nb_NO', 'nn_NO', 'sv_SE', 'fi_FI',
+			'en_ZA', 'es_ES', 'es_MX', 'fr_FR', 'ru_RU',
+			'de_DE', 'nl_NL', 'it_IT',
+		]
+		for localename in try_locales:
+			localename = localename.encode('ascii')
+			if not backend.numeric_comma(localename):
+				break
+			if not backend.numeric_comma(localename + b'.UTF-8'):
+				break
+		else:
+			raise Exception("Failed to enable numeric_comma, please install at least one of the following locales: " + " ".join(try_locales))
 	if options.filter_bad:
 		badmap_fh = open('badmap%d' % (sliceno,), 'w+b')
 		bad_count, default_count, minmax, link_candidates = analysis_lap(sliceno, badmap_fh, True)
