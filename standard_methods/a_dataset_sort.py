@@ -49,7 +49,7 @@ options = {
 datasets = ('source', 'previous',)
 
 equivalent_hashes = {
-	'ce570db13771cab84f48535c07100bb5fd2212c4': ('23453401ad533eb3bc9019319e7eac70934f9730',)
+	'44036343921e7bfbe5fccf5a41953d1e3008c8d4': ('23453401ad533eb3bc9019319e7eac70934f9730', 'd983270a526af47013208cb76d949d823c2dbcd5',)
 }
 
 # These types don't need/can't use any special handling of None-values.
@@ -114,6 +114,26 @@ def prepare(params):
 	if options.sort_across_slices:
 		columniter = partial(Dataset.iterate_list, None, datasets=ds_list)
 		sort_idx = sort(columniter)
+		total = len(sort_idx)
+		per_slice = [total // params.slices] * params.slices
+		extra = total % params.slices
+		if extra:
+			# spread the left over length over pseudo-randomly selected slices
+			# (using the start of sort_idx to select slices).
+			# this will always select the first slices if data is already sorted
+			# but at least it's deterministic.
+			selector = sorted(range(min(params.slices, total)), key=sort_idx.__getitem__)
+			for sliceno in selector[:extra]:
+				per_slice[sliceno] += 1
+		# change per_slice to be the actual sort indexes
+		start = 0
+		for ix, num in enumerate(per_slice):
+			end = start + num
+			per_slice[ix] = sort_idx[start:end]
+			start = end
+		assert sum(len(part) for part in per_slice) == total # all rows used
+		assert len(set(len(part) for part in per_slice)) < 3 # only 1 or 2 lengths possible
+		sort_idx = per_slice
 	else:
 		sort_idx = None
 	if options.sort_across_slices:
@@ -136,11 +156,7 @@ def analysis(sliceno, params, prepare_res):
 	dw, ds_list, sort_idx = prepare_res
 	if options.sort_across_slices:
 		columniter = partial(Dataset.iterate_list, None, datasets=ds_list)
-		per_slice = len(sort_idx) // params.slices
-		if sliceno + 1 ==  params.slices:
-			sort_idx = sort_idx[per_slice * sliceno:]
-		else:
-			sort_idx = sort_idx[per_slice * sliceno:per_slice * (sliceno + 1)]
+		sort_idx = sort_idx[sliceno]
 	else:
 		columniter = partial(Dataset.iterate_list, sliceno, datasets=ds_list)
 		sort_idx = sort(columniter)
