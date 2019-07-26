@@ -1,6 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
+# Modifications copyright (c) 2018-2019 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -50,6 +51,9 @@ if sys.version_info[0] == 2:
 	def iteritems(d):
 		return d.iteritems()
 	from io import open
+	def getarglist(func):
+		from inspect import getargspec
+		return getargspec(func).args
 else:
 	PY2 = False
 	PY3 = True
@@ -78,6 +82,9 @@ else:
 	def urlencode(query):
 		from urllib.parse import urlencode
 		return urlencode(query).encode('utf-8')
+	def getarglist(func):
+		from inspect import getfullargspec
+		return getfullargspec(func).args
 
 def first_value(d):
 	return next(itervalues(d) if isinstance(d, dict) else iter(d))

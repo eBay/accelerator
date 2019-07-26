@@ -28,9 +28,9 @@ from keyword import kwlist
 from collections import namedtuple
 from itertools import compress
 from functools import partial
-from inspect import getargspec
 
-from compat import unicode, uni, ifilter, imap, izip, iteritems, str_types, builtins, open
+from compat import unicode, uni, ifilter, imap, izip, iteritems, str_types
+from compat import builtins, open, getarglist
 
 import blob
 from extras import DotDict, job_params
@@ -491,7 +491,7 @@ class Dataset(unicode):
 		skip_ds = None
 		def argfixup(func, is_post):
 			if func:
-				if len(getargspec(func).args) == 1:
+				if len(getarglist(func)) == 1:
 					seen_ds = [None]
 					def wrapper(d, sliceno=None):
 						if d != seen_ds[0]:

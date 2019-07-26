@@ -24,7 +24,6 @@ import os
 import signal
 import sys
 import jobid as jobid_module
-from inspect import getargspec
 from collections import defaultdict
 import g
 from importlib import import_module
@@ -32,7 +31,7 @@ from traceback import print_exc, format_tb, format_exception_only
 from extras import job_params, ResultIterMagic, DotDict
 from time import time, sleep
 import json
-from compat import pickle, iteritems, setproctitle, QueueEmpty
+from compat import pickle, iteritems, setproctitle, QueueEmpty, getarglist
 from dispatch import JobError
 import blob
 import status
@@ -167,7 +166,7 @@ def fork_analysis(slices, analysis_func, kw, preserve_result):
 
 def args_for(func):
 	kw = {}
-	for arg in getargspec(func).args:
+	for arg in getarglist(func):
 		kw[arg] = getattr(g, arg)
 	return kw
 
@@ -245,7 +244,7 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 	analysis_func  = getattr(method_ref, 'analysis' , dummy)
 	synthesis_func = getattr(method_ref, 'synthesis', dummy)
 
-	synthesis_needs_analysis = 'analysis_res' in getargspec(synthesis_func).args
+	synthesis_needs_analysis = 'analysis_res' in getarglist(synthesis_func)
 
 	# A chain must be finished from the back, so sort on that.
 	sortnum_cache = {}

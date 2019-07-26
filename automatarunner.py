@@ -4,6 +4,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
+# Modifications copyright (c) 2018-2019 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -26,10 +27,9 @@ from optparse import OptionParser
 import sys
 from importlib import import_module
 from os.path import realpath, dirname
-from inspect import getargspec
 from os import environ
 
-from compat import quote_plus, PY3
+from compat import quote_plus, PY3, getarglist
 
 import automata_common
 from dispatch import JobError
@@ -85,7 +85,7 @@ def run_automata(options):
 
 	module_ref = find_automata(a, options.package, options.script)
 
-	if getargspec(module_ref.main).args == ['urd']: # the future!
+	if getarglist(module_ref.main) == ['urd']: # the future!
 		if 'URD_AUTH' in environ:
 			user, password = environ['URD_AUTH'].split(':', 1)
 		else:
@@ -113,7 +113,7 @@ def run_automata(options):
 
 	# run automata script
 	kw = {}
-	for arg in getargspec(module_ref.main).args:
+	for arg in getarglist(module_ref.main):
 		kw[arg] = argd[arg]
 	module_ref.main(**kw)
 	return
