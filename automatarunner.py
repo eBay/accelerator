@@ -68,7 +68,7 @@ def run_automata(options):
 		assert not options.hostname, "Specify either socket or port (with optional hostname)"
 		url = 'unixhttp://' + quote_plus(realpath(options.socket or './socket.dir/default'))
 
-	a = automata_common.Automata(url, verbose=options.verbose, flags=options.flags.split(','), infoprints=True)
+	a = automata_common.Automata(url, verbose=options.verbose, flags=options.flags.split(','), infoprints=True, print_full_jobpath=options.print_full_jobpath)
 
 	if options.abort:
 		a.abort()
@@ -130,6 +130,7 @@ def main(argv):
 	parser.add_option('-A', '--abort',    dest="abort",    action='store_true', help="abort (fail) currently running job(s)", )
 	parser.add_option('-q', '--quick',    dest="quick",    action='store_true', help="skip method updates and checking workdirs for new jobs", )
 	parser.add_option('-w', '--just_wait',dest="just_wait",action='store_true', help="just wait for running job, don't run any automata", )
+	parser.add_option('-F', '--fullpath', dest="print_full_jobpath", action='store_true', help="print full path to jobdirs")
 	parser.add_option('--verbose',        dest="verbose",  default='status',    help="verbosity style {no, status, dots, log}")
 	parser.add_option('--quiet',          dest="quiet",    action='store_true', help="same as --verbose=no")
 	parser.add_option('--horizon',        dest="horizon",  default=None,        help="Time horizon - dates after this are not visible in urd.latest")

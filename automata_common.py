@@ -33,7 +33,7 @@ from compat import unicode, str_types, PY3
 from compat import urlencode, urlopen, Request, URLError, HTTPError
 
 import setupfile
-from extras import json_encode, json_decode, DotDict
+from extras import json_encode, json_decode, DotDict, resolve_jobid_filename
 from dispatch import JobError
 from status import print_status_stacks
 import unixhttp; unixhttp # for unixhttp:// URLs, as used to talk to the daemon
@@ -46,7 +46,7 @@ class Automata:
 
 	method = '?' # fall-through case when we resume waiting for something
 
-	def __init__(self, server_url, dataset='churn', verbose=False, flags=None, subjob_cookie=None, infoprints=False):
+	def __init__(self, server_url, dataset='churn', verbose=False, flags=None, subjob_cookie=None, infoprints=False, print_full_jobpath=False):
 		"""
 		Set server url and legacy dataset parameter
 		"""
@@ -70,7 +70,7 @@ class Automata:
 			self.siginfo_check = siginfo.check
 		else:
 			self.siginfo_check = lambda: False
-
+		self.print_full_jobpath = print_full_jobpath
 
 	def clear_record(self):
 		self.record = defaultdict(JobList)
@@ -245,7 +245,10 @@ class Automata:
 				make_msg = item.make or 'link'
 			print('        -  %44s' % method.ljust(44), end=' ')
 			print(' %s' % (make_msg,), end=' ')
-			print(' %s' % item.link, end=' ')
+			if self.print_full_jobpath:
+				print(' %s' % resolve_jobid_filename(item.link, ''), end=' ')
+			else:
+				print(' %s' % item.link, end=' ')
 			if item.make != True:
 				print(' %s' % fmttime(item.total_time), end=' ')
 			print()
