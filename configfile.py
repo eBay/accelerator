@@ -22,7 +22,7 @@ from __future__ import division
 import re
 import os
 
-from compat import quote_plus
+from compat import quote_plus, iteritems
 
 
 def get_config( filename, verbose=True ):
@@ -106,5 +106,10 @@ def sanity_check(config_dict):
 	if 'workdir' not in config_dict:
 		print("Error in configfile, must specify at least one workdir.")
 		ok = False
+	for k, v in iteritems(config_dict):
+		if re.match(r"py\d+$", k):
+			if not os.path.isfile(v):
+				print("Error in configfile, \"%s\" does not exist!" % (v,))
+				ok = False
 	if not ok:
 		exit(1)
