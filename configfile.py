@@ -101,10 +101,10 @@ def parse_config(string, filename=None):
 def sanity_check(config_dict):
 	ok = True
 	if 'target_workdir' not in config_dict:
-		print("# Error in configfile, must specify target_workdir.")
+		print("Error in configfile, must specify target_workdir.")
 		ok = False
 	if 'workdir' not in config_dict:
-		print("# Error in configfile, must specify at least one workdir.")
+		print("Error in configfile, must specify at least one workdir.")
 		ok = False
 	if not ok:
 		exit(1)
