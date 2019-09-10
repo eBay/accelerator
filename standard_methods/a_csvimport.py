@@ -33,6 +33,8 @@ from bad lines.
 
 If comment or skip_lines is set also creates a "skipped" dataset containing
 lineno and data from skipped lines.
+
+If you want lineno for good lines too set lineno_label.
 '''
 
 
@@ -61,6 +63,7 @@ options = dict(
 	labels            = [],    # Mandatory if not labelsonfirstline, always sets labels if set.
 	rename            = {},    # Labels to replace (if they are in the file) (happens first)
 	discard           = set(), # Labels to not include (if they are in the file)
+	lineno_label      = "",    # Label of column to store line number in (not stored if empty).
 	allow_bad         = False, # Still succeed if some lines have too few/many fields or bad quotes
 	                           # creates a "bad" dataset containing lineno and data from the bad lines.
 	skip_lines        = 0,     # skip this many lines at the start of the file.
@@ -376,10 +379,11 @@ int import_slice(const int fd, const int sliceno, const int slices, int field_co
 	char *qbuf = 0;
 	const int parsing_labels = (field_count == -1);
 	const int real_field_count = (parsing_labels ? 1 : field_count);
-	const int full_field_count = (parsing_labels ? 1 : real_field_count + 4);
+	const int full_field_count = (parsing_labels ? 1 : real_field_count + 5);
 	gzFile outfh[full_field_count];
 	char *field_ptrs[real_field_count];
 	int32_t field_lens[real_field_count];
+	const int save_lineno = !!out_fns[real_field_count + 4];
 	for (int i = 0; i < full_field_count; i++) {
 		outfh[i] = 0;
 	}
@@ -519,6 +523,9 @@ keep_going:
 				if (outfh[field]) {
 					err1(field_write(outfh[field], field_ptrs[field], field_lens[field]));
 				}
+			}
+			if (save_lineno) {
+				err1(gzwrite(outfh[real_field_count + 4], &lineno, 8) != 8);
 			}
 		}
 		num++;
@@ -665,6 +672,8 @@ def prepare(SOURCE_DIRECTORY, params):
 		previous=datasets.previous,
 		meta_only=True,
 	)
+	if options.lineno_label:
+		dw.add(options.lineno_label, "int64")
 
 	if options.allow_bad:
 		bad_dw = DatasetWriter(
@@ -720,6 +729,11 @@ def analysis(sliceno, params, prepare_res, update_top_status):
 		else:
 			out_fns.append(ffi.NULL)
 			out_fns.append(ffi.NULL)
+	if options.lineno_label:
+		fn = dw.column_filename(options.lineno_label)
+		out_fns.append(ffi.new('char []', fn.encode("ascii")))
+	else:
+		out_fns.append(ffi.NULL)
 	r_num = ffi.new('uint64_t [3]') # [good_count, bad_count, comment_count]
 	gzip_mode = b"wb%d" % (options.compression,)
 	res = backend.import_slice(fds[sliceno], sliceno, params.slices, len(labels), out_fns, gzip_mode, separator, r_num, quote_char, lf_char, options.allow_bad)
