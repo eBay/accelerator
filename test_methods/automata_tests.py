@@ -73,6 +73,10 @@ def main(urd):
 	urd.build("test_hashlabel")
 
 	print()
+	print("Test dataset roundrobin iteration")
+	urd.build("test_dataset_roundrobin")
+
+	print()
 	print("Test dataset_checksum")
 	urd.build("test_dataset_checksum")
 
