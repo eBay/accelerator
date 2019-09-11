@@ -36,7 +36,7 @@ if sys.version_info[0] == 2:
 	import cPickle as pickle
 	from urllib import quote_plus, unquote_plus, urlencode
 	from urllib2 import urlopen, Request, URLError, HTTPError
-	from itertools import izip, imap, ifilter
+	from itertools import izip, izip_longest, imap, ifilter
 	from Queue import Queue, Full as QueueFull, Empty as QueueEmpty
 	from types import NoneType
 	str_types = (str, unicode,)
@@ -63,6 +63,7 @@ else:
 	from urllib.request import urlopen, Request
 	from urllib.error import URLError, HTTPError
 	izip = zip
+	from itertools import zip_longest as izip_longest
 	imap = map
 	ifilter = filter
 	from queue import Queue, Full as QueueFull, Empty as QueueEmpty

@@ -31,7 +31,7 @@ from functools import partial
 from contextlib import contextmanager
 
 from compat import unicode, uni, ifilter, imap, izip, iteritems, str_types
-from compat import builtins, open, getarglist
+from compat import builtins, open, getarglist, izip_longest
 
 import blob
 from extras import DotDict, job_params
@@ -376,6 +376,11 @@ class Dataset(unicode):
 
 		If you pass a false value for columns you get all columns in name order.
 
+		If you pass sliceno=None you get all slices.
+		If you pass sliceno="roundrobin" you also get all slices, but one value
+		at a time across slices. (This can be used to iterate a csvimport in the
+		order of the original file.)
+
 		If you specify a hashlabel and rehash=False (the default) you will
 		get an error if the a dataset does not use the specified hashlabel.
 		If you specify rehash=True such datasets will be rehashed during
@@ -396,6 +401,8 @@ class Dataset(unicode):
 		and you will get warnings about incorrect ending order of statuses.)
 		"""
 
+		from g import SLICES
+
 		if isinstance(datasets, str_types + (Dataset, dict)):
 			datasets = [datasets]
 		datasets = [ds if isinstance(ds, Dataset) else Dataset(ds) for ds in datasets]
@@ -409,8 +416,6 @@ class Dataset(unicode):
 				columns = sorted(columns)
 			want_tuple = True
 		to_iter = []
-		if sliceno is None:
-			from g import SLICES
 		if range:
 			assert len(range) == 1, "Specify exactly one range column."
 			range_k, (range_bottom, range_top,) = next(iteritems(range))
@@ -442,7 +447,35 @@ class Dataset(unicode):
 		if sloppy_range:
 			range = None
 		from itertools import chain
-		return chain.from_iterable(Dataset._iterate_datasets(to_iter, columns, pre_callback, post_callback, filter_func, translation_func, translators, want_tuple, range, status_reporting))
+		kw = dict(
+			columns=columns,
+			pre_callback=pre_callback,
+			post_callback=post_callback,
+			filter_func=filter_func,
+			translation_func=translation_func,
+			translators=translators,
+			want_tuple=want_tuple,
+			range=range,
+			status_reporting=status_reporting,
+		)
+		if sliceno == "roundrobin":
+			def rr(part):
+				# Do status reporting only on the first slice of each
+				kw["status_reporting"] = status_reporting
+				todo = []
+				for ix in builtins.range(SLICES):
+					part = (part[0], ix, part[2])
+					todo.append(chain.from_iterable(Dataset._iterate_datasets([part], **kw)))
+					kw["status_reporting"] = False
+				fv = object() # unique marker
+				return (
+					v for v in
+					chain.from_iterable(izip_longest(*todo, fillvalue=fv))
+					if v is not fv
+				)
+			return chain.from_iterable(rr(part) for part in to_iter)
+		else:
+			return chain.from_iterable(Dataset._iterate_datasets(to_iter, **kw))
 
 	@staticmethod
 	def _resolve_filters(columns, filters, want_tuple):
