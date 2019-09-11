@@ -459,21 +459,25 @@ class Dataset(unicode):
 			status_reporting=status_reporting,
 		)
 		if sliceno == "roundrobin":
-			def rr(part):
-				# Do status reporting only on the first slice of each
-				kw["status_reporting"] = status_reporting
+			# We do our own status reporting
+			kw["status_reporting"] = False
+			def rr_inner(d, rehash):
 				todo = []
 				for ix in builtins.range(SLICES):
-					part = (part[0], ix, part[2])
+					part = (d, ix, rehash)
 					todo.append(chain.from_iterable(Dataset._iterate_datasets([part], **kw)))
-					kw["status_reporting"] = False
 				fv = object() # unique marker
 				return (
 					v for v in
 					chain.from_iterable(izip_longest(*todo, fillvalue=fv))
 					if v is not fv
 				)
-			return chain.from_iterable(rr(part) for part in to_iter)
+			def rr_outer():
+				with Dataset._iterstatus(status_reporting, to_iter) as update:
+					for ix, (d, sliceno, rehash) in enumerate(to_iter, 1):
+						update(ix, d, sliceno, rehash)
+						yield rr_inner(d, rehash)
+			return chain.from_iterable(rr_outer())
 		else:
 			return chain.from_iterable(Dataset._iterate_datasets(to_iter, **kw))
 
@@ -531,7 +535,7 @@ class Dataset(unicode):
 			if rehash:
 				return d + ':REHASH'
 			else:
-				return '%s:%d' % (d, sliceno)
+				return '%s:%s' % (d, sliceno)
 		if len(to_iter) == 1:
 			msg_head = 'Iterating ' + fmt_dsname(*to_iter[0])
 			def update_status(ix, d, sliceno, rehash):
