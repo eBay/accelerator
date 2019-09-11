@@ -28,6 +28,7 @@ from keyword import kwlist
 from collections import namedtuple
 from itertools import compress
 from functools import partial
+from contextlib import contextmanager
 
 from compat import unicode, uni, ifilter, imap, izip, iteritems, str_types
 from compat import builtins, open, getarglist
@@ -487,6 +488,29 @@ class Dataset(unicode):
 			return None, res
 
 	@staticmethod
+	@contextmanager
+	def _iterstatus(status_reporting, to_iter):
+		if not status_reporting:
+			yield lambda *_: None
+			return
+		from status import status
+		def fmt_dsname(d, sliceno, rehash):
+			if rehash:
+				return d + ':REHASH'
+			else:
+				return '%s:%d' % (d, sliceno)
+		if len(to_iter) == 1:
+			msg_head = 'Iterating ' + fmt_dsname(*to_iter[0])
+			def update_status(ix, d, sliceno, rehash):
+				pass
+		else:
+			msg_head = 'Iterating %s to %s' % (fmt_dsname(*to_iter[0]), fmt_dsname(*to_iter[-1]),)
+			def update_status(ix, d, sliceno, rehash):
+				update('%s, %d/%d (%s)' % (msg_head, ix, len(to_iter), fmt_dsname(d, sliceno, rehash)))
+		with status(msg_head) as update:
+			yield update_status
+
+	@staticmethod
 	def _iterate_datasets(to_iter, columns, pre_callback, post_callback, filter_func, translation_func, translators, want_tuple, range, status_reporting):
 		skip_ds = None
 		def argfixup(func, is_post):
@@ -519,31 +543,14 @@ class Dataset(unicode):
 					range_f = range_check
 			else:
 				has_range_column = False
-		if status_reporting:
-			from status import status
-		else:
-			from status import dummy_status as status
-		def fmt_dsname(d, sliceno, rehash):
-			if rehash:
-				return d + ':REHASH'
-			else:
-				return '%s:%d' % (d, sliceno)
-		if len(to_iter) == 1:
-			msg_head = 'Iterating ' + fmt_dsname(*to_iter[0])
-			def update_status(update, ix, d, sliceno, rehash):
-				pass
-		else:
-			msg_head = 'Iterating %s to %s' % (fmt_dsname(*to_iter[0]), fmt_dsname(*to_iter[-1]),)
-			def update_status(update, ix, d, sliceno, rehash):
-				update('%s, %d/%d (%s)' % (msg_head, ix, len(to_iter), fmt_dsname(d, sliceno, rehash)))
-		with status(msg_head) as update:
+		with Dataset._iterstatus(status_reporting, to_iter) as update:
 			for ix, (d, sliceno, rehash) in enumerate(to_iter, 1):
 				if unsliced_post_callback:
 					try:
 						post_callback(d)
 					except StopIteration:
 						return
-				update_status(update, ix, d, sliceno, rehash)
+				update(ix, d, sliceno, rehash)
 				if pre_callback:
 					if d == skip_ds:
 						continue
