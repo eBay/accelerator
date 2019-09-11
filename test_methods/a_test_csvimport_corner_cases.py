@@ -60,8 +60,14 @@ def check_array(params, lines, filename, bad_lines=(), **options):
 
 def verify_ds(options, d, d_bad, d_skipped, filename):
 	jid = subjobs.build("csvimport", options=options)
+	ds = Dataset(jid)
+	expected_columns = {"ix", "0", "1"}
+	if options.get("lineno_label"):
+		expected_columns.add(options["lineno_label"])
+		lineno_want = {ix: int(ix) for ix in ds.iterate(None, "ix")}
+	assert set(ds.columns) == expected_columns
 	# Order varies depending on slice count, so we use a dict {ix: data}
-	for ix, a, b in Dataset(jid).iterate(None, ["ix", "0", "1"]):
+	for ix, a, b in ds.iterate(None, ["ix", "0", "1"]):
 		try:
 			ix = int(ix)
 		except ValueError:
@@ -84,6 +90,10 @@ def verify_ds(options, d, d_bad, d_skipped, filename):
 			assert data == d_skipped[ix], "Wrong saved skipped line %d in %r (%s/skipped).\nWanted %r.\nGot    %r." % (ix, filename, jid, d_skipped[ix], data,)
 			del d_skipped[ix]
 	assert not d_skipped, "Not all bad lines returned from %r (%s), %r missing" % (filename, jid, set(d_skipped.keys()),)
+
+	if options.get("lineno_label"):
+		lineno_got = dict(ds.iterate(None, ["ix", options.get("lineno_label")]))
+		assert lineno_got == lineno_want, "%r != %r" % (lineno_got, lineno_want,)
 
 def require_failure(name, options):
 	try:
@@ -175,6 +185,9 @@ def synthesis(params):
 	check_good_file(params, "override labels", b"""a,b,c\n0,foo,foo""", {0: b"foo"}, labels=["ix", "0", "1"])
 	check_good_file(params, "only labels", b"""ix,0,1""", {})
 	check_good_file(params, "empty file", b"", {}, labels=["ix", "0", "1"])
+	check_good_file(params, "lineno with bad lines", b"ix,0,1\n2,a,a\n3,b\nc\n5,d,d\n6,e,e\n7\n8,g,g\n\n", {2: b"a", 5: b"d", 6: b"e", 8: b"g"}, d_bad={3: b"3,b", 4: b"c", 7: b"7", 9: b""}, allow_bad=True, lineno_label="num")
+	check_good_file(params, "lineno with skipped lines", b"a\nb\n3,c,c\n4,d,d", {3: b"c", 4: b"d"}, lineno_label="l", labels=["ix", "0", "1"], labelsonfirstline=False, skip_lines=2, d_skipped={1: b"a", 2: b"b"})
+	check_good_file(params, "lineno with comment lines", b"ix,0,1\n2,a,a\n3,b,b\n#4,c,c\n5,d,d", {2: b"a", 3: b"b", 5: b"d"}, lineno_label="another name", comment="#", d_skipped={4: b"#4,c,c"})
 
 	bad_lines = [
 		b"bad,bad",
