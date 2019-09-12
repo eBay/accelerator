@@ -53,6 +53,10 @@ by_dsname:   Chain in dataset name order. Since inside_filenames
 
 If you chain you will also get the last dataset as the default dataset,
 to make it easy to find. Naming a non-last dataset "default" is an error.
+
+If you set strip_dirs the filename (as used for both sorting and naming
+datasets, but not when matching regexes) will not include directories. The
+default is to include directories.
 '''
 
 from zipfile import ZipFile
@@ -75,6 +79,7 @@ options.inside_filenames = {} # {"filename in zip": "dataset name"} or empty to 
 options.chaining = OptionEnum('off on by_filename by_dsname').on
 options.include_re = "" # Regex of files to include. (Matches anywhere, use ^$ as needed.)
 options.exclude_re = "" # Regex of files to exclude, takes priority over include.
+options.strip_dirs = False # Strip directories from filename (a/b/c -> c)
 
 datasets = ('previous', )
 
@@ -103,26 +108,30 @@ def prepare(params, SOURCE_DIRECTORY):
 	exclude_re = re.compile(options.exclude_re or r'^$')
 	with ZipFile(join(SOURCE_DIRECTORY, options.filename), 'r') as z:
 		for info in z.infolist():
-			fn = info.filename
+			fn = ffn = info.filename
 			if fn.endswith('/') or info.external_attr & 0x40000000:
 				# skip directories
 				continue
+			if options.strip_dirs:
+				fn = fn.rsplit('/', 1)[-1]
 			if options.inside_filenames:
 				if fn in namemap:
-					res.append((next(tmpfn), info, namemap.pop(fn),))
-			elif include_re.search(fn) and not exclude_re.search(fn):
+					res.append((next(tmpfn), info, namemap.pop(fn), fn,))
+					if not namemap:
+						break
+			elif include_re.search(ffn) and not exclude_re.search(ffn):
 				name = namefix(used_names, fn)
 				used_names.add(name)
-				res.append((next(tmpfn), info, name,))
+				res.append((next(tmpfn), info, name, fn,))
 	if namemap:
 		raise Exception("The following files were not found in %s: %r" % (options.filename, set(namemap),))
 	if options.chaining == 'by_filename':
-		res.sort(key=lambda x: x[1].filename)
+		res.sort(key=lambda x: x[3])
 	if options.chaining == 'by_dsname':
 		res.sort(key=lambda x: x[2])
 	if options.chaining != 'off':
 		assert 'default' not in (x[2] for x in res[:-1]), 'When chaining the dataset named "default" must be last (or non-existant)'
-	return res
+	return [x[:3] for x in res]
 
 def analysis(sliceno, prepare_res, params, SOURCE_DIRECTORY):
 	with ZipFile(join(SOURCE_DIRECTORY, options.filename), 'r') as z:
@@ -132,11 +141,7 @@ def analysis(sliceno, prepare_res, params, SOURCE_DIRECTORY):
 					copyfileobj(rfh, wfh)
 
 def synthesis(prepare_res, params):
-	opts = DotDict(options)
-	del opts.inside_filenames
-	del opts.chaining
-	del opts.include_re
-	del opts.exclude_re
+	opts = DotDict((k, v) for k, v in options.items() if k in a_csvimport.options)
 	lst = prepare_res
 	previous = datasets.previous
 	for fn, info, dsn in lst:
