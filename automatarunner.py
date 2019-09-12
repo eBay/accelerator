@@ -85,38 +85,18 @@ def run_automata(options):
 
 	module_ref = find_automata(a, options.package, options.script)
 
-	if getarglist(module_ref.main) == ['urd']: # the future!
-		if 'URD_AUTH' in environ:
-			user, password = environ['URD_AUTH'].split(':', 1)
-		else:
-			user, password = None, None
-		info = a.info()
-		urd = automata_common.Urd(a, info, user, password, options.horizon)
-		if options.quick:
-			a.update_method_deps()
-		else:
-			a.update_methods()
-		module_ref.main(urd)
-		return
-
-	assert not options.horizon, '--horizon is only compatible with urd-enabled automatas'
-
-	module_ref.auto = automata_common
-	module_ref.a    = a
-	module_ref.PATH = a.info()['path']
-	module_ref.Seq  = a.seq
-
-	# Args you can get to autamata_foo.main
-	# I would say automata, seq and path are the only reasonable names here.
-	path = module_ref.PATH
-	argd = dict(a=a, automata=a, PATH=path, path=path)
-
-	# run automata script
-	kw = {}
-	for arg in getarglist(module_ref.main):
-		kw[arg] = argd[arg]
-	module_ref.main(**kw)
-	return
+	assert getarglist(module_ref.main) == ['urd'], "Only urd-enabled automatas are supported"
+	if 'URD_AUTH' in environ:
+		user, password = environ['URD_AUTH'].split(':', 1)
+	else:
+		user, password = None, None
+	info = a.info()
+	urd = automata_common.Urd(a, info, user, password, options.horizon)
+	if options.quick:
+		a.update_method_deps()
+	else:
+		a.update_methods()
+	module_ref.main(urd)
 
 
 def main(argv):
