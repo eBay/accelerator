@@ -92,6 +92,10 @@ def prepare(params):
 	res = []
 	with ZipFile(options.filename, 'r') as z:
 		for info in z.infolist():
+			fn = info.filename
+			if fn.endswith('/') or info.external_attr & 0x40000000:
+				# skip directories
+				continue
 			if options.inside_filenames:
 				if info.filename in namemap:
 					res.append((next(tmpfn), info, namemap.pop(info.filename),))
