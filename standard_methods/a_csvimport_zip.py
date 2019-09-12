@@ -31,12 +31,25 @@ Also takes "inside_filenames" which is a dict
 or empty to import all files with a cleaned up filename as dataset name.
 If the zip contains several files with the same name you can only get
 all of them by not specifying inside_filenames. Which one you get if
-you do specify a name that occurs multiple times is undefined, but I would
-bet on the last one.
+you do specify a name that occurs multiple times is unspecified, but
+currently it's the first one.
 
 If there is only one file imported from the zip (whether specified
 explicitly or because the zip only contains one file) you also get that
 as the default dataset.
+
+You can also get the files in the zip chained, controlled by the "chaining"
+option. There are four possibilites:
+
+off:         Don't chain the imports.
+on:          Chain the imports in the order the files are in the zip file
+             This is the default.
+by_filename: Chain in filename order.
+by_dsname:   Chain in dataset name order. Since inside_filenames
+             is a dict this is your only way of controlling its order.
+
+If you chain you will also get the last dataset as the default dataset,
+to make it easy to find. Naming a non-last dataset "default" is an error.
 '''
 
 from zipfile import ZipFile
@@ -46,7 +59,7 @@ from os import unlink
 from compat import uni
 
 from . import a_csvimport
-from extras import DotDict, resolve_jobid_filename
+from extras import DotDict, resolve_jobid_filename, OptionEnum
 import subjobs
 from dataset import Dataset
 
@@ -54,10 +67,15 @@ depend_extra = (a_csvimport,)
 
 options = DotDict(a_csvimport.options)
 options.inside_filenames = {} # {"filename in zip": "dataset name"} or empty to import all files
+options.chaining = OptionEnum('off on by_filename by_dsname').on
+
+datasets = ('previous', )
 
 def namefix(d, name):
-	ok = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz.'
+	ok = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz._-'
 	name = ''.join(c if c in ok else '_' for c in uni(name))
+	if name == 'default' and options.chaining != 'off':
+		name = 'default_'
 	while name in d:
 		name += '_'
 	return name
@@ -69,35 +87,47 @@ def prepare(params):
 			cnt += 1
 			yield resolve_jobid_filename(params.jobid, str(cnt))
 	tmpfn = tmpfn()
-	if options.inside_filenames:
-		return [(next(tmpfn), zfn, dsn,) for zfn, dsn in sorted(options.inside_filenames.items())]
+	namemap = dict(options.inside_filenames)
 	used_names = set()
 	res = []
 	with ZipFile(options.filename, 'r') as z:
 		for info in z.infolist():
-			name = namefix(used_names, info.filename)
-			used_names.add(name)
-			res.append((next(tmpfn), info, name,))
+			if options.inside_filenames:
+				if info.filename in namemap:
+					res.append((next(tmpfn), info, namemap.pop(info.filename),))
+			else:
+				name = namefix(used_names, info.filename)
+				used_names.add(name)
+				res.append((next(tmpfn), info, name,))
+	if namemap:
+		raise Exception("The following files were not found in %s: %r" % (options.filename, set(namemap),))
+	if options.chaining == 'by_filename':
+		res.sort(key=lambda x: x[1].filename)
+	if options.chaining == 'by_dsname':
+		res.sort(key=lambda x: x[2])
+	if options.chaining != 'off':
+		assert 'default' not in (x[2] for x in res[:-1]), 'When chaining the dataset named "default" must be last (or non-existant)'
 	return res
 
 def analysis(sliceno, prepare_res, params):
-	res = []
 	with ZipFile(options.filename, 'r') as z:
 		for tmpfn, zfn, dsn in prepare_res[sliceno::params.slices]:
 			with z.open(zfn) as rfh:
 				with open(tmpfn, 'wb') as wfh:
 					copyfileobj(rfh, wfh)
-			res.append((tmpfn, dsn,))
-	return res
 
-def synthesis(analysis_res):
+def synthesis(prepare_res, params):
 	opts = DotDict(options)
 	del opts.inside_filenames
-	lst = analysis_res.merge_auto()
-	for fn, dsn in lst:
+	del opts.chaining
+	lst = prepare_res
+	previous = datasets.previous
+	for fn, info, dsn in lst:
 		opts.filename = fn
-		jid = subjobs.build('csvimport', options=opts)
+		jid = subjobs.build('csvimport', options=opts, datasets=dict(previous=previous), caption="Import of %s from %s" % (info.filename, options.filename,))
 		unlink(fn)
-		Dataset(jid).link_to_here(dsn)
-	if len(lst) == 1 and dsn != 'default':
+		previous = Dataset(jid).link_to_here(dsn)
+		if options.chaining == 'off':
+			previous = None
+	if (len(lst) == 1 or options.chaining != 'off') and dsn != 'default':
 		Dataset(jid).link_to_here('default')
