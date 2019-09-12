@@ -34,6 +34,9 @@ all of them by not specifying inside_filenames. Which one you get if
 you do specify a name that occurs multiple times is unspecified, but
 currently it's the first one.
 
+You can use include_re and exclude_re (higher priority) to select what
+to include.
+
 If there is only one file imported from the zip (whether specified
 explicitly or because the zip only contains one file) you also get that
 as the default dataset.
@@ -55,6 +58,7 @@ to make it easy to find. Naming a non-last dataset "default" is an error.
 from zipfile import ZipFile
 from shutil import copyfileobj
 from os import unlink
+import re
 
 from compat import uni
 
@@ -68,6 +72,8 @@ depend_extra = (a_csvimport,)
 options = DotDict(a_csvimport.options)
 options.inside_filenames = {} # {"filename in zip": "dataset name"} or empty to import all files
 options.chaining = OptionEnum('off on by_filename by_dsname').on
+options.include_re = "" # Regex of files to include. (Matches anywhere, use ^$ as needed.)
+options.exclude_re = "" # Regex of files to exclude, takes priority over include.
 
 datasets = ('previous', )
 
@@ -88,8 +94,12 @@ def prepare(params):
 			yield resolve_jobid_filename(params.jobid, str(cnt))
 	tmpfn = tmpfn()
 	namemap = dict(options.inside_filenames)
+	if namemap and (options.include_re or options.exclude_re):
+		raise Exception("Don't specify both inside_filenames and regexes.")
 	used_names = set()
 	res = []
+	include_re = re.compile(options.include_re or r'.')
+	exclude_re = re.compile(options.exclude_re or r'^$')
 	with ZipFile(options.filename, 'r') as z:
 		for info in z.infolist():
 			fn = info.filename
@@ -97,10 +107,10 @@ def prepare(params):
 				# skip directories
 				continue
 			if options.inside_filenames:
-				if info.filename in namemap:
-					res.append((next(tmpfn), info, namemap.pop(info.filename),))
-			else:
-				name = namefix(used_names, info.filename)
+				if fn in namemap:
+					res.append((next(tmpfn), info, namemap.pop(fn),))
+			elif include_re.search(fn) and not exclude_re.search(fn):
+				name = namefix(used_names, fn)
 				used_names.add(name)
 				res.append((next(tmpfn), info, name,))
 	if namemap:
@@ -124,6 +134,8 @@ def synthesis(prepare_res, params):
 	opts = DotDict(options)
 	del opts.inside_filenames
 	del opts.chaining
+	del opts.include_re
+	del opts.exclude_re
 	lst = prepare_res
 	previous = datasets.previous
 	for fn, info, dsn in lst:
