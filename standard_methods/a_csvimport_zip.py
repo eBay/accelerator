@@ -58,6 +58,7 @@ to make it easy to find. Naming a non-last dataset "default" is an error.
 from zipfile import ZipFile
 from shutil import copyfileobj
 from os import unlink
+from os.path import join
 import re
 
 from compat import uni
@@ -86,7 +87,7 @@ def namefix(d, name):
 		name += '_'
 	return name
 
-def prepare(params):
+def prepare(params, SOURCE_DIRECTORY):
 	def tmpfn():
 		cnt = 0
 		while True:
@@ -100,7 +101,7 @@ def prepare(params):
 	res = []
 	include_re = re.compile(options.include_re or r'.')
 	exclude_re = re.compile(options.exclude_re or r'^$')
-	with ZipFile(options.filename, 'r') as z:
+	with ZipFile(join(SOURCE_DIRECTORY, options.filename), 'r') as z:
 		for info in z.infolist():
 			fn = info.filename
 			if fn.endswith('/') or info.external_attr & 0x40000000:
@@ -123,8 +124,8 @@ def prepare(params):
 		assert 'default' not in (x[2] for x in res[:-1]), 'When chaining the dataset named "default" must be last (or non-existant)'
 	return res
 
-def analysis(sliceno, prepare_res, params):
-	with ZipFile(options.filename, 'r') as z:
+def analysis(sliceno, prepare_res, params, SOURCE_DIRECTORY):
+	with ZipFile(join(SOURCE_DIRECTORY, options.filename), 'r') as z:
 		for tmpfn, zfn, dsn in prepare_res[sliceno::params.slices]:
 			with z.open(zfn) as rfh:
 				with open(tmpfn, 'wb') as wfh:
