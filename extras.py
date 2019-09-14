@@ -416,9 +416,17 @@ class DotDict(dict):
 		return dict.__getitem__(self, name)
 
 class OptionEnumValue(str):
+	@staticmethod
+	def _mktype(name, valid, prefixes):
+		return type('OptionEnumValue' + name, (OptionEnumValue,), {'_valid': valid, '_prefixes': prefixes})
+
 	# be picklable
 	def __reduce__(self):
-		return type, (self.__class__.__name__, (OptionEnumValue,), {'_valid': self._valid, '_prefixes': self._prefixes})
+		return _OptionEnumValue_restore, (self.__class__.__name__[15:], str(self), self._valid, self._prefixes)
+
+def _OptionEnumValue_restore(name, value, valid, prefixes):
+	return OptionEnumValue._mktype(name, valid, prefixes)(value)
+
 class OptionEnum(object):
 	"""A little like Enum in python34, but string-like.
 	(For JSONable method option enums.)
@@ -463,7 +471,7 @@ class OptionEnum(object):
 		if none_ok:
 			valid.add(None)
 		name = ''.join(v.title() for v in values)
-		sub = type('OptionEnumValue' + name, (OptionEnumValue,), {'_valid': valid, '_prefixes': prefixes})
+		sub = OptionEnumValue._mktype(name, valid, prefixes)
 		d = {}
 		for value in values:
 			d[value] = sub(value)
