@@ -27,7 +27,8 @@ from traceback import print_exc
 from collections import namedtuple, OrderedDict
 from sys import stderr, argv
 
-from compat import PY2, PY3, pickle, izip, iteritems, first_value, num_types, uni, unicode
+from compat import PY2, PY3, pickle, izip, iteritems, first_value, num_types
+from compat import uni, unicode, str_types
 
 from jobid import resolve_jobid_filename
 from status import status
@@ -460,9 +461,11 @@ class OptionEnum(object):
 	"""
 
 	def __new__(cls, values, none_ok=False):
-		if isinstance(values, str):
+		if isinstance(values, str_types):
 			values = values.replace(',', ' ').split()
 		values = list(values)
+		if PY2:
+			values = [v.encode('utf-8') if isinstance(v, unicode) else v for v in values]
 		valid = set(values)
 		prefixes = []
 		for v in values:
