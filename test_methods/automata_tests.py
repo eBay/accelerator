@@ -26,6 +26,7 @@ from dataset import Dataset
 def main(urd):
 	urd.build("test_report")
 	urd.build("test_json")
+	urd.build("test_optionenum")
 
 	print()
 	print("Testing dataset creation, export, import")
