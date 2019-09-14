@@ -187,7 +187,7 @@ def params2defaults(params):
 			if l == [None] and list(item) != [None]:
 				l = []
 			return type(item)(l)
-		if isinstance(item, type):
+		if isinstance(item, (type, OptionEnum)):
 			return None
 		assert isinstance(item, (bytes, unicode, int, float, long, bool, OptionEnum, NoneType, datetime.datetime, datetime.date, datetime.time, datetime.timedelta)), type(item)
 		return item
