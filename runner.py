@@ -193,6 +193,7 @@ def launch_finish(cookie, data):
 	finally:
 		os.close(prof_r)
 		respond(cookie, (status, result))
+		os.waitpid(child, 0)
 
 # because a .recvall method is clearly too much to hope for
 # (MSG_WAITALL doesn't really sound like the same thing to me)
