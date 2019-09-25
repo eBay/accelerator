@@ -34,7 +34,7 @@ test_data = [
 	(b"c", 1.23, 0, {1: 2, 3: 4}, u"c"),
 ]
 
-def prepare(params):
+def prepare():
 	columns = dict(
 		bytes="bytes",
 		float="float64",
@@ -43,7 +43,7 @@ def prepare(params):
 		unicode="unicode",
 	)
 	a = DatasetWriter(name="a", columns=columns)
-	b = DatasetWriter(name="b", columns=columns, previous=(params.jobid, "a"))
+	b = DatasetWriter(name="b", columns=columns, previous=a)
 	c = DatasetWriter(name="c", columns=columns)
 	return a, b, c
 

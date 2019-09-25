@@ -37,7 +37,7 @@ def prepare(params):
 		dw.add("ds", "ascii")
 		dw.add("num", "number")
 		dws[name] = dw
-		prev = "%s/%s" % (params.jobid, name,)
+		prev = dw
 	return dws
 
 def analysis(sliceno, prepare_res):

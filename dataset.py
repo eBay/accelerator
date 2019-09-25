@@ -97,6 +97,9 @@ def _dsid(t):
 		if not jid:
 			return None
 		t = '%s/%s' % (jid.split('/')[0], uni(name) or 'default')
+	elif isinstance(t, DatasetWriter):
+		from g import JOBID
+		t = '%s/%s' % (JOBID, t.name)
 	if '/' not in t:
 		t += '/default'
 	return uni(t)
