@@ -3,6 +3,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
+# Modifications copyright (c) 2019 Carl Drougge                            #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -27,7 +28,9 @@ import re
 from optparse import OptionParser
 from multiprocessing import Process
 import errno
+from os import write
 
+from compat import unicode
 import dscmdhelper
 import g
 
@@ -72,10 +75,17 @@ def grep(lines):
 			else:
 				if chk_s(str(item)):
 					return True
+	def fmt(v):
+		if not isinstance(v, (unicode, bytes)):
+			v = str(v)
+		if isinstance(v, unicode):
+			v = v.encode('utf-8', 'replace')
+		return v
 	for items in lines:
 		if match(items):
-			items = (item.decode('utf-8', 'replace') if isinstance(item, bytes) else str(item) for item in items)
-			print('\t'.join(items))
+			# This will be atomic if the line is not too long
+			# (at least up to PIPE_BUF bytes, should be at least 512).
+			write(1, b'\t'.join(map(fmt, items)) + b'\n')
 
 def one_slice(sliceno):
 	try:
