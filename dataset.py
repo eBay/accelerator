@@ -29,6 +29,7 @@ from collections import namedtuple
 from itertools import compress
 from functools import partial
 from contextlib import contextmanager
+from glob import glob
 
 from compat import unicode, uni, ifilter, imap, izip, iteritems, str_types
 from compat import builtins, open, getarglist, izip_longest
@@ -1145,3 +1146,22 @@ class SkipJob(Exception):
 class SkipSlice(Exception):
 	"""Raise this in pre_callback to skip iterating the coming slice
 	(if your callback doesn't want sliceno, this is the same as SkipJob)"""
+
+def job_datasets(jobid):
+	"""All datasets in a jobid"""
+	jobid = str(jobid) # to avoid surprises if it's a Dataset instance.
+	fn = resolve_jobid_filename(jobid, 'datasets.txt')
+	if os.path.exists(fn):
+		with open(fn, 'r', encoding='utf-8') as fh:
+			names = [line[:-1] for line in fh]
+	else:
+		# legacy job without datasets.txt
+		# (or any job without datasets)
+		pat = resolve_jobid_filename(jobid, '*/dataset.pickle')
+		names = sorted(p.split('/')[-2] for p in glob(pat))
+	res = []
+	# Do this backwards to improve chances that we take advantage of cache.
+	# (Names are written to datasets.txt in finish() order.)
+	for name in reversed(names):
+		res.append(Dataset(jobid, name))
+	return list(reversed(res))
