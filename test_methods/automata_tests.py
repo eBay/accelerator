@@ -67,6 +67,7 @@ def main(urd):
 	print("Testing dataset sorting and rehashing (with subjobs again)")
 	urd.build("test_sorting")
 	urd.build("test_sort_stability")
+	urd.build("test_sort_chaining")
 	urd.build("test_rehash")
 
 	print()
