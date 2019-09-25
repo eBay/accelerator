@@ -46,11 +46,9 @@ options = {
 	'sort_order'             : OrderEnum.ascending,
 	'sort_across_slices'     : False, # normally only sort within slices
 }
+
 datasets = ('source', 'previous',)
 
-equivalent_hashes = {
-	'44036343921e7bfbe5fccf5a41953d1e3008c8d4': ('23453401ad533eb3bc9019319e7eac70934f9730', 'd983270a526af47013208cb76d949d823c2dbcd5',)
-}
 
 # These types don't need/can't use any special handling of None-values.
 nononehandling_types = ('json', 'bits64', 'bits32',)
@@ -149,6 +147,7 @@ def prepare(params):
 		caption=params.caption,
 		hashlabel=hashlabel,
 		filename=filename,
+		previous=datasets.previous,
 	)
 	return dw, ds_list, sort_idx
 
