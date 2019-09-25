@@ -280,6 +280,7 @@ class Dataset(unicode):
 		d.jobid = uni(JOBID)
 		d.name = uni(name)
 		d._save()
+		return d
 
 	def _column_iterator(self, sliceno, col, _type=None, **kw):
 		from sourcedata import type2iter

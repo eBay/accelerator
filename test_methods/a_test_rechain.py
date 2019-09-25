@@ -38,8 +38,7 @@ def synthesis(jobid):
 	prev = None
 	for ix, ds in enumerate(manual_abf):
 		name = "abf%d" % (ix,)
-		ds.link_to_here(name, override_previous=prev)
-		prev = (jobid, name,)
+		prev = ds.link_to_here(name, override_previous=prev)
 	manual_abf_data = list(Dataset.iterate_list(None, None, manual_abf))
 	local_abf_data = list(Dataset(jobid, "abf2").iterate_chain(None, None))
 	assert manual_abf_data == local_abf_data
@@ -54,14 +53,13 @@ def synthesis(jobid):
 	ix = 0
 	going = True
 	while going:
-		if prev and "cache" in Dataset(prev)._data:
+		if prev and "cache" in prev._data:
 			going = False
 		name = "longchain%d" % (ix,)
 		dw = DatasetWriter(name=name, previous=prev)
 		dw.add("ix", "number")
 		dw.get_split_write()(ix)
-		dw.finish()
-		prev = (jobid, name,)
+		prev = dw.finish()
 		ix += 1
 	# we now have a chain that goes one past the first cache point
 	full_chain = Dataset(prev).chain()
