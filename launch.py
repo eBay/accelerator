@@ -31,7 +31,7 @@ from traceback import print_exc, format_tb, format_exception_only
 from extras import job_params, ResultIterMagic, DotDict
 from time import time, sleep
 import json
-from compat import pickle, iteritems, setproctitle, QueueEmpty, getarglist
+from compat import pickle, iteritems, setproctitle, QueueEmpty, getarglist, open
 from dispatch import JobError
 import blob
 import status
@@ -302,6 +302,11 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 			with status.status("Finishing datasets"):
 				for name in sorted(dataset._datasetwriters, key=dw_sortnum):
 					dataset._datasetwriters[name].finish()
+	if dataset._datasets_written:
+		with open('datasets.txt', 'w', encoding='utf-8') as fh:
+			for name in dataset._datasets_written:
+				fh.write(name)
+				fh.write(u'\n')
 	t = time() - t
 	prof['synthesis'] = t
 

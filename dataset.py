@@ -280,6 +280,7 @@ class Dataset(unicode):
 		d.jobid = uni(JOBID)
 		d.name = uni(name)
 		d._save()
+		_datasets_written.append(d.name)
 		return d
 
 	def _column_iterator(self, sliceno, col, _type=None, **kw):
@@ -789,6 +790,7 @@ class Dataset(unicode):
 		return '%s/dataset.%s' % (self.name, thing,)
 
 _datasetwriters = {}
+_datasets_written = []
 
 _nodefault = object()
 
@@ -851,6 +853,7 @@ class DatasetWriter(object):
 		to simplify basing your dataset on another."""
 		name = uni(name)
 		assert '/' not in name, name
+		assert '\n' not in name, name
 		from g import running
 		if running == 'analysis':
 			assert name in _datasetwriters, 'Dataset with name "%s" not created' % (name,)
@@ -1116,6 +1119,7 @@ class DatasetWriter(object):
 		else:
 			res = Dataset.new(**args)
 		del _datasetwriters[self.name]
+		_datasets_written.append(self.name)
 		return res
 
 def range_check_function(bottom, top):
