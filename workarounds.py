@@ -72,7 +72,7 @@ class SignalWrapper(object):
 
 	def check(self):
 		if self.use_input:
-			with nonblocking():
+			with nonblocking(0):
 				while True:
 					try:
 						if ord(os.read(0, 1)) in self.key_values:
@@ -89,11 +89,11 @@ class SignalWrapper(object):
 		self.signal_set = True
 
 @contextmanager
-def nonblocking():
-	fl_original = fcntl.fcntl(0, fcntl.F_GETFL)
+def nonblocking(fd):
+	fl_original = fcntl.fcntl(fd, fcntl.F_GETFL)
 	fl_changed = fl_original | os.O_NONBLOCK
-	fcntl.fcntl(0, fcntl.F_SETFL, fl_changed)
+	fcntl.fcntl(fd, fcntl.F_SETFL, fl_changed)
 	try:
 		yield
 	finally:
-		fcntl.fcntl(0, fcntl.F_SETFL, fl_original)
+		fcntl.fcntl(fd, fcntl.F_SETFL, fl_original)

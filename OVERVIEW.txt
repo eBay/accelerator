@@ -121,6 +121,8 @@ Other
 		sending and recieving of status-tree messages (the ^T stuff)
 	subjobs.py
 		running jobs from within other jobs
+	iowrapper.py
+		all (print) output goes through pipes to this
 
 Not so interesting files
 	autoflush.py

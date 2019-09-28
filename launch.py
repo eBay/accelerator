@@ -36,6 +36,7 @@ from dispatch import JobError
 import blob
 import status
 import dataset
+import iowrapper
 
 
 g_allesgut = False
@@ -46,8 +47,12 @@ g_always = {'running',}
 assert set(n for n in dir(g) if not n.startswith("__")) == g_always, "Don't put anything in g.py"
 
 
-def call_analysis(analysis_func, sliceno_, q, preserve_result, parent_pid, **kw):
+def call_analysis(analysis_func, sliceno_, q, preserve_result, parent_pid, output_fds, **kw):
 	try:
+		os.dup2(output_fds[sliceno_], 1)
+		os.dup2(output_fds[sliceno_], 2)
+		for fd in output_fds:
+			os.close(fd)
 		slicename = 'analysis(%d)' % (sliceno_,)
 		status._start(slicename, parent_pid, 't')
 		setproctitle(slicename)
@@ -108,14 +113,14 @@ def call_analysis(analysis_func, sliceno_, q, preserve_result, parent_pid, **kw)
 		sleep(5) # give launcher time to report error (and kill us)
 		exitfunction()
 
-def fork_analysis(slices, analysis_func, kw, preserve_result):
+def fork_analysis(slices, analysis_func, kw, preserve_result, output_fds):
 	from multiprocessing import Process, Queue
 	q = Queue()
 	children = []
 	t = time()
 	pid = os.getpid()
 	for i in range(slices):
-		p = Process(target=call_analysis, args=(analysis_func, i, q, preserve_result, pid), kwargs=kw, name='analysis-%d' % (i,))
+		p = Process(target=call_analysis, args=(analysis_func, i, q, preserve_result, pid, output_fds), kwargs=kw, name='analysis-%d' % (i,))
 		p.start()
 		children.append(p)
 	per_slice = []
@@ -246,6 +251,16 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 
 	synthesis_needs_analysis = 'analysis_res' in getarglist(synthesis_func)
 
+	names, masters, slaves = iowrapper.setup(slices, prepare_func is not dummy, analysis_func is not dummy)
+	def switch_output():
+		fd = slaves.pop()
+		os.dup2(fd, 1)
+		os.dup2(fd, 2)
+		os.close(fd)
+	iowrapper.run_reader(names, masters, slaves)
+	for fd in masters:
+		os.close(fd)
+
 	# A chain must be finished from the back, so sort on that.
 	sortnum_cache = {}
 	def dw_sortnum(name):
@@ -264,6 +279,7 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 		prof['prepare'] = 0 # truthish!
 	else:
 		t = time()
+		switch_output()
 		g.running = 'prepare'
 		g.subjob_cookie = subjob_cookie
 		setproctitle(g.running)
@@ -275,6 +291,7 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 					for name in sorted(to_finish, key=dw_sortnum):
 						dataset._datasetwriters[name].finish()
 		prof['prepare'] = time() - t
+	switch_output()
 	setproctitle('launch')
 	from extras import saved_files
 	if analysis_func is dummy:
@@ -286,8 +303,10 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 		g.subjob_cookie = None # subjobs are not allowed from analysis
 		with status.status('Waiting for all slices to finish analysis') as update:
 			g.update_top_status = update
-			prof['per_slice'], files, g.analysis_res = fork_analysis(slices, analysis_func, args_for(analysis_func), synthesis_needs_analysis)
+			prof['per_slice'], files, g.analysis_res = fork_analysis(slices, analysis_func, args_for(analysis_func), synthesis_needs_analysis, slaves)
 			del g.update_top_status
+		for fd in slaves:
+			os.close(fd)
 		prof['analysis'] = time() - t
 		saved_files.update(files)
 	t = time()
