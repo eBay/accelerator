@@ -205,7 +205,7 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 		if isinstance(v, list):
 			return [maybe_dataset(e) for e in v]
 		if not v:
-			return ''
+			return None
 		try:
 			return dataset.Dataset(v)
 		except IOError:
