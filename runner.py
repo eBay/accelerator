@@ -55,6 +55,12 @@ def load_methods(data):
 	res_failed = []
 	res_hashes = {}
 	res_params = {}
+	def tar_add(name, data):
+		assert name.startswith(dep_prefix)
+		info = tarfile.TarInfo()
+		info.name = name[len(dep_prefix):]
+		info.size = len(data)
+		tar_o.addfile(info, io.BytesIO(data))
 	for package, key in data:
 		modname = '%s.a_%s' % (package, key)
 		try:
@@ -63,24 +69,7 @@ def load_methods(data):
 			if filename[-4:] in ('.pyc', '.pyo',):
 				filename = filename[:-1]
 			prefix = os.path.dirname(filename) + '/'
-			with open(filename, 'rb') as fh:
-				src = fh.read()
-			tar_fh = io.BytesIO()
-			tar_o = tarfile.open(mode='w:gz', fileobj=tar_fh, compresslevel=1)
-			tar_o.add(filename, arcname='a_%s.py' % (key,))
-			h = hashlib.sha1(src)
-			hash = int(h.hexdigest(), 16)
-			likely_deps = set()
-			for k in dir(mod):
-				v = getattr(mod, k)
-				if isinstance(v, ModuleType):
-					dep = getattr(v, '__file__', '')
-					if dep.startswith(prefix):
-						dep = os.path.basename(dep)
-						if dep[-4:] in ('.pyc', '.pyo',):
-							dep = dep[:-1]
-						likely_deps.add(dep)
-			hash_extra = 0
+			depend_extra = []
 			for dep in getattr(mod, 'depend_extra', ()):
 				if isinstance(dep, ModuleType):
 					dep = dep.__file__
@@ -90,15 +79,36 @@ def load_methods(data):
 					dep = str(dep) # might be unicode on py2
 					if not dep.startswith('/'):
 						dep = prefix + dep
-					with open(dep, 'rb') as fh:
-						hash_extra ^= int(hashlib.sha1(fh.read()).hexdigest(), 16)
-					bn = os.path.basename(dep)
-					likely_deps.discard(bn)
-					tar_o.add(dep, arcname=bn)
+					depend_extra.append(dep)
 				else:
 					raise Exception('Bad depend_extra in %s.a_%s: %r' % (package, key, dep,))
-			for dep in likely_deps:
-				res_warnings.append('%s.a_%s should probably depend_extra on %s' % (package, key, dep[:-3],))
+			dep_prefix = os.path.commonprefix(depend_extra + [filename])
+			# commonprefix works per character (and commonpath is v3.5+)
+			dep_prefix = dep_prefix.rsplit('/', 1)[0] + '/'
+			with open(filename, 'rb') as fh:
+				src = fh.read()
+			tar_fh = io.BytesIO()
+			tar_o = tarfile.open(mode='w:gz', fileobj=tar_fh, compresslevel=1)
+			tar_add(filename, src)
+			h = hashlib.sha1(src)
+			hash = int(h.hexdigest(), 16)
+			likely_deps = set()
+			for k in dir(mod):
+				v = getattr(mod, k)
+				if isinstance(v, ModuleType):
+					dep = getattr(v, '__file__', '')
+					if dep.startswith(prefix):
+						if dep[-4:] in ('.pyc', '.pyo',):
+							dep = dep[:-1]
+						likely_deps.add(dep)
+			hash_extra = 0
+			for dep in depend_extra:
+				with open(dep, 'rb') as fh:
+					data = fh.read()
+				hash_extra ^= int(hashlib.sha1(data).hexdigest(), 16)
+				tar_add(dep, data)
+			for dep in (likely_deps - set(depend_extra)):
+				res_warnings.append('%s.a_%s should probably depend_extra on %s' % (package, key, dep[len(prefix):-3],))
 			res_hashes[key] = ("%040x" % (hash ^ hash_extra,),)
 			res_params[key] = params = DotDict()
 			for name, default in (('options', {},), ('datasets', (),), ('jobids', (),),):
