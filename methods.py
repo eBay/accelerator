@@ -106,7 +106,7 @@ class SubMethods(Methods):
 				msg = '%%s.%%s (unconfigured version %s)' % (version)
 				failed.extend(msg % t for t in sorted(data))
 				continue
-			w, f, h, p = runner.load_methods(data)
+			w, f, h, p = runner.load_methods(package_list, data)
 			warnings.extend(w)
 			failed.extend(f)
 			self.hash.update(h)

@@ -50,7 +50,28 @@ import dispatch
 
 archives = {}
 
-def load_methods(data):
+def mod2filename(mod):
+	if isinstance(mod, ModuleType):
+		filename = getattr(mod, '__file__', None)
+		if filename and filename[-4:] in ('.pyc', '.pyo',):
+			filename = filename[:-1]
+		return filename
+	else:
+		return mod
+
+def get_mod(modname):
+	mod = import_module(modname)
+	filename = mod2filename(mod)
+	prefix = os.path.dirname(filename) + '/'
+	return mod, filename, prefix
+
+def path_prefix(paths):
+	prefix = os.path.commonprefix(paths)
+	# commonprefix works per character
+	prefix = prefix.rsplit('/', 1)[0] + '/'
+	return prefix
+
+def load_methods(all_packages, data):
 	res_warnings = []
 	res_failed = []
 	res_hashes = {}
@@ -61,20 +82,16 @@ def load_methods(data):
 		info.name = name[len(dep_prefix):]
 		info.size = len(data)
 		tar_o.addfile(info, io.BytesIO(data))
+	all_prefixes = set()
+	for package in all_packages:
+		all_prefixes.add(get_mod(package)[2])
 	for package, key in data:
 		modname = '%s.a_%s' % (package, key)
 		try:
-			mod = import_module(modname)
-			filename = mod.__file__
-			if filename[-4:] in ('.pyc', '.pyo',):
-				filename = filename[:-1]
-			prefix = os.path.dirname(filename) + '/'
+			mod, filename, prefix = get_mod(modname)
 			depend_extra = []
 			for dep in getattr(mod, 'depend_extra', ()):
-				if isinstance(dep, ModuleType):
-					dep = dep.__file__
-					if dep[-4:] in ('.pyc', '.pyo',):
-						dep = dep[:-1]
+				dep = mod2filename(dep)
 				if isinstance(dep, str_types):
 					dep = str(dep) # might be unicode on py2
 					if not dep.startswith('/'):
@@ -93,14 +110,17 @@ def load_methods(data):
 			h = hashlib.sha1(src)
 			hash = int(h.hexdigest(), 16)
 			likely_deps = set()
+			dep_names = {}
 			for k in dir(mod):
 				v = getattr(mod, k)
 				if isinstance(v, ModuleType):
-					dep = getattr(v, '__file__', '')
-					if dep.startswith(prefix):
-						if dep[-4:] in ('.pyc', '.pyo',):
-							dep = dep[:-1]
-						likely_deps.add(dep)
+					filename = mod2filename(v)
+					if filename:
+						for cand_prefix in all_prefixes:
+							if filename.startswith(cand_prefix):
+								likely_deps.add(filename)
+								dep_names[filename] = v.__name__
+								break
 			hash_extra = 0
 			for dep in depend_extra:
 				with open(dep, 'rb') as fh:
@@ -108,7 +128,7 @@ def load_methods(data):
 				hash_extra ^= int(hashlib.sha1(data).hexdigest(), 16)
 				tar_add(dep, data)
 			for dep in (likely_deps - set(depend_extra)):
-				res_warnings.append('%s.a_%s should probably depend_extra on %s' % (package, key, dep[len(prefix):-3],))
+				res_warnings.append('%s.a_%s should probably depend_extra on %s' % (package, key, dep_names[dep],))
 			res_hashes[key] = ("%040x" % (hash ^ hash_extra,),)
 			res_params[key] = params = DotDict()
 			for name, default in (('options', {},), ('datasets', (),), ('jobids', (),),):
@@ -290,8 +310,8 @@ class Runner(object):
 			raise Exception("Runner exited unexpectedly.")
 		return res
 
-	def load_methods(self, data):
-		return self._do(b'm', data)
+	def load_methods(self, all_packages, data):
+		return self._do(b'm', (all_packages, data))
 
 	def launch_start(self, data):
 		return self._do(b's', data)
@@ -356,7 +376,7 @@ if __name__ == "__main__":
 		data = recvall(sock, length, True)
 		cookie, data = pickle.loads(data)
 		if op == b'm':
-			res = load_methods(data)
+			res = load_methods(*data)
 			respond(cookie, res)
 		elif op == b's':
 			res = launch_start(data)
