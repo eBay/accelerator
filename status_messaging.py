@@ -41,9 +41,3 @@ def _send(typ, message, pid=None):
 		except socket.error as e:
 			print('Failed to send statmsg (type %s, try %d): %s' % (typ, ix, e))
 			time.sleep(0.1 + ix)
-
-def statmsg(message, plain=False, verbose=False):
-	# ignore verbose
-	if not plain:
-		message = '  %s' % message
-	_send('statmsg', message)

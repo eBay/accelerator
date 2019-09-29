@@ -25,9 +25,7 @@ from signal import SIGTERM, SIGKILL
 
 from compat import PY3
 
-from status_messaging import statmsg
 from status import children, statmsg_endwait
-from extras import json_encode
 
 class JobError(Exception):
 	def __init__(self, jobid, method, status):
@@ -99,7 +97,6 @@ def launch(workdir, setup, config, Methods, active_workspaces, slices, debug, da
 	else:
 		print_prefix = '    '
 	print('%s| %s [%s] |' % (print_prefix, jobid, method,))
-	statmsg('| %s [%s] |' % (jobid, method,))
 	args = dict(
 		workdir=workdir,
 		slices=slices,
@@ -124,10 +121,7 @@ def launch(workdir, setup, config, Methods, active_workspaces, slices, debug, da
 			os.killpg(child, SIGTERM) # give it a chance to exit gracefully
 			# The dying process won't have sent an end message, so it has
 			# the endwait time until we SIGKILL it.
-			msg = json_encode(status, as_str=True)
 			print('%s| %s [%s]  failed!    (%5.1fs) |' % (print_prefix, jobid, method, time.time() -  starttime))
-			statmsg('| %s [%s]  failed!             |' % (jobid, method))
-			statmsg(msg)
 		# There is a race where stuff on the status socket has not arrived when
 		# the sending process exits. This is basically benign, but let's give
 		# it a chance to arrive to cut down on confusing warnings.
@@ -149,5 +143,4 @@ def launch(workdir, setup, config, Methods, active_workspaces, slices, debug, da
 	if status:
 		raise JobError(jobid, method, status)
 	print('%s| %s [%s]  completed. (%5.1fs) |' % (print_prefix, jobid, method, time.time() -  starttime))
-	statmsg('| %s [%s]  completed.          |' % (jobid, method))
 	return data

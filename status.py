@@ -36,7 +36,7 @@ from __future__ import print_function
 from __future__ import division
 
 from contextlib import contextmanager
-from time import time, strftime, sleep
+from time import time, sleep
 from traceback import print_exc
 from threading import Lock
 from weakref import WeakValueDictionary
@@ -153,7 +153,6 @@ def statmsg_sink(logfilename, sock):
 	from extras import DotDict
 	print('Logging to "%s".' % (logfilename,))
 	with open(logfilename, 'w', encoding='utf-8') as fh:
-		ix = 0
 		while True:
 			data = None
 			try:
@@ -207,10 +206,6 @@ def statmsg_sink(logfilename, sock):
 							del d
 						if pid in  status_tree:
 							del status_tree[pid]
-					elif typ == 'statmsg':
-						fh.write('%s %5d: %s\n' % (strftime("%Y-%m-%d %H:%M:%S"), ix, msg,))
-						fh.flush()
-						ix += 1
 					else:
 						print('UNKNOWN MESSAGE: %r' % (data,))
 			except Exception:
