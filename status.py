@@ -42,7 +42,7 @@ from threading import Lock
 from weakref import WeakValueDictionary
 import os
 
-from compat import str_types, iteritems, open
+from compat import str_types, iteritems
 
 import g
 from status_messaging import _send
@@ -149,68 +149,66 @@ def _find(pid, cookie):
 			return stack, ix
 	return stack, None
 
-def statmsg_sink(logfilename, sock):
+def statmsg_sink(sock):
 	from extras import DotDict
-	print('Logging to "%s".' % (logfilename,))
-	with open(logfilename, 'w', encoding='utf-8') as fh:
-		while True:
-			data = None
-			try:
-				data = sock.recv(1500)
-				typ, pid, msg = data.decode('utf-8').split('\0', 2)
-				pid = int(pid)
-				with status_stacks_lock:
-					if typ == 'push':
-						msg, t, cookie = msg.split('\0', 3)
-						t = float(t)
-						status_all[pid].stack.append((msg, t, cookie))
-					elif typ == 'pop':
-						stack, ix = _find(pid, msg)
-						if ix == len(stack) - 1:
-							stack.pop()
-						else:
-							print('POP OF WRONG STATUS: %d:%s (index %s of %d)' % (pid, msg, ix, len(stack)))
-					elif typ == 'update':
-						msg, _, cookie = msg.split('\0', 3)
-						stack, ix = _find(pid, cookie)
-						if ix is None:
-							print('UPDATE TO UNKNOWN STATUS %d:%s: %s' % (pid, cookie, msg))
-						else:
-							stack[ix] = (msg, stack[ix][1], cookie)
-					elif typ == 'start':
-						parent_pid, is_analysis, msg, t = msg.split('\0', 3)
-						parent_pid = int(parent_pid)
-						t = float(t)
-						d = DotDict(_default=None)
-						d.parent_pid = parent_pid
-						d.children   = {}
-						d.stack      = [(msg, t, None)]
-						d.summary    = (t, msg, t,)
-						if parent_pid in status_all:
-							if is_analysis:
-								msg, parent_t, _ = status_all[parent_pid].stack[0]
-								d.summary = (parent_t, msg + ' analysis', t,)
-							status_all[parent_pid].children[pid] = d
-						else:
-							status_tree[pid] = d
-						status_all[pid] = d
-						del d
-					elif typ == 'end':
-						d = status_all.get(pid)
-						if d:
-							if d.parent_pid in status_all:
-								p = status_all[d.parent_pid]
-								if pid in p.children:
-									del p.children[pid]
-								del p
-							del d
-						if pid in  status_tree:
-							del status_tree[pid]
+	while True:
+		data = None
+		try:
+			data = sock.recv(1500)
+			typ, pid, msg = data.decode('utf-8').split('\0', 2)
+			pid = int(pid)
+			with status_stacks_lock:
+				if typ == 'push':
+					msg, t, cookie = msg.split('\0', 3)
+					t = float(t)
+					status_all[pid].stack.append((msg, t, cookie))
+				elif typ == 'pop':
+					stack, ix = _find(pid, msg)
+					if ix == len(stack) - 1:
+						stack.pop()
 					else:
-						print('UNKNOWN MESSAGE: %r' % (data,))
-			except Exception:
-				print('Failed to process %r:' % (data,))
-				print_exc()
+						print('POP OF WRONG STATUS: %d:%s (index %s of %d)' % (pid, msg, ix, len(stack)))
+				elif typ == 'update':
+					msg, _, cookie = msg.split('\0', 3)
+					stack, ix = _find(pid, cookie)
+					if ix is None:
+						print('UPDATE TO UNKNOWN STATUS %d:%s: %s' % (pid, cookie, msg))
+					else:
+						stack[ix] = (msg, stack[ix][1], cookie)
+				elif typ == 'start':
+					parent_pid, is_analysis, msg, t = msg.split('\0', 3)
+					parent_pid = int(parent_pid)
+					t = float(t)
+					d = DotDict(_default=None)
+					d.parent_pid = parent_pid
+					d.children   = {}
+					d.stack      = [(msg, t, None)]
+					d.summary    = (t, msg, t,)
+					if parent_pid in status_all:
+						if is_analysis:
+							msg, parent_t, _ = status_all[parent_pid].stack[0]
+							d.summary = (parent_t, msg + ' analysis', t,)
+						status_all[parent_pid].children[pid] = d
+					else:
+						status_tree[pid] = d
+					status_all[pid] = d
+					del d
+				elif typ == 'end':
+					d = status_all.get(pid)
+					if d:
+						if d.parent_pid in status_all:
+							p = status_all[d.parent_pid]
+							if pid in p.children:
+								del p.children[pid]
+							del p
+						del d
+					if pid in  status_tree:
+						del status_tree[pid]
+				else:
+					print('UNKNOWN MESSAGE: %r' % (data,))
+		except Exception:
+			print('Failed to process %r:' % (data,))
+			print_exc()
 
 
 def statmsg_endwait(pid, timeout):

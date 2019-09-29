@@ -316,7 +316,7 @@ def main(options):
 
 	CONFIG = configfile.get_config(options.config, verbose=False)
 
-	t = Thread(target=statmsg_sink, args=(CONFIG['logfilename'], statmsg_rd), name="statmsg sink")
+	t = Thread(target=statmsg_sink, args=(statmsg_rd,), name="statmsg sink")
 	t.daemon = True
 	t.start()
 
