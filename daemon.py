@@ -46,6 +46,7 @@ from compat import unicode
 from extras import json_encode, json_decode, DotDict
 from dispatch import JobError
 from status import statmsg_sink, children, print_status_stacks, status_stacks_export
+import iowrapper
 
 
 
@@ -265,6 +266,7 @@ def exitfunction(*a):
 	print()
 	for child in children:
 		os.killpg(child, signal.SIGKILL)
+	time.sleep(0.16) # give iowrapper a chance to output our last words
 	os.killpg(os.getpgid(0), signal.SIGKILL)
 	os._exit(1) # we really should be dead already
 
@@ -305,6 +307,10 @@ def main(options):
 	r1 = min(r1, r2, 1024)
 	resource.setrlimit(resource.RLIMIT_NOFILE, (r1, r2))
 
+	CONFIG = configfile.get_config(options.config, verbose=False)
+
+	iowrapper.main(CONFIG['logfilename'])
+
 	# setup statmsg sink and tell address using ENV
 	statmsg_rd, statmsg_wr = socket.socketpair(socket.AF_UNIX, socket.SOCK_DGRAM)
 	os.environ['BD_STATUS_FD'] = str(statmsg_wr.fileno())
@@ -313,8 +319,6 @@ def main(options):
 		sock.setsockopt(socket.SOL_SOCKET, opt, 256 * 1024)
 	buf_up(statmsg_wr, socket.SO_SNDBUF)
 	buf_up(statmsg_rd, socket.SO_RCVBUF)
-
-	CONFIG = configfile.get_config(options.config, verbose=False)
 
 	t = Thread(target=statmsg_sink, args=(statmsg_rd,), name="statmsg sink")
 	t.daemon = True

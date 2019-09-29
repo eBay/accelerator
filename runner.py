@@ -180,8 +180,11 @@ def launch_start(data):
 			try:
 				os.setpgrp() # this pgrp is killed if the job fails
 				os.close(prof_r)
-				status_fd = int(os.getenv('BD_STATUS_FD'))
-				keep = [prof_w, status_fd]
+				keep = [
+					prof_w,
+					int(os.getenv('BD_STATUS_FD')),
+					int(os.getenv('BD_TERM_FD')),
+				]
 				dispatch.close_fds(keep)
 				data['prof_fd'] = prof_w
 				run(**data)

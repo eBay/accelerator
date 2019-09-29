@@ -73,9 +73,9 @@ def run(cmd, close_in_child, keep_in_child, with_pgrp=True):
 		os.setpgrp() # this pgrp is killed if the job fails
 	for fd in close_in_child:
 		os.close(fd)
-	status_fd = int(os.getenv('BD_STATUS_FD'))
 	keep_in_child = set(keep_in_child)
-	keep_in_child.add(status_fd)
+	keep_in_child.add(int(os.getenv('BD_STATUS_FD')))
+	keep_in_child.add(int(os.getenv('BD_TERM_FD')))
 	close_fds(keep_in_child)
 	# unreadable stdin - less risk of stuck jobs
 	devnull = os.open('/dev/null', os.O_RDONLY)

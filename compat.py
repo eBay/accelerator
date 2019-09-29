@@ -106,8 +106,10 @@ def setproctitle(title):
 	import g
 	if hasattr(g, 'METHOD'):
 		title = '%s %s (%s)' % (g.JOBID, uni(title), g.METHOD,)
-	else:
+	elif hasattr(g, 'JOBID'):
 		title = '%s %s' % (g.JOBID, uni(title),)
+	else:
+		title = uni(title)
 	if PY2:
 		title = title.encode('utf-8')
 	_setproctitle(title)
