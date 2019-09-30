@@ -25,16 +25,18 @@ from select import select
 from multiprocessing import Process
 from time import sleep
 import signal
+from struct import unpack
 
 from workarounds import nonblocking
 from compat import setproctitle
+import status
 
 
 def main(logfile):
 	os.environ['BD_TERM_FD'] = str(os.dup(1))
 	a, b = os.pipe()
 	logdir, logfile = os.path.split(logfile)
-	run_reader(logfile, [a], [b], 'main iowrapper.reader', logdir, True)
+	run_reader({}, logfile, [a], [b], 'main iowrapper.reader', logdir, True)
 	os.dup2(b, 1)
 	os.dup2(b, 2)
 	os.close(a)
@@ -55,14 +57,17 @@ def setup(slices, include_prepare, include_analysis):
 	if include_analysis:
 		for sliceno in range(slices):
 			mk(str(sliceno))
+	else:
+		slices = 0 # for fd2pid later
 	mk('synthesis')
 	if include_prepare:
 		mk('prepare')
-	return names, masters, slaves
+	fd2pid = dict.fromkeys(masters[slices:], os.getpid())
+	return fd2pid, names, masters, slaves
 
 
-def run_reader(names, masters, slaves, process_name='iowrapper.reader', basedir='OUTPUT', is_main=False):
-	args = (names, masters, slaves, process_name, basedir, is_main,)
+def run_reader(fd2pid, names, masters, slaves, process_name='iowrapper.reader', basedir='OUTPUT', is_main=False):
+	args = (fd2pid, names, masters, slaves, process_name, basedir, is_main,)
 	p = Process(target=reader, args=args, name=process_name)
 	p.start()
 	if not is_main:
@@ -70,7 +75,9 @@ def run_reader(names, masters, slaves, process_name='iowrapper.reader', basedir=
 		del os.environ['BD_TERM_FD']
 
 
-def reader(names, masters, slaves, process_name, basedir, is_main):
+MAX_OUTPUT = 640
+
+def reader(fd2pid, names, masters, slaves, process_name, basedir, is_main):
 	signal.signal(signal.SIGTERM, signal.SIG_IGN)
 	signal.signal(signal.SIGINT, signal.SIG_IGN)
 	setproctitle(process_name)
@@ -84,6 +91,7 @@ def reader(names, masters, slaves, process_name, basedir, is_main):
 	else:
 		fd2name = dict(zip(masters, names))
 		fd2fd = {}
+		outputs = dict.fromkeys(masters, b'')
 	missed = [False]
 	def try_print(data=b'\n\x1b[31m*** Some output not printed ***\x1b[m\n'):
 		try:
@@ -109,10 +117,19 @@ def reader(names, masters, slaves, process_name, basedir, is_main):
 			for fd in ready:
 				data = os.read(fd, 65536)
 				if data:
-					if fd not in fd2fd:
-						fd2fd[fd] = os.open(fd2name[fd], os.O_CREAT | os.O_WRONLY, 0o666)
+					if not is_main:
+						if fd not in fd2pid:
+							fd2pid[fd] = unpack("=Q", data[:8])[0]
+							data = data[8:]
+							if not data:
+								continue
+						if fd not in fd2fd:
+							fd2fd[fd] = os.open(fd2name[fd], os.O_CREAT | os.O_WRONLY, 0o666)
 					os.write(fd2fd[fd], data)
 					try_print(data)
+					if not is_main:
+						outputs[fd] = (outputs[fd] + data[-MAX_OUTPUT:])[-MAX_OUTPUT:]
+						status._output(fd2pid[fd], outputs[fd].decode('utf-8', 'replace'))
 				else:
 					if fd in fd2fd:
 						os.close(fd2fd[fd])

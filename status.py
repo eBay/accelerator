@@ -107,6 +107,9 @@ def _start(msg, parent_pid, is_analysis=''):
 def _end():
 	_send('end', '')
 
+def _output(pid, msg):
+	_send('output', '%f\0%s' % (time(), msg,), pid=pid)
+
 
 def status_stacks_export():
 	res = []
@@ -120,6 +123,8 @@ def status_stacks_export():
 				res.append((pid, indent, msg, t))
 				indent += 1
 			fmt(d.children, indent)
+			if d.output:
+				res.append((pid, -1,) + d.output)
 	try:
 		with status_stacks_lock:
 			fmt(status_tree)
@@ -138,7 +143,13 @@ def print_status_stacks(stacks=None):
 		stacks, _ = status_stacks_export()
 	report_t = time()
 	for pid, indent, msg, t in stacks:
-		print("%6d STATUS: %s%s (%.1f seconds)" % (pid, "    " * indent, msg, report_t - t))
+		if indent < 0:
+			print("%6d TAIL OF OUTPUT: (%.1f seconds ago)" % (pid, report_t - t,))
+			msgs = list(filter(None, msg.split('\n')))[-3:]
+			for msg in msgs:
+				print("       \x1b[32m" + msg + "\x1b[m")
+		else:
+			print("%6d STATUS: %s%s (%.1f seconds)" % (pid, "    " * indent, msg, report_t - t))
 
 
 def _find(pid, cookie):
@@ -175,6 +186,10 @@ def statmsg_sink(sock):
 						print('UPDATE TO UNKNOWN STATUS %d:%s: %s' % (pid, cookie, msg))
 					else:
 						stack[ix] = (msg, stack[ix][1], cookie)
+				elif typ == 'output':
+					t, msg = msg.split('\0', 1)
+					t = float(t)
+					status_all[pid].output = (msg, t,)
 				elif typ == 'start':
 					parent_pid, is_analysis, msg, t = msg.split('\0', 3)
 					parent_pid = int(parent_pid)
@@ -184,6 +199,7 @@ def statmsg_sink(sock):
 					d.children   = {}
 					d.stack      = [(msg, t, None)]
 					d.summary    = (t, msg, t,)
+					d.output     = None
 					if parent_pid in status_all:
 						if is_analysis:
 							msg, parent_t, _ = status_all[parent_pid].stack[0]

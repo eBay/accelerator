@@ -25,6 +25,7 @@ import signal
 import sys
 import jobid as jobid_module
 from collections import defaultdict
+from struct import pack
 import g
 from importlib import import_module
 from traceback import print_exc, format_tb, format_exception_only
@@ -49,6 +50,9 @@ assert set(n for n in dir(g) if not n.startswith("__")) == g_always, "Don't put 
 
 def call_analysis(analysis_func, sliceno_, q, preserve_result, parent_pid, output_fds, **kw):
 	try:
+		# tell iowrapper our PID, so our output goes to the right status stack.
+		os.write(output_fds[sliceno_], pack("=Q", os.getpid()))
+		# use our iowrapper fd instead of stdout/stderr
 		os.dup2(output_fds[sliceno_], 1)
 		os.dup2(output_fds[sliceno_], 2)
 		for fd in output_fds:
@@ -107,10 +111,10 @@ def call_analysis(analysis_func, sliceno_, q, preserve_result, parent_pid, outpu
 		status._end()
 		q.put((sliceno_, time(), saved_files, dw_lens, dw_minmax, None,))
 	except:
-		status._end()
 		q.put((sliceno_, time(), {}, {}, {}, fmt_tb(1),))
 		print_exc()
 		sleep(5) # give launcher time to report error (and kill us)
+		status._end()
 		exitfunction()
 
 def fork_analysis(slices, analysis_func, kw, preserve_result, output_fds):
@@ -251,13 +255,13 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 
 	synthesis_needs_analysis = 'analysis_res' in getarglist(synthesis_func)
 
-	names, masters, slaves = iowrapper.setup(slices, prepare_func is not dummy, analysis_func is not dummy)
+	fd2pid, names, masters, slaves = iowrapper.setup(slices, prepare_func is not dummy, analysis_func is not dummy)
 	def switch_output():
 		fd = slaves.pop()
 		os.dup2(fd, 1)
 		os.dup2(fd, 2)
 		os.close(fd)
-	iowrapper.run_reader(names, masters, slaves)
+	iowrapper.run_reader(fd2pid, names, masters, slaves)
 	for fd in masters:
 		os.close(fd)
 
