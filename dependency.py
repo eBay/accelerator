@@ -29,6 +29,7 @@ from compat import iteritems
 import setupfile
 import deptree
 from extras import job_params
+from runner import runners
 
 def find_possible_jobs(db, methods, job):
 	method = job['method']
@@ -97,12 +98,14 @@ def initialise_jobs(setup, target_WorkSpace, DataBase, Methods, verbose=False):
 		for (x,jid) in zip(newjoblist, new_jobid_list):
 			x['link'] = jid
 		for data in newjoblist:
+			method = Methods.db[data['method']]
 			new_setup = setupfile.generate(
-				setup.caption,
-				data['method'],
-				data['params'],
-				package = Methods.db[data['method']]['package']
-				)
+				caption=setup.caption,
+				method=data['method'],
+				params=data['params'],
+				package=method['package'],
+				python=runners[method.version].python,
+			)
 			new_setup.hash = Methods.hash[data['method']][0]
 			new_setup.seed = randint(0, 2**63 - 1)
 			new_setup.jobid = data['link']

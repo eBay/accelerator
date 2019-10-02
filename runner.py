@@ -242,9 +242,10 @@ def recvall(sock, z, fatal=False):
 	return b''.join(data)
 
 class Runner(object):
-	def __init__(self, pid, sock):
+	def __init__(self, pid, sock, python):
 		self.pid = pid
 		self.sock = sock
+		self.python = python
 		self.cookie = 0
 		self._waiters = {}
 		self._lock = Lock()
@@ -342,7 +343,7 @@ def new_runners(config):
 		cmd = [py_exe, './runner.py', str(sock_c.fileno())]
 		pid = run(cmd, [sock_p.fileno()], [sock_c.fileno()], False)
 		sock_c.close()
-		runners[k] = Runner(pid=pid, sock=sock_p)
+		runners[k] = Runner(pid=pid, sock=sock_p, python=py_exe)
 	runners['py'] = runners[py_v]
 	return runners
 

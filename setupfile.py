@@ -27,12 +27,14 @@ from compat import iteritems, unicode, long, PY3
 
 from extras import DotDict, json_load, json_save, json_encode
 
-def generate(caption, method, params, package=None, why_build=False):
+def generate(caption, method, params, package=None, python=None, why_build=False):
 	data = DotDict()
 	data.caption = caption
 	data.method  = method
 	if package:
 		data.package = package
+	if python:
+		data.python = python
 	if why_build:
 		data.why_build = why_build
 	data.params = params
