@@ -101,7 +101,6 @@ def initialise_jobs(setup, target_WorkSpace, DataBase, Methods, verbose=False):
 				setup.caption,
 				data['method'],
 				data['params'],
-				{dep: DepTree.get_link(dep) for dep in data['dep']},
 				package = Methods.db[data['method']]['package']
 				)
 			new_setup.hash = Methods.hash[data['method']][0]

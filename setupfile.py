@@ -27,12 +27,10 @@ from compat import iteritems, unicode, long, PY3
 
 from extras import DotDict, json_load, json_save, json_encode
 
-def generate(caption, method, params, link=None, package=None, why_build=False):
+def generate(caption, method, params, package=None, why_build=False):
 	data = DotDict()
 	data.caption = caption
 	data.method  = method
-	if link is not None:
-		data.link = link
 	if package:
 		data.package = package
 	if why_build:
