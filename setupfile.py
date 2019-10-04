@@ -40,10 +40,23 @@ def generate(caption, method, params, package=None, python=None, why_build=False
 	data.params = params
 	return data
 
+def load_setup(jobid):
+	"""Loads but does not type setup.json from jobid.
+	You probably want to use extras.job_params instead.
+	"""
+	d = json_load('setup.json', jobid)
+	if 'version' in d:
+		if '_typing' in d:
+			d['_typing'] = {d.method: d['_typing']}
+		d.params = {d.method: DotDict({k: d[k] for k in ('options', 'datasets', 'jobids')})}
+	else:
+		d.update(d.params[d.method])
+	return d
+
 def update_setup(jobid, **kw):
-	data = json_load('setup.json', jobid=jobid)
+	data = load_setup(jobid)
 	data.update(kw)
-	json_save(data, 'setup.json', jobid=jobid, _encoder=encode_setup)
+	save_setup(jobid, data)
 	return data
 
 # It's almost worth making your own json encoder. Almost.
@@ -80,8 +93,11 @@ def encode_setup(data, sort_keys=True, as_str=False):
 		else:
 			assert isinstance(src, (str, unicode, int, float, long, bool)) or src is None, type(src)
 			return src
-	data = copy(data)
-	res = _encode_with_compact(copy(data), ('starttime', 'endtime', 'profile', '_typing',))
+	res = _encode_with_compact(
+		copy(data),
+		compact_keys=('starttime', 'endtime', 'profile', '_typing',),
+		special_keys=('options', 'datasets', 'jobids',),
+	)
 	if PY3 and not as_str:
 		res = res.encode('ascii')
 	return res
@@ -98,8 +114,9 @@ def _round_floats(d, ndigits):
 		res[k] = v
 	return res
 
-def _encode_with_compact(data, compact_keys, extra_indent=0, separator='\n'):
+def _encode_with_compact(data, compact_keys, extra_indent=0, separator='\n', special_keys=()):
 	compact = []
+	special = []
 	for k in compact_keys:
 		if k in data:
 			if k == 'profile':
@@ -109,9 +126,16 @@ def _encode_with_compact(data, compact_keys, extra_indent=0, separator='\n'):
 				fmted = dumps(data[k])
 			compact.append('    "%s": %s,' % (k, fmted,))
 			del data[k]
+	for k in special_keys:
+		if k in data:
+			fmted = dumps(data[k], indent=4, sort_keys=True)
+			special.append('    "%s": %s' % (k, fmted.replace('\n', '\n    '),))
+			del data[k]
 	res = json_encode(data, as_str=True)
 	if compact:
 		res = '{\n%s%s%s' % ('\n'.join(compact), separator, res[1:],)
+	if special:
+		res = '%s,\n\n%s\n}' % (res[:-2], ',\n'.join(special),)
 	res = res.replace('\n', ('\n' + ' ' * extra_indent * 4))
 	return res
 
