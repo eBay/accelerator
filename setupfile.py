@@ -43,7 +43,7 @@ def generate(caption, method, params, package=None, python=None, why_build=False
 def update_setup(jobid, **kw):
 	data = json_load('setup.json', jobid=jobid)
 	data.update(kw)
-	save_setup(jobid, data)
+	json_save(data, 'setup.json', jobid=jobid, _encoder=encode_setup)
 	return data
 
 # It's almost worth making your own json encoder. Almost.
@@ -116,4 +116,10 @@ def _encode_with_compact(data, compact_keys, extra_indent=0, separator='\n'):
 	return res
 
 def save_setup(jobid, data):
+	data = dict(data)
+	data['version'] = 1
+	data.update(data['params'][data['method']])
+	del data['params']
+	if '_typing' in data:
+		data['_typing'] = data['_typing'][data['method']]
 	json_save(data, 'setup.json', jobid=jobid, _encoder=encode_setup)

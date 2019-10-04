@@ -61,6 +61,10 @@ def job_params(jobid=None, default_empty=False):
 			jobids=DotDict(),
 		)
 	d = json_load('setup.json', jobid)
+	if 'version' in d:
+		if '_typing' in d:
+			d['_typing'] = {d.method: d['_typing']}
+		d.params = {d.method: DotDict({k: d[k] for k in ('options', 'datasets', 'jobids')})}
 	for method, tl in iteritems(d.get('_typing', {})):
 		_apply_typing(d.params[method].options, tl)
 	d.update(d.params[d.method])
