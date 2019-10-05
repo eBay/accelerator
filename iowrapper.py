@@ -93,6 +93,7 @@ def reader(fd2pid, names, masters, slaves, process_name, basedir, is_main):
 		fd2fd = {}
 		outputs = dict.fromkeys(masters, b'')
 	missed = [False]
+	output_happened = False
 	def try_print(data=b'\n\x1b[31m*** Some output not printed ***\x1b[m\n'):
 		try:
 			os.write(out_fd, data)
@@ -127,6 +128,7 @@ def reader(fd2pid, names, masters, slaves, process_name, basedir, is_main):
 							fd2fd[fd] = os.open(fd2name[fd], os.O_CREAT | os.O_WRONLY, 0o666)
 					os.write(fd2fd[fd], data)
 					try_print(data)
+					output_happened = True
 					if not is_main:
 						outputs[fd] = (outputs[fd] + data[-MAX_OUTPUT:])[-MAX_OUTPUT:]
 						status._output(fd2pid[fd], outputs[fd].decode('utf-8', 'replace'))
@@ -143,3 +145,6 @@ def reader(fd2pid, names, masters, slaves, process_name, basedir, is_main):
 				# Give it a little time, then give up.
 				sleep(0.03)
 				try_print()
+	if not output_happened and not is_main:
+		os.chdir('..')
+		os.rmdir(basedir)
