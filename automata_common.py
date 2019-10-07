@@ -25,7 +25,6 @@ import os
 import json
 from operator import itemgetter
 from collections import defaultdict
-from functools import partial
 from types import GeneratorType
 from base64 import b64encode
 
@@ -42,15 +41,12 @@ import unixhttp; unixhttp # for unixhttp:// URLs, as used to talk to the daemon
 class Automata:
 	"""
 	Launch jobs, wait for completion.
+	Don't use this directly, use the Urd object.
 	"""
 
 	method = '?' # fall-through case when we resume waiting for something
 
-	def __init__(self, server_url, dataset='churn', verbose=False, flags=None, subjob_cookie=None, infoprints=False, print_full_jobpath=False):
-		"""
-		Set server url and legacy dataset parameter
-		"""
-		self.dataset = dataset
+	def __init__(self, server_url, verbose=False, flags=None, subjob_cookie=None, infoprints=False, print_full_jobpath=False):
 		self.url = server_url
 		self.subjob_cookie = subjob_cookie
 		self.history = []
@@ -104,46 +100,19 @@ class Automata:
 	def config(self):
 		return self._url_json('config')
 
-	def new(self, method, caption=None):
-		"""
-		Prepare submission of a new job.
-		"""
-		self.params = defaultdict(lambda: {'options': {}, 'datasets': {}, 'jobids': {}})
-		self.job_method = method
-		if not caption:
-			self.job_caption='fsm_'+method
-		else:
-			self.job_caption = caption
-
-	def options(self, method, optionsdict):
-		"""
-		Append options for "method".
-		This method could be called repeatedly for all
-		included methods.
-		"""
-		self.params[method]['options'].update(optionsdict)
-
-	def datasets(self, method, datasetdict):
-		"""
-		Similar to self.options(), but for datasets.
-		"""
-		self.params[method]['datasets'].update(datasetdict)
-
-	def jobids(self, method, jobiddict):
-		"""
-		Similar to self.options(), but for jobids.
-		"""
-		self.params[method]['jobids'].update(jobiddict)
-
-	def submit(self, wait=True, why_build=False, workdir=None):
+	def _submit(self, method, options, datasets, jobids, caption=None, wait=True, why_build=False, workdir=None):
 		"""
 		Submit job to server and conditionaly wait for completion.
 		"""
+		self.job_method = method
 		if not why_build and 'why_build' in self.flags:
 			why_build = 'on_build'
 		if self.monitor and not why_build:
-			self.monitor.submit(self.job_method)
-		data = setupfile.generate(self.job_caption, self.job_method, self.params, why_build=why_build)
+			self.monitor.submit(method)
+		if not caption:
+			caption = 'fsm_' + method
+		params = {method: dict(options=options, datasets=datasets, jobids=jobids,)}
+		data = setupfile.generate(caption, method, params, why_build=why_build)
 		if self.subjob_cookie:
 			data.subjob_cookie = self.subjob_cookie
 			data.parent_pid = os.getpid()
@@ -157,6 +126,7 @@ class Automata:
 			self.wait(t0)
 		if self.monitor and not why_build:
 			self.monitor.done()
+		return self.jobid(method), self.job_retur
 
 	def wait(self, t0=None, ignore_old_errors=False):
 		idle, status_stacks, current, last_time = self._server_idle(0, ignore_errors=ignore_old_errors)
@@ -272,26 +242,21 @@ class Automata:
 		return self._url_json('list_workspaces')
 
 	def call_method(self, method, options={}, datasets={}, jobids={}, record_in=None, record_as=None, why_build=False, caption=None, workdir=None):
-		self.new(method, caption)
-		self.options(method, options)
-		self.datasets(method, datasets)
-		self.jobids(method, jobids)
-		self.submit(why_build=why_build, workdir=workdir)
+		jid, res = self._submit(method, options, datasets, jobids, caption, why_build=why_build, workdir=workdir)
 		if why_build: # specified by caller
-			return self.job_retur.why_build
-		if self.job_retur.why_build: # done by server anyway (because --flags why_build)
+			return res.why_build
+		if res.why_build: # done by server anyway (because --flags why_build)
 			print("Would have built from:")
 			print("======================")
 			print(setupfile.encode_setup(self.history[-1][0], as_str=True))
 			print("Could have avoided build if:")
 			print("============================")
-			print(json_encode(self.job_retur.why_build, as_str=True))
+			print(json_encode(res.why_build, as_str=True))
 			print()
 			from inspect import stack
 			stk = stack()[1]
 			print("Called from %s line %d" % (stk[1], stk[2],))
 			exit()
-		jid = self.jobid(method)
 		self.record[record_in].insert(record_as or method, jid)
 		return jid
 
