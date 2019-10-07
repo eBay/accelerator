@@ -92,6 +92,12 @@ def reader(fd2pid, names, masters, slaves, process_name, basedir, is_main):
 		fd2name = dict(zip(masters, names))
 		fd2fd = {}
 		outputs = dict.fromkeys(masters, b'')
+		if len(fd2pid) == 2:
+			status_blacklist = set(fd2pid.values())
+			assert len(status_blacklist) == 1, "fd2pid should only map to 1 value initially: %r" % (fd2pid,)
+		else:
+			status_blacklist = ()
+			assert len(fd2pid) == 1, "fd2pid should have 1 or 2 elements initially"
 	missed = [False]
 	output_happened = False
 	def try_print(data=b'\n\x1b[31m*** Some output not printed ***\x1b[m\n'):
@@ -138,6 +144,18 @@ def reader(fd2pid, names, masters, slaves, process_name, basedir, is_main):
 						del fd2fd[fd]
 					masters.remove(fd)
 					os.close(fd)
+					if not is_main:
+						try:
+							pid = fd2pid.pop(fd)
+							if pid in status_blacklist:
+								# don't do it for prepare as synthesis has the same PID.
+								status_blacklist.remove(pid)
+							else:
+								status._end(pid=pid)
+						except Exception:
+							# Failure can happen here if the method exits
+							# before analysis (fd2pid not fully populated).
+							pass
 		if missed[0]:
 			missed[0] = False
 			try_print()

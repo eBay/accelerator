@@ -104,8 +104,8 @@ def dummy_status(msg):
 def _start(msg, parent_pid, is_analysis=''):
 	_send('start', '%d\0%s\0%s\0%f' % (parent_pid, is_analysis, msg, time(),))
 
-def _end():
-	_send('end', '')
+def _end(pid=None):
+	_send('end', '', pid=pid)
 
 def _output(pid, msg):
 	_send('output', '%f\0%s' % (time(), msg,), pid=pid)

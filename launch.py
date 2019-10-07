@@ -108,13 +108,11 @@ def call_analysis(analysis_func, sliceno_, q, preserve_result, parent_pid, outpu
 				dw.close()
 				dw_lens[name] = dw._lens
 				dw_minmax[name] = dw._minmax
-		status._end()
 		q.put((sliceno_, time(), saved_files, dw_lens, dw_minmax, None,))
 	except:
 		q.put((sliceno_, time(), {}, {}, {}, fmt_tb(1),))
 		print_exc()
 		sleep(5) # give launcher time to report error (and kill us)
-		status._end()
 		exitfunction()
 
 def fork_analysis(slices, analysis_func, kw, preserve_result, output_fds):
@@ -127,6 +125,8 @@ def fork_analysis(slices, analysis_func, kw, preserve_result, output_fds):
 		p = Process(target=call_analysis, args=(analysis_func, i, q, preserve_result, pid, output_fds), kwargs=kw, name='analysis-%d' % (i,))
 		p.start()
 		children.append(p)
+	for fd in output_fds:
+		os.close(fd)
 	per_slice = []
 	temp_files = {}
 	no_children_no_messages = False
@@ -309,8 +309,6 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 			g.update_top_status = update
 			prof['per_slice'], files, g.analysis_res = fork_analysis(slices, analysis_func, args_for(analysis_func), synthesis_needs_analysis, slaves)
 			del g.update_top_status
-		for fd in slaves:
-			os.close(fd)
 		prof['analysis'] = time() - t
 		saved_files.update(files)
 	t = time()
@@ -334,7 +332,6 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 	prof['synthesis'] = t
 
 	from subjobs import _record
-	status._end()
 	return None, (prof, saved_files, _record)
 
 
