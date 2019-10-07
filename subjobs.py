@@ -37,7 +37,7 @@ def build(method, options={}, datasets={}, jobids={}, name=None, caption=None):
 		_a.update_method_deps()
 		_a.record[None] = _a.jobs = jobs
 	def run():
-		return _a.call_method(method, options={method: options}, datasets={method: datasets}, jobids={method: jobids}, record_as=name, caption=caption)
+		return _a.call_method(method, options=options, datasets=datasets, jobids=jobids, record_as=name, caption=caption)
 	if name or caption:
 		msg = 'Building subjob %s' % (name or method,)
 		if caption:

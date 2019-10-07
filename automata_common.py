@@ -271,59 +271,11 @@ class Automata:
 	def list_workspaces(self):
 		return self._url_json('list_workspaces')
 
-	def call_method(self, method, defopt={}, defdata={}, defjob={}, options=(), datasets=(), jobids=(), record_in=None, record_as=None, why_build=False, caption=None, workdir=None):
-		todo  = {method}
-		org_method = method
-		opted = set()
+	def call_method(self, method, options={}, datasets={}, jobids={}, record_in=None, record_as=None, why_build=False, caption=None, workdir=None):
 		self.new(method, caption)
-		# options and datasets can be for just method, or {method: options, ...}.
-		def dictofdicts(d):
-			if method not in d:
-				return {method: dict(d)}
-			else:
-				return dict(d)
-		options  = dictofdicts(options)
-		datasets = dictofdicts(datasets)
-		jobids   = dictofdicts(jobids)
-		def resolve_something(res_in, d):
-			def resolve(name, inner=False):
-				if name is None and not inner:
-					return None
-				if isinstance(name, JobTuple):
-					names = [str(name)]
-				elif isinstance(name, (list, tuple)):
-					names = name
-				else:
-					assert isinstance(name, str_types), "%s: %s" % (key, name)
-					names = [name]
-				fixed_names = []
-				for name in names:
-					res_name = res_in.get(name, name)
-					if isinstance(res_name, (list, tuple)):
-						res_name = resolve(res_name, True)
-					assert isinstance(res_name, str_types), "%s: %s" % (key, name) # if name was a job-name this gets a dict and dies
-					fixed_names.append(res_name)
-				return ','.join(fixed_names)
-			for key, name in d.items():
-				yield key, resolve(name)
-		resolve_datasets = partial(resolve_something, defdata)
-		resolve_jobids   = partial(resolve_something, defjob)
-		to_record = []
-		while todo:
-			method = todo.pop()
-			m_opts = dict(defopt.get(method, ()))
-			m_opts.update(options.get(method, ()))
-			self.options(method, m_opts)
-			m_datas = dict(defdata.get(method, ()))
-			m_datas.update(resolve_datasets(datasets.get(method, {})))
-			self.datasets(method, m_datas)
-			m_jobs = dict(defjob.get(method, ()))
-			m_jobs.update(resolve_jobids(jobids.get(method, {})))
-			self.jobids(method, m_jobs)
-			opted.add(method)
-			to_record.append(method)
-			todo.update(self.dep_methods[method])
-			todo.difference_update(opted)
+		self.options(method, options)
+		self.datasets(method, datasets)
+		self.jobids(method, jobids)
 		self.submit(why_build=why_build, workdir=workdir)
 		if why_build: # specified by caller
 			return self.job_retur.why_build
@@ -339,13 +291,9 @@ class Automata:
 			stk = stack()[1]
 			print("Called from %s line %d" % (stk[1], stk[2],))
 			exit()
-		if isinstance(record_as, str):
-			record_as = {org_method: record_as}
-		elif not record_as:
-			record_as = {}
-		for m in to_record:
-			self.record[record_in].insert(record_as.get(m, m), self.jobid(m))
-		return self.jobid(org_method)
+		jid = self.jobid(method)
+		self.record[record_in].insert(record_as or method, jid)
+		return jid
 
 
 def fmttime(t):
@@ -706,7 +654,7 @@ class Urd(object):
 		self.workdir = workdir
 
 	def build(self, method, options={}, datasets={}, jobids={}, name=None, caption=None, why_build=False, workdir=None):
-		return self._a.call_method(method, options={method: options}, datasets={method: datasets}, jobids={method: jobids}, record_as=name, caption=caption, why_build=why_build, workdir=workdir or self.workdir)
+		return self._a.call_method(method, options=options, datasets=datasets, jobids=jobids, record_as=name, caption=caption, why_build=why_build, workdir=workdir or self.workdir)
 
 	def build_chained(self, method, options={}, datasets={}, jobids={}, name=None, caption=None, why_build=False, workdir=None):
 		datasets = dict(datasets or {})
