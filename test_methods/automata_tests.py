@@ -85,3 +85,7 @@ def main(urd):
 	print()
 	print("Test csvimport_zip")
 	urd.build("test_csvimport_zip")
+
+	print()
+	print("Test output handling")
+	urd.build("test_output")
