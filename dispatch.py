@@ -142,7 +142,8 @@ def launch(workdir, setup, config, Methods, active_workspaces, slices, debug, da
 		except Exception:
 			pass
 		try:
-			os.waitpid(child, 0) # won't block (we just killed it, plus it had probably already exited)
+			# won't block long (we just killed it, plus it had probably already exited)
+			runner.launch_waitpid(child)
 		except Exception:
 			pass
 	if status:

@@ -223,7 +223,6 @@ def launch_finish(cookie, data):
 	finally:
 		os.close(prof_r)
 		respond(cookie, (status, result))
-		os.waitpid(child, 0)
 
 # because a .recvall method is clearly too much to hope for
 # (MSG_WAITALL doesn't really sound like the same thing to me)
@@ -319,6 +318,9 @@ class Runner(object):
 	def launch_finish(self, child, prof_r, workdir, jobid, method):
 		return self._do(b'f', (child, prof_r, workdir, jobid, method))
 
+	def launch_waitpid(self, child):
+		return self._do(b'w', child)
+
 runners = {}
 def new_runners(config):
 	from dispatch import run
@@ -388,3 +390,9 @@ if __name__ == "__main__":
 				args=(cookie, data,),
 				name=data[3], # jobid
 			).start()
+		elif op == b'w':
+			# It would be nice to be able to just ignore children
+			# (set SIGCHLD to SIG_IGN), but the daemon might want to
+			# killpg the child, so we need it to stick around.
+			os.waitpid(data, 0)
+			respond(cookie, None)
