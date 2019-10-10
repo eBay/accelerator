@@ -55,8 +55,9 @@ DEBUG_WRITE_JSON = False
 def gen_cookie(size=16):
 	return ''.join(random.choice(ascii_letters) for _ in range(size))
 
-# This contains cookie: {lock, last_error, last_time} for all jobs, main jobs have cookie None.
-job_tracking = {None: DotDict(lock=JLock(), last_error=None, last_time=0)}
+# This contains cookie: {lock, last_error, last_time, workdir}
+# for all jobs, main jobs have cookie None.
+job_tracking = {None: DotDict(lock=JLock(), last_error=None, last_time=0, workdir=None)}
 
 
 # This needs .ctrl to work. It is set from main()
@@ -156,7 +157,8 @@ class XtdHandler(BaseWebHandler):
 					respond_after = True
 					try:
 						if self.DEBUG:  print('@daemon.py:  Got the lock!', file=sys.stderr)
-						jobidv, job_res = self.ctrl.initialise_jobs(setup)
+						workdir = setup.get('workdir', data.workdir)
+						jobidv, job_res = self.ctrl.initialise_jobs(setup, workdir)
 						job_res['done'] = False
 						if jobidv:
 							error = []
@@ -168,7 +170,12 @@ class XtdHandler(BaseWebHandler):
 									# This is not a race - all higher locks are locked too.
 									while passed_cookie in job_tracking:
 										passed_cookie = gen_cookie()
-									job_tracking[passed_cookie] = DotDict(lock=JLock(), last_error=None, last_time=0)
+									job_tracking[passed_cookie] = DotDict(
+										lock=JLock(),
+										last_error=None,
+										last_time=0,
+										workdir=workdir,
+									)
 									try:
 										self.ctrl.run_job(jobid, subjob_cookie=passed_cookie, parent_pid=setup.get('parent_pid', 0))
 										# update database since a new jobid was just created
@@ -344,6 +351,7 @@ def main(options):
 	print()
 
 	XtdHandler.ctrl = ctrl
+	job_tracking[None].workdir = ctrl.target_workdir
 
 	for n in ("result_directory", "source_directory", "urd"):
 		print("%16s: %s" % (n.replace("_", " "), CONFIG.get(n),))

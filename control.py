@@ -157,9 +157,9 @@ class Main:
 		self.DataBase._update_finish(self.Methods.hash)
 
 
-	def initialise_jobs(self, setup):
+	def initialise_jobs(self, setup, workdir=None):
 		""" Updata database, check deps, create jobids. """
-		ws = setup.get('workdir', self.target_workdir)
+		ws = workdir or self.target_workdir
 		if ws not in self.workspaces:
 			raise Exception("Workdir %s does not exist" % (ws,))
 		return dependency.initialise_jobs(
