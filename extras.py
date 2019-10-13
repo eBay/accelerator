@@ -25,7 +25,7 @@ import datetime
 import json
 from traceback import print_exc
 from collections import namedtuple, OrderedDict
-from sys import stderr, argv
+import sys
 
 from compat import PY2, PY3, pickle, izip, iteritems, first_value, num_types
 from compat import uni, unicode, str_types
@@ -71,7 +71,7 @@ def job_post(jobid):
 
 def pickle_save(variable, filename='result', sliceno=None, temp=None):
 	filename = full_filename(filename, '.pickle', sliceno)
-	if temp == Temp.DEBUG and temp is not True and '--debug' not in argv:
+	if temp == Temp.DEBUG and temp is not True and '--debug' not in sys.argv:
 		return
 	with FileWriteMove(filename, temp) as fh:
 		# use protocol version 2 so python2 can read the pickles too.
@@ -227,12 +227,12 @@ class FileWriteMove(object):
 		if temp is None: # unspecified
 			temp = Temp.PERMANENT
 			if running == 'analysis':
-				print('WARNING: Should specify file permanence on %s line %d' % stackup(), file=stderr)
+				print('WARNING: Should specify file permanence on %s line %d' % stackup(), file=sys.stderr)
 		assert temp in range(4), 'temp should be True, False or a value from Temp'
 		self.temp = temp
 		if temp in (Temp.DEBUGTEMP, Temp.TEMP,):
 			if running != 'analysis':
-				print('WARNING: Only analysis should make temp files (%s line %d).' % stackup(), file=stderr)
+				print('WARNING: Only analysis should make temp files (%s line %d).' % stackup(), file=sys.stderr)
 
 	def __enter__(self):
 		self._status = status('Saving ' + self.filename)
