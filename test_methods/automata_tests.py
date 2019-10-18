@@ -32,6 +32,7 @@ def main(urd):
 	print("Testing dataset creation, export, import")
 	source = urd.build("test_datasetwriter")
 	urd.build("test_datasetwriter_verify", datasets=dict(source=source))
+	urd.build("test_dataset_in_prepare")
 	ds = Dataset(source, "passed")
 	csvname = "out.csv.gz"
 	csvname_uncompressed = "out.csv"
