@@ -162,7 +162,12 @@ class Automata:
 					if waited % 60 == 0:
 						print('%d seconds, still waiting for %s (%d seconds)' % current)
 				else:
-					sys.stdout.write('\r\033[K           %.1f %s %.1f' % current)
+					current_display = (
+						fmttime(current[0], True),
+						current[1],
+						fmttime(current[2], True),
+					)
+					sys.stdout.write('\r\033[K           %s %s %s' % current_display)
 			idle, status_stacks, current, last_time = self._server_idle(1)
 		if self.verbose == 'dots':
 			print('(%d)]' % (last_time,))
@@ -261,16 +266,23 @@ class Automata:
 		return jid
 
 
-def fmttime(t):
+def fmttime(t, short=False):
 	if t == '':
 		# Failures have no time information and end up here
 		return ''
-	unit = 'seconds'
-	units = ['hours', 'minutes']
+	if short:
+		units = ['h', 'm', 's']
+		fmts = ['%.2f', '%.1f', '%.0f']
+	else:
+		units = ['hours', 'minutes', 'seconds']
+		fmts = ['%.2f ', '%.1f ', '%.1f ']
+	unit = units.pop()
+	fmt = fmts.pop()
 	while t > 60 * 3 and units:
 		unit = units.pop()
+		fmt = fmts.pop()
 		t /= 60
-	return '%.1f %s' % (t, unit,)
+	return fmt % (t,) + unit
 
 
 class JobTuple(tuple):
