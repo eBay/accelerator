@@ -22,18 +22,13 @@
 from __future__ import print_function
 from __future__ import division
 
-from web import ThreadedHTTPServer, ThreadedUnixHTTPServer, BaseWebHandler
-
 import sys
 import argparse
 import socket
 import traceback
 import signal
 import os
-import control
-import configfile
 import resource
-import autoflush
 import time
 from stat import S_ISSOCK
 from threading import Thread, Lock as TLock, Lock as JLock
@@ -41,12 +36,17 @@ from string import ascii_letters
 import random
 import atexit
 
-from compat import unicode
+from accelerator.compat import unicode
 
-from extras import json_encode, json_decode, DotDict
-from dispatch import JobError
-from status import statmsg_sink, children, print_status_stacks, status_stacks_export
-import iowrapper
+from accelerator.web import ThreadedHTTPServer, ThreadedUnixHTTPServer, BaseWebHandler
+
+from accelerator import autoflush
+from accelerator import control
+from accelerator import configfile
+from accelerator.extras import json_encode, json_decode, DotDict
+from accelerator.dispatch import JobError
+from accelerator.status import statmsg_sink, children, print_status_stacks, status_stacks_export
+from accelerator import iowrapper
 
 
 

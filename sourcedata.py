@@ -23,7 +23,7 @@ import gzutil
 
 assert gzutil.version >= (2, 10, 0) and gzutil.version[0] == 2, gzutil.version
 
-from compat import PY3
+from accelerator.compat import PY3
 
 type2iter = {
 	'number'  : gzutil.GzNumber,

@@ -103,7 +103,7 @@ def uni(s):
 # This is used in the method launcher to set different titles for each
 # phase/slice. You can use it in the method to override that if you want.
 def setproctitle(title):
-	import g
+	from accelerator import g
 	if hasattr(g, 'METHOD'):
 		title = '%s %s (%s)' % (g.JOBID, uni(title), g.METHOD,)
 	elif hasattr(g, 'JOBID'):

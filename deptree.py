@@ -22,9 +22,9 @@ from __future__ import division
 from traceback import print_exc
 from datetime import datetime, date, time, timedelta
 
-from compat import iteritems, itervalues, first_value, str_types, int_types, num_types, unicode
+from accelerator.compat import iteritems, itervalues, first_value, str_types, int_types, num_types, unicode
 
-from extras import OptionEnum, OptionEnumValue, OptionString, OptionDefault, RequiredOption, JobWithFile, typing_conv
+from accelerator.extras import OptionEnum, OptionEnumValue, OptionString, OptionDefault, RequiredOption, JobWithFile, typing_conv
 
 class OptionException(Exception):
 	pass
@@ -45,7 +45,7 @@ class DepTree:
 			data['params'] = {method: setup.params[method]}
 		unmatched = {method: params for method, params in iteritems(setup.params) if method not in seen}
 		if unmatched:
-			from extras import json_encode
+			from accelerator.extras import json_encode
 			print("DepTree Warning:  Unmatched options remain:", json_encode(unmatched, as_str=True))
 		def collect(method):
 			# All methods that method depend on

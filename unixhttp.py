@@ -19,7 +19,7 @@
 from __future__ import print_function
 from __future__ import division
 
-from compat import PY3, unquote_plus
+from accelerator.compat import PY3, unquote_plus
 
 if PY3:
 	from urllib.request import install_opener, build_opener, AbstractHTTPHandler

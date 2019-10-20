@@ -25,11 +25,12 @@ from time import time
 from collections import defaultdict
 from importlib import import_module
 
-from compat import iteritems, itervalues, first_value, NoneType, unicode, long
+from accelerator.compat import iteritems, itervalues, first_value
+from accelerator.compat import NoneType, unicode, long
 
-from extras import DotDict, OptionString, OptionEnum, OptionDefault, RequiredOption
-from runner import new_runners
-from setupfile import _sorted_set
+from accelerator.extras import DotDict, OptionString, OptionEnum, OptionDefault, RequiredOption
+from accelerator.runner import new_runners
+from accelerator.setupfile import _sorted_set
 
 
 class MethodLoadException(Exception):
@@ -221,7 +222,7 @@ def options2required(options):
 
 
 def options2typing(method, options):
-	from extras import JobWithFile
+	from accelerator.extras import JobWithFile
 	res = {}
 	def value2spec(value):
 		if isinstance(value, list):

@@ -23,10 +23,10 @@ from collections import defaultdict
 from operator import attrgetter
 from collections import namedtuple
 
-from compat import iteritems, itervalues
+from accelerator.compat import iteritems, itervalues
 
-from safe_pool import Pool
-from extras import job_params, OptionEnum, OptionDefault
+from accelerator.safe_pool import Pool
+from accelerator.extras import job_params, OptionEnum, OptionDefault
 
 
 Job = namedtuple('Job', 'id method params optset hash time total')

@@ -19,22 +19,21 @@
 from __future__ import print_function
 from __future__ import division
 
-import time
-import configfile
-import dependency
-import dispatch
-
-import workspace
-import database
-import methods
-from extras import json_save
-from setupfile import update_setup
-from jobid import resolve_jobid_filename, put_workspaces, get_workspace_name
-from extras import DotDict, Temp
-
 from threading import Thread
 from os import unlink
 from os.path import join
+import time
+
+from accelerator import configfile
+from accelerator import dependency
+from accelerator import dispatch
+
+from accelerator import workspace
+from accelerator import database
+from accelerator import methods
+from accelerator.setupfile import update_setup
+from accelerator.jobid import resolve_jobid_filename, put_workspaces, get_workspace_name
+from accelerator.extras import json_save, DotDict, Temp
 
 METHODS_CONFIGFILENAME = 'methods.conf'
 

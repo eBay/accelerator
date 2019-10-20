@@ -18,7 +18,7 @@
 #                                                                          #
 ############################################################################
 
-from compat import PY3, unicode
+from accelerator.compat import PY3, unicode
 
 if PY3:
 	from socketserver import ThreadingMixIn, ForkingMixIn

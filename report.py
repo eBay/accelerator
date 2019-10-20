@@ -22,9 +22,9 @@ from __future__ import division
 
 import time
 
-from compat import open, uni
+from accelerator.compat import open, uni
 
-import g
+from accelerator import g
 
 class Report():
 	def __init__(self, stdout=False):

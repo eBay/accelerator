@@ -23,21 +23,22 @@ from __future__ import division
 import os
 import signal
 import sys
-import jobid as jobid_module
 from collections import defaultdict
 from struct import pack
-import g
 from importlib import import_module
 from traceback import print_exc, format_tb, format_exception_only
-from extras import job_params, ResultIterMagic, DotDict
 from time import time, sleep
 import json
-from compat import pickle, iteritems, setproctitle, QueueEmpty, getarglist, open
-from dispatch import JobError
-import blob
-import status
-import dataset
-import iowrapper
+
+from accelerator import jobid as jobid_module
+from accelerator.compat import pickle, iteritems, setproctitle, QueueEmpty, getarglist, open
+from accelerator.extras import job_params, ResultIterMagic, DotDict
+from accelerator.dispatch import JobError
+from accelerator import g
+from accelerator import blob
+from accelerator import status
+from accelerator import dataset
+from accelerator import iowrapper
 
 
 g_allesgut = False
@@ -100,7 +101,7 @@ def call_analysis(analysis_func, sliceno_, q, preserve_result, parent_pid, outpu
 				if sliceno_ == 0:
 					blob.save(False, "Analysis.tuple", temp=True)
 				save(res, "Analysis.")
-		from extras import saved_files
+		from accelerator.extras import saved_files
 		dw_lens = {}
 		dw_minmax = {}
 		for name, dw in dataset._datasetwriters.items():
@@ -297,7 +298,7 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 		prof['prepare'] = time() - t
 	switch_output()
 	setproctitle('launch')
-	from extras import saved_files
+	from accelerator.extras import saved_files
 	if analysis_func is dummy:
 		prof['per_slice'] = []
 		prof['analysis'] = 0
@@ -331,7 +332,7 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 	t = time() - t
 	prof['synthesis'] = t
 
-	from subjobs import _record
+	from accelerator.subjobs import _record
 	return None, (prof, saved_files, _record)
 
 

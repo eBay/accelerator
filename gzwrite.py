@@ -21,7 +21,7 @@ from __future__ import print_function
 from __future__ import division
 
 import gzutil
-from compat import str_types, PY3
+from accelerator.compat import str_types, PY3
 
 GzWrite = gzutil.GzWrite
 
@@ -59,7 +59,7 @@ def typed_writer(typename):
 	return _convfuncs[typename]
 
 def typed_reader(typename):
-	from sourcedata import type2iter
+	from accelerator.sourcedata import type2iter
 	if typename not in type2iter:
 		raise ValueError("Unknown reader for type %s" % (typename,))
 	return type2iter[typename]

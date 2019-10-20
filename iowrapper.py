@@ -27,9 +27,9 @@ from time import sleep
 import signal
 from struct import unpack
 
-from workarounds import nonblocking
-from compat import setproctitle
-import status
+from accelerator.workarounds import nonblocking
+from accelerator.compat import setproctitle
+from accelerator import status
 
 
 def main(logfile):

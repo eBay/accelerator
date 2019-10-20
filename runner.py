@@ -43,10 +43,11 @@ import resource
 import gc
 from threading import Thread, Lock
 
-from compat import PY2, PY3, iteritems, itervalues, pickle, Queue, QueueFull, str_types
+from accelerator.compat import PY2, PY3, iteritems, itervalues, pickle
+from accelerator.compat import Queue, QueueFull, str_types
 
-from extras import DotDict
-import dispatch
+from accelerator.extras import DotDict
+from accelerator import dispatch
 
 archives = {}
 
@@ -161,7 +162,7 @@ def load_methods(all_packages, data):
 	return res_warnings, res_failed, res_hashes, res_params
 
 def launch_start(data):
-	from launch import run
+	from accelerator.launch import run
 	if PY2:
 		data = {k: v.encode('utf-8') if isinstance(v, unicode) else v for k, v in data.items()}
 	prof_r, prof_w = os.pipe()
@@ -327,7 +328,7 @@ class Runner(object):
 
 runners = {}
 def new_runners(config):
-	from dispatch import run
+	from accelerator.dispatch import run
 	if 'py' in runners:
 		del runners['py']
 	for runner in itervalues(runners):
@@ -348,7 +349,7 @@ def new_runners(config):
 	return runners
 
 if __name__ == "__main__":
-	from autoflush import AutoFlush
+	from accelerator.autoflush import AutoFlush
 
 	sys.stdout = AutoFlush(sys.stdout)
 	sys.stderr = AutoFlush(sys.stderr)

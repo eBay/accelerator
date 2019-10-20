@@ -28,14 +28,14 @@ from collections import defaultdict
 from types import GeneratorType
 from base64 import b64encode
 
-from compat import unicode, str_types, PY3
-from compat import urlencode, urlopen, Request, URLError, HTTPError
+from accelerator.compat import unicode, str_types, PY3
+from accelerator.compat import urlencode, urlopen, Request, URLError, HTTPError
 
-import setupfile
-from extras import json_encode, json_decode, DotDict, resolve_jobid_filename
-from dispatch import JobError
-from status import print_status_stacks
-import unixhttp; unixhttp # for unixhttp:// URLs, as used to talk to the daemon
+from accelerator import setupfile
+from accelerator.extras import json_encode, json_decode, DotDict, resolve_jobid_filename
+from accelerator.dispatch import JobError
+from accelerator.status import print_status_stacks
+from accelerator import unixhttp; unixhttp # for unixhttp:// URLs, as used to talk to the daemon
 
 
 class Automata:
@@ -55,13 +55,13 @@ class Automata:
 		self.flags = flags or []
 		self.job_method = None
 		# Workspaces should be per Automata
-		from jobid import put_workspaces
+		from accelerator.jobid import put_workspaces
 		put_workspaces(self.list_workspaces())
 		self.update_method_deps()
 		self.clear_record()
 		# Don't do this unless we are part of automatarunner
 		if infoprints:
-			from workarounds import SignalWrapper
+			from accelerator.workarounds import SignalWrapper
 			siginfo = SignalWrapper(['SIGINFO', 'SIGUSR1'])
 			self.siginfo_check = siginfo.check
 		else:
@@ -419,7 +419,7 @@ class JobList(list):
 		return l[-1] if l else default
 
 def profile_jobs(jobs):
-	from extras import job_post
+	from accelerator.extras import job_post
 	if isinstance(jobs, str):
 		jobs = [jobs]
 	total = 0
@@ -642,7 +642,7 @@ class Urd(object):
 		return self.build(method, options, datasets, jobids, name, caption, why_build, workdir)
 
 	def print_profile(self, verbose=True):
-		from extras import job_post
+		from accelerator.extras import job_post
 		total = 0
 		seen = set()
 		per_method = defaultdict(int)

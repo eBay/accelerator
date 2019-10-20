@@ -29,11 +29,11 @@ from importlib import import_module
 from os.path import realpath, dirname
 from os import environ
 
-from compat import quote_plus, PY3, getarglist
+from accelerator.compat import quote_plus, PY3, getarglist
 
-import automata_common
-from dispatch import JobError
-from autoflush import AutoFlush
+from accelerator import automata_common
+from accelerator.dispatch import JobError
+from accelerator.autoflush import AutoFlush
 
 
 def find_automata(a, package, script):

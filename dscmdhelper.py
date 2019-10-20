@@ -26,10 +26,10 @@ from os.path import join, exists, realpath
 from functools import partial
 from locale import resetlocale
 
-from configfile import get_config
-from jobid import WORKSPACES
-from dataset import Dataset
-from jobid import get_path, get_workspace_name
+from accelerator.configfile import get_config
+from accelerator.jobid import WORKSPACES
+from accelerator.dataset import Dataset
+from accelerator.jobid import get_path, get_workspace_name
 
 def init():
 	# initialize locale - for number formatting
@@ -65,7 +65,7 @@ def name2ds(n):
 	ds = Dataset(n)
 	with open(join(get_path(ds.jobid), get_workspace_name(ds.jobid) + "-slices.conf")) as fh:
 		slices = int(fh.read())
-	import g
+	from accelerator import g
 	if hasattr(g, 'SLICES'):
 		assert g.SLICES == slices, "Dataset %s needs %d slices, by we are already using %d slices" % (ds, slices, g.SLICES)
 	else:

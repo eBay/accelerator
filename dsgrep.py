@@ -30,9 +30,9 @@ from multiprocessing import Process
 import errno
 from os import write
 
-from compat import unicode
-from dscmdhelper import name2ds
-import g
+from accelerator.compat import unicode
+from accelerator.dscmdhelper import name2ds
+from accelerator import g
 
 def main(argv, usage_extra=''):
 	usage = "Usage: %%(prog)s%s [options] pattern ds [ds [...]] [column [column [...]]" % (usage_extra,)

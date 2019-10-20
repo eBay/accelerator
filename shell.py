@@ -81,8 +81,8 @@ def load_some_cfg(basedir='.', all=False):
 def load_cfg(fn):
 	global cfg
 
-	from configfile import get_config
-	from jobid import WORKSPACES
+	from accelerator.configfile import get_config
+	from accelerator.jobid import WORKSPACES
 
 	cfg = get_config(fn, False)
 	WORKSPACES.update((k, v[0]) for k, v in cfg['workdir'].items())

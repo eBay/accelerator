@@ -23,9 +23,9 @@ import os
 import time
 from signal import SIGTERM, SIGKILL
 
-from compat import PY3
+from accelerator.compat import PY3
 
-from status import children, statmsg_endwait
+from accelerator.status import children, statmsg_endwait
 
 class JobError(Exception):
 	def __init__(self, jobid, method, status):
@@ -109,7 +109,7 @@ def launch(workdir, setup, config, Methods, active_workspaces, slices, debug, da
 		subjob_cookie=subjob_cookie,
 		parent_pid=parent_pid,
 	)
-	from runner import runners
+	from accelerator.runner import runners
 	runner = runners[Methods.db[method].version]
 	child, prof_r = runner.launch_start(args)
 	# There's a race where if we get interrupted right after fork this is not recorded

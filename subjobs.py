@@ -16,9 +16,9 @@
 #                                                                          #
 ############################################################################
 
-import g
-from automata_common import JobList
-from status import status
+from accelerator import g
+from accelerator.automata_common import JobList
+from accelerator.status import status
 
 _a = None
 _record = {}
@@ -32,7 +32,7 @@ def build(method, options={}, datasets={}, jobids={}, name=None, caption=None):
 	assert g.running != 'analysis', "Analysis is not allowed to make subjobs"
 	assert g.subjob_cookie, "Can't build subjobs: out of cookies"
 	if not _a:
-		from automata_common import Automata
+		from accelerator.automata_common import Automata
 		_a = Automata(g.daemon_url, subjob_cookie=g.subjob_cookie)
 		_a.update_method_deps()
 		_a.record[None] = _a.jobs = jobs

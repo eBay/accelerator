@@ -25,7 +25,7 @@ from __future__ import division, print_function
 
 import sys
 
-import dscmdhelper
+from accelerator import dscmdhelper
 
 dscmdhelper.init()
 

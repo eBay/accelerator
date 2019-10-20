@@ -23,9 +23,9 @@ from __future__ import division
 # the dataset module. Usually that's what you want, but sometimes you want
 # to chain by job arguments, and that's still here.
 
-from compat import str_types
+from accelerator.compat import str_types
 
-from extras import job_params
+from accelerator.extras import job_params
 
 
 def jobchain_prev(tip_jobid=None):

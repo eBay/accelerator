@@ -23,9 +23,9 @@ from collections import OrderedDict
 from json import dumps
 from datetime import datetime, date, time, timedelta
 
-from compat import iteritems, unicode, long, PY3
+from accelerator.compat import iteritems, unicode, long, PY3
 
-from extras import DotDict, json_load, json_save, json_encode
+from accelerator.extras import DotDict, json_load, json_save, json_encode
 
 def generate(caption, method, params, package=None, python=None, why_build=False):
 	data = DotDict()

@@ -22,7 +22,7 @@ from __future__ import division
 import re
 import os
 
-from compat import quote_plus, iteritems
+from accelerator.compat import quote_plus, iteritems
 
 
 def get_config( filename, verbose=True ):

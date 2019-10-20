@@ -27,11 +27,11 @@ from traceback import print_exc
 from collections import namedtuple, OrderedDict
 import sys
 
-from compat import PY2, PY3, pickle, izip, iteritems, first_value, num_types
-from compat import uni, unicode, str_types
+from accelerator.compat import PY2, PY3, pickle, izip, iteritems, first_value
+from accelerator.compat import num_types, uni, unicode, str_types
 
-from jobid import resolve_jobid_filename
-from status import status
+from accelerator.jobid import resolve_jobid_filename
+from accelerator.status import status
 
 def full_filename(filename, ext, sliceno=None, jobid=None):
 	if not filename or not filename[0]:
@@ -60,7 +60,7 @@ def job_params(jobid=None, default_empty=False):
 			datasets=DotDict(),
 			jobids=DotDict(),
 		)
-	from setupfile import load_setup
+	from accelerator.setupfile import load_setup
 	d = load_setup(jobid)
 	for method, tl in iteritems(d.get('_typing', {})):
 		_apply_typing(d.params[method].options, tl)
@@ -221,7 +221,7 @@ class FileWriteMove(object):
 	The temp-level of the file is recorded in saved_files.
 	"""
 	def __init__(self, filename, temp=None):
-		from g import running
+		from accelerator.g import running
 		self.filename = filename
 		self.tmp_filename = '%s.%dtmp' % (filename, os.getpid(),)
 		temp = {'False': Temp.PERMANENT, 'True': Temp.TEMP}.get(temp, temp)

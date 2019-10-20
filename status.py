@@ -42,10 +42,10 @@ from threading import Lock
 from weakref import WeakValueDictionary
 import os
 
-from compat import str_types, iteritems
+from accelerator.compat import str_types, iteritems
 
-import g
-from status_messaging import _send
+from accelerator import g
+from accelerator.status_messaging import _send
 
 
 status_tree = {}
@@ -161,7 +161,7 @@ def _find(pid, cookie):
 	return stack, None
 
 def statmsg_sink(sock):
-	from extras import DotDict
+	from accelerator.extras import DotDict
 	while True:
 		data = None
 		try:

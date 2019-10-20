@@ -24,12 +24,12 @@ from collections import OrderedDict, defaultdict
 from itertools import combinations
 from copy import deepcopy
 
-from compat import iteritems
+from accelerator.compat import iteritems
 
-import setupfile
-import deptree
-from extras import job_params
-from runner import runners
+from accelerator import setupfile
+from accelerator import deptree
+from accelerator.extras import job_params
+from accelerator.runner import runners
 
 def find_possible_jobs(db, methods, job):
 	method = job['method']
