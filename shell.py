@@ -102,7 +102,7 @@ def setup(config_fn=None, all_cfgs=False):
 
 def cmd_dsgrep(args, argv):
 	from accelerator.dsgrep import main
-	return main(argv, ' dsgrep')
+	return main(argv, ' [global options] dsgrep')
 
 ALL_CFGS_COMMANDS = {'dsgrep'}
 

@@ -40,20 +40,23 @@ def main(argv, usage_extra=''):
 	parser.add_argument('-c', '--chain',       dest="chain",      action='store_true', help="Follow dataset chains", )
 	parser.add_argument('-i', '--ignore-case', dest="ignorecase", action='store_true', help="Case insensitive pattern", )
 	parser.add_argument('pattern')
-	parser.add_argument('ds_or_column', nargs='+')
+	parser.add_argument('dataset')
+	parser.add_argument('columns', nargs='*', default=[])
 	args = parser.parse_args(argv)
 
 	pat_s = re.compile(args.pattern                , re.IGNORECASE if args.ignorecase else 0)
 	pat_b = re.compile(args.pattern.encode('utf-8'), re.IGNORECASE if args.ignorecase else 0)
-	datasets = []
+	datasets = [name2ds(args.dataset)]
 	columns = []
 	
-	for ds_or_col in args.ds_or_column:
-		try:
-			assert not columns, "Everything after the first column is a column"
-			datasets.append(name2ds(ds_or_col))
-		except Exception:
+	for ds_or_col in args.columns:
+		if columns:
 			columns.append(ds_or_col)
+		else:
+			try:
+				datasets.append(name2ds(ds_or_col))
+			except Exception:
+				columns.append(ds_or_col)
 	
 	if not datasets:
 		parser.print_help(file=sys.stderr)
