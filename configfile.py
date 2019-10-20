@@ -61,7 +61,7 @@ def resolve_socket_url(path):
 	else:
 		return 'unixhttp://' + quote_plus(os.path.realpath(path))
 
-def parse_config(string, filename=None):
+def parse_config(string, filename):
 	ret = {}
 	for line in string.split('\n'):
 		line = line.split('#')[0].strip()
@@ -95,6 +95,8 @@ def parse_config(string, filename=None):
 			print("Error parsing config %s: \"%s\"" % (filename, line,))
 	if 'workdir' not in ret:
 		raise Exception("Error, missing workdir in config " + filename)
+	if 'project_directory' not in ret:
+		ret['project_directory'] = os.path.dirname(filename)
 	return ret
 
 

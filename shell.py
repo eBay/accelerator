@@ -88,16 +88,27 @@ def load_cfg(fn):
 	WORKSPACES.update((k, v[0]) for k, v in cfg['workdir'].items())
 	return cfg
 
+def unpath(path):
+	while path in sys.path:
+		sys.path.pop(sys.path.index(path))
+
 def setup(config_fn=None, all_cfgs=False):
 	resetlocale()
-	accdir = dirname(__file__)
-	while accdir in sys.path:
-		sys.path.pop(sys.path.index(accdir))
+	# Make sure the accelerator dir in not in sys.path
+	# (as it might be if running without installing.)
+	unpath(dirname(__file__))
 	if config_fn:
 		assert not all_cfgs, "Don't specify both a config_fn and all_cfgs."
 		load_cfg(config_fn)
 	else:
 		load_some_cfg(all=all_cfgs)
+	if not all_cfgs:
+		# We want the project directory to be first in sys.path.
+		unpath(cfg['project_directory'])
+		sys.path.insert(0, cfg['project_directory'])
+		# For consistency we also always want the project dir
+		# as working directory.
+		chdir(cfg['project_directory'])
 
 def cmd_dsgrep(args, argv):
 	from accelerator.dsgrep import main
