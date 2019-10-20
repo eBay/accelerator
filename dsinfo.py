@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
@@ -23,13 +21,11 @@
 
 from __future__ import division, print_function
 
-import sys
-
-from accelerator import dscmdhelper
+from accelerator.dscmdhelper import name2ds
 
 def main(argv):
 	for n in argv:
-		ds = dscmdhelper.name2ds(n)
+		ds = name2ds(n)
 		print("Parent:", ds.parent)
 		print("Hashlabel:", ds.hashlabel)
 		print("Columns:")
@@ -54,7 +50,3 @@ def main(argv):
 			chain = ds.chain()
 			print("Chain length {0:n}, from {1} to {2}".format(len(chain), chain[0], chain[-1]))
 			print("{0:n} total lines".format(sum(sum(ds.lines) for ds in chain)))
-
-if __name__ == '__main__':
-	dscmdhelper.init()
-	main(sys.argv[1:])

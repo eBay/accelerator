@@ -1,6 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: iso-8859-1 -*-
-
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
@@ -248,15 +245,14 @@ class XtdHandler(BaseWebHandler):
 			return
 
 
-def parse_args(argv, stand_alone=True):
-	kw = {}
-	if not stand_alone:
-		name = os.path.basename(sys.argv[0])
-		kw['prog'] = "%s [global options] daemon" % (name,)
-	parser = argparse.ArgumentParser(**kw)
+def parse_args(argv):
+	name = os.path.basename(sys.argv[0])
+	prog = "%s [global options] daemon" % (name,)
+	parser = argparse.ArgumentParser(
+		prog=prog,
+		formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+	)
 	parser.add_argument('--debug', action='store_true')
-	if stand_alone:
-		parser.add_argument('--config', default='../conf/framework.conf', metavar='CONFIG_FILE', help='Configuration file')
 	group = parser.add_mutually_exclusive_group()
 	group.add_argument('--port', type=int, help='Listen on tcp port')
 	group.add_argument('--socket', help='Listen on unix socket', default='socket.dir/default')
@@ -296,7 +292,8 @@ def check_socket(fn):
 def siginfo(sig, frame):
 	print_status_stacks()
 
-def main(options, config):
+def main(argv, config):
+	options = parse_args(argv)
 
 	# all forks belong to the same happy family
 	try:
@@ -369,10 +366,3 @@ def main(options, config):
 		serving_on = options.socket
 	print("Serving on %s\n" % (serving_on,), file=sys.stderr)
 	server.serve_forever()
-
-
-
-if __name__ == "__main__":
-	options = parse_args(sys.argv[1:])
-	config = configfile.get_config(options.config, verbose=False)
-	main(options, config)

@@ -20,29 +20,11 @@
 
 from __future__ import division, print_function
 
-import sys
-from glob import glob
 from os.path import join, exists, realpath
-from functools import partial
-from locale import resetlocale
 
-from accelerator.configfile import get_config
 from accelerator.jobid import WORKSPACES
 from accelerator.dataset import Dataset
 from accelerator.jobid import get_path, get_workspace_name
-
-def init():
-	# initialize locale - for number formatting
-	resetlocale()
-	# find config files near script location, build WORKSPACES from them
-	rel = partial(join, sys.path[0])
-	for fn in glob(rel("*.conf")) + glob(rel("../*.conf")) + glob(rel("conf/*")) + glob(rel("../conf/*")):
-		if not fn.lower().endswith(".template"):
-			try:
-				cfg = get_config(fn, False)
-			except Exception:
-				continue
-			WORKSPACES.update({k: v[0] for k, v in cfg['workdir'].items()})
 
 def name2ds(n):
 	if exists(n):

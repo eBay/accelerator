@@ -1,6 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: iso-8859-1 -*-
-
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
@@ -26,14 +23,13 @@ from __future__ import division
 from optparse import OptionParser
 import sys
 from importlib import import_module
-from os.path import realpath, dirname
+from os.path import realpath
 from os import environ
 
 from accelerator.compat import quote_plus, PY3, getarglist
 
 from accelerator import automata_common
 from accelerator.dispatch import JobError
-from accelerator.autoflush import AutoFlush
 
 
 def find_automata(a, package, script):
@@ -152,11 +148,3 @@ def print_minimal_traceback():
 	lineno = last_interesting.tb_lineno
 	filename = last_interesting.tb_frame.f_code.co_filename
 	print("Failed to build job %s on %s line %d" % (e.jobid, filename, lineno,))
-
-
-if __name__ == "__main__":
-	# sys.path needs to contain .. (the project dir), put it after accelerator
-	sys.path.insert(1, dirname(sys.path[0]))
-	sys.stdout = AutoFlush(sys.stdout)
-	sys.stderr = AutoFlush(sys.stderr)
-	exit(main(sys.argv[1:]))

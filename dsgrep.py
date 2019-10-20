@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
@@ -111,8 +109,3 @@ def main(argv, usage_extra=''):
 			p.join()
 	except KeyboardInterrupt:
 		print()
-
-if __name__ == '__main__':
-	from accelerator.dscmdhelper import init
-	init()
-	main(sys.argv[1:])

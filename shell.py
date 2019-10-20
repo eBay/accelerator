@@ -109,22 +109,21 @@ def setup(config_fn=None, debug_cmd=False):
 		# as working directory.
 		chdir(cfg['project_directory'])
 
-def cmd_dsgrep(args, argv):
+def cmd_dsgrep(argv):
 	from accelerator.dsgrep import main
 	return main(argv, ' [global options] dsgrep')
 
-def cmd_dsinfo(args, argv):
+def cmd_dsinfo(argv):
 	from accelerator.dsinfo import main
 	return main(argv)
 
-def cmd_run(args, argv):
+def cmd_run(argv):
 	from accelerator.automatarunner import main
 	return main(argv)
 
-def cmd_daemon(args, argv):
-	from accelerator.daemon import parse_args, main
-	options = parse_args(argv, False)
-	main(options, cfg)
+def cmd_daemon(argv):
+	from accelerator.daemon import main
+	main(argv, cfg)
 
 DEBUG_COMMANDS = {'dsgrep', 'dsinfo',}
 
@@ -150,4 +149,4 @@ def cmd(argv):
 	except UserError as e:
 		print(e, file=sys.stderr)
 		return 1
-	return COMMANDS[args.command](args, argv)
+	return COMMANDS[args.command](argv)
