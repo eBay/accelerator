@@ -111,6 +111,9 @@ COMMANDS = dict(
 )
 
 def cmd(argv):
+	from accelerator.autoflush import AutoFlush
+	sys.stdout = AutoFlush(sys.stdout)
+	sys.stderr = AutoFlush(sys.stderr)
 	parser = ArgumentParser(add_help=False)
 	parser.add_argument('--config', metavar='CONFIG_FILE', help='Configuration file')
 	parser.add_argument('command')
