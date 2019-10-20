@@ -356,8 +356,8 @@ def main(argv, config):
 	XtdHandler.ctrl = ctrl
 	job_tracking[None].workdir = ctrl.target_workdir
 
-	for n in ("result_directory", "source_directory", "urd"):
-		print("%16s: %s" % (n.replace("_", " "), config.get(n),))
+	for n in ("project_directory", "result_directory", "source_directory", "urd"):
+		print("%17s: %s" % (n.replace("_", " "), config.get(n),))
 	print()
 
 	if options.port:
