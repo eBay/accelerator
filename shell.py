@@ -111,10 +111,10 @@ COMMANDS = dict(
 )
 
 def cmd(argv):
-	ap = ArgumentParser(add_help=False)
-	ap.add_argument('--config', metavar='CONFIG_FILE', help='Configuration file')
-	ap.add_argument('command')
-	args, argv = ap.parse_known_args(argv)
+	parser = ArgumentParser(add_help=False)
+	parser.add_argument('--config', metavar='CONFIG_FILE', help='Configuration file')
+	parser.add_argument('command')
+	args, argv = parser.parse_known_args(argv)
 	if args.command not in COMMANDS:
 		print('Unknown command "%s"' % (args.command,), file=sys.stderr)
 	try:
