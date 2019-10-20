@@ -93,7 +93,6 @@ def setup(config_fn=None, all_cfgs=False):
 	accdir = dirname(__file__)
 	while accdir in sys.path:
 		sys.path.pop(sys.path.index(accdir))
-	sys.path.insert(0, accdir)
 	if config_fn:
 		assert not all_cfgs, "Don't specify both a config_fn and all_cfgs."
 		load_cfg(config_fn)

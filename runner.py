@@ -43,12 +43,6 @@ import resource
 import gc
 from threading import Thread, Lock
 
-from accelerator.compat import PY2, PY3, iteritems, itervalues, pickle
-from accelerator.compat import Queue, QueueFull, str_types
-
-from accelerator.extras import DotDict
-from accelerator import dispatch
-
 archives = {}
 
 def mod2filename(mod):
@@ -73,6 +67,8 @@ def path_prefix(paths):
 	return prefix
 
 def load_methods(all_packages, data):
+	from accelerator.compat import str_types, iteritems
+	from accelerator.extras import DotDict
 	res_warnings = []
 	res_failed = []
 	res_hashes = {}
@@ -163,6 +159,8 @@ def load_methods(all_packages, data):
 
 def launch_start(data):
 	from accelerator.launch import run
+	from accelerator.compat import PY2
+	from accelerator.dispatch import close_fds
 	if PY2:
 		data = {k: v.encode('utf-8') if isinstance(v, unicode) else v for k, v in data.items()}
 	prof_r, prof_w = os.pipe()
@@ -186,7 +184,7 @@ def launch_start(data):
 					int(os.getenv('BD_STATUS_FD')),
 					int(os.getenv('BD_TERM_FD')),
 				]
-				dispatch.close_fds(keep)
+				close_fds(keep)
 				data['prof_fd'] = prof_w
 				run(**data)
 			finally:
@@ -200,6 +198,7 @@ def launch_start(data):
 	return child, prof_r
 
 def respond(cookie, data):
+	from accelerator.compat import pickle
 	res = pickle.dumps((cookie, data), 2)
 	header = struct.pack('<cI', op, len(res))
 	with sock_lock:
@@ -259,6 +258,7 @@ class Runner(object):
 
 	# runs on it's own thread (in the daemon), one per Runner object
 	def _receiver(self):
+		from accelerator.compat import QueueFull, pickle, itervalues
 		while True:
 			try:
 				hdr = recvall(self.sock, 5)
@@ -294,12 +294,14 @@ class Runner(object):
 			pass
 
 	def _waiter(self, cookie):
+		from accelerator.compat import Queue
 		q = Queue(1)
 		self._waiters[cookie] = q
 		return q.get
 
 	# this is called from request threads, so needs locking to avoid races
 	def _do(self, op, data):
+		from accelerator.compat import pickle
 		with self._lock:
 			cookie = self.cookie
 			self.cookie += 1
@@ -329,6 +331,8 @@ class Runner(object):
 runners = {}
 def new_runners(config):
 	from accelerator.dispatch import run
+	from accelerator.compat import PY3
+	from accelerator.compat import itervalues, iteritems
 	if 'py' in runners:
 		del runners['py']
 	for runner in itervalues(runners):
@@ -341,7 +345,7 @@ def new_runners(config):
 			todo[k] = v
 	for k, py_exe in iteritems(todo):
 		sock_p, sock_c = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM)
-		cmd = [py_exe, './runner.py', str(sock_c.fileno())]
+		cmd = [py_exe, __file__, str(sock_c.fileno()), sys.path[0]]
 		pid = run(cmd, [sock_p.fileno()], [sock_c.fileno()], False)
 		sock_c.close()
 		runners[k] = Runner(pid=pid, sock=sock_p, python=py_exe)
@@ -349,13 +353,18 @@ def new_runners(config):
 	return runners
 
 if __name__ == "__main__":
+	# sys.path needs to contain the project dir, but not the accelerator dir
+	sys.path[0] = sys.argv[2]
+
 	from accelerator.autoflush import AutoFlush
+	from accelerator.compat import pickle
+	from accelerator.dispatch import update_valid_fds
 
 	sys.stdout = AutoFlush(sys.stdout)
 	sys.stderr = AutoFlush(sys.stderr)
 	sock = socket.fromfd(int(sys.argv[1]), socket.AF_UNIX, socket.SOCK_STREAM)
 	sock_lock = Lock()
-	dispatch.update_valid_fds()
+	update_valid_fds()
 
 	# Set the highest open file limit we can.
 	# At least OS X seems to like claiming no limit as max without
@@ -374,9 +383,6 @@ if __name__ == "__main__":
 		print("WARNING: Failed to raise RLIMIT_NOFILE to %d. Set to %d." % (r2, r1,))
 	if r1 < 5000:
 		print("WARNING: RLIMIT_NOFILE is %d, that's not much." % (r1,))
-
-	# sys.path needs to contain .. (the project dir), put it after accelerator
-	sys.path.insert(1, os.path.dirname(sys.path[0]))
 
 	while True:
 		op, length = struct.unpack('<cI', recvall(sock, 5, True))

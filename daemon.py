@@ -373,8 +373,6 @@ def main(options, config):
 
 
 if __name__ == "__main__":
-	# sys.path needs to contain .. (the project dir), put it after accelerator
-	sys.path.insert(1, os.path.dirname(sys.path[0]))
 	options = parse_args(sys.argv[1:])
 	config = configfile.get_config(options.config, verbose=False)
 	main(options, config)
