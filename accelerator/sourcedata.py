@@ -41,10 +41,6 @@ type2iter = {
 	'bytes'   : gzutil.GzBytes,
 	'ascii'   : gzutil.GzAscii,
 	'unicode' : gzutil.GzUnicode,
-# These are for compatibility with older datasets, don't use them.
-	'_v2_bytes'  : gzutil.GzBytesLines,
-	'_v2_ascii'  : gzutil.GzAsciiLines,
-	'_v2_unicode': gzutil.GzUnicodeLines,
 }
 
 from ujson import loads
@@ -66,15 +62,6 @@ class GzJson(object):
 	def __exit__(self, type, value, traceback):
 		self.close()
 type2iter['json'] = GzJson
-
-# Just like the base Lines-types we have a compat version of json
-class _V2_GzJson(GzJson):
-	def __init__(self, *a, **kw):
-		if PY3:
-			self.fh = gzutil.GzUnicodeLines(*a, **kw)
-		else:
-			self.fh = gzutil.GzBytesLines(*a, **kw)
-type2iter['_v2_json'] = _V2_GzJson
 
 def typed_reader(typename):
 	if typename not in type2iter:

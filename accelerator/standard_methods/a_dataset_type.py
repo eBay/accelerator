@@ -83,7 +83,7 @@ convert_template = r'''
 	int fd = open(in_fn, O_RDONLY);
 	if (fd < 0) goto errfd;
 	if (lseek(fd, offset, 0) != offset) goto errfd;
-	g_init(&g, backing_format, in_fn);
+	g_init(&g, in_fn);
 	g.fh = gzdopen(fd, "rb");
 	if (!g.fh) goto errfd;
 	fd = -1;
@@ -268,7 +268,7 @@ err:
 	int fd = open(in_fn, O_RDONLY);
 	if (fd < 0) goto errfd;
 	if (lseek(fd, offset, 0) != offset) goto errfd;
-	g_init(&g, backing_format, in_fn);
+	g_init(&g, in_fn);
 	g.fh = gzdopen(fd, "rb");
 	if (!g.fh) goto errfd;
 	fd = -1;
@@ -403,7 +403,7 @@ errfd:
 }
 '''
 
-proto_template = 'int convert_column_%s(const char *in_fn, const char *out_fn, const char *minmax_fn, const char *default_value, uint32_t default_len, int default_value_is_None, const char *fmt, const char *fmt_b, int record_bad, int skip_bad, int badmap_fd, size_t badmap_size, uint64_t *bad_count, uint64_t *default_count, off_t offset, int64_t max_count, int backing_format)'
+proto_template = 'int convert_column_%s(const char *in_fn, const char *out_fn, const char *minmax_fn, const char *default_value, uint32_t default_len, int default_value_is_None, const char *fmt, const char *fmt_b, int record_bad, int skip_bad, int badmap_fd, size_t badmap_size, uint64_t *bad_count, uint64_t *default_count, off_t offset, int64_t max_count)'
 
 protos = []
 funcs = [dataset_typing.noneval_data]
@@ -426,7 +426,7 @@ convert_blob_template = r'''
 	int fd = open(in_fn, O_RDONLY);
 	if (fd < 0) goto errfd;
 	if (lseek(fd, offset, 0) != offset) goto errfd;
-	g_init(&g, backing_format, in_fn);
+	g_init(&g, in_fn);
 	g.fh = gzdopen(fd, "rb");
 	if (!g.fh) goto errfd;
 	fd = -1;
@@ -579,7 +579,6 @@ typedef struct {
 	int len;
 	int pos;
 	int error;
-	int backing_format;
 	uint32_t saved_size;
 	int32_t linelen;
 	const char *filename;
@@ -590,12 +589,11 @@ typedef struct {
 static const char NoneMarker[1] = {0};
 static char decimal_separator = '.';
 
-static void g_init(g *g, int backing_format, const char *filename)
+static void g_init(g *g, const char *filename)
 {
 	g->fh = 0;
 	g->pos = g->len = 0;
 	g->error = 0;
-	g->backing_format = backing_format;
 	g->filename = filename;
 	g->largetmp = 0;
 }
@@ -629,43 +627,7 @@ static int read_chunk(g *g, int offset)
 	return 0;
 }
 
-static inline const char *read_line_v2(g *g)
-{
-	if (g->pos >= g->len) {
-		if (read_chunk(g, 0)) return 0;
-	}
-	char *ptr = g->buf + g->pos;
-	char *end = memchr(ptr, '\n', g->len - g->pos);
-	if (!end) {
-		const int32_t linelen = g->len - g->pos;
-		memmove(g->buf, g->buf + g->pos, linelen);
-		if (read_chunk(g, linelen)) { // if eof
-			g->pos = g->len;
-			g->buf[linelen] = 0;
-			g->linelen = linelen;
-			return linelen ? g->buf : 0;
-		}
-		ptr = g->buf;
-		end = memchr(ptr, '\n', g->len);
-		if (!end) { // very long line - can't deal
-			fprintf(stderr, "%s: Line too long, bailing out\n", g->filename);
-			g->error = 1;
-			return 0;
-		}
-	}
-	int32_t linelen = end - ptr;
-	g->pos += linelen + 1;
-	if (linelen == 1 && *ptr == 0) {
-		g->linelen = 0;
-		return NoneMarker;
-	}
-	ptr[linelen] = 0;
-	if (linelen && ptr[linelen - 1] == '\r') ptr[--linelen] = 0;
-	g->linelen = linelen;
-	return ptr;
-}
-
-static inline const char *read_line_v3(g *g)
+static inline const char *read_line(g *g)
 {
 	if (g->largetmp) {
 		free(g->largetmp);
@@ -751,12 +713,6 @@ size_again:
 	res[size] = 0;
 	g->linelen = size;
 	return res;
-}
-
-static inline const char *read_line(g *g)
-{
-	if (g->backing_format == 2) return read_line_v2(g);
-	return read_line_v3(g);
 }
 
 void init(void)
@@ -895,10 +851,6 @@ def analysis_lap(sliceno, badmap_fh, first_lap):
 				badmap_size = (line_count // 8 // pagesize + 1) * pagesize
 				badmap_fh.truncate(badmap_size)
 				badmap_fd = badmap_fh.fileno()
-		if d.columns[colname].backing_type.startswith('_v2_'):
-			backing_format = 2
-		else:
-			backing_format = 3
 		in_fn = d.column_filename(colname, sliceno)
 		if d.columns[colname].offsets:
 			offset = d.columns[colname].offsets[sliceno]
@@ -921,7 +873,7 @@ def analysis_lap(sliceno, badmap_fh, first_lap):
 			bad_count = ffi.new('uint64_t [1]', [0])
 			default_count = ffi.new('uint64_t [1]', [0])
 			c = getattr(backend, 'convert_column_' + cfunc)
-			res = c(*bytesargs(in_fn, out_fn, minmax_fn, default_value, default_len, default_value_is_None, fmt, fmt_b, record_bad, skip_bad, badmap_fd, badmap_size, bad_count, default_count, offset, max_count, backing_format))
+			res = c(*bytesargs(in_fn, out_fn, minmax_fn, default_value, default_len, default_value_is_None, fmt, fmt_b, record_bad, skip_bad, badmap_fd, badmap_size, bad_count, default_count, offset, max_count))
 			assert not res, 'Failed to convert ' + colname
 			res_bad_count[colname] = bad_count[0]
 			res_default_count[colname] = default_count[0]
@@ -951,7 +903,7 @@ def analysis_lap(sliceno, badmap_fh, first_lap):
 			do_minmax = real_coltype not in dont_minmax_types
 			with typed_writer(real_coltype)(out_fn) as fh:
 				col_min = col_max = None
-				for ix, v in enumerate(d._column_iterator(sliceno, colname, _type='bytes' if backing_format == 3 else '_v2_bytes')):
+				for ix, v in enumerate(d._column_iterator(sliceno, colname, _type='bytes')):
 					if skip_bad:
 						if badmap[ix // 8] & (1 << (ix % 8)):
 							bad_count += 1

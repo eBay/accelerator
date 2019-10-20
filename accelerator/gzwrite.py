@@ -47,10 +47,6 @@ _convfuncs = {
 	'parsed:int32'    : gzutil.GzWriteParsedInt32,
 	'parsed:bits64'   : gzutil.GzWriteParsedBits64,
 	'parsed:bits32'   : gzutil.GzWriteParsedBits32,
-# These are for compatibility with older datasets, don't use them.
-	'_v2_bytes'    : gzutil.GzWriteBytesLines,
-	'_v2_ascii'    : gzutil.GzWriteAsciiLines,
-	'_v2_unicode'  : gzutil.GzWriteUnicodeLines,
 }
 
 def typed_writer(typename):

@@ -63,6 +63,8 @@ iskeyword = frozenset(kwlist).__contains__
 # A DatasetColumn has these fields:
 #     type = "type", # something that exists in type2iter and doesn't start with _
 #     backing_type = "type", # something that exists in type2iter (v2 uses type for this)
+#                              (as the support for v2 has been removed, backing_type will
+#                              always be the same as type. until something changes again.)
 #     name = "name", # a clean version of the column name, valid in the filesystem and as a python identifier.
 #     location = something, # where the data for this column lives
 #         in version 2 and 3 this is "jobid/path/to/file" if .offsets else "jobid/path/with/%s/for/sliceno"
@@ -107,7 +109,6 @@ def _dsid(t):
 
 # If we want to add fields to later versions, using a versioned name will
 # allow still loading the old versions without messing with the constructor.
-_DatasetColumn_2_0 = namedtuple('_DatasetColumn_2_0', 'type name location min max offsets')
 _DatasetColumn_3_0 = namedtuple('_DatasetColumn_3_0', 'type backing_type name location min max offsets')
 DatasetColumn = _DatasetColumn_3_0
 
@@ -119,37 +120,9 @@ _ds_cache = {}
 def _ds_load(obj):
 	n = unicode(obj)
 	if n not in _ds_cache:
-		_ds_cache[n] = _v2_columntypefix(blob.load(obj._name('pickle'), obj.jobid))
+		_ds_cache[n] = blob.load(obj._name('pickle'), obj.jobid)
 		_ds_cache.update(_ds_cache[n].get('cache', ()))
 	return _ds_cache[n]
-
-_type_v2to3backing = dict(
-	ascii="_v2_ascii",
-	bytes="_v2_bytes",
-	unicode="_v2_unicode",
-	json="_v2_json",
-)
-_type_v2compattov3t = {v: uni(k) for k, v in _type_v2to3backing.items()}
-def _dc_v2to3(dc):
-	return _DatasetColumn_3_0(
-		type=dc.type,
-		backing_type=_type_v2to3backing.get(dc.type, dc.type),
-		name=dc.name,
-		location=dc.location,
-		min=dc.min,
-		max=dc.max,
-		offsets=dc.offsets,
-	)
-def _v2_columntypefix(ds):
-	if ds.version[0] == 3:
-		return ds
-	assert ds.version[0] == 2 and ds.version[1] >= 2, "%s: Unsupported dataset pickle version %r" % (ds, ds.version,)
-	ds = DotDict(ds)
-	ds.columns = {name: _dc_v2to3(dc) for name, dc in ds.columns.items()}
-	if 'cache' in ds:
-		ds.cache = [(k, _v2_columntypefix(v)) for k, v in ds.cache]
-	ds.version = (3, 0)
-	return ds
 
 class Dataset(unicode):
 	"""
@@ -715,7 +688,7 @@ class Dataset(unicode):
 			mm = minmax.get(n, (None, None,))
 			t = uni(t)
 			self._data.columns[n] = DatasetColumn(
-				type=_type_v2compattov3t.get(t, t),
+				type=t,
 				backing_type=t,
 				name=filenames[n],
 				location='%s/%s/%%s.%s' % (jobid, self.name, filenames[n]),

@@ -50,15 +50,12 @@ def used_type(typ):
 no_default = object()
 def verify(name, types, bytes_data, want, default=no_default, want_fail=False, all_source_types=False, **kw):
 	todo = [('bytes', bytes_data,)]
-	versions = ('',)
 	if all_source_types:
 		uni_data = [v.decode('ascii') for v in bytes_data]
 		todo += [('ascii', uni_data,), ('unicode', uni_data,)]
-		versions = ('', '_v2_',)
-	for ver in versions:
-		for coltype, data in todo:
-			dsname = '%s %s%s' % (name, ver, coltype,)
-			_verify(dsname, types, data, ver + coltype, want, default, want_fail, kw)
+	for coltype, data in todo:
+		dsname = '%s %s' % (name, coltype,)
+		_verify(dsname, types, data, coltype, want, default, want_fail, kw)
 
 def _verify(name, types, data, coltype, want, default, want_fail, kw):
 	if callable(want):

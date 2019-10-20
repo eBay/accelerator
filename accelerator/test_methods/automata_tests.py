@@ -55,7 +55,6 @@ def main(urd):
 	print("Testing subjobs and dataset typing")
 	urd.build("test_subjobs_type", datasets=dict(typed=ds, untyped=reimp_csv))
 	urd.build("test_subjobs_nesting")
-	urd.build("test_dataset_old_columns")
 	# This one is so you get a more useful error message if numeric_comma is broken.
 	urd.build("dataset_type", datasets=dict(source=source), options=dict(numeric_comma=True, column2type=dict(b="float64"), defaults=dict(b="0")));
 	urd.build("test_dataset_type_corner_cases");
