@@ -161,8 +161,9 @@ class HelpFixArgumentParser(ArgumentParser):
 			self.exit(0)
 		ArgumentParser.error(self, message)
 
-def cmd(argv):
+def main():
 	from accelerator.autoflush import AutoFlush
+	argv = sys.argv[1:]
 	sys.stdout = AutoFlush(sys.stdout)
 	sys.stderr = AutoFlush(sys.stderr)
 	epilog = ['commands:', '']

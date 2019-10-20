@@ -24,7 +24,12 @@ setup(
 	name="Accelerator",
 	version="0.99",
 	packages=find_packages(),
-	scripts=['bd'],
+
+	entry_points={
+		'console_scripts': [
+			'bd = accelerator.shell:main',
+		],
+	},
 
 	install_requires=[
 		'gzutil>=2.10.5',
