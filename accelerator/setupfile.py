@@ -46,12 +46,12 @@ def load_setup(jobid):
 	You probably want to use extras.job_params instead.
 	"""
 	d = json_load('setup.json', jobid)
-	if 'version' in d:
+	if d['version'] == 1:
 		if '_typing' in d:
 			d['_typing'] = {d.method: d['_typing']}
 		d.params = {d.method: DotDict({k: d[k] for k in ('options', 'datasets', 'jobids')})}
 	else:
-		d.update(d.params[d.method])
+		raise Exception("Don't know how to load setup.json version %d" % (d['version'],))
 	return d
 
 def update_setup(jobid, **kw):
