@@ -1,6 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
+# Modifications copyright (c) 2019 Carl Drougge                            #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -16,38 +17,34 @@
 #                                                                          #
 ############################################################################
 
-from __future__ import division
 from __future__ import print_function
-from __future__ import absolute_import
+from __future__ import division
 
-description = r'''
-Take a chain of datasets and make a checksum of one or more columns.
-See dataset_checksum.description for more information.
+from accelerator.compat import PY3, unquote_plus
 
-datasets.source is mandatory, datasets.stop is optional.
-options.chain_length defaults to -1.
+if PY3:
+	from urllib.request import install_opener, build_opener, AbstractHTTPHandler
+	from http.client import HTTPConnection
+else:
+	from urllib2 import install_opener, build_opener, AbstractHTTPHandler
+	from httplib import HTTPConnection
 
-Sort does not sort across datasets.
-'''
+import socket
 
-from accelerator.subjobs import build
-from accelerator.extras import DotDict
-from accelerator import blob
+class UnixHTTPConnection(HTTPConnection):
+	def __init__(self, host, *a, **kw):
+		HTTPConnection.__init__(self, 'localhost', *a, **kw)
+		self.unix_path = unquote_plus(host.split(':', 1)[0])
 
-options = dict(
-	chain_length = -1,
-	columns      = set(),
-	sort         = True,
-)
+	def connect(self):
+		s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+		s.connect(self.unix_path)
+		self.sock = s
 
-datasets = ('source', 'stop',)
+class UnixHTTPHandler(AbstractHTTPHandler):
+	def unixhttp_open(self, req):
+		return self.do_open(UnixHTTPConnection, req)
 
-def synthesis():
-	sum = 0
-	jobs = datasets.source.chain(length=options.chain_length, stop_ds=datasets.stop)
-	for src in jobs:
-		jid = build('dataset_checksum', options=dict(columns=options.columns, sort=options.sort), datasets=dict(source=src))
-		data = blob.load(jobid=jid)
-		sum ^= data.sum
-	print("Total: %016x" % (sum,))
-	return DotDict(sum=sum, columns=data.columns, sort=options.sort, sources=jobs)
+	unixhttp_request = AbstractHTTPHandler.do_request_
+
+install_opener(build_opener(UnixHTTPHandler))

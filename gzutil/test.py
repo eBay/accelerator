@@ -26,7 +26,8 @@ from __future__ import division, print_function, unicode_literals
 from datetime import datetime, date, time
 from sys import version_info
 from itertools import compress
-import gzutil
+
+from accelerator import gzutil
 
 TMP_FN = "_tmp_test.gz"
 

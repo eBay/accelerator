@@ -1,6 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
+# Modifications copyright (c) 2018-2019 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -16,37 +17,38 @@
 #                                                                          #
 ############################################################################
 
-from accelerator import g
-from accelerator.automata_common import JobList
-from accelerator.status import status
+from __future__ import division
+from __future__ import print_function
+from __future__ import absolute_import
 
-_a = None
-_record = {}
+description = r'''
+Take a chain of datasets and make a checksum of one or more columns.
+See dataset_checksum.description for more information.
 
-jobs = JobList()
+datasets.source is mandatory, datasets.stop is optional.
+options.chain_length defaults to -1.
 
-def build(method, options={}, datasets={}, jobids={}, name=None, caption=None):
-	"""Just like urd.build, but for making subjobs"""
-	
-	global _a
-	assert g.running != 'analysis', "Analysis is not allowed to make subjobs"
-	assert g.subjob_cookie, "Can't build subjobs: out of cookies"
-	if not _a:
-		from accelerator.automata_common import Automata
-		_a = Automata(g.daemon_url, subjob_cookie=g.subjob_cookie)
-		_a.update_method_deps()
-		_a.record[None] = _a.jobs = jobs
-	def run():
-		return _a.call_method(method, options=options, datasets=datasets, jobids=jobids, record_as=name, caption=caption)
-	if name or caption:
-		msg = 'Building subjob %s' % (name or method,)
-		if caption:
-			msg += ' "%s"' % (caption,)
-		with status(msg):
-			jid = run()
-	else:
-		jid = run()
-	for d in _a.job_retur.jobs.values():
-		if d.link not in _record:
-			_record[d.link] = bool(d.make)
-	return jid
+Sort does not sort across datasets.
+'''
+
+from accelerator.subjobs import build
+from accelerator.extras import DotDict
+from accelerator import blob
+
+options = dict(
+	chain_length = -1,
+	columns      = set(),
+	sort         = True,
+)
+
+datasets = ('source', 'stop',)
+
+def synthesis():
+	sum = 0
+	jobs = datasets.source.chain(length=options.chain_length, stop_ds=datasets.stop)
+	for src in jobs:
+		jid = build('dataset_checksum', options=dict(columns=options.columns, sort=options.sort), datasets=dict(source=src))
+		data = blob.load(jobid=jid)
+		sum ^= data.sum
+	print("Total: %016x" % (sum,))
+	return DotDict(sum=sum, columns=data.columns, sort=options.sort, sources=jobs)
