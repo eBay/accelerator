@@ -28,10 +28,10 @@ from zipfile import ZipFile
 from io import BytesIO
 from gzip import GzipFile
 
-import subjobs
-from dataset import Dataset
-from extras import resolve_jobid_filename
-import g
+from accelerator import subjobs
+from accelerator.dataset import Dataset
+from accelerator.extras import resolve_jobid_filename
+from accelerator import g
 
 file_a = b'0\nfoo\n'
 list_a = [b'foo']

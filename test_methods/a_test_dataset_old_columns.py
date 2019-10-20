@@ -27,9 +27,9 @@ and type correctly.
 There's no writer for the old json type, so that's not tested.
 '''
 
-from dataset import Dataset, DatasetWriter
-from compat import uni, PY2, PY3
-import subjobs
+from accelerator.dataset import Dataset, DatasetWriter
+from accelerator.compat import uni, PY2, PY3
+from accelerator import subjobs
 
 raw_data = [
 	"this is not a number",

@@ -25,8 +25,8 @@ Test dataset_sort as a chain, across a chain and as a chain merging
 only two datasets of the original chain.
 '''
 
-import subjobs
-from dataset import Dataset, DatasetWriter
+from accelerator import subjobs
+from accelerator.dataset import Dataset, DatasetWriter
 
 def synthesis():
 	dw_a = DatasetWriter(name='a', columns={'num': 'int32'})

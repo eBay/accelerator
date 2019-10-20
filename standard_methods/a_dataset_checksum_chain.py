@@ -30,9 +30,9 @@ options.chain_length defaults to -1.
 Sort does not sort across datasets.
 '''
 
-from subjobs import build
-from extras import DotDict
-import blob
+from accelerator.subjobs import build
+from accelerator.extras import DotDict
+from accelerator import blob
 
 options = dict(
 	chain_length = -1,

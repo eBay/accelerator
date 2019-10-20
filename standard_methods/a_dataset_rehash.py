@@ -25,8 +25,8 @@ Rewrite a dataset (or chain to previous) with new hashlabel.
 
 from shutil import copyfileobj
 
-from extras import OptionString, job_params
-from dataset import DatasetWriter
+from accelerator.extras import OptionString, job_params
+from accelerator.dataset import DatasetWriter
 
 options = {
 	'hashlabel'                 : OptionString,

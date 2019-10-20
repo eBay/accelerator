@@ -24,7 +24,7 @@ from __future__ import unicode_literals
 
 from datetime import date, time, datetime
 
-from compat import first_value, num_types
+from accelerator.compat import first_value, num_types
 
 # Constraints on this data:
 #    Each tuple must be the same length.

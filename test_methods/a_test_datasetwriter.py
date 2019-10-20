@@ -27,7 +27,7 @@ pass and populate the dataset.
 
 from datetime import date
 
-from dataset import DatasetWriter
+from accelerator.dataset import DatasetWriter
 from . import test_data
 
 depend_extra=(test_data,)

@@ -24,8 +24,8 @@ description = r'''
 Verify that subjobs are allowed to nest (exactly) five levels.
 '''
 
-import subjobs
-from dispatch import JobError
+from accelerator import subjobs
+from accelerator.dispatch import JobError
 
 options = {'level': 0}
 

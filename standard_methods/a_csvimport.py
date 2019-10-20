@@ -45,12 +45,12 @@ from threading import Thread
 import struct
 import locale
 
-from extras import OptionString, DotDict
-from dataset import DatasetWriter
-from sourcedata import typed_reader
-from compat import setproctitle, uni
-import blob
-from report import Report
+from accelerator.extras import OptionString, DotDict
+from accelerator.dataset import DatasetWriter
+from accelerator.sourcedata import typed_reader
+from accelerator.compat import setproctitle, uni
+from accelerator import blob
+from accelerator.report import Report
 
 
 options = dict(

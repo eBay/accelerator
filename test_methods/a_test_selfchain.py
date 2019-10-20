@@ -26,8 +26,8 @@ Exercises DatasetWriter.finish and the chaining logic
 including callbacks with SkipJob.
 '''
 
-from dataset import DatasetWriter, SkipJob
-from extras import DotDict
+from accelerator.dataset import DatasetWriter, SkipJob
+from accelerator.extras import DotDict
 
 def prepare(params):
 	dws = {}

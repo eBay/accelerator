@@ -24,7 +24,7 @@ description = r'''
 Generate data for test_sorting.
 '''
 
-from dataset import DatasetWriter
+from accelerator.dataset import DatasetWriter
 from . import test_data
 
 depend_extra = (test_data,)

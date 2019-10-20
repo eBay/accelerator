@@ -27,11 +27,11 @@ Verify various corner cases in csvimport.
 from itertools import permutations
 from collections import Counter
 
-import subjobs
-from dispatch import JobError
-from extras import resolve_jobid_filename
-from dataset import Dataset
-from compat import PY3, uni
+from accelerator import subjobs
+from accelerator.dispatch import JobError
+from accelerator.extras import resolve_jobid_filename
+from accelerator.dataset import Dataset
+from accelerator.compat import PY3, uni
 
 def openx(filename):
 	return open(filename, "xb" if PY3 else "wbx")

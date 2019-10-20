@@ -26,10 +26,10 @@ description = r'''
 Test OptionEnum construction and enforcement.
 '''
 
-from extras import OptionEnum
-from compat import PY2
-import subjobs
-import blob
+from accelerator.extras import OptionEnum
+from accelerator.compat import PY2
+from accelerator import subjobs
+from accelerator import blob
 
 abcd = OptionEnum("a b c d", none_ok=True)
 efgh = OptionEnum(chr(n) for n in range(101, 105))

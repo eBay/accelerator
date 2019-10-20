@@ -25,7 +25,7 @@ Test writing a dataset in prepare, verifying that it is usable in
 analysis and synthesis with no manual .finish()
 '''
 
-from dataset import DatasetWriter, Dataset
+from accelerator.dataset import DatasetWriter, Dataset
 
 def prepare():
 	dw = DatasetWriter(columns={"data": "ascii"})

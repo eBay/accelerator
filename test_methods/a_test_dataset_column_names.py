@@ -24,7 +24,7 @@ description = r'''
 Test writing datasets with strange column names, and column names whose cleaned names collide.
 '''
 
-from dataset import DatasetWriter
+from accelerator.dataset import DatasetWriter
 
 def synthesis(params):
 	dw = DatasetWriter(name="parent")

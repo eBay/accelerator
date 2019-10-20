@@ -20,7 +20,7 @@ from __future__ import absolute_import
 
 description = r"""Make only some columns from a dataset visible"""
 
-from extras import RequiredOption
+from accelerator.extras import RequiredOption
 
 options = dict(
 	columns = RequiredOption(["colname1", "colname2", "..."]),

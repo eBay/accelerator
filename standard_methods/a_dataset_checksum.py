@@ -37,8 +37,9 @@ datasets. (So one GB per 20M lines or so.)
 
 from hashlib import md5
 from itertools import chain
-from extras import DotDict
-from compat import PY2
+
+from accelerator.extras import DotDict
+from accelerator.compat import PY2
 
 options = dict(
 	columns      = set(),

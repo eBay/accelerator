@@ -20,7 +20,7 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import unicode_literals
 
-from report import Report
+from accelerator.report import Report
 
 description = r'''
 Verify the Report class.

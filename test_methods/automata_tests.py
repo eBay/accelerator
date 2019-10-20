@@ -20,8 +20,8 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import unicode_literals
 
-from jobid import resolve_jobid_filename
-from dataset import Dataset
+from accelerator.jobid import resolve_jobid_filename
+from accelerator.dataset import Dataset
 
 def main(urd):
 	urd.build("test_report")

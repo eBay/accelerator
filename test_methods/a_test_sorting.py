@@ -28,8 +28,8 @@ from itertools import chain
 from math import isnan
 from functools import cmp_to_key
 
-from dataset import Dataset
-import subjobs
+from accelerator.dataset import Dataset
+from accelerator import subjobs
 from . import test_data
 
 # ideally the subjobs should be part of staleness detection, but currently

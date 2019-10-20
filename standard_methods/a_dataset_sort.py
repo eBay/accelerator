@@ -33,11 +33,11 @@ from functools import partial
 import datetime
 from math import isnan
 
-from compat import PY2, izip
+from accelerator.compat import PY2, izip
 
-from extras import OptionEnum, OptionString
-from dataset import Dataset, DatasetWriter
-from status import status
+from accelerator.extras import OptionEnum, OptionString
+from accelerator.dataset import Dataset, DatasetWriter
+from accelerator.status import status
 
 OrderEnum = OptionEnum('ascending descending')
 

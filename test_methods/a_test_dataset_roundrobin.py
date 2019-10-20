@@ -24,7 +24,7 @@ description = r'''
 Test sliceno="roundrobin" in dataset iteration.
 '''
 
-from dataset import DatasetWriter
+from accelerator.dataset import DatasetWriter
 
 def prepare(params):
 	assert params.slices >= 3

@@ -30,10 +30,10 @@ from random import randint
 import sys
 import os
 
-import subjobs
-from extras import resolve_jobid_filename
-from automata_common import Automata
-import g
+from accelerator import subjobs
+from accelerator.extras import resolve_jobid_filename
+from accelerator.automata_common import Automata
+from accelerator import g
 
 def test(params, p=False, a=False, s=False):
 	prefix = "A bit of text."

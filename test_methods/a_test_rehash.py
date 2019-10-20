@@ -24,10 +24,11 @@ description = r'''
 Verify the dataset_rehash method with various options.
 '''
 
-import subjobs
-from dataset import DatasetWriter, Dataset
-from gzwrite import typed_writer
 from datetime import date
+
+from accelerator import subjobs
+from accelerator.dataset import DatasetWriter, Dataset
+from accelerator.gzwrite import typed_writer
 
 data = [
 	{"a column": "text", "also a column": b"octets", "number": 10, "date": date(1978, 1, 1)},

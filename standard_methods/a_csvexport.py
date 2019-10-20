@@ -25,11 +25,12 @@ from os import unlink
 from contextlib import contextmanager
 from ujson import dumps
 
-from compat import PY3, PY2, izip, imap
+from accelerator.compat import PY3, PY2, izip, imap
 
-from extras import OptionString, job_params
+from accelerator.extras import OptionString, job_params
+from accelerator.status import status
+
 from gzutil import GzWriteUnicodeLines, GzWriteBytesLines
-from status import status
 
 options = dict(
 	filename          = OptionString, # .csv or .gz
@@ -44,10 +45,6 @@ options = dict(
 datasets = (['source'],) # normally just one, but you can specify several
 
 jobids = ('previous',)
-
-equivalent_hashes = {
-	'385c688228d277602cb5380c89fe25eb46b487d5': ('b57e7c870ff6a8f02ed7d719d295761ce15634f9',)
-}
 
 @contextmanager
 def mkwrite_gz(filename):

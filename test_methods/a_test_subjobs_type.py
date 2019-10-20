@@ -25,7 +25,7 @@ Type datasets.untyped the same as datasets.typed in a subjob, then verify
 (in another subjob) the the results are correct.
 '''
 
-import subjobs
+from accelerator import subjobs
 
 datasets=("typed", "untyped")
 

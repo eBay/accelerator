@@ -27,7 +27,7 @@ Also tests that the dataset cache is updated correctly
 on re-chaining.
 '''
 
-from dataset import Dataset, DatasetWriter
+from accelerator.dataset import Dataset, DatasetWriter
 
 jobids = ('selfchain',)
 

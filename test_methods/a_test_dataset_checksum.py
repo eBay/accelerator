@@ -24,9 +24,9 @@ description = r'''
 Test dataset_checksum[_chain].
 '''
 
-from dataset import DatasetWriter
-import subjobs
-import blob
+from accelerator.dataset import DatasetWriter
+from accelerator import subjobs
+from accelerator import blob
 
 test_data = [
 	(b"a", 0.42, 18, [1, 2, 3], u"a"),

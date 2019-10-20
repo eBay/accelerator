@@ -26,9 +26,9 @@ Then test that rehashing gives the expected result, and that using the
 wrong hashlabel without rehashing is not allowed.
 '''
 
-from dataset import DatasetWriter, Dataset
-from extras import DotDict
-from gzwrite import typed_writer
+from accelerator.dataset import DatasetWriter, Dataset
+from accelerator.extras import DotDict
+from accelerator.gzwrite import typed_writer
 
 all_data = list(zip(range(10000), reversed(range(10000))))
 

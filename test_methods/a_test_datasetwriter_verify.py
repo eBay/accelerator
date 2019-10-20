@@ -26,8 +26,8 @@ Verify that each slice contains the expected data after test_datasetwriter.
 
 from datetime import date
 
-from dataset import Dataset
-from gzwrite import typed_writer
+from accelerator.dataset import Dataset
+from accelerator.gzwrite import typed_writer
 from . import test_data
 
 depend_extra=(test_data,)

@@ -26,8 +26,8 @@ Test that dataset_sort sorts stably.
 Also tests DatasetWriter (again), and also DatasetWriter.finish()
 '''
 
-from dataset import Dataset, DatasetWriter
-import subjobs
+from accelerator.dataset import Dataset, DatasetWriter
+from accelerator import subjobs
 
 def prepare():
 	dw = DatasetWriter()

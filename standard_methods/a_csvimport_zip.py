@@ -65,12 +65,12 @@ from os import unlink
 from os.path import join
 import re
 
-from compat import uni
+from accelerator.compat import uni
 
 from . import a_csvimport
-from extras import DotDict, resolve_jobid_filename, OptionEnum
-import subjobs
-from dataset import Dataset
+from accelerator.extras import DotDict, resolve_jobid_filename, OptionEnum
+from accelerator import subjobs
+from accelerator.dataset import Dataset
 
 depend_extra = (a_csvimport,)
 

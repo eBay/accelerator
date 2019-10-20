@@ -25,11 +25,11 @@ Verify that various separators and line endings work in csvimport,
 with and without quoting.
 '''
 
-import subjobs
-from dispatch import JobError
-from extras import resolve_jobid_filename
-from dataset import Dataset
-from compat import open, uni
+from accelerator import subjobs
+from accelerator.dispatch import JobError
+from accelerator.extras import resolve_jobid_filename
+from accelerator.dataset import Dataset
+from accelerator.compat import open, uni
 
 # different types so verify_failure can tell them apart
 class CSVImportException(Exception):

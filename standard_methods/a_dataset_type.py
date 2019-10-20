@@ -25,14 +25,14 @@ from resource import getpagesize
 from os import unlink, symlink
 from mmap import mmap, PROT_READ
 
-from compat import NoneType, unicode, imap, iteritems, itervalues, PY2
+from accelerator.compat import NoneType, unicode, imap, iteritems, itervalues, PY2
 
-from extras import OptionEnum, json_save, DotDict
-from gzwrite import typed_writer
-from dataset import DatasetWriter
-from report import report
+from accelerator.extras import OptionEnum, json_save, DotDict
+from accelerator.gzwrite import typed_writer
+from accelerator.dataset import DatasetWriter
+from accelerator.report import report
+from accelerator.sourcedata import type2iter
 from . import dataset_typing
-from sourcedata import type2iter
 
 depend_extra = (dataset_typing,)
 
@@ -63,10 +63,6 @@ options = {
 }
 
 datasets = ('source', 'previous',)
-
-equivalent_hashes = {
-	'0aa5f862a30c10bd5a45fa45827da95be03c0fee': ('91105dcfc1d399ac33d50ee1ab8197d675dbf3af', '9ec658f76813db0afba412297ae3277a0a3edfb3', '9bc49140b0c16dfd88e5c312d2a3225787c937f0', '56ee025d30cce4cc7a7bffd8bfde09702cec1aa6', '10065d3baeb571890001fd90a38d5ae06b162d0d', 'f9667a4809ae8f5140c7b7887966403849e32cad', '41ebc06a7e99e1e67b95ab6b798930aaf76e61a8', '9aa96e43fe4cb1bb5c0733290d2942ea123cf652',)
-}
 
 byteslike_types = ('bytes', 'ascii', 'unicode',)
 

@@ -30,12 +30,12 @@ from math import isnan
 import json
 import sys
 
-import subjobs
-from dispatch import JobError
-from dataset import Dataset, DatasetWriter
-from compat import PY3
-from standard_methods import dataset_typing
-import g
+from accelerator import subjobs
+from accelerator.dispatch import JobError
+from accelerator.dataset import Dataset, DatasetWriter
+from accelerator.compat import PY3
+from accelerator.standard_methods import dataset_typing
+from accelerator import g
 
 depend_extra = (dataset_typing,)
 
