@@ -25,7 +25,7 @@ from os import getcwd, chdir
 from os.path import dirname, realpath, join
 from locale import resetlocale
 from glob import glob
-from argparse import ArgumentParser
+from argparse import ArgumentParser, RawDescriptionHelpFormatter
 
 cfg = None
 
@@ -120,18 +120,22 @@ def setup(config_fn=None, debug_cmd=False):
 def cmd_dsgrep(argv):
 	from accelerator.dsgrep import main
 	return main(argv, ' [global options] dsgrep')
+cmd_dsgrep.help = '''Search for a pattern in one or more datasets'''
 
 def cmd_dsinfo(argv):
 	from accelerator.dsinfo import main
 	return main(argv)
+cmd_dsinfo.help = '''Display information about datasets'''
 
 def cmd_run(argv):
 	from accelerator.automatarunner import main
 	return main(argv)
+cmd_run.help = '''Run an automata script'''
 
 def cmd_daemon(argv):
 	from accelerator.daemon import main
 	main(argv, cfg)
+cmd_daemon.help = '''Run the main daemon'''
 
 DEBUG_COMMANDS = {'dsgrep', 'dsinfo',}
 
@@ -153,7 +157,7 @@ class HelpFixArgumentParser(ArgumentParser):
 
 	def error(self, message):
 		if '--help' in self.__argv or '-h' in self.__argv:
-			self.print_usage()
+			self.print_help()
 			self.exit(0)
 		ArgumentParser.error(self, message)
 
@@ -161,12 +165,27 @@ def cmd(argv):
 	from accelerator.autoflush import AutoFlush
 	sys.stdout = AutoFlush(sys.stdout)
 	sys.stderr = AutoFlush(sys.stderr)
-	parser = HelpFixArgumentParser(argv, add_help=False)
+	epilog = ['commands:', '']
+	cmdlen = max(len(cmd) for cmd in COMMANDS)
+	template = '  %%%ds  %%s' % (cmdlen,)
+	for cmd, func in sorted(COMMANDS.items()):
+		epilog.append(template % (cmd, func.help,))
+	epilog.append('')
+	epilog.append('Use %(prog)s <command> --help for <command> usage.')
+	parser = HelpFixArgumentParser(
+		argv,
+		add_help=False,
+		epilog='\n'.join(epilog),
+		formatter_class=RawDescriptionHelpFormatter,
+	)
 	parser.add_argument('--config', metavar='CONFIG_FILE', help='Configuration file')
 	parser.add_argument('command')
 	args, argv = parser.parse_known_args(argv)
 	if args.command not in COMMANDS:
+		parser.print_help(file=sys.stderr)
+		print(file=sys.stderr)
 		print('Unknown command "%s"' % (args.command,), file=sys.stderr)
+		sys.exit(2)
 	try:
 		setup(args.config, debug_cmd=args.command in DEBUG_COMMANDS)
 	except UserError as e:
