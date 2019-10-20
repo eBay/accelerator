@@ -92,17 +92,16 @@ def unpath(path):
 	while path in sys.path:
 		sys.path.pop(sys.path.index(path))
 
-def setup(config_fn=None, all_cfgs=False):
+def setup(config_fn=None, debug_cmd=False):
 	resetlocale()
 	# Make sure the accelerator dir in not in sys.path
 	# (as it might be if running without installing.)
 	unpath(dirname(__file__))
 	if config_fn:
-		assert not all_cfgs, "Don't specify both a config_fn and all_cfgs."
 		load_cfg(config_fn)
 	else:
-		load_some_cfg(all=all_cfgs)
-	if not all_cfgs:
+		load_some_cfg(all=debug_cmd)
+	if not debug_cmd:
 		# We want the project directory to be first in sys.path.
 		unpath(cfg['project_directory'])
 		sys.path.insert(0, cfg['project_directory'])
@@ -114,6 +113,10 @@ def cmd_dsgrep(args, argv):
 	from accelerator.dsgrep import main
 	return main(argv, ' [global options] dsgrep')
 
+def cmd_dsinfo(args, argv):
+	from accelerator.dsinfo import main
+	return main(argv)
+
 def cmd_run(args, argv):
 	from accelerator.automatarunner import main
 	return main(argv)
@@ -123,10 +126,11 @@ def cmd_daemon(args, argv):
 	options = parse_args(argv, False)
 	main(options, cfg)
 
-ALL_CFGS_COMMANDS = {'dsgrep'}
+DEBUG_COMMANDS = {'dsgrep', 'dsinfo',}
 
 COMMANDS = dict(
 	dsgrep=cmd_dsgrep,
+	dsinfo=cmd_dsinfo,
 	run=cmd_run,
 	daemon=cmd_daemon,
 )
@@ -142,7 +146,7 @@ def cmd(argv):
 	if args.command not in COMMANDS:
 		print('Unknown command "%s"' % (args.command,), file=sys.stderr)
 	try:
-		setup(args.config, all_cfgs=args.command in ALL_CFGS_COMMANDS)
+		setup(args.config, debug_cmd=args.command in DEBUG_COMMANDS)
 	except UserError as e:
 		print(e, file=sys.stderr)
 		return 1

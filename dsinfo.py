@@ -27,32 +27,34 @@ import sys
 
 from accelerator import dscmdhelper
 
-dscmdhelper.init()
+def main(argv):
+	for n in argv:
+		ds = dscmdhelper.name2ds(n)
+		print("Parent:", ds.parent)
+		print("Hashlabel:", ds.hashlabel)
+		print("Columns:")
+		# there's a better way to do this, right?
+		len_n = len_t = 0
+		for n, c in ds.columns.items():
+			len_n = max(len_n, len(n))
+			len_t = max(len_t, len(c.type))
+		template = "  {3} {0:%d} {4} {1:%d}  {2}" % (len_n, len_t,)
+		for n, c in ds.columns.items():
+			if c.backing_type != c.type:
+				backing_type = c.backing_type
+			else:
+				backing_type = ""
+			if n == ds.hashlabel:
+				print(template.format(n, c.type, backing_type, "\x1b[1m*", "\x1b[m"))
+			else:
+				print(template.format(n, c.type, backing_type, " ", ""))
+		print("{0:n} columns".format(len(ds.columns)))
+		print("{0:n} lines".format(sum(ds.lines)))
+		if ds.previous:
+			chain = ds.chain()
+			print("Chain length {0:n}, from {1} to {2}".format(len(chain), chain[0], chain[-1]))
+			print("{0:n} total lines".format(sum(sum(ds.lines) for ds in chain)))
 
-# for every name argument
-for n in sys.argv[1:]:
-	ds = dscmdhelper.name2ds(n)
-	print("Parent:", ds.parent)
-	print("Hashlabel:", ds.hashlabel)
-	print("Columns:")
-	# there's a better way to do this, right?
-	len_n = len_t = 0
-	for n, c in ds.columns.items():
-		len_n = max(len_n, len(n))
-		len_t = max(len_t, len(c.type))
-	template = "  {3} {0:%d} {4} {1:%d}  {2}" % (len_n, len_t,)
-	for n, c in ds.columns.items():
-		if c.backing_type != c.type:
-			backing_type = c.backing_type
-		else:
-			backing_type = ""
-		if n == ds.hashlabel:
-			print(template.format(n, c.type, backing_type, "\x1b[1m*", "\x1b[m"))
-		else:
-			print(template.format(n, c.type, backing_type, " ", ""))
-	print("{0:n} columns".format(len(ds.columns)))
-	print("{0:n} lines".format(sum(ds.lines)))
-	if ds.previous:
-		chain = ds.chain()
-		print("Chain length {0:n}, from {1} to {2}".format(len(chain), chain[0], chain[-1]))
-		print("{0:n} total lines".format(sum(sum(ds.lines) for ds in chain)))
+if __name__ == '__main__':
+	dscmdhelper.init()
+	main(sys.argv[1:])
