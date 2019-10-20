@@ -21,7 +21,7 @@
 from __future__ import print_function
 from __future__ import division
 
-from optparse import OptionParser
+from argparse import ArgumentParser
 import sys
 from importlib import import_module
 from os.path import realpath
@@ -38,8 +38,6 @@ def find_automata(a, package, script):
 		package = [package]
 	else:
 		package = sorted(a.config()['method_directories'])
-	if not script:
-		script = 'automata'
 	if not script.startswith('automata'):
 		script = 'automata_' + script
 	for p in package:
@@ -65,7 +63,7 @@ def run_automata(options):
 		assert not options.hostname, "Specify either socket or port (with optional hostname)"
 		url = 'unixhttp://' + quote_plus(realpath(options.socket or './socket.dir/default'))
 
-	a = automata_common.Automata(url, verbose=options.verbose, flags=options.flags.split(','), infoprints=True, print_full_jobpath=options.print_full_jobpath)
+	a = automata_common.Automata(url, verbose=options.verbose, flags=options.flags.split(','), infoprints=True, print_full_jobpath=options.fullpath)
 
 	if options.abort:
 		a.abort()
@@ -97,27 +95,26 @@ def run_automata(options):
 
 
 def main(argv):
-	parser = OptionParser(usage="Usage: run [options] [script]")
-	parser.add_option('-p', '--port',     dest="port",     default=None,        help="framework listening port", )
-	parser.add_option('-H', '--hostname', dest="hostname", default=None,        help="framework hostname", )
-	parser.add_option('-S', '--socket',   dest="socket",   default=None,        help="framework unix socket (default ./socket.dir/default)", )
-	parser.add_option('-s', '--script',   dest="script",   default=None      ,  help="automata script to run. package/[automata_]script.py. default \"automata\". Can be bare arg too.",)
-	parser.add_option('-P', '--package',  dest="package",  default=None      ,  help="package where to look for script, default all method directories in alphabetical order", )
-	parser.add_option('-f', '--flags',    dest="flags",    default='',          help="comma separated list of flags", )
-	parser.add_option('-A', '--abort',    dest="abort",    action='store_true', help="abort (fail) currently running job(s)", )
-	parser.add_option('-q', '--quick',    dest="quick",    action='store_true', help="skip method updates and checking workdirs for new jobs", )
-	parser.add_option('-w', '--just_wait',dest="just_wait",action='store_true', help="just wait for running job, don't run any automata", )
-	parser.add_option('-F', '--fullpath', dest="print_full_jobpath", action='store_true', help="print full path to jobdirs")
-	parser.add_option('--verbose',        dest="verbose",  default='status',    help="verbosity style {no, status, dots, log}")
-	parser.add_option('--quiet',          dest="quiet",    action='store_true', help="same as --verbose=no")
-	parser.add_option('--horizon',        dest="horizon",  default=None,        help="Time horizon - dates after this are not visible in urd.latest")
+	parser = ArgumentParser(usage="run [options] [script]")
+	parser.add_argument('-p', '--port',     default=None,        help="framework listening port", )
+	parser.add_argument('-H', '--hostname', default=None,        help="framework hostname", )
+	parser.add_argument('-S', '--socket',   default=None,        help="framework unix socket (default ./socket.dir/default)", )
+	parser.add_argument('-f', '--flags',    default='',          help="comma separated list of flags", )
+	parser.add_argument('-A', '--abort',    action='store_true', help="abort (fail) currently running job(s)", )
+	parser.add_argument('-q', '--quick',    action='store_true', help="skip method updates and checking workdirs for new jobs", )
+	parser.add_argument('-w', '--just_wait',action='store_true', help="just wait for running job, don't run any automata", )
+	parser.add_argument('-F', '--fullpath', action='store_true', help="print full path to jobdirs")
+	parser.add_argument('--verbose',        default='status',    help="verbosity style {no, status, dots, log}")
+	parser.add_argument('--quiet',          action='store_true', help="same as --verbose=no")
+	parser.add_argument('--horizon',        default=None,        help="time horizon - dates after this are not visible in urd.latest")
+	parser.add_argument('script',           default='automata',  help="automata script to run. default \"automata\". searches under all method directories in alphabetical order if it does not contain a dot. prefixes automata_ to last element unless specified.", nargs='?')
 
-	options, args = parser.parse_args(argv)
-	if len(args) == 1:
-		assert options.script is None, "Don't specify both --script and a bare script name."
-		options.script = args[0]
+	options = parser.parse_args(argv)
+
+	if '.' in options.script:
+		options.package, options.script = options.script.rsplit('.', 1)
 	else:
-		assert not args, "Don't know what to do with args %r" % (args,)
+		options.package = None
 
 	options.verbose = {'no': False, 'status': True, 'dots': 'dots', 'log': 'log'}[options.verbose]
 	if options.quiet: options.verbose = False
