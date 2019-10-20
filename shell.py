@@ -100,13 +100,26 @@ def setup(config_fn=None, all_cfgs=False):
 	else:
 		load_some_cfg(all=all_cfgs)
 
+def cmd_dsgrep(args, argv):
+	from accelerator.dsgrep import main
+	return main(argv, ' dsgrep')
+
+ALL_CFGS_COMMANDS = {'dsgrep'}
+
+COMMANDS = dict(
+	dsgrep=cmd_dsgrep,
+)
+
 def cmd(argv):
-	ap = ArgumentParser()
+	ap = ArgumentParser(add_help=False)
 	ap.add_argument('--config', metavar='CONFIG_FILE', help='Configuration file')
-	args = ap.parse_args(argv)
+	ap.add_argument('command')
+	args, argv = ap.parse_known_args(argv)
+	if args.command not in COMMANDS:
+		print('Unknown command "%s"' % (args.command,), file=sys.stderr)
 	try:
-		setup(args.config)
+		setup(args.config, all_cfgs=args.command in ALL_CFGS_COMMANDS)
 	except UserError as e:
 		print(e, file=sys.stderr)
 		return 1
-	return 0
+	return COMMANDS[args.command](args, argv)
