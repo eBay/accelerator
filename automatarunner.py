@@ -125,7 +125,15 @@ def main(argv):
 	options.verbose = {'no': False, 'status': True, 'dots': 'dots', 'log': 'log'}[options.verbose]
 	if options.quiet: options.verbose = False
 
-	run_automata(options)
+	try:
+		run_automata(options)
+		return 0
+	except JobError:
+		# If it's a JobError we don't care about the local traceback,
+		# we want to see the job traceback, and maybe know what line
+		# we built the job on.
+		print_minimal_traceback()
+	return 1
 
 
 def print_minimal_traceback():
@@ -151,13 +159,4 @@ if __name__ == "__main__":
 	sys.path.insert(1, dirname(sys.path[0]))
 	sys.stdout = AutoFlush(sys.stdout)
 	sys.stderr = AutoFlush(sys.stderr)
-	res = 1
-	try:
-		main(sys.argv[1:])
-		res = 0
-	except JobError:
-		# If it's a JobError we don't care about the local traceback,
-		# we want to see the job traceback, and maybe know what line
-		# we built the job on.
-		print_minimal_traceback()
-	exit(res)
+	exit(main(sys.argv[1:]))

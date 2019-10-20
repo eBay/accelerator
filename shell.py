@@ -104,10 +104,15 @@ def cmd_dsgrep(args, argv):
 	from accelerator.dsgrep import main
 	return main(argv, ' [global options] dsgrep')
 
+def cmd_run(args, argv):
+	from accelerator.automatarunner import main
+	return main(argv)
+
 ALL_CFGS_COMMANDS = {'dsgrep'}
 
 COMMANDS = dict(
 	dsgrep=cmd_dsgrep,
+	run=cmd_run,
 )
 
 def cmd(argv):
