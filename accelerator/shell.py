@@ -142,11 +142,26 @@ COMMANDS = dict(
 	daemon=cmd_daemon,
 )
 
+class HelpFixArgumentParser(ArgumentParser):
+	'''We don't want this argument parser to eat --help for our
+	sub commands, but we do want it to take help when no command
+	is specified'''
+
+	def __init__(self, argv, **kw):
+		self.__argv = argv
+		ArgumentParser.__init__(self, **kw)
+
+	def error(self, message):
+		if '--help' in self.__argv or '-h' in self.__argv:
+			self.print_usage()
+			self.exit(0)
+		ArgumentParser.error(self, message)
+
 def cmd(argv):
 	from accelerator.autoflush import AutoFlush
 	sys.stdout = AutoFlush(sys.stdout)
 	sys.stderr = AutoFlush(sys.stderr)
-	parser = ArgumentParser(add_help=False)
+	parser = HelpFixArgumentParser(argv, add_help=False)
 	parser.add_argument('--config', metavar='CONFIG_FILE', help='Configuration file')
 	parser.add_argument('command')
 	args, argv = parser.parse_known_args(argv)
