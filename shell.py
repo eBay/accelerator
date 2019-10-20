@@ -31,15 +31,23 @@ cfg = None
 class UserError(Exception):
 	pass
 
-def find_cfgs(basedir='.'):
+def find_cfgs(basedir='.', wildcard=False):
+	"""Find all accelerator.conf (or accelerator*.conf if wildcard=True)
+	starting at basedir and continuing all the way to /, yielding them
+	from the deepest directory first, starting with accelerator.conf (if
+	present) and then the rest in sorted order."""
+
 	cfgname = 'accelerator.conf'
-	pattern = 'accelerator*.conf'
+	if wildcard:
+		pattern = 'accelerator*.conf'
+	else:
+		pattern = cfgname
 	orgdir = getcwd()
 	basedir = realpath(basedir)
 	while basedir != '/':
 		try:
 			chdir(basedir)
-			fns = glob(pattern)
+			fns = sorted(glob(pattern))
 		finally:
 			chdir(orgdir)
 		if cfgname in fns:
