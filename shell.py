@@ -108,11 +108,17 @@ def cmd_run(args, argv):
 	from accelerator.automatarunner import main
 	return main(argv)
 
+def cmd_daemon(args, argv):
+	from accelerator.daemon import parse_args, main
+	options = parse_args(argv, False)
+	main(options, cfg)
+
 ALL_CFGS_COMMANDS = {'dsgrep'}
 
 COMMANDS = dict(
 	dsgrep=cmd_dsgrep,
 	run=cmd_run,
+	daemon=cmd_daemon,
 )
 
 def cmd(argv):

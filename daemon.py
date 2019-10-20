@@ -248,10 +248,15 @@ class XtdHandler(BaseWebHandler):
 			return
 
 
-def parse_args(argv):
-	parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+def parse_args(argv, stand_alone=True):
+	kw = {}
+	if not stand_alone:
+		name = os.path.basename(sys.argv[0])
+		kw['prog'] = "%s [global options] daemon" % (name,)
+	parser = argparse.ArgumentParser(**kw)
 	parser.add_argument('--debug', action='store_true')
-	parser.add_argument('--config', default='../conf/framework.conf', metavar='CONFIG_FILE', help='Configuration file')
+	if stand_alone:
+		parser.add_argument('--config', default='../conf/framework.conf', metavar='CONFIG_FILE', help='Configuration file')
 	group = parser.add_mutually_exclusive_group()
 	group.add_argument('--port', type=int, help='Listen on tcp port')
 	group.add_argument('--socket', help='Listen on unix socket', default='socket.dir/default')
@@ -291,7 +296,7 @@ def check_socket(fn):
 def siginfo(sig, frame):
 	print_status_stacks()
 
-def main(options):
+def main(options, config):
 
 	# all forks belong to the same happy family
 	try:
@@ -307,9 +312,7 @@ def main(options):
 	r1 = min(r1, r2, 1024)
 	resource.setrlimit(resource.RLIMIT_NOFILE, (r1, r2))
 
-	CONFIG = configfile.get_config(options.config, verbose=False)
-
-	iowrapper.main(CONFIG['logfilename'])
+	iowrapper.main(config['logfilename'])
 
 	# setup statmsg sink and tell address using ENV
 	statmsg_rd, statmsg_wr = socket.socketpair(socket.AF_UNIX, socket.SOCK_DGRAM)
@@ -348,7 +351,7 @@ def main(options):
 		os.umask(u)
 		daemon_url = configfile.resolve_socket_url(options.socket)
 
-	ctrl = control.Main(options, daemon_url)
+	ctrl = control.Main(config, options, daemon_url)
 	print()
 	ctrl.print_workspaces()
 	print()
@@ -357,7 +360,7 @@ def main(options):
 	job_tracking[None].workdir = ctrl.target_workdir
 
 	for n in ("result_directory", "source_directory", "urd"):
-		print("%16s: %s" % (n.replace("_", " "), CONFIG.get(n),))
+		print("%16s: %s" % (n.replace("_", " "), config.get(n),))
 	print()
 
 	if options.port:
@@ -373,4 +376,5 @@ if __name__ == "__main__":
 	# sys.path needs to contain .. (the project dir), put it after accelerator
 	sys.path.insert(1, os.path.dirname(sys.path[0]))
 	options = parse_args(sys.argv[1:])
-	main(options)
+	config = configfile.get_config(options.config, verbose=False)
+	main(options, config)

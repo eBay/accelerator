@@ -42,7 +42,7 @@ METHODS_CONFIGFILENAME = 'methods.conf'
 class Main:
 	""" This is the main controller behind the daemon. """
 
-	def __init__(self, options, daemon_url):
+	def __init__(self, config, options, daemon_url):
 		"""
 		Setup objects:
 
@@ -51,7 +51,7 @@ class Main:
 		  WorkSpaces
 
 		"""
-		self.config = configfile.get_config(options.config, verbose=False)
+		self.config = config
 		self.debug = options.debug
 		self.daemon_url = daemon_url
 		# check config file
