@@ -67,8 +67,12 @@ def load_some_cfg(basedir='.', all=False):
 		found_any = False
 		# Start at the root, so closer cfgs override those further away.
 		for fn in reversed(list(cfgs)):
-			found_any = True
-			load_cfg(fn)
+			try:
+				load_cfg(fn)
+				found_any = True
+			except Exception:
+				# As long as we find at least one we're happy.
+				pass
 		if not found_any:
 			raise UserError("Could not find 'accelerator*.conf' in %r or any of its parents." % (basedir,))
 	else:
@@ -85,7 +89,11 @@ def load_cfg(fn):
 	from accelerator.jobid import WORKSPACES
 
 	cfg = get_config(fn, False)
-	WORKSPACES.update((k, v[0]) for k, v in cfg['workdir'].items())
+	for k, v in cfg['workdir'].items():
+		v = v[0]
+		if WORKSPACES.get(k, v) != v:
+			print("WARNING: %s overrides workspace %s" % (fn, k,), file=sys.stderr)
+		WORKSPACES[k] = v
 	return cfg
 
 def unpath(path):
