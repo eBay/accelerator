@@ -1,8 +1,9 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/env python
 
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
+# Modifications copyright (c) 2018-2019 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -19,6 +20,9 @@
 ############################################################################
 
 from __future__ import unicode_literals
+from __future__ import print_function
+from __future__ import division
+
 from glob import glob
 from collections import defaultdict
 from bottle import route, request, auth_basic, abort
@@ -28,6 +32,8 @@ import json
 import re
 from datetime import datetime
 import operator
+
+from accelerator.compat import iteritems, itervalues, unicode
 
 LOGFILEVERSION = '3'
 
@@ -83,9 +89,9 @@ class DB:
 			print("urd-list                          lines     ghosts     active")
 			for key, val in sorted(stat.items()):
 				print("%-30s  %7d    %7d    %7d" % (key, val, len(self.ghost_db[key]), len(self.db[key]),))
-			print
+			print()
 		else:
-			print "Creating directory \"%s\"." % (path,)
+			print("Creating directory \"%s\"." % (path,))
 			os.makedirs(path)
 		self._lasttime = None
 		self._initialised = True
@@ -98,7 +104,7 @@ class DB:
 		self._parsed[writets] = line[2:]
 
 	def _playback_parsed(self):
-		for _writets, line in sorted(self._parsed.iteritems()):
+		for _writets, line in sorted(iteritems(self._parsed)):
 			action = line.pop(0)
 			assert action in ('add', 'truncate',)
 			if action == 'add':
@@ -135,7 +141,7 @@ class DB:
 			assert isinstance(data.user, unicode)
 			assert isinstance(data.automata, unicode)
 			assert isinstance(data.deps, dict)
-			for v in data.deps.itervalues():
+			for v in itervalues(data.deps):
 				assert isinstance(v, dict)
 				self._validate_data(DotDict(v), False)
 		else:
@@ -170,12 +176,12 @@ class DB:
 		return s
 
 	def _is_ghost(self, data):
-		for key, data in data.deps.iteritems():
+		for key, data in iteritems(data.deps):
 			db = self.db[key]
 			ts = data['timestamp']
 			if ts not in db:
 				return True
-			for k, v in data.iteritems():
+			for k, v in iteritems(data):
 				if db[ts].get(k) != v:
 					return True
 		return False
@@ -228,7 +234,7 @@ class DB:
 	def _update_ghosts(self):
 		def inner():
 			count = 0
-			for key, db in self.db.iteritems():
+			for key, db in iteritems(self.db):
 				for ts, data in sorted(db.items()):
 					if self._is_ghost(data):
 						count += 1
@@ -248,7 +254,7 @@ class DB:
 		old = self.db[key]
 		new = {}
 		ghost = {}
-		for ts, data in old.iteritems():
+		for ts, data in iteritems(old):
 			if ts < timestamp:
 				new[ts] = data
 			else:
@@ -256,7 +262,7 @@ class DB:
 		self.log('truncate', DotDict(key=key, timestamp=timestamp))
 		self.db[key] = new
 		ghost_db = self.ghost_db[key]
-		for ts, data in ghost.iteritems():
+		for ts, data in iteritems(ghost):
 			ghost_db[ts].append(data)
 		if ghost:
 			deps = self._update_ghosts()
@@ -405,9 +411,9 @@ if __name__ == "__main__":
 	parser.add_argument('--port', type=int, default=8080, help='server port')
 	parser.add_argument('--path', type=str, default='./', help='database directory')
 	args = parser.parse_args()
-	print '-'*79
-	print args
-	print
+	print('-'*79)
+	print(args)
+	print()
 	authdict = readauth(os.path.join(args.path, 'passwd'))
 	db = DB(os.path.join(args.path, 'database'))
 
