@@ -21,7 +21,7 @@
 from __future__ import print_function
 from __future__ import division
 
-from argparse import ArgumentParser
+from argparse import ArgumentParser, RawTextHelpFormatter
 import sys
 from importlib import import_module
 from os.path import realpath
@@ -34,10 +34,19 @@ from accelerator.dispatch import JobError
 
 
 def find_automata(a, package, script):
+	all_packages = sorted(a.config()['method_directories'])
 	if package:
-		package = [package]
+		if package in all_packages:
+			package = [package]
+		else:
+			for cand in all_packages:
+				if cand.endswith('.' + package):
+					package = [cand]
+					break
+			else:
+				raise Exception('No method directory found for %r in %r' % (package, all_packages))
 	else:
-		package = sorted(a.config()['method_directories'])
+		package = all_packages
 	if not script.startswith('automata'):
 		script = 'automata_' + script
 	for p in package:
@@ -95,7 +104,10 @@ def run_automata(options):
 
 
 def main(argv):
-	parser = ArgumentParser(usage="run [options] [script]")
+	parser = ArgumentParser(
+		usage="run [options] [script]",
+		formatter_class=RawTextHelpFormatter,
+	)
 	parser.add_argument('-p', '--port',     default=None,        help="framework listening port", )
 	parser.add_argument('-H', '--hostname', default=None,        help="framework hostname", )
 	parser.add_argument('-S', '--socket',   default=None,        help="framework unix socket (default ./socket.dir/default)", )
@@ -106,8 +118,8 @@ def main(argv):
 	parser.add_argument('-F', '--fullpath', action='store_true', help="print full path to jobdirs")
 	parser.add_argument('--verbose',        default='status',    help="verbosity style {no, status, dots, log}")
 	parser.add_argument('--quiet',          action='store_true', help="same as --verbose=no")
-	parser.add_argument('--horizon',        default=None,        help="time horizon - dates after this are not visible in urd.latest")
-	parser.add_argument('script',           default='automata',  help="automata script to run. default \"automata\". searches under all method directories in alphabetical order if it does not contain a dot. prefixes automata_ to last element unless specified.", nargs='?')
+	parser.add_argument('--horizon',        default=None,        help="time horizon - dates after this are not visible in\nurd.latest")
+	parser.add_argument('script',           default='automata',  help="automata script to run. default \"automata\".\nsearches under all method directories in alphabetical\norder if it does not contain a dot.\nprefixes automata_ to last element unless specified.\npackage name suffixes are ok.\nso for example \"test_methods.tests\" expands to\n\"accelerator.test_methods.automata_tests\".", nargs='?')
 
 	options = parser.parse_args(argv)
 
