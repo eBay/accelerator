@@ -25,6 +25,7 @@ from os import getcwd, chdir
 from os.path import dirname, realpath, join
 from locale import resetlocale
 from glob import glob
+from argparse import ArgumentParser
 
 cfg = None
 
@@ -57,33 +58,54 @@ def find_cfgs(basedir='.', wildcard=False):
 			yield join(basedir, fn)
 		basedir = dirname(basedir)
 
-def load_cfg(basedir='.'):
+def load_some_cfg(basedir='.', all=False):
+	global cfg
+
+	basedir = realpath(basedir)
+	cfgs = find_cfgs(basedir, wildcard=all)
+	if all:
+		found_any = False
+		# Start at the root, so closer cfgs override those further away.
+		for fn in reversed(list(cfgs)):
+			found_any = True
+			load_cfg(fn)
+		if not found_any:
+			raise UserError("Could not find 'accelerator*.conf' in %r or any of its parents." % (basedir,))
+	else:
+		try:
+			fn = next(cfgs)
+		except StopIteration:
+			raise UserError("Could not find 'accelerator.conf' in %r or any of its parents." % (basedir,))
+		load_cfg(fn)
+
+def load_cfg(fn):
 	global cfg
 
 	from configfile import get_config
 	from jobid import WORKSPACES
 
-	basedir = realpath(basedir)
-	try:
-		fn = next(find_cfgs(basedir))
-	except StopIteration:
-		raise UserError("Could not find 'accelerator.conf' in %r or any of its parents." % (basedir,))
-
 	cfg = get_config(fn, False)
 	WORKSPACES.update((k, v[0]) for k, v in cfg['workdir'].items())
 	return cfg
 
-def setup():
+def setup(config_fn=None, all_cfgs=False):
 	resetlocale()
 	accdir = dirname(__file__)
 	while accdir in sys.path:
 		sys.path.pop(sys.path.index(accdir))
 	sys.path.insert(0, accdir)
-	load_cfg('.')
+	if config_fn:
+		assert not all_cfgs, "Don't specify both a config_fn and all_cfgs."
+		load_cfg(config_fn)
+	else:
+		load_some_cfg(all=all_cfgs)
 
 def cmd(argv):
+	ap = ArgumentParser()
+	ap.add_argument('--config', metavar='CONFIG_FILE', help='Configuration file')
+	args = ap.parse_args(argv)
 	try:
-		setup()
+		setup(args.config)
 	except UserError as e:
 		print(e, file=sys.stderr)
 		return 1

@@ -3,4 +3,4 @@
 from accelerator import shell
 import sys
 
-sys.exit(shell.cmd(sys.argv))
+sys.exit(shell.cmd(sys.argv[1:]))
