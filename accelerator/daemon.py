@@ -248,10 +248,8 @@ class XtdHandler(BaseWebHandler):
 
 
 def parse_args(argv):
-	name = os.path.basename(sys.argv[0])
-	prog = "%s [global options] daemon" % (name,)
 	parser = argparse.ArgumentParser(
-		prog=prog,
+		prog="daemon",
 		formatter_class=argparse.ArgumentDefaultsHelpFormatter,
 	)
 	parser.add_argument('--debug', action='store_true')

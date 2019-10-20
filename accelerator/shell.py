@@ -119,7 +119,7 @@ def setup(config_fn=None, debug_cmd=False):
 
 def cmd_dsgrep(argv):
 	from accelerator.dsgrep import main
-	return main(argv, ' [global options] dsgrep')
+	return main(argv)
 cmd_dsgrep.help = '''Search for a pattern in one or more datasets'''
 
 def cmd_dsinfo(argv):

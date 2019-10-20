@@ -97,7 +97,7 @@ def run_automata(options):
 
 
 def main(argv):
-	parser = OptionParser(usage="Usage: %prog [options] [script]")
+	parser = OptionParser(usage="Usage: run [options] [script]")
 	parser.add_option('-p', '--port',     dest="port",     default=None,        help="framework listening port", )
 	parser.add_option('-H', '--hostname', dest="hostname", default=None,        help="framework hostname", )
 	parser.add_option('-S', '--socket',   dest="socket",   default=None,        help="framework unix socket (default ./socket.dir/default)", )

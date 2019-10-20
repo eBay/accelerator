@@ -32,8 +32,8 @@ from accelerator.compat import unicode
 from accelerator.dscmdhelper import name2ds
 from accelerator import g
 
-def main(argv, usage_extra=''):
-	usage = "Usage: %%(prog)s%s [options] pattern ds [ds [...]] [column [column [...]]" % (usage_extra,)
+def main(argv):
+	usage = "dsgrep [options] pattern ds [ds [...]] [column [column [...]]"
 	parser = ArgumentParser(usage=usage)
 	parser.add_argument('-c', '--chain',       dest="chain",      action='store_true', help="Follow dataset chains", )
 	parser.add_argument('-i', '--ignore-case', dest="ignorecase", action='store_true', help="Case insensitive pattern", )
