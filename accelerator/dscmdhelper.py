@@ -2,6 +2,7 @@
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
 # Modifications copyright (c) 2019 Carl Drougge                            #
+# Modifications copyright (c) 2019 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -45,7 +46,13 @@ def name2ds(n):
 		if WORKSPACES.get(k, base) != base:
 			print("### Overriding workdir %s to %s" % (k, base,))
 		WORKSPACES[k] = base
-	ds = Dataset(n)
+	elif n.startswith('/'):
+		# meant to be a path, but it does not exist
+		return None
+	try:
+		ds = Dataset(n)
+	except IOError:
+		return None
 	with open(join(get_path(ds.jobid), get_workspace_name(ds.jobid) + "-slices.conf")) as fh:
 		slices = int(fh.read())
 	from accelerator import g
