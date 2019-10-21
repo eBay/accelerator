@@ -30,7 +30,7 @@ from accelerator.compat import PY3, PY2, izip, imap
 from accelerator.extras import OptionString, job_params
 from accelerator.status import status
 
-from gzutil import GzWriteUnicodeLines, GzWriteBytesLines
+from accelerator.gzutil import GzWriteUnicodeLines, GzWriteBytesLines
 
 options = dict(
 	filename          = OptionString, # .csv or .gz

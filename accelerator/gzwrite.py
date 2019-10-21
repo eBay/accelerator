@@ -20,7 +20,7 @@
 from __future__ import print_function
 from __future__ import division
 
-import gzutil
+from accelerator import gzutil
 from accelerator.compat import str_types, PY3
 
 GzWrite = gzutil.GzWrite

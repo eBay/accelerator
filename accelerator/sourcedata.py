@@ -20,7 +20,7 @@
 from __future__ import print_function
 from __future__ import division
 
-import gzutil
+from accelerator import gzutil
 
 assert gzutil.version >= (2, 10, 0) and gzutil.version[0] == 2, gzutil.version
 
