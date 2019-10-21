@@ -4,6 +4,7 @@
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
 # Modifications copyright (c) 2018-2019 Carl Drougge                       #
+# Modifications copyright (c) 2019 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -1122,6 +1123,8 @@ class SkipSlice(Exception):
 
 def job_datasets(jobid):
 	"""All datasets in a jobid"""
+	if isinstance(jobid, Dataset):
+		jobid = jobid.jobid
 	jobid = str(jobid) # to avoid surprises if it's a Dataset instance.
 	fn = resolve_jobid_filename(jobid, 'datasets.txt')
 	if os.path.exists(fn):
