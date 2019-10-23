@@ -105,6 +105,8 @@ def setup(config_fn=None, debug_cmd=False):
 	# Make sure the accelerator dir in not in sys.path
 	# (as it might be if running without installing.)
 	unpath(dirname(__file__))
+	if config_fn is False:
+		return
 	if config_fn:
 		load_cfg(config_fn)
 	else:
@@ -137,6 +139,11 @@ def cmd_daemon(argv):
 	main(argv, cfg)
 cmd_daemon.help = '''Run the main daemon'''
 
+def cmd_init(argv):
+	from accelerator.init import main
+	main(argv)
+cmd_init.help = '''Create a project directory'''
+
 DEBUG_COMMANDS = {'dsgrep', 'dsinfo',}
 
 COMMANDS = dict(
@@ -144,6 +151,7 @@ COMMANDS = dict(
 	dsinfo=cmd_dsinfo,
 	run=cmd_run,
 	daemon=cmd_daemon,
+	init=cmd_init,
 )
 
 class HelpFixArgumentParser(ArgumentParser):
@@ -188,8 +196,11 @@ def main():
 		print('Unknown command "%s"' % (args.command,), file=sys.stderr)
 		sys.exit(2)
 	try:
-		setup(args.config, debug_cmd=args.command in DEBUG_COMMANDS)
+		config_fn = args.config
+		if args.command == 'init':
+			config_fn = False
+		setup(config_fn, debug_cmd=args.command in DEBUG_COMMANDS)
+		return COMMANDS[args.command](argv)
 	except UserError as e:
 		print(e, file=sys.stderr)
 		return 1
-	return COMMANDS[args.command](argv)

@@ -132,6 +132,7 @@ Not so interesting files
 	dscmdhelper.py
 	g.py
 	gzwrite.py
+	init.py
 	jobid.py
 	report.py
 	safe_pool.py
