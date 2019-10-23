@@ -18,7 +18,14 @@
 #                                                                          #
 ############################################################################
 
-from setuptools import setup, find_packages
+from setuptools import setup, find_packages, Extension
+
+gzutilmodule = Extension(
+	"accelerator.gzutil",
+	sources=["gzutil/siphash24.c", "gzutil/gzutilmodule.c"],
+	libraries=["z"],
+	extra_compile_args=['-std=c99', '-O3'],
+)
 
 setup(
 	name="Accelerator",
@@ -32,10 +39,11 @@ setup(
 	},
 
 	install_requires=[
-		'gzutil>=2.10.5',
 		'ujson>=1.35',
 		'cffi>=1.7.0',
 	],
+
+	ext_modules=[gzutilmodule],
 
 	package_data={
 		'': ['*.txt', 'methods.conf'],
