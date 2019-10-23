@@ -23,35 +23,16 @@ from __future__ import division
 
 import re
 import os
+import sys
+from functools import partial
 
-from accelerator.compat import quote_plus, iteritems
+from accelerator.compat import quote_plus, open
 
-
-def get_config( filename, verbose=True ):
-	with open(filename) as F:
-		c = parse_config(F.read(), filename)
-	if verbose:
-		print_config(c)
-	return c
-
-
-def print_config(config):
-	print('-'*79)
-	X = {
-		'method_directories' : lambda x : ', '.join('\"%s\"' % t for t in x),
-		'workdir'            : lambda x : ''.join('\n  -    %-12s %-40s %2d' % (s, t[0], t[1]) for s, t in x.items()),
-	}
-	for x, y in config.items():
-		print("  %-30s : " % (x,), end="")
-		if x in X:
-			print(X[x](y))
-		else:
-			print(y)
-	print('-'*79)
+from accelerator.extras import DotDict
 
 
 _re_var = re.compile(r'\$\{([^\}=]*)(?:=([^\}]*))?\}')
-def _interpolate(s):
+def interpolate(s):
 	"""Replace ${FOO=BAR} with os.environ.get('FOO', 'BAR')
 	(just ${FOO} is of course also supported, but not $FOO)"""
 	return _re_var.subn(lambda m: os.environ.get(m.group(1), m.group(2)), s)[0]
@@ -63,57 +44,90 @@ def resolve_socket_url(path):
 	else:
 		return 'unixhttp://' + quote_plus(os.path.realpath(path))
 
-def parse_config(string, filename):
-	ret = {}
-	for line in string.split('\n'):
-		line = line.split('#')[0].strip()
-		if len(line)==0:
-			continue
+
+def load_config(filename):
+	key = None
+	multivalued = {'workdirs', 'method packages', 'interpreters'}
+	required = {'slices', 'logfile', 'workdirs', 'method packages'}
+	known = {'target workdir', 'urd', 'result directory', 'source directory', 'project directory'} | required | multivalued
+	cfg = {key: [] for key in multivalued}
+
+	class _E(Exception):
+		pass
+	def parse_pair(thing, val):
+		a = val.split()
+		if len(a) != 2 or not a[1].startswith('/'):
+			raise _E("Invalid %s specification %r (expected 'name /path')" % (thing, val,))
+		return a
+	def check_interpreter(val):
+		if val[0] == 'DEFAULT':
+			raise _E("Don't override DEFAULT interpreter")
+		if not os.path.isfile(val[1]):
+			raise _E('%r does not exist' % (val,))
+
+	parsers = dict(
+		slices=int,
+		workdirs=partial(parse_pair, 'workdir'),
+		interpreters=partial(parse_pair, 'interpreter'),
+		urd=resolve_socket_url,
+	)
+	checkers = dict(
+		interpreter=check_interpreter,
+	)
+
+	with open(filename, 'r', encoding='utf-8') as fh:
 		try:
-			key, val = line.split('=', 1)
-			val = _interpolate(val)
-			if key =='workdir':
-				# create a dict {name : (path, slices), ...}
-				ret.setdefault(key, {})
-				val = val.split(':')
-				name = val[0]
-				path = val[1]
-				if len(val)==2:
-					# there is no slice information
-					slices = -1
+			for lineno, line in enumerate(fh, 1):
+				line = line.split('#', 1)[0].rstrip()
+				if not line.strip():
+					continue
+				if line == line.strip():
+					if ':' not in line:
+						raise _E('Expected a ":"')
+					key, val = line.split(':', 1)
+					if key not in known:
+						raise _E('Unknown key %r' % (key,))
 				else:
-					slices = val[2]
-				ret[key][name] = (path, int(slices))
+					if not key:
+						raise _E('First line indented')
+					val = line
+				val = interpolate(val).strip()
+				if val:
+					if key in parsers:
+						val = parsers[key](val)
+					if key in checkers:
+						checkers[key](val)
+					if key in multivalued:
+						cfg[key].append(val)
+					else:
+						if key in cfg:
+							raise _E("%r doesn't take multiple values" % (key,))
+						cfg[key] = val
+		except _E as e:
+			print('Error on line %d of %s:\n%s' % (lineno, filename, e.args[0],), file=sys.stderr)
+			sys.exit(1)
 
-			elif key in ('source_workdirs', 'method_directories',):
-				# create a set of (name, ...)
-				ret.setdefault(key, set())
-				ret[key].update(val.split(','))
-			elif key == 'urd':
-				ret[key] = resolve_socket_url(val)
-			else:
-				ret[key] = val
-		except:
-			print("Error parsing config %s: \"%s\"" % (filename, line,))
-	if 'workdir' not in ret:
-		raise Exception("Error, missing workdir in config " + filename)
-	if 'project_directory' not in ret:
-		ret['project_directory'] = os.path.dirname(filename)
-	return ret
-
-
-def sanity_check(config_dict):
-	ok = True
-	if 'target_workdir' not in config_dict:
-		print("Error in configfile, must specify target_workdir.")
-		ok = False
-	if 'workdir' not in config_dict:
-		print("Error in configfile, must specify at least one workdir.")
-		ok = False
-	for k, v in iteritems(config_dict):
-		if re.match(r"py\d+$", k):
-			if not os.path.isfile(v):
-				print("Error in configfile, \"%s\" does not exist!" % (v,))
-				ok = False
-	if not ok:
+	missing = set()
+	for req in required:
+		if not cfg[req]:
+			missing.add(req)
+	if missing:
+		print('Error in %s: Missing required keys %r' % (filename, missing,), file=sys.stderr)
 		exit(1)
+
+	# Reformat result a bit so the new format doesn't require code changes all over the place.
+	rename = {
+		'target workdir': 'target_workdir',
+		'method packages': 'method_directories',
+		'source directory': 'source_directory',
+		'result directory': 'result_directory',
+		'project directory': 'project_directory',
+	}
+	res = DotDict({rename.get(k, k): v for k, v in cfg.items()})
+	if 'target_workdir' not in res:
+		res.target_workdir = res.workdirs[0][0]
+	if 'project_directory' not in res:
+		res.project_directory = os.path.dirname(filename)
+	res.workdirs = dict(res.workdirs)
+	res.interpreters = dict(res.interpreters)
+	return res

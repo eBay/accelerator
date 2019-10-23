@@ -92,11 +92,11 @@ class SubMethods(Methods):
 	def __init__(self, package_list, configfilename, daemon_config):
 		super(SubMethods, self).__init__(package_list, configfilename)
 		t0 = time()
-		self.runners = new_runners(daemon_config)
 		per_runner = defaultdict(list)
 		for key, val in iteritems(self.db):
 			package = val['package']
 			per_runner[val['version']].append((package, key))
+		self.runners = new_runners(daemon_config, set(per_runner))
 		warnings = []
 		failed = []
 		self.hash = {}
@@ -105,7 +105,7 @@ class SubMethods(Methods):
 		for version, data in iteritems(per_runner):
 			runner = self.runners.get(version)
 			if not runner:
-				msg = '%%s.%%s (unconfigured version %s)' % (version)
+				msg = '%%s.%%s (unconfigured interpreter %s)' % (version)
 				failed.extend(msg % t for t in sorted(data))
 				continue
 			w, f, h, p = runner.load_methods(package_list, data)
@@ -273,8 +273,8 @@ def read_method_conf(filename):
 			try:
 				version = data.pop(0)
 			except IndexError:
-				version = 'py'
-			if not version.startswith('py') or data:
+				version = 'DEFAULT'
+			if data:
 				raise Exception('Trailing garbage on %s:%d: %s' % (filename, lineno, line,))
 			db[method] = DotDict(version=version)
 	return db

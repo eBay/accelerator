@@ -32,7 +32,6 @@ from traceback import print_exc
 import hashlib
 import os
 import sys
-import re
 import socket
 import signal
 import struct
@@ -329,27 +328,31 @@ class Runner(object):
 		return self._do(b'w', child)
 
 runners = {}
-def new_runners(config):
+def new_runners(config, used_versions):
 	from accelerator.dispatch import run
 	from accelerator.compat import PY3
 	from accelerator.compat import itervalues, iteritems
-	if 'py' in runners:
-		del runners['py']
+	killed = set()
 	for runner in itervalues(runners):
-		runner.kill()
+		if id(runner) not in killed:
+			runner.kill()
+			killed.add(id(runner))
 	runners.clear()
 	py_v = 'py3' if PY3 else 'py2'
-	todo = {py_v: sys.executable}
-	for k, v in iteritems(config):
-		if re.match(r"py\d+$", k):
-			todo[k] = v
+	candidates = {py_v: sys.executable, 'DEFAULT': sys.executable}
+	candidates.update(config.interpreters)
+	todo = {k: v for k, v in candidates.items() if k in used_versions}
+	exe2r = {}
 	for k, py_exe in iteritems(todo):
-		sock_p, sock_c = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM)
-		cmd = [py_exe, __file__, str(sock_c.fileno()), sys.path[0]]
-		pid = run(cmd, [sock_p.fileno()], [sock_c.fileno()], False)
-		sock_c.close()
-		runners[k] = Runner(pid=pid, sock=sock_p, python=py_exe)
-	runners['py'] = runners[py_v]
+		if py_exe in exe2r:
+			runners[k] = exe2r[py_exe]
+		else:
+			sock_p, sock_c = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM)
+			cmd = [py_exe, __file__, str(sock_c.fileno()), sys.path[0]]
+			pid = run(cmd, [sock_p.fileno()], [sock_c.fileno()], False)
+			sock_c.close()
+			runners[k] = Runner(pid=pid, sock=sock_p, python=py_exe)
+			exe2r[py_exe] = runners[k]
 	return runners
 
 if __name__ == "__main__":

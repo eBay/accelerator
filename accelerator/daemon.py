@@ -309,7 +309,7 @@ def main(argv, config):
 	r1 = min(r1, r2, 1024)
 	resource.setrlimit(resource.RLIMIT_NOFILE, (r1, r2))
 
-	iowrapper.main(config['logfilename'])
+	iowrapper.main(config.logfile)
 
 	# setup statmsg sink and tell address using ENV
 	statmsg_rd, statmsg_wr = socket.socketpair(socket.AF_UNIX, socket.SOCK_DGRAM)

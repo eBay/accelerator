@@ -85,12 +85,11 @@ def load_some_cfg(basedir='.', all=False):
 def load_cfg(fn):
 	global cfg
 
-	from accelerator.configfile import get_config
+	from accelerator.configfile import load_config
 	from accelerator.jobid import WORKSPACES
 
-	cfg = get_config(fn, False)
-	for k, v in cfg['workdir'].items():
-		v = v[0]
+	cfg = load_config(fn)
+	for k, v in cfg.workdirs.items():
 		if WORKSPACES.get(k, v) != v:
 			print("WARNING: %s overrides workspace %s" % (fn, k,), file=sys.stderr)
 		WORKSPACES[k] = v

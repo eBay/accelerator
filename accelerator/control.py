@@ -25,7 +25,6 @@ from os import unlink
 from os.path import join
 import time
 
-from accelerator import configfile
 from accelerator import dependency
 from accelerator import dispatch
 
@@ -55,25 +54,11 @@ class Main:
 		self.config = config
 		self.debug = options.debug
 		self.daemon_url = daemon_url
-		# check config file
-		configfile.sanity_check(self.config)
 		self._update_methods()
 		self.target_workdir = self.config['target_workdir']
-		self.source_workdirs = {self.target_workdir} | self.config.get('source_workdirs', set())
 		self.workspaces = {}
-		for name, data in self.config['workdir'].items():
-			if name in self.source_workdirs:
-				path   = data[0]
-				slices = data[1]
-				self.workspaces[name] = workspace.WorkSpace(name, path, slices)
-		undefined_workdirs = self.source_workdirs - set(self.workspaces)
-		if undefined_workdirs:
-			print('\nERROR:  Workdir(s) missing definition: ' + ', '.join('\"' + x + '\"' for x in undefined_workdirs) + '.')
-			exit(1)
-		check_slices = set(self.workspaces[name].slices for name in self.workspaces)
-		if len(check_slices) > 1:
-			print('\nERROR:  Not all workdirs have the same number of slices!')
-			exit(1)
+		for name, path in self.config.workdirs.items():
+			self.workspaces[name] = workspace.WorkSpace(name, path, config.slices)
 		put_workspaces({k: v.path for k, v in self.workspaces.items()})
 		self.DataBase = database.DataBase(self)
 		self.update_database()
@@ -111,15 +96,17 @@ class Main:
 	def print_workspaces(self):
 		namelen = max(len(n) for n in self.workspaces)
 		templ = "    %%s %%%ds: %%s \x1b[m(%%d)" % (namelen,)
-		prefix = {n: "SOURCE  " for n in self.source_workdirs}
-		prefix[self.target_workdir] = "TARGET\x1b[1m  "
 		print("Available workdirs:")
-		names = list(self.workspaces)
+		names = sorted(self.workspaces)
 		names.remove(self.target_workdir)
 		names.insert(0, self.target_workdir)
 		for n in names:
+			if n == self.target_workdir:
+				prefix = 'TARGET\x1b[1m  '
+			else:
+				prefix = 'SOURCE  '
 			w = self.workspaces[n]
-			print(templ % (prefix[n], n, w.path, w.slices,))
+			print(templ % (prefix, n, w.path, w.slices,))
 
 
 	def add_single_jobid(self, jobid):
@@ -152,8 +139,8 @@ class Main:
 		# reading and parsing files. (So unless workspaces are on different
 		# disks this is probably better.)
 		self.DataBase._update_begin()
-		for name in self.source_workdirs:
-			self.DataBase._update_workspace(self.workspaces[name])
+		for ws in self.workspaces.values():
+			self.DataBase._update_workspace(ws)
 		self.DataBase._update_finish(self.Methods.hash)
 
 
@@ -173,9 +160,7 @@ class Main:
 	def run_job(self, jobid, subjob_cookie=None, parent_pid=0):
 		W = self.workspaces[get_workspace_name(jobid)]
 		#
-		active_workspaces = {}
-		for name in self.source_workdirs:
-			active_workspaces[name] = self.workspaces[name].get_path()
+		active_workspaces = {name: ws.get_path() for name, ws in self.workspaces.items()}
 		slices = self.workspaces[self.target_workdir].get_slices()
 
 		t0 = time.time()

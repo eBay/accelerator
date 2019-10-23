@@ -31,37 +31,53 @@ def synthesis(analysis_res):
 """
 
 
-config_template = r"""# var=value, value can have ${{VAR=DEFAULT}} to import env vars.
+config_template = r"""# The configuration is a collection of key value pairs.
+#
+# Values are specified as
+# key: value
+# or for several values
+# key:
+# 	value 1
+# 	value 2
+# 	...
+# (any leading whitespace is ok)
+#
+# Use ${{VAR}} or ${{VAR=DEFAULT}} to use environment variables.
 
-# workdir=NAME:PATH:SLICES
-# You can have as many workdir lines as you want
-workdir={name}:{workdir}:{slices}
+slices: {slices}
+workdirs:
+	{name} {workdir}
 
-# You can only have one target workdir.
-# All built jobs end up there.
-target_workdir={name}
+# Target workdir defaults to the first workdir, but you can override it.
+# target workdir: {name}
+# (this is where jobs without a workdir override are built)
 
-# List all other workdirs you want to import here (comma separated)
-source_workdirs={name}
+method packages:
+	{name}
+	accelerator.standard_methods
+#	accelerator.test_methods
 
-# Methods are imported from these directories (comma separated)
-method_directories={name},accelerator.standard_methods
+urd: # URL/socket to your urd.
 
-# automata scripts save things here
-result_directory={prefix}/results
+result directory: {prefix}/results
+source directory: {source}
+logfile: {prefix}/daemon.log
 
-# import methods look under here
-source_directory={source}
-
-logfilename={prefix}/daemon.log
+# If you want to run methods on different python interpreters you can
+# specify names for other interpreters here, and put that name after
+# the method in methods.conf.
+# interpreters:
+# 	2.7 /path/to/python2.7
+# 	test /path/to/beta/python
 """
 
 
 def main(argv):
-	from os import makedirs, listdir, environ
+	from os import makedirs, listdir
 	from os.path import exists, join, realpath
-	from accelerator.shell import UserError
 	from argparse import ArgumentParser
+	from accelerator.shell import UserError
+	from accelerator.configfile import interpolate
 
 	parser = ArgumentParser(
 		prog='init',
@@ -77,15 +93,18 @@ def main(argv):
 	parser.add_argument('--slices', default=None, type=int, help='Override slice count detection')
 	parser.add_argument('--name', default='dev', help='Name of method dir and workdir, default "dev"')
 	parser.add_argument('--directory', default='.', help='project directory to create. default "."', metavar='DIR')
-	parser.add_argument('--prefix', default=join(environ['HOME'], 'accelerator'), help='Put workdirs and daemon.log here')
-	parser.add_argument('--source', default='/some/other/path', help='source directory')
+	parser.add_argument('--prefix', default='${HOME}/accelerator', help='Put workdirs and daemon.log here, default "${HOME}/accelerator"')
+	parser.add_argument('--source', default='# /some/path where you want import methods to look.', help='source directory')
 	parser.add_argument('--force', action='store_true', help='Go ahead even though directory is not empty, or workdir exists with incompatible slice count')
 	options = parser.parse_args(argv)
 
 	assert options.name
-	options.prefix = realpath(options.prefix)
-	options.source = realpath(options.source)
-	workdir = join(options.prefix, 'workdirs', options.name)
+	if not options.prefix.startswith('${'):
+		options.prefix = realpath(options.prefix)
+	if not options.source.startswith('#'):
+		options.source = realpath(options.source)
+	cfg_workdir = join(options.prefix, 'workdirs', options.name)
+	workdir = interpolate(cfg_workdir)
 	if not exists(workdir):
 		makedirs(workdir)
 	slices_conf = join(workdir, options.name + '-slices.conf')
@@ -116,4 +135,4 @@ def main(argv):
 	with open(join(method_dir, 'a_example.py'), 'w') as fh:
 		fh.write(a_example)
 	with open(join(options.directory, 'accelerator.conf'), 'w') as fh:
-		fh.write(config_template.format(name=options.name, prefix=options.prefix, workdir=workdir, slices=options.slices, source=options.source))
+		fh.write(config_template.format(name=options.name, prefix=options.prefix, workdir=cfg_workdir, slices=options.slices, source=options.source))
