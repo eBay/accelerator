@@ -2,4 +2,4 @@
 __pycache__/
 *.so
 /build
-/Accelerator.egg-info
+/accelerator.egg-info

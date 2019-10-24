@@ -28,7 +28,7 @@ gzutilmodule = Extension(
 )
 
 setup(
-	name="Accelerator",
+	name="accelerator",
 	version="0.99",
 	packages=find_packages(),
 
