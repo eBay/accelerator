@@ -134,6 +134,8 @@ def main(argv):
 	method_dir = join(options.directory, options.name)
 	if not exists(method_dir):
 		makedirs(method_dir)
+	with open(join(method_dir, '__init__.py'), 'w') as fh:
+		pass
 	with open(join(method_dir, 'methods.conf'), 'w') as fh:
 		fh.write('example\n')
 	with open(join(method_dir, 'a_example.py'), 'w') as fh:
