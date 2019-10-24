@@ -50,6 +50,8 @@ class Methods(object):
 					raise ImportError("no __file__")
 			except ImportError:
 				raise Exception("Failed to import %s, maybe missing __init__.py?" % (package,))
+			if not package_mod.__file__:
+				raise Exception("%s has no __file__, maybe missing __init__.py?" % (package,))
 			confname = os.path.join(os.path.dirname(package_mod.__file__), configfilename)
 			tmp = read_method_conf(confname)
 			for x in tmp:
