@@ -66,6 +66,9 @@ logfile: {prefix}/daemon.log
 # If you want to run methods on different python interpreters you can
 # specify names for other interpreters here, and put that name after
 # the method in methods.conf.
+# You automatically get four names for the interpreter that started
+# the daemon: DEFAULT, {major}, {major}.{minor} and {major}.{minor}.{micro} (adjusted to the actual
+# version used). You can override these here, except DEFAULT.
 # interpreters:
 # 	2.7 /path/to/python2.7
 # 	test /path/to/beta/python
@@ -75,6 +78,7 @@ logfile: {prefix}/daemon.log
 def main(argv):
 	from os import makedirs, listdir
 	from os.path import exists, join, realpath
+	from sys import version_info
 	from argparse import ArgumentParser
 	from accelerator.shell import UserError
 	from accelerator.configfile import interpolate
@@ -135,4 +139,13 @@ def main(argv):
 	with open(join(method_dir, 'a_example.py'), 'w') as fh:
 		fh.write(a_example)
 	with open(join(options.directory, 'accelerator.conf'), 'w') as fh:
-		fh.write(config_template.format(name=options.name, prefix=options.prefix, workdir=cfg_workdir, slices=options.slices, source=options.source))
+		fh.write(config_template.format(
+			name=options.name,
+			prefix=options.prefix,
+			workdir=cfg_workdir,
+			slices=options.slices,
+			source=options.source,
+			major=version_info.major,
+			minor=version_info.minor,
+			micro=version_info.micro,
+		))

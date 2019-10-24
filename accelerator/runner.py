@@ -330,7 +330,6 @@ class Runner(object):
 runners = {}
 def new_runners(config, used_versions):
 	from accelerator.dispatch import run
-	from accelerator.compat import PY3
 	from accelerator.compat import itervalues, iteritems
 	killed = set()
 	for runner in itervalues(runners):
@@ -338,8 +337,9 @@ def new_runners(config, used_versions):
 			runner.kill()
 			killed.add(id(runner))
 	runners.clear()
-	py_v = 'py3' if PY3 else 'py2'
-	candidates = {py_v: sys.executable, 'DEFAULT': sys.executable}
+	candidates = {'DEFAULT': sys.executable}
+	for cnt in (1, 2, 3):
+		candidates['.'.join(map(str, sys.version_info[:cnt]))] = sys.executable
 	candidates.update(config.interpreters)
 	todo = {k: v for k, v in candidates.items() if k in used_versions}
 	exe2r = {}
