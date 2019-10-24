@@ -41,6 +41,7 @@ setup(
 	install_requires=[
 		'ujson>=1.35',
 		'cffi>=1.7.0',
+		'bottle>=0.12.7',
 	],
 
 	ext_modules=[gzutilmodule],

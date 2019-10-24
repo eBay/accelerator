@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
@@ -32,6 +30,8 @@ import json
 import re
 from datetime import datetime
 import operator
+from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
+import os.path
 
 from accelerator.compat import iteritems, itervalues, unicode
 
@@ -404,18 +404,23 @@ def jsonify(callback):
 	return func
 
 
-if __name__ == "__main__":
-	from argparse import ArgumentParser
-	import os.path
-	parser = ArgumentParser()
+def main(argv):
+	global authdict, db
+
+	parser = ArgumentParser(
+		prog='urd',
+		formatter_class=ArgumentDefaultsHelpFormatter
+	)
 	parser.add_argument('--port', type=int, default=8080, help='server port')
-	parser.add_argument('--path', type=str, default='./', help='database directory')
-	args = parser.parse_args()
+	parser.add_argument('--path', type=str, default='./urd.db',
+		help='database directory (can be relative to project directory)',
+	)
+	args = parser.parse_args(argv)
 	print('-'*79)
 	print(args)
 	print()
 	authdict = readauth(os.path.join(args.path, 'passwd'))
-	db = DB(os.path.join(args.path, 'database'))
+	db = DB(args.path)
 
 	bottle.install(jsonify)
 	bottle.run(host='localhost', port=args.port, debug=False, reloader=False, quiet=False)

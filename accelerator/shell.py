@@ -143,6 +143,11 @@ def cmd_init(argv):
 	main(argv)
 cmd_init.help = '''Create a project directory'''
 
+def cmd_urd(argv):
+	from accelerator.urd import main
+	main(argv)
+cmd_urd.help = '''Run the urd daemon'''
+
 DEBUG_COMMANDS = {'dsgrep', 'dsinfo',}
 
 COMMANDS = dict(
@@ -151,6 +156,7 @@ COMMANDS = dict(
 	run=cmd_run,
 	daemon=cmd_daemon,
 	init=cmd_init,
+	urd=cmd_urd,
 )
 
 class HelpFixArgumentParser(ArgumentParser):
