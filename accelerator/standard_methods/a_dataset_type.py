@@ -20,7 +20,6 @@
 from __future__ import division
 from __future__ import absolute_import
 
-import cffi
 from resource import getpagesize
 from os import unlink, symlink
 from mmap import mmap, PROT_READ
@@ -66,11 +65,8 @@ datasets = ('source', 'previous',)
 
 byteslike_types = ('bytes', 'ascii', 'unicode',)
 
-ffi = cffi.FFI()
-backend = dataset_typing.backend
-
 def prepare():
-	backend.init()
+	dataset_typing.backend.init()
 	d = datasets.source
 	columns = {}
 	for colname, coltype in iteritems(options.column2type):
@@ -101,9 +97,9 @@ def analysis(sliceno):
 		]
 		for localename in try_locales:
 			localename = localename.encode('ascii')
-			if not backend.numeric_comma(localename):
+			if not dataset_typing.backend.numeric_comma(localename):
 				break
-			if not backend.numeric_comma(localename + b'.UTF-8'):
+			if not dataset_typing.backend.numeric_comma(localename + b'.UTF-8'):
 				break
 		else:
 			raise Exception("Failed to enable numeric_comma, please install at least one of the following locales: " + " ".join(try_locales))
@@ -123,9 +119,9 @@ def analysis(sliceno):
 		symlink(src, dst)
 	return bad_count, final_bad_count, default_count, minmax
 
-# make any unicode args bytes, for cffi calls.
+# make any unicode args bytes, for C calls.
 def bytesargs(*a):
-	return [v.encode('utf-8') if isinstance(v, unicode) else ffi.NULL if v is None else v for v in a]
+	return [v.encode('utf-8') if isinstance(v, unicode) else dataset_typing.NULL if v is None else v for v in a]
 
 # In python3 indexing into bytes gives integers (b'a'[0] == 97),
 # this gives the same behaviour on python2. (For use with mmap.)
@@ -202,20 +198,20 @@ def analysis_lap(sliceno, badmap_fh, first_lap):
 			offset = 0
 			max_count = -1
 		if cfunc:
-			default_value = options.defaults.get(colname, ffi.NULL)
+			default_value = options.defaults.get(colname, dataset_typing.NULL)
 			default_len = 0
 			if default_value is None:
-				default_value = ffi.NULL
+				default_value = dataset_typing.NULL
 				default_value_is_None = True
 			else:
 				default_value_is_None = False
-				if default_value != ffi.NULL:
+				if default_value != dataset_typing.NULL:
 					if isinstance(default_value, unicode):
 						default_value = default_value.encode("utf-8")
 					default_len = len(default_value)
-			bad_count = ffi.new('uint64_t [1]', [0])
-			default_count = ffi.new('uint64_t [1]', [0])
-			c = getattr(backend, 'convert_column_' + cfunc)
+			bad_count = dataset_typing.mk_uint64()
+			default_count = dataset_typing.mk_uint64()
+			c = getattr(dataset_typing.backend, 'convert_column_' + cfunc)
 			res = c(*bytesargs(in_fn, out_fn, minmax_fn, default_value, default_len, default_value_is_None, fmt, fmt_b, record_bad, skip_bad, badmap_fd, badmap_size, bad_count, default_count, offset, max_count))
 			assert not res, 'Failed to convert ' + colname
 			res_bad_count[colname] = bad_count[0]

@@ -1442,6 +1442,10 @@ void init(void)
 import cffi
 ffi = cffi.FFI()
 
+NULL = ffi.NULL
+def mk_uint64():
+	return ffi.new('uint64_t [1]', [0])
+
 # cffi apparently doesn't know about off_t.
 # "typedef int... off_t" isn't allowed with verify,
 # so I guess we'll just assume that ssize_t is the same as off_t.
