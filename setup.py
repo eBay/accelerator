@@ -19,6 +19,8 @@
 ############################################################################
 
 from setuptools import setup, find_packages, Extension
+from importlib import import_module
+from os.path import exists
 
 gzutilmodule = Extension(
 	"accelerator.gzutil",
@@ -27,30 +29,26 @@ gzutilmodule = Extension(
 	extra_compile_args=['-std=c99', '-O3'],
 )
 
-from accelerator.standard_methods.dataset_type import c_module_code
+def method_mod(name):
+	code = import_module('accelerator.standard_methods.' + name).c_module_code
+	fn = 'accelerator/standard_methods/_generated_' + name + '.c'
+	if exists(fn):
+		with open(fn, 'r') as fh:
+			old_code = fh.read()
+	else:
+		old_code = None
+	if code != old_code:
+		with open(fn, 'w') as fh:
+			fh.write(code)
+	return Extension(
+		'accelerator.standard_methods._' + name,
+		sources=[fn],
+		libraries=['z'],
+		extra_compile_args=['-std=c99', '-O3'],
+	)
 
-fn = "_dt.c"
-with open(fn, "w") as fh:
-	fh.write(c_module_code)
-
-dataset_typemodule = Extension(
-	"accelerator.standard_methods._dataset_type",
-	sources=[fn],
-	libraries=["z"],
-	extra_compile_args=['-std=c99', '-O3'],
-)
-
-from accelerator.standard_methods.csvimport import c_module_code
-fn = "_ci.c"
-with open(fn, "w") as fh:
-	fh.write(c_module_code)
-
-csvimportmodule = Extension(
-	"accelerator.standard_methods._csvimport",
-	sources=[fn],
-	libraries=["z"],
-	extra_compile_args=['-std=c99', '-O3'],
-)
+dataset_typemodule = method_mod('dataset_type')
+csvimportmodule = method_mod('csvimport')
 
 setup(
 	name="accelerator",
