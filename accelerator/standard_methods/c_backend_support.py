@@ -58,13 +58,17 @@ static PyObject *py_set_null(PyObject *dummy, PyObject *obj)
 _init_code_template = r'''
 static PyMethodDef module_methods[] = {
 	{"set_null", py_set_null, METH_O, 0},
-	%s,
+	%(methods)s,
 	{NULL, NULL, 0, NULL}
 };
 
+#if PY_MAJOR_VERSION < 3
+#  define INITERR
+#else
+#  define INITERR 0
 static struct PyModuleDef moduledef = {
 	PyModuleDef_HEAD_INIT,
-	"_%s",              /*m_name*/
+	"_%(name)s",        /*m_name*/
 	0,                  /*m_doc*/
 	-1,                 /*m_size*/
 	module_methods,     /*m_methods*/
@@ -73,14 +77,24 @@ static struct PyModuleDef moduledef = {
 	0,                  /*m_clear*/
 	0,                  /*m_free*/
 };
+#endif
 
-PyMODINIT_FUNC PyInit__%s(void)
+#if PY_MAJOR_VERSION >= 3
+PyMODINIT_FUNC PyInit__%(name)s(void)
 {
 	PyObject *m = PyModule_Create(&moduledef);
 	if (!m) return 0;
 	PyModule_AddObject(m, "source_hash", PyUnicode_FromString(source_hash));
 	return m;
 }
+#else
+PyMODINIT_FUNC init_%(name)s(void)
+{
+	PyObject *m = Py_InitModule3("_%(name)s", module_methods, NULL);
+	if (!m) return;
+	PyModule_AddObject(m, "source_hash", PyUnicode_FromString(source_hash));
+}
+#endif
 '''
 
 _method_def_template = r'''{"%s", py_%s, METH_VARARGS, 0}'''
@@ -98,7 +112,7 @@ def make_source(name, functions, protos, extra_functions, extra_method_defs, wra
 		code.append(wrapper_template % (funcname, funcname,))
 		method_defs.append(_method_def_template % (funcname, funcname,))
 	method_defs.extend(extra_method_defs)
-	code.append(_init_code_template % (',\n\t'.join(method_defs), name, name,))
+	code.append(_init_code_template % dict(methods=',\n\t'.join(method_defs), name=name,))
 	hash = hashlib.sha1(b''.join(c.encode('ascii') for c in code)).hexdigest()
 	code.insert(-1, 'static char source_hash[] = "%s";\n' % (hash,))
 	code = ''.join(code)
