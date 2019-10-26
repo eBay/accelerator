@@ -65,10 +65,10 @@ datasets = ('source', 'previous',)
 
 byteslike_types = ('bytes', 'ascii', 'unicode',)
 
-dataset_typing.init()
+backend, NULL, mk_uint64, bytesargs = dataset_typing.init()
 
 def prepare():
-	dataset_typing.backend.init()
+	backend.init()
 	d = datasets.source
 	columns = {}
 	for colname, coltype in iteritems(options.column2type):
@@ -99,9 +99,9 @@ def analysis(sliceno):
 		]
 		for localename in try_locales:
 			localename = localename.encode('ascii')
-			if not dataset_typing.backend.numeric_comma(localename):
+			if not backend.numeric_comma(localename):
 				break
-			if not dataset_typing.backend.numeric_comma(localename + b'.UTF-8'):
+			if not backend.numeric_comma(localename + b'.UTF-8'):
 				break
 		else:
 			raise Exception("Failed to enable numeric_comma, please install at least one of the following locales: " + " ".join(try_locales))
@@ -120,10 +120,6 @@ def analysis(sliceno):
 	for src, dst in link_candidates:
 		symlink(src, dst)
 	return bad_count, final_bad_count, default_count, minmax
-
-# make any unicode args bytes, for C calls.
-def bytesargs(*a):
-	return [v.encode('utf-8') if isinstance(v, unicode) else dataset_typing.NULL if v is None else v for v in a]
 
 # In python3 indexing into bytes gives integers (b'a'[0] == 97),
 # this gives the same behaviour on python2. (For use with mmap.)
@@ -200,14 +196,14 @@ def analysis_lap(sliceno, badmap_fh, first_lap):
 			offset = 0
 			max_count = -1
 		if cfunc:
-			default_value = options.defaults.get(colname, dataset_typing.NULL)
+			default_value = options.defaults.get(colname, NULL)
 			default_len = 0
 			if default_value is None:
-				default_value = dataset_typing.NULL
+				default_value = NULL
 				default_value_is_None = True
 			else:
 				default_value_is_None = False
-				if default_value != dataset_typing.NULL:
+				if default_value != NULL:
 					if isinstance(default_value, unicode):
 						default_value = default_value.encode("utf-8")
 					default_len = len(default_value)
