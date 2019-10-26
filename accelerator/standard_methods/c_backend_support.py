@@ -23,6 +23,7 @@ from __future__ import unicode_literals
 import sys
 import hashlib
 from importlib import import_module
+from collections import namedtuple
 
 from accelerator.compat import unicode, str_types
 
@@ -84,6 +85,7 @@ PyMODINIT_FUNC PyInit__%s(void)
 
 _method_def_template = r'''{"%s", py_%s, METH_VARARGS, 0}'''
 
+CStuff = namedtuple('CStuff', 'backend NULL mk_uint64 bytesargs')
 
 def make_source(name, functions, protos, extra_functions, extra_method_defs, wrapper_template):
 	code = []
@@ -145,4 +147,4 @@ def init(name, hash, protos, functions):
 			for v in a
 		]
 
-	return backend, NULL, mk_uint64, bytesargs
+	return CStuff(backend, NULL, mk_uint64, bytesargs)

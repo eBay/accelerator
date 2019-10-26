@@ -63,12 +63,13 @@ options = {
 
 datasets = ('source', 'previous',)
 
+
 byteslike_types = ('bytes', 'ascii', 'unicode',)
 
-backend, NULL, mk_uint64, bytesargs = dataset_type.init()
+cstuff = dataset_type.init()
 
 def prepare():
-	backend.init()
+	cstuff.backend.init()
 	d = datasets.source
 	columns = {}
 	for colname, coltype in iteritems(options.column2type):
@@ -99,9 +100,9 @@ def analysis(sliceno):
 		]
 		for localename in try_locales:
 			localename = localename.encode('ascii')
-			if not backend.numeric_comma(localename):
+			if not cstuff.backend.numeric_comma(localename):
 				break
-			if not backend.numeric_comma(localename + b'.UTF-8'):
+			if not cstuff.backend.numeric_comma(localename + b'.UTF-8'):
 				break
 		else:
 			raise Exception("Failed to enable numeric_comma, please install at least one of the following locales: " + " ".join(try_locales))
@@ -196,21 +197,21 @@ def analysis_lap(sliceno, badmap_fh, first_lap):
 			offset = 0
 			max_count = -1
 		if cfunc:
-			default_value = options.defaults.get(colname, NULL)
+			default_value = options.defaults.get(colname, cstuff.NULL)
 			default_len = 0
 			if default_value is None:
-				default_value = NULL
+				default_value = cstuff.NULL
 				default_value_is_None = True
 			else:
 				default_value_is_None = False
-				if default_value != NULL:
+				if default_value != cstuff.NULL:
 					if isinstance(default_value, unicode):
 						default_value = default_value.encode("utf-8")
 					default_len = len(default_value)
-			bad_count = mk_uint64()
-			default_count = mk_uint64()
-			c = getattr(backend, 'convert_column_' + cfunc)
-			res = c(*bytesargs(in_fn, out_fn, minmax_fn, default_value, default_len, default_value_is_None, fmt, fmt_b, record_bad, skip_bad, badmap_fd, badmap_size, bad_count, default_count, offset, max_count))
+			bad_count = cstuff.mk_uint64()
+			default_count = cstuff.mk_uint64()
+			c = getattr(cstuff.backend, 'convert_column_' + cfunc)
+			res = c(*cstuff.bytesargs(in_fn, out_fn, minmax_fn, default_value, default_len, default_value_is_None, fmt, fmt_b, record_bad, skip_bad, badmap_fd, badmap_size, bad_count, default_count, offset, max_count))
 			assert not res, 'Failed to convert ' + colname
 			res_bad_count[colname] = bad_count[0]
 			res_default_count[colname] = default_count[0]
