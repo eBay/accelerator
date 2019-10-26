@@ -17,8 +17,8 @@
 #                                                                          #
 ############################################################################
 
-# Support functions and data relating to typed data.
-# Used by methods that convert or filter such data.
+# This is a separate file from a_dataset_type so setup.py can import
+# it and make the _dataset_type module at install time.
 
 from __future__ import print_function
 from __future__ import division
@@ -1522,8 +1522,8 @@ extra_method_defs = [
 	'{"numeric_comma", py_numeric_comma, METH_O, 0}',
 ]
 
-c_module_code, c_module_hash = c_backend_support.make_source('dataset_typing', all_c_functions, protos, extra_c_functions, extra_method_defs, c_module_wrapper_template)
+c_module_code, c_module_hash = c_backend_support.make_source('dataset_type', all_c_functions, protos, extra_c_functions, extra_method_defs, c_module_wrapper_template)
 
 def init():
 	_test()
-	return c_backend_support.init('dataset_typing', c_module_hash, protos, all_c_functions)
+	return c_backend_support.init('dataset_type', c_module_hash, protos, all_c_functions)

@@ -27,14 +27,14 @@ gzutilmodule = Extension(
 	extra_compile_args=['-std=c99', '-O3'],
 )
 
-from accelerator.standard_methods.dataset_typing import c_module_code
+from accelerator.standard_methods.dataset_type import c_module_code
 
 fn = "_dt.c"
 with open(fn, "w") as fh:
 	fh.write(c_module_code)
 
-dataset_typingmodule = Extension(
-	"accelerator.standard_methods._dataset_typing",
+dataset_typemodule = Extension(
+	"accelerator.standard_methods._dataset_type",
 	sources=[fn],
 	libraries=["z"],
 	extra_compile_args=['-std=c99', '-O3'],
@@ -58,7 +58,7 @@ setup(
 		'bottle>=0.12.7',
 	],
 
-	ext_modules=[gzutilmodule, dataset_typingmodule],
+	ext_modules=[gzutilmodule, dataset_typemodule],
 
 	package_data={
 		'': ['*.txt', 'methods.conf'],

@@ -31,9 +31,9 @@ from accelerator.gzwrite import typed_writer
 from accelerator.dataset import DatasetWriter
 from accelerator.report import report
 from accelerator.sourcedata import type2iter
-from . import dataset_typing
+from . import dataset_type
 
-depend_extra = (dataset_typing,)
+depend_extra = (dataset_type,)
 
 description = r'''
 Convert one or more columns in a dataset from bytes/ascii/unicode to any type.
@@ -49,7 +49,7 @@ Convert one or more columns in a dataset from bytes/ascii/unicode to any type.
 # If you need to preserve unconverted columns with filter_bad, specify them
 # as converted to bytes.
 
-TYPENAME = OptionEnum(dataset_typing.convfuncs.keys())
+TYPENAME = OptionEnum(dataset_type.convfuncs.keys())
 
 options = {
 	'column2type'               : {'COLNAME': TYPENAME},
@@ -65,7 +65,7 @@ datasets = ('source', 'previous',)
 
 byteslike_types = ('bytes', 'ascii', 'unicode',)
 
-backend, NULL, mk_uint64, bytesargs = dataset_typing.init()
+backend, NULL, mk_uint64, bytesargs = dataset_type.init()
 
 def prepare():
 	backend.init()
@@ -74,7 +74,7 @@ def prepare():
 	for colname, coltype in iteritems(options.column2type):
 		assert d.columns[colname].type in byteslike_types, colname
 		coltype = coltype.split(':', 1)[0]
-		columns[options.rename.get(colname, colname)] = dataset_typing.typerename.get(coltype, coltype)
+		columns[options.rename.get(colname, colname)] = dataset_type.typerename.get(coltype, coltype)
 	if options.filter_bad or options.discard_untyped:
 		assert options.discard_untyped is not False, "Can't keep untyped when filtering bad"
 		parent = None
@@ -152,12 +152,12 @@ def analysis_lap(sliceno, badmap_fh, first_lap):
 	for colname, coltype in iteritems(options.column2type):
 		out_fn = dw.column_filename(options.rename.get(colname, colname))
 		fmt = fmt_b = None
-		if coltype in dataset_typing.convfuncs:
+		if coltype in dataset_type.convfuncs:
 			shorttype = coltype
-			_, cfunc, pyfunc = dataset_typing.convfuncs[coltype]
+			_, cfunc, pyfunc = dataset_type.convfuncs[coltype]
 		else:
 			shorttype, fmt = coltype.split(':', 1)
-			_, cfunc, pyfunc = dataset_typing.convfuncs[shorttype + ':*']
+			_, cfunc, pyfunc = dataset_type.convfuncs[shorttype + ':*']
 		if cfunc:
 			cfunc = shorttype.replace(':', '_')
 		if pyfunc:
@@ -207,15 +207,15 @@ def analysis_lap(sliceno, badmap_fh, first_lap):
 					if isinstance(default_value, unicode):
 						default_value = default_value.encode("utf-8")
 					default_len = len(default_value)
-			bad_count = dataset_typing.mk_uint64()
-			default_count = dataset_typing.mk_uint64()
-			c = getattr(dataset_typing.backend, 'convert_column_' + cfunc)
+			bad_count = mk_uint64()
+			default_count = mk_uint64()
+			c = getattr(backend, 'convert_column_' + cfunc)
 			res = c(*bytesargs(in_fn, out_fn, minmax_fn, default_value, default_len, default_value_is_None, fmt, fmt_b, record_bad, skip_bad, badmap_fd, badmap_size, bad_count, default_count, offset, max_count))
 			assert not res, 'Failed to convert ' + colname
 			res_bad_count[colname] = bad_count[0]
 			res_default_count[colname] = default_count[0]
 			coltype = coltype.split(':', 1)[0]
-			with type2iter[dataset_typing.typerename.get(coltype, coltype)](minmax_fn) as it:
+			with type2iter[dataset_type.typerename.get(coltype, coltype)](minmax_fn) as it:
 				res_minmax[colname] = list(it)
 			unlink(minmax_fn)
 		else:
@@ -236,7 +236,7 @@ def analysis_lap(sliceno, badmap_fh, first_lap):
 			bad_count = 0
 			default_count = 0
 			dont_minmax_types = {'bytes', 'ascii', 'unicode', 'json'}
-			real_coltype = dataset_typing.typerename.get(coltype, coltype)
+			real_coltype = dataset_type.typerename.get(coltype, coltype)
 			do_minmax = real_coltype not in dont_minmax_types
 			with typed_writer(real_coltype)(out_fn) as fh:
 				col_min = col_max = None

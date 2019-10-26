@@ -34,12 +34,12 @@ from accelerator import subjobs
 from accelerator.dispatch import JobError
 from accelerator.dataset import Dataset, DatasetWriter
 from accelerator.compat import PY3
-from accelerator.standard_methods import dataset_typing
+from accelerator.standard_methods import dataset_type
 from accelerator import g
 
-depend_extra = (dataset_typing,)
+depend_extra = (dataset_type,)
 
-all_typenames = set(dataset_typing.convfuncs)
+all_typenames = set(dataset_type.convfuncs)
 used_typenames = set()
 
 def used_type(typ):
