@@ -20,6 +20,7 @@
 # Support functions and data relating to typed data.
 # Used by methods that convert or filter such data.
 
+from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
@@ -29,6 +30,7 @@ import ujson
 import sys
 import struct
 import codecs
+import hashlib
 
 from accelerator.compat import NoneType, iteritems
 
@@ -1439,13 +1441,14 @@ void init(void)
 
 def init():
 	global backend, NULL, mk_uint64
-	try:
-		from . import _dataset_typing as backend
+	from . import _dataset_typing as backend
+	if c_module_hash == backend.source_hash:
 		NULL = object()
 		backend.set_null(NULL)
 		def mk_uint64():
 			return [0]
-	except ImportError:
+	else:
+		print('[dataset_typing] Backend modified since module was compiled, falling back to cffi for development.', file=sys.stderr)
 		import cffi
 		ffi = cffi.FFI()
 
@@ -1589,16 +1592,23 @@ static struct PyModuleDef moduledef = {
 
 PyMODINIT_FUNC PyInit__dataset_typing(void)
 {
-	return PyModule_Create(&moduledef);
+	PyObject *m = PyModule_Create(&moduledef);
+	if (!m) return 0;
+	PyModule_AddObject(m, "source_hash", PyUnicode_FromString(source_hash));
+	return m;
 }
 '''
 
-def write_c_code(fh):
-	fh.write(c_module_prologue)
-	fh.write(all_c_functions);
+def _mk_c_module_code():
+	yield c_module_prologue
+	yield all_c_functions
 	method_defs = []
 	for p in protos:
 		name = p[4:].split('(')[0]
-		fh.write(c_module_wrapper_template % (name, name,))
+		yield c_module_wrapper_template % (name, name,)
 		method_defs.append(method_def_template % (name, name,))
-	fh.write(c_module_epilogue_template % ',\n\t'.join(method_defs))
+	yield c_module_epilogue_template % (',\n\t'.join(method_defs),)
+c_module_code = list(_mk_c_module_code())
+c_module_hash = hashlib.sha1(b''.join(c.encode('ascii') for c in c_module_code)).hexdigest()
+c_module_code.insert(-1, 'static char source_hash[] = "%s";\n' % (c_module_hash,))
+c_module_code = ''.join(c_module_code)
