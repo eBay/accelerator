@@ -109,8 +109,8 @@ def init(name, hash, protos, functions):
 	if hash == backend.source_hash:
 		NULL = object()
 		backend.set_null(NULL)
-		def mk_uint64():
-			return [0]
+		def mk_uint64(count=1):
+			return [0] * count
 		def str2c(s):
 			if isinstance(s, unicode):
 				s = s.encode('utf-8')
@@ -121,8 +121,8 @@ def init(name, hash, protos, functions):
 		ffi = cffi.FFI()
 
 		NULL = ffi.NULL
-		def mk_uint64():
-			return ffi.new('uint64_t [1]', [0])
+		def mk_uint64(count=1):
+			return ffi.new('uint64_t []', [0] * count)
 		def str2c(s):
 			if isinstance(s, unicode):
 				s = s.encode('utf-8')
