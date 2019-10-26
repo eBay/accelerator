@@ -26,7 +26,6 @@ from __future__ import absolute_import
 
 from collections import namedtuple
 from functools import partial
-import ujson
 import sys
 import struct
 import codecs
@@ -610,6 +609,12 @@ static const uint32_t noneval_date = 0;
 static const uint8_t noneval_bool = 255;
 '''
 
+def get_ujson_loads(_):
+	# This imports ujson here instead of at the top so that setup.py
+	# can import this file before ujson is installed.
+	from ujson import loads
+	return loads
+
 ConvTuple = namedtuple('ConvTuple', 'size conv_code_str pyfunc')
 # Size is bytes per value, or 0 for variable size.
 # If pyfunc is specified it is called with the type string
@@ -691,7 +696,7 @@ convfuncs = {
 	# The number type is handled specially, so no code here.
 	'number'       : ConvTuple(0, None, None), # integer when possible (up to +-2**1007-1), float otherwise.
 	'number:int'   : ConvTuple(0, None, None), # Never float, but accepts int.0 (or int.00 and so on)
-	'json'         : ConvTuple(0, None, lambda _: ujson.loads),
+	'json'         : ConvTuple(0, None, get_ujson_loads),
 }
 
 # These are not made available as valid values in column2type, but they
