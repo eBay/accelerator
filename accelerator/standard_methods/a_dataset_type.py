@@ -65,6 +65,8 @@ datasets = ('source', 'previous',)
 
 byteslike_types = ('bytes', 'ascii', 'unicode',)
 
+dataset_typing.init()
+
 def prepare():
 	dataset_typing.backend.init()
 	d = datasets.source
