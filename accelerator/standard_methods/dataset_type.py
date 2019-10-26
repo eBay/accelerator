@@ -1526,4 +1526,8 @@ c_module_code, c_module_hash = c_backend_support.make_source('dataset_type', all
 
 def init():
 	_test()
-	return c_backend_support.init('dataset_type', c_module_hash, protos, all_c_functions)
+	extra_protos = [
+		'int numeric_comma(const char *localename);',
+		'void init(void);',
+	]
+	return c_backend_support.init('dataset_type', c_module_hash, protos, extra_protos, all_c_functions)

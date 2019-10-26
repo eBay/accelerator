@@ -40,6 +40,18 @@ dataset_typemodule = Extension(
 	extra_compile_args=['-std=c99', '-O3'],
 )
 
+from accelerator.standard_methods.csvimport import c_module_code
+fn = "_ci.c"
+with open(fn, "w") as fh:
+	fh.write(c_module_code)
+
+csvimportmodule = Extension(
+	"accelerator.standard_methods._csvimport",
+	sources=[fn],
+	libraries=["z"],
+	extra_compile_args=['-std=c99', '-O3'],
+)
+
 setup(
 	name="accelerator",
 	version="0.99",
@@ -53,12 +65,11 @@ setup(
 
 	install_requires=[
 		'ujson>=1.35',
-		'cffi>=1.7.0',
 		'setproctitle>=1.1.8', # not actually required
 		'bottle>=0.12.7',
 	],
 
-	ext_modules=[gzutilmodule, dataset_typemodule],
+	ext_modules=[gzutilmodule, dataset_typemodule, csvimportmodule],
 
 	package_data={
 		'': ['*.txt', 'methods.conf'],

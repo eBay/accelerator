@@ -104,7 +104,7 @@ def make_source(name, functions, protos, extra_functions, extra_method_defs, wra
 	code = ''.join(code)
 	return code, hash
 
-def init(name, hash, protos, functions):
+def init(name, hash, protos, extra_protos, functions):
 	backend = import_module('accelerator.standard_methods._' + name)
 	if hash == backend.source_hash:
 		NULL = object()
@@ -132,9 +132,7 @@ def init(name, hash, protos, functions):
 		# "typedef int... off_t" isn't allowed with verify,
 		# so I guess we'll just assume that ssize_t is the same as off_t.
 		ffi.cdef('typedef ssize_t off_t;')
-		protos.append('int numeric_comma(const char *localename);')
-		protos.append('void init(void);')
-		ffi.cdef(''.join(protos))
+		ffi.cdef(''.join(protos + extra_protos))
 		backend = ffi.verify(functions, libraries=['z'], extra_compile_args=['-std=c99'])
 
 	# make any unicode args bytes, for C calls.

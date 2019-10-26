@@ -16,22 +16,16 @@
 #                                                                          #
 ############################################################################
 
+# This is a separate file from a_csvimport so setup.py can import
+# it and make the _csvimport module at install time.
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import unicode_literals
 
-import cffi
-
 from . import c_backend_support
 
-ffi = cffi.FFI()
-ffi.cdef('''
-int reader(const char *fn, const int slices, uint64_t skip_lines, const int outfds[], int labels_fd, int status_fd, const int comment_char, const int lf_char);
-int import_slice(const int fd, const int sliceno, const int slices, const int field_count, const char *out_fns[], const char *gzip_mode, const int separator, uint64_t *r_num, const int quote_char, const int lf_char, const int allow_bad);
-int char2int(const char c);
-''')
-
-backend = ffi.verify(r'''
+all_c_functions = r'''
 #include <zlib.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -512,24 +506,131 @@ int char2int(const char c)
 {
 	return c;
 }
-''', libraries=[str('z')], extra_compile_args=[str('-std=c99')])
+'''
 
 
-#c_module_code, c_module_hash = c_backend_support.make_source('dataset_typing', all_c_functions, protos, extra_c_functions, extra_method_defs, c_module_wrapper_template)
-#backend, NULL, mk_uint64, bytesargs = c_backend_support.init('csvimport', c_module_hash, protos, all_c_functions)
+extra_c_functions = r'''
+static PyObject *py_reader(PyObject *self, PyObject *args)
+{
+	int fail = 1;
+	const char *fn;
+	int slices;
+	PY_LONG_LONG skip_lines;
+	PyObject *o_outfds;
+	int *outfds = 0;
+	int labels_fd;
+	int status_fd;
+	int comment_char;
+	int lf_char;
+	if (!PyArg_ParseTuple(args, "etiLOiiii",
+		Py_FileSystemDefaultEncoding, &fn,
+		&slices,
+		&skip_lines,
+		&o_outfds,
+		&labels_fd,
+		&status_fd,
+		&comment_char,
+		&lf_char
+	)) {
+		return 0;
+	}
+	err1(!PyList_Check(o_outfds));
+	Py_ssize_t cnt = PyList_Size(o_outfds);
+	outfds = malloc(sizeof(int) * cnt);
+	err1(!outfds);
+	for (Py_ssize_t i = 0; i < cnt; i++) {
+		PyObject *tmp = PyList_GET_ITEM(o_outfds, i);
+		outfds[i] = PyLong_AsLong(tmp);
+		if (PyErr_Occurred()) {
+			free(outfds);
+			return 0;
+		}
+	}
+	err1(reader(fn, slices, skip_lines, outfds, labels_fd, status_fd, comment_char, lf_char));
+	fail = 0;
+err:
+	if (outfds) free(outfds);
+	if (fail) Py_RETURN_TRUE;
+	Py_RETURN_FALSE;
+}
+
+static PyObject *py_import_slice(PyObject *self, PyObject *args)
+{
+	int fail = 1;
+	int fd;
+	int sliceno;
+	int slices;
+	int field_count;
+	PyObject *o_out_fns;
+	const char **out_fns = 0;
+	const char *gzip_mode;
+	int separator;
+	PyObject *o_r_num;
+	uint64_t r_num[3] = {0, 0, 0};
+	int quote_char;
+	int lf_char;
+	int allow_bad;
+	if (!PyArg_ParseTuple(args, "iiiiOetiOiii",
+		&fd,
+		&sliceno,
+		&slices,
+		&field_count,
+		&o_out_fns,
+		Py_FileSystemDefaultEncoding, &gzip_mode,
+		&separator,
+		&o_r_num,
+		&quote_char,
+		&lf_char,
+		&allow_bad
+	)) {
+		return 0;
+	}
+	err1(!PyList_Check(o_out_fns));
+	err1(!PyList_Check(o_r_num));
+	err1(PyList_Size(o_r_num) != 3);
+	Py_ssize_t cnt = PyList_Size(o_out_fns);
+	out_fns = malloc(sizeof(char *) * cnt);
+	err1(!out_fns);
+	for (Py_ssize_t i = 0; i < cnt; i++) {
+		PyObject *tmp = PyList_GET_ITEM(o_out_fns, i);
+		if (str_or_0(tmp, &out_fns[i])) {
+			free(out_fns);
+			return 0;
+		}
+	}
+	err1(import_slice(fd, sliceno, slices, field_count, out_fns, gzip_mode, separator, r_num, quote_char, lf_char, allow_bad));
+	for (int i = 0; i < 3; i++) {
+		err1(PyList_SetItem(o_r_num, i, PyLong_FromUnsignedLongLong(r_num[i])));
+	}
+	fail = 0;
+err:
+	if (out_fns) free(out_fns);
+	if (fail) Py_RETURN_TRUE;
+	Py_RETURN_FALSE;
+}
+
+static PyObject *py_char2int(PyObject *dummy, PyObject *o_charstr)
+{
+	const char *charstr;
+	if (str_or_0(o_charstr, &charstr)) return 0;
+	if (!charstr) Py_RETURN_NONE;
+	return PyLong_FromLong(char2int(*charstr));
+}
+'''
+
+extra_method_defs = [
+	'{"reader", py_reader, METH_VARARGS, 0}',
+	'{"import_slice", py_import_slice, METH_VARARGS, 0}',
+	'{"char2int", py_char2int, METH_O, 0}',
+]
+
+
+c_module_code, c_module_hash = c_backend_support.make_source('csvimport', all_c_functions, [], extra_c_functions, extra_method_defs, None)
 
 def init():
-	from accelerator.extras import DotDict
-	from accelerator.compat import str_types,unicode
-	def bytesargs(*a):
-		return [
-			ffi.new('char []', v) if isinstance(v, bytes)
-			else ffi.new('char []', v.encode("utf-8")) if isinstance(v, unicode)
-			else bytesargs(*v) if isinstance(v, list) and v and isinstance(v[0], str_types)
-			else ffi.NULL if v is None
-			else v
-			for v in a
-		]
-	def mk_uint64(count=1):
-		return ffi.new('uint64_t []', [0] * count)
-	return DotDict(backend=backend,NULL=ffi.NULL,bytesargs=bytesargs,mk_uint64=mk_uint64)
+	protos = [
+		'int reader(const char *fn, const int slices, uint64_t skip_lines, const int outfds[], int labels_fd, int status_fd, const int comment_char, const int lf_char);',
+		'int import_slice(const int fd, const int sliceno, const int slices, const int field_count, const char *out_fns[], const char *gzip_mode, const int separator, uint64_t *r_num, const int quote_char, const int lf_char, const int allow_bad);',
+		'int char2int(const char c);',
+	]
+	return c_backend_support.init('csvimport', c_module_hash, [], protos, all_c_functions)
