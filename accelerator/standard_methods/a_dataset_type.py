@@ -136,141 +136,149 @@ class IntegerBytesWrapper(object):
 		self.inner[key] = chr(value)
 
 def analysis_lap(sliceno, badmap_fh, first_lap):
-	known_line_count = 0
-	badmap_size = 0
-	badmap_fd = -1
-	res_bad_count = {}
-	res_default_count = {}
-	res_minmax = {}
-	if first_lap:
+	dw = DatasetWriter()
+	vars = DotDict(
+		known_line_count=0,
+		badmap_size=0,
+		badmap_fd=-1,
+		badmap_fh=badmap_fh,
+		res_bad_count={},
+		res_default_count={},
+		res_minmax={},
+		first_lap=first_lap,
+	)
+	for colname, coltype in iteritems(options.column2type):
+		out_fn = dw.column_filename(options.rename.get(colname, colname))
+		one_column(sliceno, vars, colname, coltype, out_fn)
+	return vars.res_bad_count, vars.res_default_count, vars.res_minmax
+
+def one_column(sliceno, vars, colname, coltype, out_fn):
+	if vars.first_lap:
 		record_bad = options.filter_bad
 		skip_bad = 0
 	else:
 		record_bad = 0
 		skip_bad = options.filter_bad
 	minmax_fn = 'minmax%d' % (sliceno,)
-	dw = DatasetWriter()
-	for colname, coltype in iteritems(options.column2type):
-		out_fn = dw.column_filename(options.rename.get(colname, colname))
-		fmt = fmt_b = None
-		if coltype in dataset_type.convfuncs:
-			shorttype = coltype
-			_, cfunc, pyfunc = dataset_type.convfuncs[coltype]
+
+	fmt = fmt_b = None
+	if coltype in dataset_type.convfuncs:
+		shorttype = coltype
+		_, cfunc, pyfunc = dataset_type.convfuncs[coltype]
+	else:
+		shorttype, fmt = coltype.split(':', 1)
+		_, cfunc, pyfunc = dataset_type.convfuncs[shorttype + ':*']
+	if cfunc:
+		cfunc = shorttype.replace(':', '_')
+	if pyfunc:
+		tmp = pyfunc(coltype)
+		if callable(tmp):
+			pyfunc = tmp
+			cfunc = None
 		else:
-			shorttype, fmt = coltype.split(':', 1)
-			_, cfunc, pyfunc = dataset_type.convfuncs[shorttype + ':*']
-		if cfunc:
-			cfunc = shorttype.replace(':', '_')
-		if pyfunc:
-			tmp = pyfunc(coltype)
-			if callable(tmp):
-				pyfunc = tmp
-				cfunc = None
-			else:
-				pyfunc = None
-				cfunc, fmt, fmt_b = tmp
-		if coltype == 'number':
-			cfunc = 'number'
-		elif coltype == 'number:int':
-			coltype = 'number'
-			cfunc = 'number'
-			fmt = "int"
-		assert cfunc or pyfunc, coltype + " didn't have cfunc or pyfunc"
-		coltype = shorttype
-		d = datasets.source
-		assert d.columns[colname].type in byteslike_types, colname
+			pyfunc = None
+			cfunc, fmt, fmt_b = tmp
+	if coltype == 'number':
+		cfunc = 'number'
+	elif coltype == 'number:int':
+		coltype = 'number'
+		cfunc = 'number'
+		fmt = "int"
+	assert cfunc or pyfunc, coltype + " didn't have cfunc or pyfunc"
+	coltype = shorttype
+	d = datasets.source
+	assert d.columns[colname].type in byteslike_types, colname
+	if options.filter_bad:
+		line_count = d.lines[sliceno]
+		if vars.known_line_count:
+			assert line_count == vars.known_line_count, (colname, line_count, vars.known_line_count)
+		else:
+			vars.known_line_count = line_count
+			pagesize = getpagesize()
+			vars.badmap_size = (line_count // 8 // pagesize + 1) * pagesize
+			vars.badmap_fh.truncate(vars.badmap_size)
+			vars.badmap_fd = vars.badmap_fh.fileno()
+	in_fn = d.column_filename(colname, sliceno)
+	if d.columns[colname].offsets:
+		offset = d.columns[colname].offsets[sliceno]
+		max_count = d.lines[sliceno]
+	else:
+		offset = 0
+		max_count = -1
+	if cfunc:
+		default_value = options.defaults.get(colname, cstuff.NULL)
+		default_len = 0
+		if default_value is None:
+			default_value = cstuff.NULL
+			default_value_is_None = True
+		else:
+			default_value_is_None = False
+			if default_value != cstuff.NULL:
+				if isinstance(default_value, unicode):
+					default_value = default_value.encode("utf-8")
+				default_len = len(default_value)
+		bad_count = cstuff.mk_uint64()
+		default_count = cstuff.mk_uint64()
+		c = getattr(cstuff.backend, 'convert_column_' + cfunc)
+		res = c(*cstuff.bytesargs(in_fn, out_fn, minmax_fn, default_value, default_len, default_value_is_None, fmt, fmt_b, record_bad, skip_bad, vars.badmap_fd, vars.badmap_size, bad_count, default_count, offset, max_count))
+		assert not res, 'Failed to convert ' + colname
+		vars.res_bad_count[colname] = bad_count[0]
+		vars.res_default_count[colname] = default_count[0]
+		coltype = coltype.split(':', 1)[0]
+		with type2iter[dataset_type.typerename.get(coltype, coltype)](minmax_fn) as it:
+			vars.res_minmax[colname] = list(it)
+		unlink(minmax_fn)
+	else:
+		# python func
+		nodefault = object()
+		if colname in options.defaults:
+			default_value = options.defaults[colname]
+			if default_value is not None:
+				if isinstance(default_value, unicode):
+					default_value = default_value.encode('utf-8')
+				default_value = pyfunc(default_value)
+		else:
+			default_value = nodefault
 		if options.filter_bad:
-			line_count = d.lines[sliceno]
-			if known_line_count:
-				assert line_count == known_line_count, (colname, line_count, known_line_count)
-			else:
-				known_line_count = line_count
-				pagesize = getpagesize()
-				badmap_size = (line_count // 8 // pagesize + 1) * pagesize
-				badmap_fh.truncate(badmap_size)
-				badmap_fd = badmap_fh.fileno()
-		in_fn = d.column_filename(colname, sliceno)
-		if d.columns[colname].offsets:
-			offset = d.columns[colname].offsets[sliceno]
-			max_count = d.lines[sliceno]
-		else:
-			offset = 0
-			max_count = -1
-		if cfunc:
-			default_value = options.defaults.get(colname, cstuff.NULL)
-			default_len = 0
-			if default_value is None:
-				default_value = cstuff.NULL
-				default_value_is_None = True
-			else:
-				default_value_is_None = False
-				if default_value != cstuff.NULL:
-					if isinstance(default_value, unicode):
-						default_value = default_value.encode("utf-8")
-					default_len = len(default_value)
-			bad_count = cstuff.mk_uint64()
-			default_count = cstuff.mk_uint64()
-			c = getattr(cstuff.backend, 'convert_column_' + cfunc)
-			res = c(*cstuff.bytesargs(in_fn, out_fn, minmax_fn, default_value, default_len, default_value_is_None, fmt, fmt_b, record_bad, skip_bad, badmap_fd, badmap_size, bad_count, default_count, offset, max_count))
-			assert not res, 'Failed to convert ' + colname
-			res_bad_count[colname] = bad_count[0]
-			res_default_count[colname] = default_count[0]
-			coltype = coltype.split(':', 1)[0]
-			with type2iter[dataset_type.typerename.get(coltype, coltype)](minmax_fn) as it:
-				res_minmax[colname] = list(it)
-			unlink(minmax_fn)
-		else:
-			# python func
-			nodefault = object()
-			if colname in options.defaults:
-				default_value = options.defaults[colname]
-				if default_value is not None:
-					if isinstance(default_value, unicode):
-						default_value = default_value.encode('utf-8')
-					default_value = pyfunc(default_value)
-			else:
-				default_value = nodefault
-			if options.filter_bad:
-				badmap = mmap(badmap_fd, badmap_size)
-				if PY2:
-					badmap = IntegerBytesWrapper(badmap)
-			bad_count = 0
-			default_count = 0
-			dont_minmax_types = {'bytes', 'ascii', 'unicode', 'json'}
-			real_coltype = dataset_type.typerename.get(coltype, coltype)
-			do_minmax = real_coltype not in dont_minmax_types
-			with typed_writer(real_coltype)(out_fn) as fh:
-				col_min = col_max = None
-				for ix, v in enumerate(d._column_iterator(sliceno, colname, _type='bytes')):
-					if skip_bad:
-						if badmap[ix // 8] & (1 << (ix % 8)):
-							bad_count += 1
-							continue
-					try:
-						v = pyfunc(v)
-					except ValueError:
-						if default_value is not nodefault:
-							v = default_value
-							default_count += 1
-						elif record_bad:
-							bad_count += 1
-							bv = badmap[ix // 8]
-							badmap[ix // 8] = bv | (1 << (ix % 8))
-							continue
-						else:
-							raise Exception("Invalid value %r with no default in %s" % (v, colname,))
-					if do_minmax and not isinstance(v, NoneType):
-						if col_min is None:
-							col_min = col_max = v
-						if v < col_min: col_min = v
-						if v > col_max: col_max = v
-					fh.write(v)
-			if options.filter_bad:
-				badmap.close()
-			res_bad_count[colname] = bad_count
-			res_default_count[colname] = default_count
-			res_minmax[colname] = [col_min, col_max]
-	return res_bad_count, res_default_count, res_minmax
+			badmap = mmap(vars.badmap_fd, vars.badmap_size)
+			if PY2:
+				badmap = IntegerBytesWrapper(badmap)
+		bad_count = 0
+		default_count = 0
+		dont_minmax_types = {'bytes', 'ascii', 'unicode', 'json'}
+		real_coltype = dataset_type.typerename.get(coltype, coltype)
+		do_minmax = real_coltype not in dont_minmax_types
+		with typed_writer(real_coltype)(out_fn) as fh:
+			col_min = col_max = None
+			for ix, v in enumerate(d._column_iterator(sliceno, colname, _type='bytes')):
+				if skip_bad:
+					if badmap[ix // 8] & (1 << (ix % 8)):
+						bad_count += 1
+						continue
+				try:
+					v = pyfunc(v)
+				except ValueError:
+					if default_value is not nodefault:
+						v = default_value
+						default_count += 1
+					elif record_bad:
+						bad_count += 1
+						bv = badmap[ix // 8]
+						badmap[ix // 8] = bv | (1 << (ix % 8))
+						continue
+					else:
+						raise Exception("Invalid value %r with no default in %s" % (v, colname,))
+				if do_minmax and not isinstance(v, NoneType):
+					if col_min is None:
+						col_min = col_max = v
+					if v < col_min: col_min = v
+					if v > col_max: col_max = v
+				fh.write(v)
+		if options.filter_bad:
+			badmap.close()
+		vars.res_bad_count[colname] = bad_count
+		vars.res_default_count[colname] = default_count
+		vars.res_minmax[colname] = [col_min, col_max]
 
 def synthesis(params, analysis_res, prepare_res):
 	r = report()
