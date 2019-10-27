@@ -21,7 +21,7 @@ from __future__ import division
 from __future__ import absolute_import
 
 from resource import getpagesize
-from os import unlink, symlink
+from os import unlink
 from mmap import mmap, PROT_READ
 
 from accelerator.compat import NoneType, unicode, imap, iteritems, itervalues, PY2
@@ -111,18 +111,16 @@ def analysis(sliceno):
 			raise Exception("Failed to enable numeric_comma, please install at least one of the following locales: " + " ".join(try_locales))
 	if options.filter_bad:
 		badmap_fh = open('badmap%d' % (sliceno,), 'w+b')
-		bad_count, default_count, minmax, link_candidates = analysis_lap(sliceno, badmap_fh, True)
+		bad_count, default_count, minmax = analysis_lap(sliceno, badmap_fh, True)
 		if sum(itervalues(bad_count)):
-			final_bad_count, default_count, minmax, link_candidates = analysis_lap(sliceno, badmap_fh, False)
+			final_bad_count, default_count, minmax = analysis_lap(sliceno, badmap_fh, False)
 			final_bad_count = max(itervalues(final_bad_count))
 		else:
 			final_bad_count = 0
 		badmap_fh.close()
 	else:
-		bad_count, default_count, minmax, link_candidates = analysis_lap(sliceno, None, False)
+		bad_count, default_count, minmax = analysis_lap(sliceno, None, False)
 		final_bad_count = 0
-	for src, dst in link_candidates:
-		symlink(src, dst)
 	return bad_count, final_bad_count, default_count, minmax
 
 # In python3 indexing into bytes gives integers (b'a'[0] == 97),
@@ -144,7 +142,6 @@ def analysis_lap(sliceno, badmap_fh, first_lap):
 	res_bad_count = {}
 	res_default_count = {}
 	res_minmax = {}
-	link_candidates = []
 	if first_lap:
 		record_bad = options.filter_bad
 		skip_bad = 0
@@ -273,7 +270,7 @@ def analysis_lap(sliceno, badmap_fh, first_lap):
 			res_bad_count[colname] = bad_count
 			res_default_count[colname] = default_count
 			res_minmax[colname] = [col_min, col_max]
-	return res_bad_count, res_default_count, res_minmax, link_candidates
+	return res_bad_count, res_default_count, res_minmax
 
 def synthesis(params, analysis_res, prepare_res):
 	r = report()
