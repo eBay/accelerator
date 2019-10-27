@@ -88,9 +88,11 @@ def _clean_name(n, seen_n):
 	n = ''.join(c if c.isalnum() else '_' for c in n)
 	if n[0].isdigit():
 		n = '_' + n
-	while n in seen_n or iskeyword(n):
+	# .lower because filenames are based on these, and filesystem
+	# might not be case sensitive.
+	while n.lower() in seen_n or iskeyword(n):
 		n += '_'
-	seen_n.add(n)
+	seen_n.add(n.lower())
 	return n
 
 def _dsid(t):
@@ -852,7 +854,7 @@ class DatasetWriter(object):
 			obj._clean_names = {}
 			if parent:
 				obj._pcolumns = Dataset(parent).columns
-				obj._seen_n = set(c.name for c in obj._pcolumns.values())
+				obj._seen_n = set(c.name.lower() for c in obj._pcolumns.values())
 			else:
 				obj._pcolumns = {}
 				obj._seen_n = set()

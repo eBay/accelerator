@@ -47,14 +47,14 @@ def synthesis(params):
 		"print_*", # becomes print___ because print__ is taken.
 		"print_",  # becomes print____ because all shorter are taken.
 		"normal",  # no collision.
-		"Normal",  # no collision.
+		"Normal",  # becomes Normal_ because these comparisons are case insensitive.
 		"print@",  # re-uses print__ from the parent dataset.
 	]
 	for colname in in_child:
 		dw.add(colname, "unicode")
 	w = dw.get_split_write()
-	w(print__="print@ 1", print___="print_* 1", print____="print_ 1", normal="normal 1", Normal="Normal 1")
-	w(print__="print@ 2", print___="print_* 2", print____="print_ 2", normal="normal 2", Normal="Normal 2")
+	w(print__="print@ 1", print___="print_* 1", print____="print_ 1", normal="normal 1", Normal_="Normal 1")
+	w(print__="print@ 2", print___="print_* 2", print____="print_ 2", normal="normal 2", Normal_="Normal 2")
 	child = dw.finish()
 	for colname in in_parent + in_child:
 		data = set(child.iterate(None, colname))
