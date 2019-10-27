@@ -37,7 +37,30 @@ all_c_functions = r'''
 #define BIG_Z (1024 * 1024 * 16 - 64)
 #define SMALL_Z (1024 * 64)
 
-static pthread_barrier_t barrier;
+// OS X has no pthread_barrier support, so we get to do this instead.
+static struct {
+	pthread_mutex_t mutex;
+	pthread_cond_t cond;
+	unsigned int count1;
+	unsigned int count2;
+} barrier;
+
+static void barrier_wait(void)
+{
+	pthread_mutex_lock(&barrier.mutex);
+	if (++barrier.count1 == 2) {
+		barrier.count2++;
+		barrier.count1 = 0;
+		pthread_cond_signal(&barrier.cond);
+	} else {
+		unsigned int count2 = barrier.count2;
+		do {
+			pthread_cond_wait(&barrier.cond, &barrier.mutex);
+		} while (barrier.count2 == count2);
+	}
+	pthread_mutex_unlock(&barrier.mutex);
+}
+
 static char *bufs[3] = {0};
 volatile int32_t buf_lens[2];
 static gzFile read_fh;
@@ -61,7 +84,7 @@ static void *readgz_thread(void *args)
 		const int32_t len = gzread(read_fh, bufs[i], BIG_Z);
 		err1(len < 0);
 		buf_lens[i] = len;
-		pthread_barrier_wait(&barrier);
+		barrier_wait();
 		if (len == 0) return 0;
 		i = !i;
 	}
@@ -84,7 +107,7 @@ static char *read_line(const int lf_char, int32_t *r_len)
 again:
 	if (pos == len) {
 		i = !i;
-		pthread_barrier_wait(&barrier);
+		barrier_wait();
 		len = buf_lens[i];
 		if (len == 0) {
 			len = -1;
@@ -164,7 +187,9 @@ int reader(const char *fn, const int slices, uint64_t skip_lines, const int outf
 	read_fh = gzopen(fn, "rb");
 	err1(!read_fh);
 	err1(gzbuffer(read_fh, SMALL_Z));
-	err1(pthread_barrier_init(&barrier, 0, 2));
+	barrier.count1 = barrier.count2 = 0;
+	err1(pthread_mutex_init(&barrier.mutex, 0));
+	err1(pthread_cond_init(&barrier.cond, 0));
 	// 3 because we need one as scratchpad when spanning a buffer boundary
 	for (int i = 0; i < 3; i++) {
 		bufs[i] = malloc(BIG_Z + 16);
