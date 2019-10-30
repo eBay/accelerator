@@ -27,14 +27,13 @@ import os
 import json
 from operator import itemgetter
 from collections import defaultdict
-from types import GeneratorType
 from base64 import b64encode
 
 from accelerator.compat import unicode, str_types, PY3
 from accelerator.compat import urlencode, urlopen, Request, URLError, HTTPError
 
 from accelerator import setupfile
-from accelerator.extras import json_encode, json_decode, DotDict, resolve_jobid_filename
+from accelerator.extras import json_encode, json_decode, DotDict, resolve_jobid_filename, _ListTypePreserver
 from accelerator.dispatch import JobError
 from accelerator.status import print_status_stacks
 from accelerator import unixhttp; unixhttp # for unixhttp:// URLs, as used to talk to the daemon
@@ -263,7 +262,7 @@ class Automata:
 			stk = stack()[1]
 			print("Called from %s line %d" % (stk[1], stk[2],))
 			exit()
-		self.record[record_in].insert(record_as or method, jid)
+		self.record[record_in].append(JobID(jid, record_as or method))
 		return jid
 
 
@@ -283,121 +282,32 @@ def fmttime(t, short=False):
 	return fmt % (t,) + unit
 
 
-class JobTuple(tuple):
+class JobID(unicode):
 	"""
-	A tuple of (method, jobid) with accessor properties that gives just
-	the jobid for str and etree (encode).
+	A string that is a jobid, but also has a .method property.
 	"""
-	def __new__(cls, *a):
-		if len(a) == 1: # like tuple
-			method, jobid = a[0]
-		else: # like namedtuple
-			method, jobid = a
-		assert isinstance(method, str_types)
-		assert isinstance(jobid, str_types)
-		return tuple.__new__(cls, (str(method), str(jobid)))
-	method = property(itemgetter(0), doc='Field 0')
-	jobid  = property(itemgetter(1), doc='Field 1')
-	def __str__(self):
-		return self.jobid
-	def encode(self, encoding=None, errors="strict"):
-		"""Unicode-object compat. For etree, gives jobid."""
-		return str(self).encode(encoding, errors)
+	def __new__(cls, jobid, method=None):
+		obj = unicode.__new__(cls, jobid)
+		obj.method = method
+		return obj
 
-class JobList(list):
+class JobList(_ListTypePreserver):
 	"""
-	Mostly a list, but uses the jobid of the last element in str and etree (encode).
-	Also provides the following properties:
-	.all for an a,b,c string (jobids)
-	.method for the latest method.
-	.jobid for the latest jobid.
-	.pretty for a pretty-printed version.
-	Taking a single element gives you a (method, jobid) tuple
-	(which also gives jobid in str and etree).
-	Taking a slice gives a jobid,jobid,... string.
-	There is also .find, for finding the latest jobid with a given method.
+	A list of JobIDs with some convenience methods.
+	.find(method) a new JobList with only jobs with that method in it.
+	.get(method, default=None) latest JobID with that method.
+	[method] Same as .get but error if no job with that method is in the list.
+	.as_tuples The same list but as (method, jid) tuples.
+	.pretty a pretty-printed version (string).
 	"""
 
-	def __init__(self, *a):
-		if len(a) == 1:
-			self.extend(a[0])
-		elif a:
-			self.insert(*a)
-
-	def insert(self, method, jobid):
-		list.append(self, JobTuple(method, jobid))
-
-	def append(self, *a):
-		if len(a) == 1:
-			data = a[0]
-		else:
-			return self.insert(*a)
-		if isinstance(data, str_types):
-			return self.insert('', data)
-		if isinstance(data, (tuple, list)):
-			return self.insert(*data)
-		raise ValueError("What did you try to append?", data)
-
-	def extend(self, other):
-		if isinstance(other, str_types + (JobTuple,)):
-			return self.append(other)
-		if not isinstance(other, (list, tuple, GeneratorType)):
-			raise ValueError("Adding what?", other)
-		for item in other:
-			self.append(item)
-
-	def __str__(self):
-		"""Last element jobid, for convenience."""
-		if self:
-			return self[-1].jobid
-		else:
-			return ''
-	def __unicode__(self):
-		"""Last element jobid, for convenience."""
-		return unicode(str(self))
-	def __repr__(self):
-		return "%s(%s)" % (type(self).__name__, list.__repr__(self))
-
-	# this is what etree calls
-	def encode(self, encoding=None, errors="strict"):
-		"""Unicode-object compat. For etree, gives last element."""
-		return str(self).encode(encoding, errors)
-	def __getslice__(self, i, j): # This is friggin pre-python 2, and I *still* need it.
-		return self[slice(i, j)]
 	def __getitem__(self, item):
 		if isinstance(item, slice):
-			return JobList(list.__getitem__(self, item))
+			return self.__class__(list.__getitem__(self, item))
 		elif isinstance(item, str_types):
 			return self.find(item)[-1] # last matching or IndexError
 		else:
 			return list.__getitem__(self, item)
-	def __delitem__(self, item):
-		if isinstance(item, (int, slice)):
-			return list.__delitem__(self, item)
-		if isinstance(item, tuple):
-			self[:] = [j for j in self if item != j]
-		else:
-			self[:] = [j for j in self if item not in j]
-	def __add__(self, other):
-		if not isinstance(other, list):
-			raise ValueError("Adding what?", other)
-		return JobList(list(self) + other)
-	def __iadd__(self, other):
-		self.extend(other)
-		return self
-	@property
-	def all(self):
-		"""Comma separated list of all elements' jobid"""
-		return ','.join(e.jobid for e in self)
-
-	@property
-	def method(self):
-		if self:
-			return self[-1].method
-	@property
-	def jobid(self): # for symmetry
-		if self:
-			return self[-1].jobid
 
 	@property
 	def pretty(self):
@@ -405,12 +315,16 @@ class JobList(list):
 		if not self: return 'JobList([])'
 		template = '   [%%3d] %%%ds : %%s' % (max(len(i.method) for i in self),)
 		return 'JobList(\n' + \
-			'\n'.join(template % (i, a, b) for i, (a, b) in enumerate(self)) + \
+			'\n'.join(template % (i, j.method, j) for i, j in enumerate(self)) + \
 			'\n)'
+
+	@property
+	def as_tuples(self):
+		return [(e.method, e) for e in self]
 
 	def find(self, method):
 		"""Matching elements returned as new Joblist."""
-		return JobList(e for e in self if e.method == method)
+		return self.__class__(e for e in self if e.method == method)
 
 	def get(self, method, default=None):
 		l = self.find(method)
@@ -454,7 +368,7 @@ class UrdResponse(dict):
 
 	@property
 	def as_dep(self):
-		return DotDict(timestamp=self.timestamp, joblist=self.joblist, caption=self.caption)
+		return DotDict(timestamp=self.timestamp, joblist=self.joblist.as_tuples, caption=self.caption)
 
 class EmptyUrdResponse(UrdResponse):
 	# so you can do "if urd.latest('foo'):" and similar.
@@ -473,7 +387,7 @@ def _urd_typeify(d):
 	res = DotDict()
 	for k, v in d.items():
 		if k == 'joblist':
-			v = JobList(v)
+			v = JobList(JobID(e[1], e[0]) for e in v)
 		elif isinstance(v, dict):
 			v = _urd_typeify(v)
 		res[k] = v
@@ -610,7 +524,7 @@ class Urd(object):
 		data = DotDict(
 			user=user,
 			automata=automata,
-			joblist=self.joblist,
+			joblist=self.joblist.as_tuples,
 			deps=self._deps,
 			caption=caption,
 			timestamp=timestamp,
@@ -644,12 +558,12 @@ class Urd(object):
 		total = 0
 		seen = set()
 		per_method = defaultdict(int)
-		for method, jid in self.joblist:
+		for jid in self.joblist:
 			if jid not in seen:
 				seen.add(jid)
 				t = job_post(jid).profile.total
 				total += t
-				per_method[method] += t
+				per_method[jid.method] += t
 		if verbose and per_method:
 			print("Time per method:")
 			tmpl = "   %%-%ds  %%s  (%%d%%%%)" % (max(len(method) for method in per_method),)
