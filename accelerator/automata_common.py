@@ -192,22 +192,21 @@ class Automata:
 			path.append('full')
 		path.append('?subjob_cookie=%s&timeout=%d' % (self.subjob_cookie or '', timeout,))
 		resp = self._url_json(*path)
-		last_error = resp.last_error
-		if last_error and not ignore_errors:
+		if 'last_error' in resp and not ignore_errors:
 			print("\nFailed to build jobs:", file=sys.stderr)
-			for jobid, method, status in last_error:
+			for jobid, method, status in resp.last_error:
 				e = JobError(jobid, method, status)
 				print(e.format_msg(), file=sys.stderr)
 			raise e
-		return resp.idle, resp.status_stacks, resp.current, resp.last_time
+		return resp.idle, resp.get('status_stacks'), resp.get('current'), resp.get('last_time')
 
 	def _server_submit(self, json):
 		# submit json to server
 		postdata = urlencode({'json': setupfile.encode_setup(json)})
 		res = self._url_json('submit', data=postdata)
-		if res.error:
+		if 'error' in res:
 			raise Exception("Submit failed: " + res.error)
-		if not res.why_build:
+		if 'why_build' not in res:
 			if not self.subjob_cookie:
 				self._printlist(res.jobs)
 			self.validate_response(res.jobs)
@@ -226,7 +225,7 @@ class Automata:
 				print(' %s' % resolve_jobid_filename(item.link, ''), end=' ')
 			else:
 				print(' %s' % item.link, end=' ')
-			if item.make != True:
+			if item.make != True and 'total_time' in item:
 				print(' %s' % fmttime(item.total_time), end=' ')
 			print()
 
@@ -252,7 +251,7 @@ class Automata:
 		jid, res = self._submit(method, options, datasets, jobids, caption, why_build=why_build, workdir=workdir)
 		if why_build: # specified by caller
 			return res.why_build
-		if res.why_build: # done by server anyway (because --flags why_build)
+		if 'why_build' in res: # done by server anyway (because --flags why_build)
 			print("Would have built from:")
 			print("======================")
 			print(setupfile.encode_setup(self.history[-1][0], as_str=True))
@@ -269,9 +268,6 @@ class Automata:
 
 
 def fmttime(t, short=False):
-	if t == '':
-		# Failures have no time information and end up here
-		return ''
 	if short:
 		units = ['h', 'm', 's']
 		fmts = ['%.2f', '%.1f', '%.0f']
@@ -458,7 +454,7 @@ class UrdResponse(dict):
 
 	@property
 	def as_dep(self):
-		return DotDict(timestamp=self.timestamp, joblist=self.joblist, caption=self.caption, _default=lambda: None)
+		return DotDict(timestamp=self.timestamp, joblist=self.joblist, caption=self.caption)
 
 class EmptyUrdResponse(UrdResponse):
 	# so you can do "if urd.latest('foo'):" and similar.
@@ -474,7 +470,7 @@ def _urd_typeify(d):
 		d = json.loads(d)
 		if not d or isinstance(d, unicode):
 			return d
-	res = DotDict(_default=lambda: None)
+	res = DotDict()
 	for k, v in d.items():
 		if k == 'joblist':
 			v = JobList(v)

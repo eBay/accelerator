@@ -73,7 +73,8 @@ def initialise_jobs(setup, target_WorkSpace, DataBase, Methods, verbose=False):
 	for uid, job in DataBase.match_exact(reqlist):
 		DepTree.set_link(uid, job)
 	DepTree.propagate_make()
-	if setup.why_build:
+	why_build = setup.get('why_build')
+	if why_build:
 		orig_tree = deepcopy(DepTree.tree)
 	DepTree.fill_in_default_options()
 
@@ -82,7 +83,7 @@ def initialise_jobs(setup, target_WorkSpace, DataBase, Methods, verbose=False):
 	newjoblist = [x for x in joblist if x['make']]
 	num_new_jobs = len(newjoblist)
 
-	if setup.why_build == True or (setup.why_build and num_new_jobs):
+	if why_build == True or (why_build and num_new_jobs):
 		res = OrderedDict()
 		DepTree.tree = orig_tree
 		joblist = DepTree.get_sorted_joblist()
@@ -117,7 +118,7 @@ def initialise_jobs(setup, target_WorkSpace, DataBase, Methods, verbose=False):
 				if m_typing:
 					typing[method] = m_typing
 			if typing:
-				new_setup._typing = typing
+				new_setup['_typing'] = typing
 			setupfile.save_setup(data['link'], new_setup)
 	else:
 		new_jobid_list = []

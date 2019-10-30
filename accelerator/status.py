@@ -194,7 +194,7 @@ def statmsg_sink(sock):
 					parent_pid, is_analysis, msg, t = msg.split('\0', 3)
 					parent_pid = int(parent_pid)
 					t = float(t)
-					d = DotDict(_default=None)
+					d = DotDict()
 					d.parent_pid = parent_pid
 					d.children   = {}
 					d.stack      = [(msg, t, None)]

@@ -34,6 +34,7 @@ from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 import os.path
 
 from accelerator.compat import iteritems, itervalues, unicode
+from accelerator.extras import DotDict
 
 LOGFILEVERSION = '3'
 
@@ -44,18 +45,6 @@ def locked(func):
 		with lock:
 			return func(*a, **kw)
 	return inner
-
-class DotDict(dict):
-	"""Like a dict, but with d.foo as well as d['foo'].
-	d.foo returns '' for unset values.
-	The normal dict.f (get, items, ...) still return the functions.
-	"""
-	__setattr__ = dict.__setitem__
-	__delattr__ = dict.__delitem__
-	def __getattr__(self, name):
-		if name[0] == "_":
-			raise AttributeError(name)
-		return self[name]
 
 
 def joblistlike(jl):

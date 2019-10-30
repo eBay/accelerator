@@ -26,7 +26,7 @@ Rewrite a dataset (or chain to previous) with new hashlabel.
 
 from shutil import copyfileobj
 
-from accelerator.extras import OptionString, job_params
+from accelerator.extras import OptionString
 from accelerator.dataset import DatasetWriter
 
 options = {
@@ -41,9 +41,7 @@ datasets = ('source', 'previous',)
 def prepare(params):
 	d = datasets.source
 	caption = options.caption % dict(caption=d.caption, hashlabel=options.hashlabel)
-	prev_p = job_params(datasets.previous, default_empty=True)
-	prev_source = prev_p.datasets.source
-	if len(d.chain(stop_ds=prev_source, length=options.length)) == 1:
+	if len(d.chain(stop_ds={datasets.previous: 'source'}, length=options.length)) == 1:
 		filename = d.filename
 	else:
 		filename = None
@@ -71,14 +69,14 @@ def prepare(params):
 		names.append(n)
 		for dw in dws:
 			dw.add(n, c.type)
-	return dws, names, prev_source, caption, filename
+	return dws, names, caption, filename
 
 def analysis(sliceno, prepare_res):
-	dws, names, prev_source = prepare_res[:3]
+	dws, names = prepare_res[:2]
 	it = datasets.source.iterate_chain(
 		sliceno,
 		names,
-		stop_ds=prev_source,
+		stop_ds={datasets.previous: 'source'},
 		length=options.length,
 	)
 	write = dws[sliceno].get_split_write_list()
@@ -89,7 +87,7 @@ def synthesis(prepare_res, params):
 	if not options.as_chain:
 		# If we don't want a chain we abuse our knowledge of dataset internals
 		# to avoid recompressing. Don't do this stuff yourself.
-		dws, names, prev_source, caption, filename = prepare_res
+		dws, names, caption, filename = prepare_res
 		merged_dw = DatasetWriter(
 			caption=caption,
 			hashlabel=options.hashlabel,

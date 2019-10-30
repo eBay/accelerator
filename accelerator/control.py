@@ -165,7 +165,7 @@ class Main:
 
 		t0 = time.time()
 		setup = update_setup(jobid, starttime=t0)
-		prof = setup.profile or DotDict()
+		prof = setup.get('profile', DotDict())
 		new_prof, files, subjobs = dispatch.launch(W.path, setup, self.config, self.Methods, active_workspaces, slices, self.debug, self.daemon_url, subjob_cookie, parent_pid)
 		if self.debug:
 			delete_from = Temp.TEMP

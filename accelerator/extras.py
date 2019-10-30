@@ -368,56 +368,24 @@ class ResultIterMagic(object):
 
 class DotDict(dict):
 	"""Like a dict, but with d.foo as well as d['foo'].
-	d.foo returns '' for unset values by default, but you can specify
-	_attr_default and _item_default constructors (or None to get errors).
-	Normally you should specify _default to set them both to the same thing.
+	(Names beginning with _ will have to use d['_foo'] syntax.)
 	The normal dict.f (get, items, ...) still return the functions.
 	"""
 
-	def __init__(self, *a, **kw):
-		have = set()
-		if '_attr_default' in kw:
-			attr_default = kw.pop('_attr_default')
-			have.add('attr')
-		else:
-			attr_default = str
-		if '_item_default' in kw:
-			item_default = kw.pop('_item_default')
-			have.add('item')
-		else:
-			item_default = None
-		if '_default' in kw:
-			assert not have, 'Specify either _default or _attr_default + _item_default'
-			attr_default = item_default = kw.pop('_default')
-			have = {'attr', 'item'}
-		if len(a) == 2: # contructors, not a dict, we assume
-			assert not have, 'Specify either _default or _attr_default + _item_default'
-			attr_default, item_default = a
-			have = {'attr', 'item'}
-			a = ()
-		assert attr_default is None or callable(attr_default)
-		assert item_default is None or callable(item_default)
-		dict.__setattr__(self, '_attr_default', attr_default)
-		dict.__setattr__(self, '_item_default', item_default)
-		dict.__init__(self, *a, **kw)
-	__setattr__ = dict.__setitem__
-	__delattr__ = dict.__delitem__
 	def __getattr__(self, name):
 		if name[0] == "_":
 			raise AttributeError(name)
-		if name not in self:
-			default = dict.__getattribute__(self, '_attr_default')
-			if not default:
-				raise AttributeError(name)
-			self[name] = default()
-		return dict.__getitem__(self, name)
-	def __getitem__(self, name):
-		if name not in self:
-			default = dict.__getattribute__(self, '_item_default')
-			if not default:
-				raise KeyError(name)
-			self[name] = default()
-		return dict.__getitem__(self, name)
+		return self[name]
+
+	def __setattr__(self, name, value):
+		if name[0] == "_":
+			raise AttributeError(name)
+		self[name] = value
+
+	def __delattr__(self, name):
+		if name[0] == "_":
+			raise AttributeError(name)
+		del self[name]
 
 class OptionEnumValue(str):
 	@staticmethod
