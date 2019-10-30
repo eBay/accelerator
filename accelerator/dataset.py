@@ -26,17 +26,18 @@ from __future__ import unicode_literals
 
 import os
 from keyword import kwlist
-from collections import namedtuple
+from collections import namedtuple, Counter
 from itertools import compress
 from functools import partial
 from contextlib import contextmanager
 from glob import glob
+from operator import itemgetter
 
 from accelerator.compat import unicode, uni, ifilter, imap, iteritems, str_types
 from accelerator.compat import builtins, open, getarglist, izip, izip_longest
 
 from accelerator import blob
-from accelerator.extras import DotDict, job_params
+from accelerator.extras import DotDict, job_params, _ListTypePreserver
 from accelerator.jobid import resolve_jobid_filename
 from accelerator.gzwrite import typed_writer
 
@@ -306,7 +307,7 @@ class Dataset(unicode):
 		if stop_ds:
 			# resolve all formats to the same format
 			stop_ds = Dataset(stop_ds)
-		chain = []
+		chain = DatasetChain()
 		current = self
 		while length != len(chain) and current != stop_ds:
 			chain.append(current)
@@ -1098,6 +1099,58 @@ class DatasetWriter(object):
 		del _datasetwriters[self.name]
 		_datasets_written.append(self.name)
 		return res
+
+class DatasetChain(_ListTypePreserver):
+	"""
+	These are lists of datasets returned from Dataset.chain.
+	They exist to provide some convenience methods on chains.
+	"""
+
+	def _minmax(self, column, minmax):
+		vl = []
+		for ds in self:
+			c = ds.columns.get(column)
+			if c:
+				v = getattr(c, minmax)
+				if v is not None:
+					vl.append(v)
+		if vl:
+			return getattr(builtins, minmax)(vl)
+
+	def min(self, column):
+		"""Min value for column over the whole chain.
+		Will be None if no dataset in the chain contains column,
+		if all datasets are empty or if column has a type without
+		min/max tracking"""
+		return self._minmax(column, 'min')
+
+	def max(self, column):
+		"""Max value for column over the whole chain.
+		Will be None if no dataset in the chain contains column,
+		if all datasets are empty or if column has a type without
+		min/max tracking"""
+		return self._minmax(column, 'max')
+
+	def lines(self, sliceno=None):
+		"""Number of rows in this chain, optionally for a specific slice."""
+		if sliceno is None:
+			sel = sum
+		else:
+			sel = itemgetter(sliceno)
+		return sum(sel(ds.lines) for ds in self)
+
+	def column_counts(self):
+		"""Counter {colname: occurances}"""
+		from itertools import chain
+		return Counter(chain.from_iterable(ds.columns.keys() for ds in self))
+
+	def column_count(self, column):
+		"""How many datasets in this chain contain column"""
+		return sum(column in ds.columns for ds in self)
+
+	def with_column(self, column):
+		"""Chain without any datasets that don't contain column"""
+		return self.__class__(ds for ds in self if column in ds.columns)
 
 def range_check_function(bottom, top):
 	"""Returns a function that checks if bottom <= arg < top, allowing bottom and/or top to be None"""

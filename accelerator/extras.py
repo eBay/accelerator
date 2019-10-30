@@ -387,6 +387,24 @@ class DotDict(dict):
 			raise AttributeError(name)
 		del self[name]
 
+class _ListTypePreserver(list):
+	"""Base class to inherit from in list subclasses that want their custom type preserved when slicing."""
+
+	def __getslice__(self, i, j):
+		return self[slice(i, j)]
+
+	def __getitem__(self, item):
+		if isinstance(item, slice):
+			return self.__class__(list.__getitem__(self, item))
+		else:
+			return list.__getitem__(self, item)
+
+	def __add__(self, other):
+		return self.__class__(list(self) + other)
+
+	def __repr__(self):
+		return '%s(%s)' % (self.__class__.__name__, list.__repr__(self))
+
 class OptionEnumValue(str):
 	@staticmethod
 	def _mktype(name, valid, prefixes):
