@@ -42,15 +42,11 @@ def jobchain_prev(tip_jobid=None):
 
 
 def jobchain(length=-1, reverse=False, tip_jobid=None, stop_jobid=None):
-	"""Look backwards over "previous" (jobid or dataset) from tip_jobid
-	(default current job) and return length (or all) latest jobids
-	(includes tip only if explicitly specified)
+	"""Look backwards over "previous" jobid from tip_jobid
+	(default current job) and return length (or all) latest
+	jobids (includes tip only if explicitly specified).
 	Return up to but not including stop_jobid.
-	stop_jobid can be a {job: optname} dict, resolving dataset/jobid "optname" from job"""
-
-	def x2opt(jobid, optname="previous"):
-		params = job_params(jobid)
-		return params.jobids.get(optname) or params.datasets.get(optname)
+	stop_jobid can be a {job: optname} dict, resolving jobid "optname" from job"""
 
 	if not stop_jobid:
 		stop_jobid = ()
@@ -60,8 +56,13 @@ def jobchain(length=-1, reverse=False, tip_jobid=None, stop_jobid=None):
 		stuff = stop_jobid.items()
 		stop_jobid = set()
 		for parent, var in stuff:
-			stop_jobid.add(x2opt(parent, var))
+			jobid = job_params(parent).jobids.get(var)
+			assert jobid, "%s not set in %s" % (var, parent)
+			stop_jobid.add(jobid)
 	assert isinstance(stop_jobid, (list, tuple, set,)), "stop_jobid must be str, dict or set-ish"
+
+	if length == 0:
+		return []
 
 	jobid = tip_jobid
 	if tip_jobid:
@@ -70,7 +71,7 @@ def jobchain(length=-1, reverse=False, tip_jobid=None, stop_jobid=None):
 	else:
 		l_jobid = []
 	while length:
-		jobid = x2opt(jobid)
+		jobid = job_params(jobid).jobids.get('previous')
 		if not jobid:
 			break
 		if jobid in stop_jobid:
