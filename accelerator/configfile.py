@@ -129,5 +129,8 @@ def load_config(filename):
 	if 'project_directory' not in res:
 		res.project_directory = os.path.dirname(filename)
 	res.workdirs = dict(res.workdirs)
+	if res.target_workdir not in res.workdirs:
+		print('Error in %s:\ntarget workdir %r not in defined workdirs %r' % (filename, res.target_workdir, set(res.workdirs),), file=sys.stderr)
+		exit(1)
 	res.interpreters = dict(res.interpreters)
 	return res
