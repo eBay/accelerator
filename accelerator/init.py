@@ -59,13 +59,13 @@ workdirs:
 	{name} {workdir}
 
 # Target workdir defaults to the first workdir, but you can override it.
-# target workdir: {name}
 # (this is where jobs without a workdir override are built)
+target workdir: {name}
 
 method packages:
 	{name}
 	accelerator.standard_methods
-#	accelerator.test_methods
+	accelerator.test_methods
 
 urd: # URL/socket to your urd.
 
