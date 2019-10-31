@@ -23,7 +23,6 @@ from __future__ import division
 
 import re
 import os
-import sys
 from functools import partial
 
 from accelerator.compat import quote_plus, open
@@ -46,6 +45,8 @@ def resolve_socket_url(path):
 
 
 def load_config(filename):
+	from accelerator.shell import UserError
+
 	key = None
 	multivalued = {'workdirs', 'method packages', 'interpreters'}
 	required = {'slices', 'logfile', 'workdirs', 'method packages'}
@@ -75,8 +76,8 @@ def load_config(filename):
 		interpreter=check_interpreter,
 	)
 
-	with open(filename, 'r', encoding='utf-8') as fh:
-		try:
+	try:
+		with open(filename, 'r', encoding='utf-8') as fh:
 			for lineno, line in enumerate(fh, 1):
 				line = line.split('#', 1)[0].rstrip()
 				if not line.strip():
@@ -103,34 +104,37 @@ def load_config(filename):
 						if key in cfg:
 							raise _E("%r doesn't take multiple values" % (key,))
 						cfg[key] = val
-		except _E as e:
-			print('Error on line %d of %s:\n%s' % (lineno, filename, e.args[0],), file=sys.stderr)
-			sys.exit(1)
+		lineno = None
 
-	missing = set()
-	for req in required:
-		if not cfg[req]:
-			missing.add(req)
-	if missing:
-		print('Error in %s: Missing required keys %r' % (filename, missing,), file=sys.stderr)
-		exit(1)
+		missing = set()
+		for req in required:
+			if not cfg[req]:
+				missing.add(req)
+		if missing:
+			raise _E('Missing required keys %r' % (missing,))
 
-	# Reformat result a bit so the new format doesn't require code changes all over the place.
-	rename = {
-		'target workdir': 'target_workdir',
-		'method packages': 'method_directories',
-		'source directory': 'source_directory',
-		'result directory': 'result_directory',
-		'project directory': 'project_directory',
-	}
-	res = DotDict({rename.get(k, k): v for k, v in cfg.items()})
-	if 'target_workdir' not in res:
-		res.target_workdir = res.workdirs[0][0]
-	if 'project_directory' not in res:
-		res.project_directory = os.path.dirname(filename)
-	res.workdirs = dict(res.workdirs)
-	if res.target_workdir not in res.workdirs:
-		print('Error in %s:\ntarget workdir %r not in defined workdirs %r' % (filename, res.target_workdir, set(res.workdirs),), file=sys.stderr)
-		exit(1)
-	res.interpreters = dict(res.interpreters)
+		# Reformat result a bit so the new format doesn't require code changes all over the place.
+		rename = {
+			'target workdir': 'target_workdir',
+			'method packages': 'method_directories',
+			'source directory': 'source_directory',
+			'result directory': 'result_directory',
+			'project directory': 'project_directory',
+		}
+		res = DotDict({rename.get(k, k): v for k, v in cfg.items()})
+		if 'target_workdir' not in res:
+			res.target_workdir = res.workdirs[0][0]
+		if 'project_directory' not in res:
+			res.project_directory = os.path.dirname(filename)
+		res.workdirs = dict(res.workdirs)
+		if res.target_workdir not in res.workdirs:
+			raise _E('target workdir %r not in defined workdirs %r' % (res.target_workdir, set(res.workdirs),))
+		res.interpreters = dict(res.interpreters)
+	except _E as e:
+		if lineno is None:
+			prefix = 'Error in %s:\n' % (filename,)
+		else:
+			prefix = 'Error on line %d of %s:\n' % (lineno, filename,)
+		raise UserError(prefix + e.args[0])
+
 	return res
