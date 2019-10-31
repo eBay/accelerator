@@ -30,7 +30,6 @@ from collections import namedtuple, Counter
 from itertools import compress
 from functools import partial
 from contextlib import contextmanager
-from glob import glob
 from operator import itemgetter
 
 from accelerator.compat import unicode, uni, ifilter, imap, iteritems, str_types
@@ -1180,16 +1179,12 @@ def job_datasets(jobid):
 	"""All datasets in a jobid"""
 	if isinstance(jobid, Dataset):
 		jobid = jobid.jobid
-	jobid = str(jobid) # to avoid surprises if it's a Dataset instance.
 	fn = resolve_jobid_filename(jobid, 'datasets.txt')
-	if os.path.exists(fn):
-		with open(fn, 'r', encoding='utf-8') as fh:
-			names = [line[:-1] for line in fh]
-	else:
-		# legacy job without datasets.txt
-		# (or any job without datasets)
-		pat = resolve_jobid_filename(jobid, '*/dataset.pickle')
-		names = sorted(p.split('/')[-2] for p in glob(pat))
+	if not os.path.exists(fn):
+		# It's not an error to list datasets in a job without them.
+		return []
+	with open(fn, 'r', encoding='utf-8') as fh:
+		names = [line[:-1] for line in fh]
 	res = []
 	# Do this backwards to improve chances that we take advantage of cache.
 	# (Names are written to datasets.txt in finish() order.)
