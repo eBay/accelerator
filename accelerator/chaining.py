@@ -29,18 +29,6 @@ from accelerator.compat import str_types
 from accelerator.extras import job_params
 
 
-def jobchain_prev(tip_jobid=None):
-	"""Wrap jobchain for a common use of jobchain: find previous jobid
-	to this one."""
-
-	# +bool because tip is included if set
-	jobid = jobchain(length=1 + bool(tip_jobid), tip_jobid=tip_jobid)
-	if jobid:
-		return jobid[0]
-	else:
-		return ''
-
-
 def jobchain(length=-1, reverse=False, tip_jobid=None, stop_jobid=None):
 	"""Look backwards over "previous" jobid from tip_jobid
 	(default current job) and return length (or all) latest
