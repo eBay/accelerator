@@ -80,10 +80,20 @@ class Automata:
 		pass
 
 	def _url_get(self, *path, **kw):
+		nest = kw.pop('nest', 0)
 		url = self.url + os.path.join('/', *path)
 		req = urlopen(url, **kw)
 		try:
 			resp = req.read()
+			if req.getcode() == 503:
+				print('503:', resp, file=sys.stderr)
+				if nest < 3:
+					print('Retrying (%d/3).' % (nest + 1,), file=sys.stderr)
+					time.sleep(nest / 5 + 0.1)
+					return self._url_get(*path, nest=nest + 1, **kw)
+				else:
+					print('Giving up.', file=sys.stderr)
+					raise Exception('Daemon says 503: %s' % (resp,))
 		finally:
 			req.close()
 		if PY3:
