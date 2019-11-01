@@ -33,18 +33,14 @@ def put_workspaces(workspaces_dict):
 	WORKSPACES = workspaces_dict
 
 
-class Jobid:
-	def __init__(self, jobid):
-		self.wspace, tmp = jobid.rsplit('-', 1)
-		self.number = int(tmp)
-
-
 class JobID(unicode):
 	"""
 	A string that is a jobid, but also has a .method property.
 	"""
 	def __new__(cls, jobid, method=None):
 		obj = unicode.__new__(cls, jobid)
+		obj.workspace, tmp = jobid.rsplit('-', 1)
+		obj.number = int(tmp)
 		obj.method = method
 		return obj
 

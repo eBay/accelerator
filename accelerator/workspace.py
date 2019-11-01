@@ -121,7 +121,7 @@ class WorkSpace:
 	def _get_highest_jobnumber(self):
 		""" get highest current jobid number """
 		if self.known_jobids:
-			from accelerator.jobid import Jobid
-			return max(Jobid(jid).number for jid in self.known_jobids)
+			from accelerator.jobid import JobID
+			return max(JobID(jid).number for jid in self.known_jobids)
 		else:
 			return -1
