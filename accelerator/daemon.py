@@ -87,7 +87,7 @@ class XtdHandler(BaseWebHandler):
 		if path[0] == 'status':
 			data = job_tracking.get(args.get('subjob_cookie') or None)
 			if not data:
-				self.do_response(500, 'text/plain', 'bad subjob_cookie!\n' )
+				self.do_response(400, 'text/plain', 'bad subjob_cookie!\n' )
 				return
 			timeout = min(float(args.get('timeout', 0)), 128)
 			status = DotDict(idle=data.lock.acquire(False))
@@ -147,11 +147,11 @@ class XtdHandler(BaseWebHandler):
 				setup = json_decode(args['json'])
 				data = job_tracking.get(setup.get('subjob_cookie') or None)
 				if not data:
-					self.do_response(500, 'text/plain', 'bad subjob_cookie!\n' )
+					self.do_response(403, 'text/plain', 'bad subjob_cookie!\n' )
 					return
 				if len(job_tracking) - 1 > 5: # max five levels
 					print('Too deep subjob nesting!')
-					self.do_response(500, 'text/plain', 'Too deep subjob nesting')
+					self.do_response(403, 'text/plain', 'Too deep subjob nesting')
 					return
 				if data.lock.acquire(False):
 					respond_after = True
@@ -239,11 +239,11 @@ class XtdHandler(BaseWebHandler):
 						self.do_response(200, "text/json", job_res)
 					if self.DEBUG:  print("@daemon.py:  Process releases lock!", file=sys.stderr) # note: has already done http response
 				else:
-					self.do_response(200, 'text/plain', 'Busy doing work for you...\n')
+					self.do_response(503, 'text/plain', 'Busy doing work for you...\n')
 			else:
-				self.do_response(500, 'text/plain', 'Missing json input!\n' )
+				self.do_response(400, 'text/plain', 'Missing json input!\n' )
 		else:
-			self.do_response(500, 'text/plain', 'Unknown path\n' )
+			self.do_response(404, 'text/plain', 'Unknown path\n' )
 			return
 
 
