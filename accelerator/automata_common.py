@@ -33,8 +33,8 @@ from accelerator.compat import unicode, str_types, PY3
 from accelerator.compat import urlencode, urlopen, Request, URLError, HTTPError
 
 from accelerator import setupfile
-from accelerator.extras import json_encode, json_decode, DotDict, resolve_jobid_filename
-from accelerator.extras import job_post,_ListTypePreserver
+from accelerator.extras import json_encode, json_decode, DotDict, job_post,_ListTypePreserver
+from accelerator.jobid import JobID, resolve_jobid_filename
 from accelerator.dispatch import JobError
 from accelerator.status import print_status_stacks
 from accelerator import unixhttp; unixhttp # for unixhttp:// URLs, as used to talk to the daemon
@@ -292,15 +292,6 @@ def fmttime(t, short=False):
 		t /= 60
 	return fmt % (t,) + unit
 
-
-class JobID(unicode):
-	"""
-	A string that is a jobid, but also has a .method property.
-	"""
-	def __new__(cls, jobid, method=None):
-		obj = unicode.__new__(cls, jobid)
-		obj.method = method
-		return obj
 
 class JobList(_ListTypePreserver):
 	"""
