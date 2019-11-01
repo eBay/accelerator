@@ -152,6 +152,7 @@ class XtdHandler(BaseWebHandler):
 					self.do_response(403, 'text/plain', 'Too deep subjob nesting')
 					return
 				if data.lock.acquire(False):
+					still_locked = True
 					respond_after = True
 					try:
 						if self.DEBUG:  print('@daemon.py:  Got the lock!', file=sys.stderr)
@@ -228,10 +229,13 @@ class XtdHandler(BaseWebHandler):
 							data.last_time = total_time
 					except Exception as e:
 						if respond_after:
+							data.lock.release()
+							still_locked = False
 							self.do_response(500, "text/json", {'error': str(e)})
 						raise
 					finally:
-						data.lock.release()
+						if still_locked:
+							data.lock.release()
 					if respond_after:
 						job_res['done'] = True
 						self.do_response(200, "text/json", job_res)
