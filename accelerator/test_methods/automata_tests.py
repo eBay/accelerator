@@ -24,6 +24,8 @@ from accelerator.jobid import resolve_jobid_filename
 from accelerator.dataset import Dataset
 
 def main(urd):
+	assert urd.info.slices >= 3, "The tests don't work with less than 3 slices (you have %d)." % (urd.info.slices,)
+
 	urd.build("test_report")
 	urd.build("test_json")
 	urd.build("test_optionenum")
