@@ -138,8 +138,6 @@ class XtdHandler(BaseWebHandler):
 		elif path==['submit']:
 			if self.ctrl.broken:
 				self.do_response(500, "text/json", {'broken': self.ctrl.broken, 'error': 'Broken methods: ' + ', '.join(sorted(m.split('.')[-1][2:] for m in self.ctrl.broken))})
-			elif 'xml' in args:
-				self.do_response(500, 'text/plain', 'JSON > XML!\n' )
 			elif 'json' in args:
 				if DEBUG_WRITE_JSON:
 					with open('DEBUG_WRITE.json', 'wb') as fh:
