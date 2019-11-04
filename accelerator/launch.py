@@ -30,9 +30,9 @@ from traceback import print_exc, format_tb, format_exception_only
 from time import time, sleep
 import json
 
-from accelerator import jobid as jobid_module
+from accelerator.jobid import put_workspaces, JobID
 from accelerator.compat import pickle, iteritems, setproctitle, QueueEmpty, getarglist, open
-from accelerator.extras import job_params, ResultIterMagic, DotDict
+from accelerator.extras import job_params, ResultIterMagic
 from accelerator.dispatch import JobError
 from accelerator import g
 from accelerator import blob
@@ -196,9 +196,9 @@ def fmt_tb(skip_level):
 
 def execute_process(workdir, jobid, slices, result_directory, common_directory, source_directory, index=None, workspaces=None, daemon_url=None, subjob_cookie=None, parent_pid=0):
 	if workspaces:
-		jobid_module.put_workspaces(workspaces)
+		put_workspaces(workspaces)
 
-	g.JOBID = jobid
+	g.JOBID = jobid = JobID(jobid)
 	setproctitle('launch')
 	path = os.path.join(workdir, jobid)
 	try:
@@ -211,23 +211,12 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 	method_ref = import_module(params.package+'.a_'+params.method)
 	g.sliceno = -1
 
-	def maybe_dataset(v):
-		if isinstance(v, list):
-			return [maybe_dataset(e) for e in v]
-		if not v:
-			return None
-		try:
-			return dataset.Dataset(v)
-		except IOError:
-			return v
-	datasets = DotDict({k: maybe_dataset(v) for k, v in params.datasets.items()})
-
 	g.options          = params.options
-	g.datasets         = datasets
+	g.datasets         = params.datasets
 	g.jobids           = params.jobids
 
 	method_ref.options = params.options
-	method_ref.datasets= datasets
+	method_ref.datasets= params.datasets
 	method_ref.jobids  = params.jobids
 
 	# compatibility names

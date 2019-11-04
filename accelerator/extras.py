@@ -45,6 +45,14 @@ def _fn(filename, jobid, sliceno):
 		filename = JobID(jobid).filename(filename, sliceno)
 	return filename
 
+def _typelistnone(v, t):
+	if isinstance(v, list):
+		return [t(v) if v else None for v in v]
+	elif v:
+		return t(v)
+	else:
+		return None
+
 def job_params(jobid=None, default_empty=False):
 	if default_empty and not jobid:
 		return DotDict(
@@ -53,10 +61,15 @@ def job_params(jobid=None, default_empty=False):
 			jobids=DotDict(),
 		)
 	from accelerator.setupfile import load_setup
+	from accelerator.dataset import Dataset
+	from accelerator.jobid import JobID
 	d = load_setup(jobid)
 	for method, tl in iteritems(d.get('_typing', {})):
 		_apply_typing(d.params[method].options, tl)
 	d.update(d.params[d.method])
+	d.datasets = DotDict({k: _typelistnone(v, Dataset) for k, v in d.datasets.items()})
+	d.jobids = DotDict({k: _typelistnone(v, JobID) for k, v in d.jobids.items()})
+	d.jobid = JobID(d.jobid)
 	return d
 
 def job_post(jobid):
