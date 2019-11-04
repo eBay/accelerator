@@ -195,6 +195,9 @@ def fmt_tb(skip_level):
 
 
 def execute_process(workdir, jobid, slices, result_directory, common_directory, source_directory, index=None, workspaces=None, daemon_url=None, subjob_cookie=None, parent_pid=0):
+	if workspaces:
+		jobid_module.put_workspaces(workspaces)
+
 	g.JOBID = jobid
 	setproctitle('launch')
 	path = os.path.join(workdir, jobid)
@@ -207,9 +210,6 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 	g.params = params = job_params()
 	method_ref = import_module(params.package+'.a_'+params.method)
 	g.sliceno = -1
-
-	if workspaces:
-		jobid_module.put_workspaces(workspaces)
 
 	def maybe_dataset(v):
 		if isinstance(v, list):

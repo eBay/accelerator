@@ -22,7 +22,6 @@ from __future__ import print_function
 from __future__ import division
 
 import os
-import time
 import datetime
 import json
 from traceback import print_exc
@@ -32,27 +31,18 @@ import sys
 from accelerator.compat import PY2, PY3, pickle, izip, iteritems, first_value
 from accelerator.compat import num_types, uni, unicode, str_types
 
-from accelerator.jobid import resolve_jobid_filename
+from accelerator.jobid import JobID
 from accelerator.status import status
 
-def full_filename(filename, ext, sliceno=None, jobid=None):
-	if not filename or not filename[0]:
-		# Fallback to default in calling function
-		return None
-	if isinstance(filename, JobWithFile):
-		if jobid:
-			raise Exception("Don't specify a jobid when passing a JobWithFile as filename")
-		if sliceno is None:
-			assert not filename.sliced, "A sliced file requires a sliceno"
-		else:
-			assert filename.sliced, "An unsliced file can not have a sliceno"
-		jobid, filename = filename[:2]
-	if not filename.endswith(ext):
-		filename += ext
-	if sliceno is not None:
-		filename = filename.replace(ext, '%02d' % (int(sliceno),)) + ext
-	if jobid is not None:
-		filename = resolve_jobid_filename(jobid, filename)
+def _fn(filename, jobid, sliceno):
+	if filename.startswith('/'):
+		assert not jobid, "Don't specify full path (%r) and jobid (%s)." % (filename, jobid,)
+		assert not sliceno, "Don't specify full path (%r) and sliceno." % (filename,)
+	else:
+		if not jobid:
+			from accelerator.g import JOBID
+			jobid = JOBID
+		filename = JobID(jobid).filename(filename, sliceno)
 	return filename
 
 def job_params(jobid=None, default_empty=False):
@@ -72,8 +62,8 @@ def job_params(jobid=None, default_empty=False):
 def job_post(jobid):
 	return json_load('post.json', jobid)
 
-def pickle_save(variable, filename='result', sliceno=None, temp=None):
-	filename = full_filename(filename, '.pickle', sliceno)
+def pickle_save(variable, filename='result.pickle', sliceno=None, temp=None):
+	filename = _fn(filename, None, sliceno)
 	if temp == Temp.DEBUG and temp is not True and '--debug' not in sys.argv:
 		return
 	with FileWriteMove(filename, temp) as fh:
@@ -83,27 +73,14 @@ def pickle_save(variable, filename='result', sliceno=None, temp=None):
 # default to encoding='bytes' because datetime.* (and probably other types
 # too) saved in python 2 fail to unpickle in python 3 otherwise. (Official
 # default is 'ascii', which is pretty terrible too.)
-def pickle_load(filename='result', jobid='', sliceno=None, verbose=False, default=None, encoding='bytes'):
-	filename = full_filename(filename, '.pickle', sliceno, jobid)
-	if not filename and default is not None:
-		return default
-	if verbose:
-		print('Pickle load "%s" ... ' % (filename,), end='')
-		t0 = time.time()
-	try:
-		with status('Loading ' + filename):
-			with open(filename, 'rb') as fh:
-				if PY3:
-					ret = pickle.load(fh, encoding=encoding)
-				else:
-					ret = pickle.load(fh)
-	except IOError:
-		if default is not None:
-			return default
-		raise
-	if verbose:
-		print('done (%f seconds).' % (time.time()-t0,))
-	return ret
+def pickle_load(filename='result.pickle', jobid=None, sliceno=None, encoding='bytes'):
+	filename = _fn(filename, jobid, sliceno)
+	with status('Loading ' + filename):
+		with open(filename, 'rb') as fh:
+			if PY3:
+				return pickle.load(fh, encoding=encoding)
+			else:
+				return pickle.load(fh)
 
 
 def json_encode(variable, sort_keys=True, as_str=False):
@@ -134,8 +111,10 @@ def json_encode(variable, sort_keys=True, as_str=False):
 		res = res.encode('ascii')
 	return res
 
-def json_save(variable, filename='result', jobid=None, sliceno=None, sort_keys=True, _encoder=json_encode, temp=False):
-	filename = full_filename(filename, '.json', sliceno, jobid)
+def json_save(variable, filename='result.json', sliceno=None, sort_keys=True, _encoder=json_encode, temp=False):
+	filename = _fn(filename, None, sliceno)
+	if temp == Temp.DEBUG and temp is not True and '--debug' not in sys.argv:
+		return
 	with FileWriteMove(filename, temp) as fh:
 		fh.write(_encoder(variable, sort_keys=sort_keys))
 		fh.write(b'\n')
@@ -156,17 +135,10 @@ def json_decode(s, unicode_as_utf8bytes=PY2):
 	else:
 		return json.loads(s, object_pairs_hook=DotDict)
 
-def json_load(filename='result', jobid='', sliceno=None, default=None, unicode_as_utf8bytes=PY2):
-	filename = full_filename(filename, '.json', sliceno, jobid)
-	if not filename and default is not None:
-		return default
-	try:
-		with open(filename, 'r') as fh:
-			data = fh.read()
-	except IOError:
-		if default is not None:
-			return default
-		raise
+def json_load(filename='result.json', jobid=None, sliceno=None, unicode_as_utf8bytes=PY2):
+	filename = _fn(filename, jobid, sliceno)
+	with open(filename, 'r') as fh:
+		data = fh.read()
 	return json_decode(data, unicode_as_utf8bytes)
 
 
