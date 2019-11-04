@@ -35,7 +35,15 @@ def put_workspaces(workspaces_dict):
 
 class JobID(unicode):
 	"""
-	A string that is a jobid, but also has a .method property.
+	A string that is a jobid, but also has some extra properties:
+	.method The job method, but probably None except in JobLists.
+	.number The job number as an int.
+	.workspace The workspace name (the part before -number in the jobid)
+	.path The filesystem directory where the job is stored.
+	And some functions:
+	.filename to join .path with a filename
+	.params to load setup.json from this job
+	.post to load post.json from this job
 	"""
 	def __new__(cls, jobid, method=None):
 		obj = unicode.__new__(cls, jobid)
@@ -44,21 +52,30 @@ class JobID(unicode):
 		obj.method = method
 		return obj
 
+	@classmethod
+	def create(cls, name, number):
+		return JobID('%s-%d' % (name, number,))
+
+	@property
+	def path(self):
+		return os.path.join(WORKSPACES[self.workspace], self)
+
+	def filename(self, filename, sliceno=None):
+		if sliceno is not None:
+			filename = '%s.%d' % (filename, sliceno,)
+		return os.path.join(self.path, filename)
+
+	def params(self):
+		from accelerator.extras import job_params
+		return job_params(self)
+
+	def post(self):
+		from accelerator.extras import job_post
+		return job_post(self)
+
 
 def dirnamematcher(name):
 	return re.compile(re.escape(name) + r'-[0-9]+$').match
-
-
-def create(name, number):
-	return '%s-%d' % (name, number,)
-
-
-def get_workspace_name(jobid):
-	return jobid.rsplit('-', 1)[0]
-
-
-def get_path(jobid):
-	return WORKSPACES[get_workspace_name(jobid)]
 
 
 def resolve_jobid_filename(jobid, filename):
@@ -68,8 +85,6 @@ def resolve_jobid_filename(jobid, filename):
 	jobid -> workspace
 	"""
 	if jobid:
-		jobid = str(jobid)
-		path = get_path(jobid)
-		return os.path.join(path, jobid, filename)
+		return JobID(jobid).filename(filename)
 	else:
 		return filename

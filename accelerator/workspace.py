@@ -22,6 +22,9 @@ from __future__ import division
 
 import os
 
+from accelerator.jobid import JobID
+
+
 class WorkSpace:
 	""" Handle all access to a single "physical" workdir. """
 
@@ -94,7 +97,7 @@ class WorkSpace:
 		# Also anything where the mtime has changed needs to be rechecked, at least
 		# in DataBase.
 		# So we need to keep mtimes and look at them, plus the above recent_bad_jobids
-		new = list(cand - self.known_jobids)
+		new = [JobID(j) for j in cand - self.known_jobids]
 		if new:
 			pool = Pool(processes=parallelism)
 			pathv = [join(self.path, j, 'post.json') for j in new]
@@ -106,10 +109,9 @@ class WorkSpace:
 
 	def allocate_jobs(self, num_jobs):
 		""" create num_jobs directories in self.path with jobid-compliant naming """
-		from accelerator.jobid import create
 		highest = self._get_highest_jobnumber()
 #		print('WORKSPACE:  Highest jobid is', highest)
-		jobidv = [create(self.name, highest + 1 + x) for x in range(num_jobs)]
+		jobidv = [JobID.create(self.name, highest + 1 + x) for x in range(num_jobs)]
 		for jobid in jobidv:
 			fullpath = os.path.join(self.path, jobid)
 			print("WORKSPACE:  Allocate_job \"%s\"" % fullpath)
@@ -121,7 +123,6 @@ class WorkSpace:
 	def _get_highest_jobnumber(self):
 		""" get highest current jobid number """
 		if self.known_jobids:
-			from accelerator.jobid import JobID
-			return max(JobID(jid).number for jid in self.known_jobids)
+			return max(jid.number for jid in self.known_jobids)
 		else:
 			return -1

@@ -26,7 +26,6 @@ from os.path import join, exists, realpath
 
 from accelerator.jobid import WORKSPACES
 from accelerator.dataset import Dataset
-from accelerator.jobid import get_path, get_workspace_name
 
 def name2ds(n):
 	if exists(n):
@@ -53,8 +52,7 @@ def name2ds(n):
 		ds = Dataset(n)
 	except IOError:
 		return None
-	with open(join(get_path(ds.jobid), get_workspace_name(ds.jobid) + "-slices.conf")) as fh:
-		slices = int(fh.read())
+	slices = ds.jobid.params().slices
 	from accelerator import g
 	if hasattr(g, 'SLICES'):
 		assert g.SLICES == slices, "Dataset %s needs %d slices, by we are already using %d slices" % (ds, slices, g.SLICES)

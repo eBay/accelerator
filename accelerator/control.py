@@ -32,7 +32,7 @@ from accelerator import workspace
 from accelerator import database
 from accelerator import methods
 from accelerator.setupfile import update_setup
-from accelerator.jobid import resolve_jobid_filename, put_workspaces, get_workspace_name
+from accelerator.jobid import resolve_jobid_filename, put_workspaces, JobID
 from accelerator.extras import json_save, DotDict, Temp
 
 METHODS_CONFIGFILENAME = 'methods.conf'
@@ -158,7 +158,7 @@ class Main:
 
 
 	def run_job(self, jobid, subjob_cookie=None, parent_pid=0):
-		W = self.workspaces[get_workspace_name(jobid)]
+		W = self.workspaces[JobID(jobid).workspace]
 		#
 		active_workspaces = {name: ws.get_path() for name, ws in self.workspaces.items()}
 		slices = self.workspaces[self.target_workdir].get_slices()
