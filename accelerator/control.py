@@ -160,8 +160,8 @@ class Main:
 	def run_job(self, jobid, subjob_cookie=None, parent_pid=0):
 		W = self.workspaces[JobID(jobid).workspace]
 		#
-		active_workspaces = {name: ws.get_path() for name, ws in self.workspaces.items()}
-		slices = self.workspaces[self.target_workdir].get_slices()
+		active_workspaces = {name: ws.path for name, ws in self.workspaces.items()}
+		slices = self.workspaces[self.target_workdir].slices
 
 		t0 = time.time()
 		setup = update_setup(jobid, starttime=t0)

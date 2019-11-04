@@ -64,15 +64,6 @@ class WorkSpace:
 		return True
 
 
-	def get_slices(self):
-		""" return number of slices in workdir """
-		return self.slices
-
-
-	def get_path(self):
-		return self.path
-
-
 	def add_single_jobid(self, jobid):
 		self.valid_jobids.add(jobid)
 

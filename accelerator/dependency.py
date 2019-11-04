@@ -111,7 +111,7 @@ def initialise_jobs(setup, target_WorkSpace, DataBase, Methods, verbose=False):
 			new_setup.hash = Methods.hash[data['method']][0]
 			new_setup.seed = randint(0, 2**63 - 1)
 			new_setup.jobid = data['link']
-			new_setup.slices = target_WorkSpace.get_slices()
+			new_setup.slices = target_WorkSpace.slices
 			typing = {}
 			for method in data['params']:
 				m_typing = Methods.typing[method]
