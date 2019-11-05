@@ -30,7 +30,6 @@ from gzip import GzipFile
 
 from accelerator import subjobs
 from accelerator.dataset import Dataset
-from accelerator.extras import resolve_jobid_filename
 from accelerator import g
 
 file_a = b'0\nfoo\n'
@@ -47,7 +46,7 @@ def compress(data):
 
 def verify(zipname, inside_filenames, want_ds, **kw):
 	opts=dict(
-		filename=resolve_jobid_filename(g.jobid, zipname),
+		filename=g.jobid.filename(zipname),
 		inside_filenames=inside_filenames,
 	)
 	opts.update(kw)

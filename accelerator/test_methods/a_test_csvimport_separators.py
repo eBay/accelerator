@@ -27,7 +27,6 @@ with and without quoting.
 
 from accelerator import subjobs
 from accelerator.dispatch import JobError
-from accelerator.extras import resolve_jobid_filename
 from accelerator.dataset import Dataset
 from accelerator.compat import open, uni
 
@@ -66,7 +65,7 @@ def check_one(params, newline, sep, data, want_res=None, prefix="", quotes=False
 			fh.write(newline)
 	try:
 		jid = subjobs.build("csvimport", options=dict(
-			filename=resolve_jobid_filename(params.jobid, filename),
+			filename=params.jobid.filename(filename),
 			separator=sep_c,
 			quotes=quotes,
 			newline='' if "\n" in newline else newline,

@@ -37,7 +37,7 @@ from accelerator.compat import builtins, open, getarglist, izip, izip_longest
 
 from accelerator import blob
 from accelerator.extras import DotDict, job_params, _ListTypePreserver
-from accelerator.jobid import resolve_jobid_filename, JobID
+from accelerator.jobid import JobID
 from accelerator.gzwrite import typed_writer
 
 kwlist = set(kwlist)
@@ -75,11 +75,12 @@ iskeyword = frozenset(kwlist).__contains__
 #
 # Going from a DatasetColumn to a filename is like this for version 2 and 3 datasets:
 #     jid, path = dc.location.split('/', 1)
+#     jid = JobID(jid)
 #     if dc.offsets:
-#         resolve_jobid_filename(jid, path)
+#         jid.filename(path)
 #         seek to dc.offsets[sliceno], read only ds.lines[sliceno] values.
 #     else:
-#         resolve_jobid_filename(jid, path % sliceno)
+#         jid.filename(path % sliceno)
 # There is a ds.column_filename function to do this for you (not the seeking, obviously).
 #
 # The dataset pickle is jid/name/dataset.pickle, so jid/default/dataset.pickle for the default dataset.
@@ -295,12 +296,13 @@ class Dataset(unicode):
 	def column_filename(self, colname, sliceno=None):
 		dc = self.columns[colname]
 		jid, name = dc.location.split('/', 1)
+		jid = JobID(jid)
 		if dc.offsets:
-			return resolve_jobid_filename(jid, name)
+			return jid.filename(name)
 		else:
 			if sliceno is None:
 				sliceno = '%s'
-			return resolve_jobid_filename(jid, name % (sliceno,))
+			return jid.filename(name % (sliceno,))
 
 	def chain(self, length=-1, reverse=False, stop_ds=None):
 		if stop_ds:
@@ -1179,7 +1181,9 @@ def job_datasets(jobid):
 	"""All datasets in a jobid"""
 	if isinstance(jobid, Dataset):
 		jobid = jobid.jobid
-	fn = resolve_jobid_filename(jobid, 'datasets.txt')
+	else:
+		jobid = JobID(jobid)
+	fn = jobid.filename('datasets.txt')
 	if not os.path.exists(fn):
 		# It's not an error to list datasets in a job without them.
 		return []

@@ -29,7 +29,6 @@ from collections import Counter
 
 from accelerator import subjobs
 from accelerator.dispatch import JobError
-from accelerator.extras import resolve_jobid_filename
 from accelerator.dataset import Dataset
 from accelerator.compat import PY3, uni
 
@@ -51,7 +50,7 @@ def check_array(params, lines, filename, bad_lines=(), **options):
 			ix = str(ix).encode("ascii")
 			fh.write(ix + b"," + data + b"," + data + b"\n")
 	options.update(
-		filename=resolve_jobid_filename(params.jobid, filename),
+		filename=params.jobid.filename(filename),
 		allow_bad=bool(bad_lines),
 		labelsonfirstline=False,
 		labels=["ix", "0", "1"],
@@ -107,7 +106,7 @@ def check_bad_file(params, name, data):
 	with openx(filename) as fh:
 		fh.write(data)
 	options=dict(
-		filename=resolve_jobid_filename(params.jobid, filename),
+		filename=params.jobid.filename(filename),
 	)
 	require_failure(name, options)
 
@@ -147,7 +146,7 @@ def check_no_separator(params):
 					write(byteline(splitpoint, 256, nl, q))
 			try:
 				jid = subjobs.build("csvimport", options=dict(
-					filename=resolve_jobid_filename(params.jobid, filename),
+					filename=params.jobid.filename(filename),
 					quotes=q_b.decode("iso-8859-1"),
 					newline=nl_b.decode("iso-8859-1"),
 					separator='',
@@ -164,7 +163,7 @@ def check_good_file(params, name, data, d, d_bad={}, d_skipped={}, **options):
 	with openx(filename) as fh:
 		fh.write(data)
 	options.update(
-		filename=resolve_jobid_filename(params.jobid, filename),
+		filename=params.jobid.filename(filename),
 	)
 	verify_ds(options, d, d_bad, d_skipped, filename)
 

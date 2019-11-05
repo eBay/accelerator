@@ -31,7 +31,6 @@ import sys
 import os
 
 from accelerator import subjobs
-from accelerator.extras import resolve_jobid_filename
 from accelerator.automata_common import Automata
 from accelerator import g
 
@@ -50,7 +49,7 @@ def test(params, p=False, a=False, s=False):
 		name += 's'
 		opts['s'] = "Words\nfrom synthesis\ncookie is %d." % (cookie,)
 	jid = subjobs.build(name, options=opts)
-	d = resolve_jobid_filename(jid, 'OUTPUT/')
+	d = jid.filename('OUTPUT/')
 	chked = set()
 	def chk(part):
 		if isinstance(part, int):

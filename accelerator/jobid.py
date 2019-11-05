@@ -33,6 +33,10 @@ def put_workspaces(workspaces_dict):
 	WORKSPACES = workspaces_dict
 
 
+def dirnamematcher(name):
+	return re.compile(re.escape(name) + r'-[0-9]+$').match
+
+
 class JobID(unicode):
 	"""
 	A string that is a jobid, but also has some extra properties:
@@ -74,17 +78,3 @@ class JobID(unicode):
 		return job_post(self)
 
 
-def dirnamematcher(name):
-	return re.compile(re.escape(name) + r'-[0-9]+$').match
-
-
-def resolve_jobid_filename(jobid, filename):
-	"""
-	Used by extras, dataset, and sourcedata to find
-	full path of filename based on lookup from
-	jobid -> workspace
-	"""
-	if jobid:
-		return JobID(jobid).filename(filename)
-	else:
-		return filename

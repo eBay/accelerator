@@ -68,7 +68,7 @@ import re
 from accelerator.compat import uni
 
 from . import a_csvimport
-from accelerator.extras import DotDict, resolve_jobid_filename, OptionEnum
+from accelerator.extras import DotDict, OptionEnum
 from accelerator import subjobs
 from accelerator.dataset import Dataset
 
@@ -97,7 +97,7 @@ def prepare(params, SOURCE_DIRECTORY):
 		cnt = 0
 		while True:
 			cnt += 1
-			yield resolve_jobid_filename(params.jobid, str(cnt))
+			yield params.jobid.filename(str(cnt))
 	tmpfn = tmpfn()
 	namemap = dict(options.inside_filenames)
 	if namemap and (options.include_re or options.exclude_re):

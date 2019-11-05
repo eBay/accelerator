@@ -20,7 +20,6 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import unicode_literals
 
-from accelerator.jobid import resolve_jobid_filename
 from accelerator.dataset import Dataset
 
 def main(urd):
@@ -41,9 +40,9 @@ def main(urd):
 	csv = urd.build("csvexport", options=dict(filename=csvname, separator="\t"), datasets=dict(source=ds))
 	csv_uncompressed = urd.build("csvexport", options=dict(filename=csvname_uncompressed, separator="\t"), datasets=dict(source=ds))
 	csv_quoted = urd.build("csvexport", options=dict(filename=csvname, quote_fields='"'), datasets=dict(source=ds))
-	reimp_csv = urd.build("csvimport", options=dict(filename=resolve_jobid_filename(csv, csvname), separator="\t"))
-	reimp_csv_uncompressed = urd.build("csvimport", options=dict(filename=resolve_jobid_filename(csv_uncompressed, csvname_uncompressed), separator="\t"))
-	reimp_csv_quoted = urd.build("csvimport", options=dict(filename=resolve_jobid_filename(csv_quoted, csvname), quotes=True))
+	reimp_csv = urd.build("csvimport", options=dict(filename=csv.filename(csvname), separator="\t"))
+	reimp_csv_uncompressed = urd.build("csvimport", options=dict(filename=csv_uncompressed.filename(csvname_uncompressed), separator="\t"))
+	reimp_csv_quoted = urd.build("csvimport", options=dict(filename=csv_quoted.filename(csvname), quotes=True))
 	urd.build("test_compare_datasets", datasets=dict(a=reimp_csv, b=reimp_csv_uncompressed))
 	urd.build("test_compare_datasets", datasets=dict(a=reimp_csv, b=reimp_csv_quoted))
 	urd.build("test_dataset_column_names")

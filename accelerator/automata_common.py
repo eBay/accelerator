@@ -34,7 +34,7 @@ from accelerator.compat import urlencode, urlopen, Request, URLError, HTTPError
 
 from accelerator import setupfile
 from accelerator.extras import json_encode, json_decode, DotDict, job_post,_ListTypePreserver
-from accelerator.jobid import JobID, resolve_jobid_filename
+from accelerator.jobid import JobID
 from accelerator.dispatch import JobError
 from accelerator.status import print_status_stacks
 from accelerator import unixhttp; unixhttp # for unixhttp:// URLs, as used to talk to the daemon
@@ -232,7 +232,7 @@ class Automata:
 			print('        -  %44s' % method.ljust(44), end=' ')
 			print(' %s' % (make_msg,), end=' ')
 			if self.print_full_jobpath:
-				print(' %s' % resolve_jobid_filename(item.link, ''), end=' ')
+				print(' %s' % JobID(item.link).path, end=' ')
 			else:
 				print(' %s' % item.link, end=' ')
 			if item.make != True and 'total_time' in item:
@@ -273,7 +273,8 @@ class Automata:
 			stk = stack()[1]
 			print("Called from %s line %d" % (stk[1], stk[2],))
 			exit()
-		self.record[record_in].append(JobID(jid, record_as or method))
+		jid = JobID(jid, record_as or method)
+		self.record[record_in].append(jid)
 		return jid
 
 

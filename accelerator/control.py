@@ -32,7 +32,7 @@ from accelerator import workspace
 from accelerator import database
 from accelerator import methods
 from accelerator.setupfile import update_setup
-from accelerator.jobid import resolve_jobid_filename, put_workspaces, JobID
+from accelerator.jobid import put_workspaces, JobID
 from accelerator.extras import json_save, DotDict, Temp
 
 METHODS_CONFIGFILENAME = 'methods.conf'
@@ -186,7 +186,7 @@ class Main:
 		update_setup(jobid, **data)
 		data['files'] = files
 		data['subjobs'] = subjobs
-		json_save(data, resolve_jobid_filename(jobid, 'post.json'))
+		json_save(data, jobid.filename('post.json'))
 
 
 	def get_methods(self):
