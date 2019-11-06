@@ -19,7 +19,7 @@
 import os
 import re
 
-from accelerator.compat import unicode
+from accelerator.compat import unicode, PY2
 
 
 # WORKSPACES should live in the Automata class, but only for callers
@@ -78,6 +78,15 @@ class JobID(unicode):
 	def post(self):
 		from accelerator.extras import job_post
 		return job_post(self)
+
+	def load(self, filename='result.pickle', sliceno=None, encoding='bytes'):
+		"""blob.load from this job"""
+		from accelerator.extras import pickle_load
+		return pickle_load(self.filename(filename, sliceno), encoding=encoding)
+
+	def json_load(self, filename='result.json', sliceno=None, unicode_as_utf8bytes=PY2):
+		from accelerator.extras import json_load
+		return json_load(self.filename(filename, sliceno), unicode_as_utf8bytes=unicode_as_utf8bytes)
 
 	# Look like a string after pickling
 	def __reduce__(self):
