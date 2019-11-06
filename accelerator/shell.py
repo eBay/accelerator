@@ -86,13 +86,13 @@ def load_cfg(fn):
 	global cfg
 
 	from accelerator.configfile import load_config
-	from accelerator.jobid import WORKSPACES
+	from accelerator.jobid import WORKDIRS
 
 	cfg = load_config(fn)
 	for k, v in cfg.workdirs.items():
-		if WORKSPACES.get(k, v) != v:
-			print("WARNING: %s overrides workspace %s" % (fn, k,), file=sys.stderr)
-		WORKSPACES[k] = v
+		if WORKDIRS.get(k, v) != v:
+			print("WARNING: %s overrides workdir %s" % (fn, k,), file=sys.stderr)
+		WORKDIRS[k] = v
 	return cfg
 
 def unpath(path):

@@ -101,7 +101,7 @@ class DataBase:
 		filesystem_jobids = WorkSpace.valid_jobids
 		self._fsjid.update(filesystem_jobids)
 		if verbose > 1:
-			print('DATABASE:  update found these jobids in workspace', filesystem_jobids)
+			print('DATABASE:  update found these jobids in workdir', filesystem_jobids)
 		# Insert any new jobids, including with invalid hash
 		new_jobids = filesystem_jobids.difference(_paramsdict)
 		if new_jobids:

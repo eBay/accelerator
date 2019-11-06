@@ -29,7 +29,7 @@ class WorkSpace:
 	""" Handle all access to a single "physical" workdir. """
 
 	def __init__(self, name, path, slices):
-		""" name is workspace name, e.g. "churn" or "redlaser".  all jobids are prefixed by name.
+		""" name is workdir name, e.g. "churn" or "redlaser".  all jobids are prefixed by name.
 		    path is simply where all jobids are put.
 		    slices is number of slices for workdir, for example 12. """
 		self.name   = name
@@ -101,11 +101,10 @@ class WorkSpace:
 	def allocate_jobs(self, num_jobs):
 		""" create num_jobs directories in self.path with jobid-compliant naming """
 		highest = self._get_highest_jobnumber()
-#		print('WORKSPACE:  Highest jobid is', highest)
 		jobidv = [JobID.create(self.name, highest + 1 + x) for x in range(num_jobs)]
 		for jobid in jobidv:
 			fullpath = os.path.join(self.path, jobid)
-			print("WORKSPACE:  Allocate_job \"%s\"" % fullpath)
+			print("WORKDIR:  Allocate_job \"%s\"" % fullpath)
 			self.known_jobids.add(jobid)
 			os.mkdir(fullpath)
 		return jobidv

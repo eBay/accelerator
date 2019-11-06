@@ -24,12 +24,12 @@ from __future__ import division, print_function
 
 from os.path import join, exists, realpath
 
-from accelerator.jobid import WORKSPACES
+from accelerator.jobid import WORKDIRS
 from accelerator.dataset import Dataset
 
 def name2ds(n):
 	if exists(n):
-		# it's a path - dig out parts, maybe update WORKSPACES
+		# it's a path - dig out parts, maybe update WORKDIRS
 		n = realpath(n)
 		if n.endswith("/dataset.pickle"):
 			n = n.rsplit("/", 1)[0]
@@ -42,9 +42,9 @@ def name2ds(n):
 			base, jid = n.rsplit("/", 1)
 			n = jid
 		k = jid.rsplit("-", 1)[0]
-		if WORKSPACES.get(k, base) != base:
+		if WORKDIRS.get(k, base) != base:
 			print("### Overriding workdir %s to %s" % (k, base,))
-		WORKSPACES[k] = base
+		WORKDIRS[k] = base
 	elif n.startswith('/'):
 		# meant to be a path, but it does not exist
 		return None

@@ -32,7 +32,7 @@ from accelerator import workspace
 from accelerator import database
 from accelerator import methods
 from accelerator.setupfile import update_setup
-from accelerator.jobid import put_workspaces, JobID
+from accelerator.jobid import WORKDIRS, JobID
 from accelerator.extras import json_save, DotDict, Temp
 
 METHODS_CONFIGFILENAME = 'methods.conf'
@@ -59,7 +59,8 @@ class Main:
 		self.workspaces = {}
 		for name, path in self.config.workdirs.items():
 			self.workspaces[name] = workspace.WorkSpace(name, path, config.slices)
-		put_workspaces({k: v.path for k, v in self.workspaces.items()})
+		WORKDIRS.clear()
+		WORKDIRS.update({k: v.path for k, v in self.workspaces.items()})
 		self.DataBase = database.DataBase(self)
 		self.update_database()
 		self.broken = False
@@ -88,12 +89,12 @@ class Main:
 		)
 
 
-	def list_workspaces(self):
-		""" Return list of all initiated workspaces """
+	def list_workdirs(self):
+		""" Return list of all initiated workdirs """
 		return self.workspaces
 
 
-	def print_workspaces(self):
+	def print_workdirs(self):
 		namelen = max(len(n) for n in self.workspaces)
 		templ = "    %%s %%%ds: %%s \x1b[m(%%d)" % (namelen,)
 		print("Available workdirs:")
@@ -115,7 +116,7 @@ class Main:
 		return self.DataBase.add_single_jobid(jobid)
 
 	def update_database(self):
-		"""Insert all new jobids (from all workspaces) in database,
+		"""Insert all new jobids (from all workdirs) in database,
 		discard all deleted or with incorrect hash.
 		"""
 		t_l = []
@@ -136,7 +137,7 @@ class Main:
 		for t in t_l:
 			t.join()
 		# These run one at a time, but they will spawn SLICES workers for
-		# reading and parsing files. (So unless workspaces are on different
+		# reading and parsing files. (So unless workdirs are on different
 		# disks this is probably better.)
 		self.DataBase._update_begin()
 		for ws in self.workspaces.values():
@@ -158,15 +159,15 @@ class Main:
 
 
 	def run_job(self, jobid, subjob_cookie=None, parent_pid=0):
-		W = self.workspaces[JobID(jobid).workspace]
+		W = self.workspaces[JobID(jobid).workdir]
 		#
-		active_workspaces = {name: ws.path for name, ws in self.workspaces.items()}
+		active_workdirs = {name: ws.path for name, ws in self.workspaces.items()}
 		slices = self.workspaces[self.target_workdir].slices
 
 		t0 = time.time()
 		setup = update_setup(jobid, starttime=t0)
 		prof = setup.get('profile', DotDict())
-		new_prof, files, subjobs = dispatch.launch(W.path, setup, self.config, self.Methods, active_workspaces, slices, self.debug, self.daemon_url, subjob_cookie, parent_pid)
+		new_prof, files, subjobs = dispatch.launch(W.path, setup, self.config, self.Methods, active_workdirs, slices, self.debug, self.daemon_url, subjob_cookie, parent_pid)
 		if self.debug:
 			delete_from = Temp.TEMP
 		else:

@@ -22,15 +22,10 @@ import re
 from accelerator.compat import unicode, PY2
 
 
-# WORKSPACES should live in the Automata class, but only for callers
+# WORKDIRS should live in the Automata class, but only for callers
 # (methods read it too, though hopefully only through the functions in this module)
 
-WORKSPACES = {}
-
-
-def put_workspaces(workspaces_dict):
-	global WORKSPACES
-	WORKSPACES = workspaces_dict
+WORKDIRS = {}
 
 
 def dirnamematcher(name):
@@ -42,7 +37,7 @@ class JobID(unicode):
 	A string that is a jobid, but also has some extra properties:
 	.method The job method (can be the "name" when from build or urd).
 	.number The job number as an int.
-	.workspace The workspace name (the part before -number in the jobid)
+	.workdir The workdir name (the part before -number in the jobid)
 	.path The filesystem directory where the job is stored.
 	And some functions:
 	.filename to join .path with a filename
@@ -53,7 +48,7 @@ class JobID(unicode):
 	"""
 	def __new__(cls, jobid, method=None):
 		obj = unicode.__new__(cls, jobid)
-		obj.workspace, tmp = jobid.rsplit('-', 1)
+		obj.workdir, tmp = jobid.rsplit('-', 1)
 		obj.number = int(tmp)
 		obj._method = method
 		return obj
@@ -70,7 +65,7 @@ class JobID(unicode):
 
 	@property
 	def path(self):
-		return os.path.join(WORKSPACES[self.workspace], self)
+		return os.path.join(WORKDIRS[self.workdir], self)
 
 	def filename(self, filename, sliceno=None):
 		if sliceno is not None:

@@ -30,7 +30,7 @@ from traceback import print_exc, format_tb, format_exception_only
 from time import time, sleep
 import json
 
-from accelerator.jobid import put_workspaces, JobID
+from accelerator.jobid import JobID, WORKDIRS
 from accelerator.compat import pickle, iteritems, setproctitle, QueueEmpty, getarglist, open
 from accelerator.extras import job_params, ResultIterMagic
 from accelerator.dispatch import JobError
@@ -194,9 +194,8 @@ def fmt_tb(skip_level):
 	return ''.join(msg)
 
 
-def execute_process(workdir, jobid, slices, result_directory, common_directory, source_directory, index=None, workspaces=None, daemon_url=None, subjob_cookie=None, parent_pid=0):
-	if workspaces:
-		put_workspaces(workspaces)
+def execute_process(workdir, jobid, slices, result_directory, common_directory, source_directory, index=None, workdirs=None, daemon_url=None, subjob_cookie=None, parent_pid=0):
+	WORKDIRS.update(workdirs)
 
 	g.JOBID = jobid = JobID(jobid)
 	setproctitle('launch')
@@ -325,11 +324,11 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 	return None, (prof, saved_files, _record)
 
 
-def run(workdir, jobid, slices, result_directory, common_directory, source_directory, index=None, workspaces=None, daemon_url=None, subjob_cookie=None, parent_pid=0, prof_fd=-1):
+def run(workdir, jobid, slices, result_directory, common_directory, source_directory, index=None, workdirs=None, daemon_url=None, subjob_cookie=None, parent_pid=0, prof_fd=-1):
 	global g_allesgut, _prof_fd
 	_prof_fd = prof_fd
 	try:
-		data = execute_process(workdir, jobid, slices, result_directory, common_directory, source_directory, index=index, workspaces=workspaces, daemon_url=daemon_url, subjob_cookie=subjob_cookie, parent_pid=parent_pid)
+		data = execute_process(workdir, jobid, slices, result_directory, common_directory, source_directory, index=index, workdirs=workdirs, daemon_url=daemon_url, subjob_cookie=subjob_cookie, parent_pid=parent_pid)
 		g_allesgut = True
 	except Exception:
 		print_exc()

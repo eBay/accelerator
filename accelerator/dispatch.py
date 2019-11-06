@@ -89,7 +89,7 @@ def run(cmd, close_in_child, keep_in_child, with_pgrp=True):
 	os.execv(cmd[0], cmd)
 	os._exit()
 
-def launch(workdir, setup, config, Methods, active_workspaces, slices, debug, daemon_url, subjob_cookie, parent_pid):
+def launch(workdir, setup, config, Methods, active_workdirs, slices, debug, daemon_url, subjob_cookie, parent_pid):
 	starttime = time.time()
 	jobid = setup.jobid
 	method = setup.method
@@ -105,7 +105,7 @@ def launch(workdir, setup, config, Methods, active_workspaces, slices, debug, da
 		result_directory=config.get('result_directory', ''),
 		common_directory=config.get('common_directory', ''),
 		source_directory=config.get('source_directory', ''),
-		workspaces=active_workspaces,
+		workdirs=active_workdirs,
 		daemon_url=daemon_url,
 		subjob_cookie=subjob_cookie,
 		parent_pid=parent_pid,

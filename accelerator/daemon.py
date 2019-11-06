@@ -107,8 +107,8 @@ class XtdHandler(BaseWebHandler):
 			self.do_response(200, "text/json", status)
 			return
 
-		elif path==['list_workspaces']:
-			ws = {k: v.path for k, v in self.ctrl.list_workspaces().items()}
+		elif path==['list_workdirs']:
+			ws = {k: v.path for k, v in self.ctrl.list_workdirs().items()}
 			self.do_response(200, "text/json", ws)
 
 		elif path==['config']:
@@ -352,7 +352,7 @@ def main(argv, config):
 
 	ctrl = control.Main(config, options, daemon_url)
 	print()
-	ctrl.print_workspaces()
+	ctrl.print_workdirs()
 	print()
 
 	XtdHandler.ctrl = ctrl

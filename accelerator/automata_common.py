@@ -57,8 +57,8 @@ class Automata:
 		self.flags = flags or []
 		self.job_method = None
 		# Workspaces should be per Automata
-		from accelerator.jobid import put_workspaces
-		put_workspaces(self.list_workspaces())
+		from accelerator.jobid import WORKDIRS
+		WORKDIRS.update(self.list_workdirs())
 		self.update_method_deps()
 		self.clear_record()
 		# Don't do this unless we are part of automatarunner
@@ -254,8 +254,8 @@ class Automata:
 		info = self.methods_info()
 		self.dep_methods = {str(name): set(map(str, data.get('dep', ()))) for name, data in info.items()}
 
-	def list_workspaces(self):
-		return self._url_json('list_workspaces')
+	def list_workdirs(self):
+		return self._url_json('list_workdirs')
 
 	def call_method(self, method, options={}, datasets={}, jobids={}, record_in=None, record_as=None, why_build=False, caption=None, workdir=None):
 		jid, res = self._submit(method, options, datasets, jobids, caption, why_build=why_build, workdir=workdir)
