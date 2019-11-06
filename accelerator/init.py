@@ -36,7 +36,7 @@ def synthesis(analysis_res):
 """
 
 
-automata = r"""def main(urd):
+build_script = r"""def main(urd):
 	urd.build('example', options=dict(message='Hello world!'))
 """
 
@@ -150,8 +150,8 @@ def main(argv):
 		fh.write('example\n')
 	with open(join(method_dir, 'a_example.py'), 'w') as fh:
 		fh.write(a_example)
-	with open(join(method_dir, 'automata.py'), 'w') as fh:
-		fh.write(automata)
+	with open(join(method_dir, 'build.py'), 'w') as fh:
+		fh.write(build_script)
 	with open(join(options.directory, 'accelerator.conf'), 'w') as fh:
 		fh.write(config_template.format(
 			name=options.name,

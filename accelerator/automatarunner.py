@@ -47,8 +47,8 @@ def find_automata(a, package, script):
 				raise Exception('No method directory found for %r in %r' % (package, all_packages))
 	else:
 		package = all_packages
-	if not script.startswith('automata'):
-		script = 'automata_' + script
+	if not script.startswith('build'):
+		script = 'build_' + script
 	for p in package:
 		module_name = p + '.' + script
 		try:
@@ -62,7 +62,7 @@ def find_automata(a, package, script):
 			else:
 				if not e.message.endswith(script):
 					raise
-	raise Exception('No automata "%s" found in {%s}' % (script, ', '.join(package)))
+	raise Exception('No build script "%s" found in {%s}' % (script, ', '.join(package)))
 
 def run_automata(options):
 	if options.port:
@@ -114,12 +114,12 @@ def main(argv):
 	parser.add_argument('-f', '--flags',    default='',          help="comma separated list of flags", )
 	parser.add_argument('-A', '--abort',    action='store_true', help="abort (fail) currently running job(s)", )
 	parser.add_argument('-q', '--quick',    action='store_true', help="skip method updates and checking workdirs for new jobs", )
-	parser.add_argument('-w', '--just_wait',action='store_true', help="just wait for running job, don't run any automata", )
+	parser.add_argument('-w', '--just_wait',action='store_true', help="just wait for running job, don't run any build script", )
 	parser.add_argument('-F', '--fullpath', action='store_true', help="print full path to jobdirs")
 	parser.add_argument('--verbose',        default='status',    help="verbosity style {no, status, dots, log}")
 	parser.add_argument('--quiet',          action='store_true', help="same as --verbose=no")
 	parser.add_argument('--horizon',        default=None,        help="time horizon - dates after this are not visible in\nurd.latest")
-	parser.add_argument('script',           default='automata',  help="automata script to run. default \"automata\".\nsearches under all method directories in alphabetical\norder if it does not contain a dot.\nprefixes automata_ to last element unless specified.\npackage name suffixes are ok.\nso for example \"test_methods.tests\" expands to\n\"accelerator.test_methods.automata_tests\".", nargs='?')
+	parser.add_argument('script',           default='build'   ,  help="build script to run. default \"build\".\nsearches under all method directories in alphabetical\norder if it does not contain a dot.\nprefixes build_ to last element unless specified.\npackage name suffixes are ok.\nso for example \"test_methods.tests\" expands to\n\"accelerator.test_methods.build_tests\".", nargs='?')
 
 	options = parser.parse_args(argv)
 

@@ -131,7 +131,7 @@ cmd_dsinfo.help = '''Display information about datasets'''
 def cmd_run(argv):
 	from accelerator.automatarunner import main
 	return main(argv)
-cmd_run.help = '''Run an automata script'''
+cmd_run.help = '''Run a build script'''
 
 def cmd_daemon(argv):
 	from accelerator.daemon import main
