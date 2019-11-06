@@ -191,15 +191,15 @@ class DepTree:
 						raise OptionException('Failed to convert option %s %r to %s on method %s' % (k, v, default_v, method,))
 				if isinstance(v, str_types) and not v:
 					return type(default_v)()
-				if isinstance(default_v, type): # JobWithFile or similar
-					default_v = default_v()
-				if isinstance(default_v, JobWithFile):
-					defaults = type(default_v).__new__.__defaults__
-					if not isinstance(v, (list, tuple,)) or len(v) > len(defaults):
+				if isinstance(default_v, JobWithFile) or default_v is JobWithFile:
+					defaults = ('', '', False, None,)
+					if default_v is JobWithFile:
+						default_v = defaults
+					if not isinstance(v, (list, tuple,)) or not (2 <= len(v) <= 4):
 						raise OptionException('Option %s (%r) on method %s is not %s compatible' % (k, v, method, type(default_v)))
 					v = tuple(v) + defaults[len(v):] # so all of default_v gets convert()ed.
 					v = [convert(dv, vv) for dv, vv in zip(default_v, v)]
-					return type(default_v)(*v)
+					return JobWithFile(*v)
 				raise OptionException('Failed to convert option %s of %s to %s on method %s' % (k, type(v), type(default_v), method,))
 			for k, v in iteritems(data['options']):
 				if k in options:

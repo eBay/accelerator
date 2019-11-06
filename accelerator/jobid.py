@@ -71,6 +71,10 @@ class JobID(unicode):
 			filename = '%s.%d' % (filename, sliceno,)
 		return os.path.join(self.path, filename)
 
+	def withfile(self, filename, sliced=False, extra=None):
+		from accelerator.extras import JobWithFile
+		return JobWithFile(self, filename, sliced, extra)
+
 	def params(self):
 		from accelerator.extras import job_params
 		return job_params(self)

@@ -502,8 +502,24 @@ class OptionDefault(object):
 		self.value = value
 		self.default = default
 
-JobWithFile = namedtuple('JobWithFile', 'jobid filename sliced extra')
-JobWithFile.__new__.__defaults__ = (None, None, False, None)
+class JobWithFile(namedtuple('JobWithFile', 'jobid filename sliced extra')):
+	def __new__(cls, jobid, filename, sliced=False, extra=None):
+		assert not filename.startswith('/'), "Specify relative filenames to JobWithFile"
+		return tuple.__new__(cls, (JobID(jobid), filename, sliced, extra,))
+
+	def resolve(self, sliceno=None):
+		if sliceno is None:
+			assert not self.sliced, "A sliced file requires a sliceno"
+		else:
+			assert self.sliced, "An unsliced file can not have a sliceno"
+		return self.jobid.filename(self.filename, sliceno)
+
+	def load(self, sliceno=None, encoding='bytes'):
+		"""blob.load this file"""
+		return pickle_load(self.resolve(sliceno), encoding=encoding)
+
+	def json_load(self, sliceno=None, unicode_as_utf8bytes=PY2):
+		return json_load(self.resolve(sliceno), unicode_as_utf8bytes=unicode_as_utf8bytes)
 
 typing_conv = dict(
 	set=set,
