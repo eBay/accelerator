@@ -40,7 +40,7 @@ def dirnamematcher(name):
 class JobID(unicode):
 	"""
 	A string that is a jobid, but also has some extra properties:
-	.method The job method, but probably None except in JobLists.
+	.method The job method (can be the "name" when from build or urd).
 	.number The job number as an int.
 	.workspace The workspace name (the part before -number in the jobid)
 	.path The filesystem directory where the job is stored.
@@ -55,12 +55,18 @@ class JobID(unicode):
 		obj = unicode.__new__(cls, jobid)
 		obj.workspace, tmp = jobid.rsplit('-', 1)
 		obj.number = int(tmp)
-		obj.method = method
+		obj._method = method
 		return obj
 
 	@classmethod
 	def create(cls, name, number):
 		return JobID('%s-%d' % (name, number,))
+
+	@property
+	def method(self):
+		if not self._method:
+			self._method = self.params().method
+		return self._method
 
 	@property
 	def path(self):
