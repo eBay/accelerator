@@ -25,10 +25,6 @@ from accelerator.dataset import Dataset
 def main(urd):
 	assert urd.info.slices >= 3, "The tests don't work with less than 3 slices (you have %d)." % (urd.info.slices,)
 
-	urd.build("test_report")
-	urd.build("test_json")
-	urd.build("test_optionenum")
-
 	print()
 	print("Testing dataset creation, export, import")
 	source = urd.build("test_datasetwriter")
@@ -92,4 +88,9 @@ def main(urd):
 	print("Test output handling")
 	urd.build("test_output")
 
+	print()
+	print("Test various utility functions")
+	urd.build("test_optionenum")
+	urd.build("test_json")
 	urd.build("test_jobwithfile")
+	urd.build("test_report")
