@@ -89,6 +89,10 @@ def main(urd):
 	urd.build("test_output")
 
 	print()
+	print("Test datetime types in options")
+	urd.build("test_datetime")
+
+	print()
 	print("Test various utility functions")
 	urd.build("test_optionenum")
 	urd.build("test_json")
