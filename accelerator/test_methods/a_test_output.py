@@ -31,7 +31,7 @@ import sys
 import os
 
 from accelerator import subjobs
-from accelerator.automata_common import Automata
+from accelerator.build import Automata
 from accelerator import g
 
 def test(params, p=False, a=False, s=False):

@@ -197,7 +197,7 @@ def fmt_tb(skip_level):
 	tb = format_tb(tb)[skip_level:]
 	if isinstance(e, JobError):
 		msg.append(e.format_msg())
-		tb = tb[:-5] # the five innermost are in automata_common and of no interest.
+		tb = tb[:-5] # the five innermost are in build.py and of no interest.
 	msg.append("Traceback (most recent call last):\n")
 	msg.extend(tb)
 	msg.extend(format_exception_only(e_type, e))

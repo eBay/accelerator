@@ -29,7 +29,7 @@ from os import environ
 
 from accelerator.compat import quote_plus, PY3, getarglist
 
-from accelerator import automata_common
+from accelerator import build
 from accelerator.dispatch import JobError
 
 
@@ -72,7 +72,7 @@ def run_automata(options):
 		assert not options.hostname, "Specify either socket or port (with optional hostname)"
 		url = 'unixhttp://' + quote_plus(realpath(options.socket or './socket.dir/default'))
 
-	a = automata_common.Automata(url, verbose=options.verbose, flags=options.flags.split(','), infoprints=True, print_full_jobpath=options.fullpath)
+	a = build.Automata(url, verbose=options.verbose, flags=options.flags.split(','), infoprints=True, print_full_jobpath=options.fullpath)
 
 	if options.abort:
 		a.abort()
@@ -95,7 +95,7 @@ def run_automata(options):
 	else:
 		user, password = None, None
 	info = a.info()
-	urd = automata_common.Urd(a, info, user, password, options.horizon)
+	urd = build.Urd(a, info, user, password, options.horizon)
 	if options.quick:
 		a.update_method_deps()
 	else:
@@ -143,11 +143,11 @@ def main(argv):
 
 
 def print_minimal_traceback():
-	ac_fn = automata_common.__file__
-	if ac_fn[-4:] in ('.pyc', '.pyo',):
+	build_fn = build.__file__
+	if build_fn[-4:] in ('.pyc', '.pyo',):
 		# stupid python2
-		ac_fn = ac_fn[:-1]
-	blacklist_fns = {ac_fn}
+		build_fn = build_fn[:-1]
+	blacklist_fns = {build_fn}
 	last_interesting = None
 	_, e, tb = sys.exc_info()
 	while tb is not None:
