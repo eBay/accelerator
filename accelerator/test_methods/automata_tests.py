@@ -91,3 +91,5 @@ def main(urd):
 	print()
 	print("Test output handling")
 	urd.build("test_output")
+
+	urd.build("test_jobwithfile")
