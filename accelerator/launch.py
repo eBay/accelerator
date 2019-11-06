@@ -29,6 +29,7 @@ from importlib import import_module
 from traceback import print_exc, format_tb, format_exception_only
 from time import time, sleep
 import json
+import ctypes
 
 from accelerator.jobid import JobID, WORKDIRS
 from accelerator.compat import pickle, iteritems, setproctitle, QueueEmpty, getarglist, open
@@ -47,6 +48,13 @@ _prof_fd = -1
 
 g_always = {'running',}
 assert set(n for n in dir(g) if not n.startswith("__")) == g_always, "Don't put anything in g.py"
+
+
+# C libraries may not flush their stdio handles now that
+# they are "files", so we do that after each stage.
+clib = ctypes.cdll.LoadLibrary(None)
+def c_fflush():
+	clib.fflush(None)
 
 
 def call_analysis(analysis_func, sliceno_, q, preserve_result, parent_pid, output_fds, **kw):
@@ -109,8 +117,10 @@ def call_analysis(analysis_func, sliceno_, q, preserve_result, parent_pid, outpu
 				dw.close()
 				dw_lens[name] = dw._lens
 				dw_minmax[name] = dw._minmax
+		c_fflush()
 		q.put((sliceno_, time(), saved_files, dw_lens, dw_minmax, None,))
 	except:
+		c_fflush()
 		q.put((sliceno_, time(), {}, {}, {}, fmt_tb(1),))
 		print_exc()
 		sleep(5) # give launcher time to report error (and kill us)
@@ -283,6 +293,7 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 				with status.status("Finishing datasets"):
 					for name in sorted(to_finish, key=dw_sortnum):
 						dataset._datasetwriters[name].finish()
+		c_fflush()
 		prof['prepare'] = time() - t
 	switch_output()
 	setproctitle('launch')
@@ -317,6 +328,7 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 			for name in dataset._datasets_written:
 				fh.write(name)
 				fh.write(u'\n')
+	c_fflush()
 	t = time() - t
 	prof['synthesis'] = t
 
