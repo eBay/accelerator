@@ -48,6 +48,8 @@ class JobID(unicode):
 	.filename to join .path with a filename
 	.params to load setup.json from this job
 	.post to load post.json from this job
+
+	Decay's to a (unicode) string when pickled.
 	"""
 	def __new__(cls, jobid, method=None):
 		obj = unicode.__new__(cls, jobid)
@@ -77,4 +79,6 @@ class JobID(unicode):
 		from accelerator.extras import job_post
 		return job_post(self)
 
-
+	# Look like a string after pickling
+	def __reduce__(self):
+		return unicode, (unicode(self),)
