@@ -18,7 +18,8 @@
 ############################################################################
 
 from accelerator import g
-from accelerator.build import Automata, JobList
+from accelerator.build import Automata, JobList, DaemonError
+from accelerator.dispatch import JobError
 from accelerator.status import status
 
 _a = None
@@ -37,15 +38,20 @@ def build(method, options={}, datasets={}, jobids={}, name=None, caption=None):
 		_a.update_method_deps()
 		_a.record[None] = _a.jobs = jobs
 	def run():
-		return _a.call_method(method, options=options, datasets=datasets, jobids=jobids, record_as=name, caption=caption)
-	if name or caption:
-		msg = 'Building subjob %s' % (name or method,)
-		if caption:
-			msg += ' "%s"' % (caption,)
-		with status(msg):
+			return _a.call_method(method, options=options, datasets=datasets, jobids=jobids, record_as=name, caption=caption)
+	try:
+		if name or caption:
+			msg = 'Building subjob %s' % (name or method,)
+			if caption:
+				msg += ' "%s"' % (caption,)
+			with status(msg):
+				jid = run()
+		else:
 			jid = run()
-	else:
-		jid = run()
+	except DaemonError as e:
+		raise DaemonError(e.args[0])
+	except JobError as e:
+		raise JobError(e.jobid, e.method, e.status)
 	for d in _a.job_retur.jobs.values():
 		if d.link not in _record:
 			_record[d.link] = bool(d.make)
