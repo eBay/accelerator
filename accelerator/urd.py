@@ -58,7 +58,7 @@ def joblistlike(jl):
 
 
 class DB:
-	def __init__(self, path):
+	def __init__(self, path, verbose=True):
 		self._initialised = False
 		self.path = path
 		self.db = defaultdict(dict)
@@ -75,10 +75,11 @@ class DB:
 						ix += 1
 					stat[fn[len(path) + 1:-len('.urd')]] = ix
 			self._playback_parsed()
-			print("urd-list                          lines     ghosts     active")
-			for key, val in sorted(stat.items()):
-				print("%-30s  %7d    %7d    %7d" % (key, val, len(self.ghost_db[key]), len(self.db[key]),))
-			print()
+			if verbose:
+				print("urd-list                          lines     ghosts     active")
+				for key, val in sorted(stat.items()):
+					print("%-30s  %7d    %7d    %7d" % (key, val, len(self.ghost_db[key]), len(self.db[key]),))
+				print()
 		else:
 			print("Creating directory \"%s\"." % (path,))
 			os.makedirs(path)
@@ -403,16 +404,18 @@ def main(argv):
 	parser.add_argument('--path', type=str, default='urd.db',
 		help='database directory (can be relative to project directory) (default: urd.db)',
 	)
+	parser.add_argument('--quiet', action='store_true', help='less chatty.')
 	args = parser.parse_args(argv)
-	print('-'*79)
-	print(args)
-	print()
+	if not args.quiet:
+		print('-'*79)
+		print(args)
+		print()
 	authdict = readauth(os.path.join(args.path, 'passwd'))
-	db = DB(args.path)
+	db = DB(args.path, not args.quiet)
 
 	bottle.install(jsonify)
 
-	kw = dict(debug=False, reloader=False, quiet=False)
+	kw = dict(debug=False, reloader=False, quiet=args.quiet)
 	if args.port is not None:
 		kw['host'] = 'localhost'
 		kw['port'] = args.port
