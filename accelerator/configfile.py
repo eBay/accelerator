@@ -37,9 +37,11 @@ def interpolate(s):
 	return _re_var.subn(lambda m: os.environ.get(m.group(1), m.group(2)), s)[0]
 
 
-def resolve_socket_url(path):
+def resolve_socket_url(path, special=None):
 	if '://' in path:
 		return path
+	elif special and path == special:
+		return special
 	else:
 		return 'unixhttp://' + quote_plus(os.path.realpath(path))
 
@@ -70,7 +72,7 @@ def load_config(filename):
 		slices=int,
 		workdirs=partial(parse_pair, 'workdir'),
 		interpreters=partial(parse_pair, 'interpreter'),
-		urd=resolve_socket_url,
+		urd=partial(resolve_socket_url, special='local'),
 	)
 	checkers = dict(
 		interpreter=check_interpreter,

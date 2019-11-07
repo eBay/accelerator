@@ -350,6 +350,12 @@ def main(argv, config):
 		os.umask(u)
 		daemon_url = configfile.resolve_socket_url(options.socket)
 
+	if config.get('urd') == 'local':
+		from accelerator import urd
+		t = Thread(target=urd.main, args=([],), name='urd')
+		t.daemon = True
+		t.start()
+
 	ctrl = control.Main(config, options, daemon_url)
 	print()
 	ctrl.print_workdirs()
@@ -361,6 +367,9 @@ def main(argv, config):
 	for n in ("project_directory", "result_directory", "source_directory", "urd"):
 		print("%17s: %s" % (n.replace("_", " "), config.get(n),))
 	print()
+
+	if config.get('urd') == 'local':
+		config.urd = configfile.resolve_socket_url('.socket.dir/urd')
 
 	if options.port:
 		serving_on = "port %d" % (options.port,)
