@@ -73,7 +73,10 @@ def prepare():
 	d = datasets.source
 	columns = {}
 	for colname, coltype in iteritems(options.column2type):
-		assert d.columns[colname].type in byteslike_types, colname
+		if colname not in d.columns:
+			raise Exception("Dataset %s doesn't have a column named %r (has %r)" % (d, colname, set(d.columns),))
+		if d.columns[colname].type not in byteslike_types:
+			raise Exception("Dataset %s column %r is type %s, must be one of %r" % (d, colname, d.columns[colname].type, byteslike_types,))
 		coltype = coltype.split(':', 1)[0]
 		columns[options.rename.get(colname, colname)] = dataset_type.typerename.get(coltype, coltype)
 	if options.filter_bad or options.discard_untyped:
