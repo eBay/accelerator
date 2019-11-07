@@ -86,7 +86,7 @@ logfile: {prefix}/daemon.log
 
 
 def main(argv):
-	from os import makedirs, listdir
+	from os import mkdir, makedirs, listdir
 	from os.path import exists, join, realpath
 	from sys import version_info
 	from argparse import ArgumentParser
@@ -139,6 +139,9 @@ def main(argv):
 		makedirs(options.directory)
 	if not options.force and listdir(options.directory):
 		raise UserError('Directory %r is not empty.' % (options.directory,))
+	socket_dir = join(options.directory, '.socket.dir')
+	if not exists(socket_dir):
+		mkdir(socket_dir, 0o750)
 	with open(slices_conf, 'w') as fh:
 		fh.write('%d\n' % (options.slices,))
 	method_dir = join(options.directory, options.name)
