@@ -257,7 +257,7 @@ def parse_args(argv):
 	parser.add_argument('--debug', action='store_true')
 	group = parser.add_mutually_exclusive_group()
 	group.add_argument('--port', type=int, help='Listen on tcp port')
-	group.add_argument('--socket', help='Listen on unix socket', default='socket.dir/default')
+	group.add_argument('--socket', help='Listen on unix socket', default='.socket.dir/default')
 	return parser.parse_args(argv)
 
 

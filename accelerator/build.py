@@ -619,7 +619,7 @@ def run_automata(options):
 		url = 'http://' + (options.hostname or 'localhost') + ':' + str(options.port)
 	else:
 		assert not options.hostname, "Specify either socket or port (with optional hostname)"
-		url = 'unixhttp://' + quote_plus(realpath(options.socket or './socket.dir/default'))
+		url = 'unixhttp://' + quote_plus(realpath(options.socket or '.socket.dir/default'))
 
 	a = Automata(url, verbose=options.verbose, flags=options.flags.split(','), infoprints=True, print_full_jobpath=options.fullpath)
 
@@ -659,7 +659,7 @@ def main(argv):
 	)
 	parser.add_argument('-p', '--port',     default=None,        help="framework listening port", )
 	parser.add_argument('-H', '--hostname', default=None,        help="framework hostname", )
-	parser.add_argument('-S', '--socket',   default=None,        help="framework unix socket (default ./socket.dir/default)", )
+	parser.add_argument('-S', '--socket',   default=None,        help="framework unix socket (default .socket.dir/default)", )
 	parser.add_argument('-f', '--flags',    default='',          help="comma separated list of flags", )
 	parser.add_argument('-A', '--abort',    action='store_true', help="abort (fail) currently running job(s)", )
 	parser.add_argument('-q', '--quick',    action='store_true', help="skip method updates and checking workdirs for new jobs", )
