@@ -44,6 +44,10 @@ from accelerator.status import print_status_stacks
 from accelerator import unixhttp; unixhttp # for unixhttp:// URLs, as used to talk to the daemon
 
 
+class DaemonError(Exception):
+	pass
+
+
 class Automata:
 	"""
 	Launch jobs, wait for completion.
@@ -97,7 +101,7 @@ class Automata:
 					return self._url_get(*path, nest=nest + 1, **kw)
 				else:
 					print('Giving up.', file=sys.stderr)
-					raise Exception('Daemon says 503: %s' % (resp,))
+					raise DaemonError('Daemon says 503: %s' % (resp,))
 		finally:
 			req.close()
 		if PY3:
@@ -219,7 +223,7 @@ class Automata:
 		postdata = urlencode({'json': setupfile.encode_setup(json)})
 		res = self._url_json('submit', data=postdata)
 		if 'error' in res:
-			raise Exception("Submit failed: " + res.error)
+			raise DaemonError('Submit failed: ' + res.error)
 		if 'why_build' not in res:
 			if not self.subjob_cookie:
 				self._printlist(res.jobs)
@@ -679,10 +683,11 @@ def main(argv):
 	try:
 		run_automata(options)
 		return 0
-	except JobError:
+	except (JobError, DaemonError):
 		# If it's a JobError we don't care about the local traceback,
 		# we want to see the job traceback, and maybe know what line
 		# we built the job on.
+		# If it's a DaemonError we just want the line and message.
 		print_minimal_traceback()
 	return 1
 
@@ -702,4 +707,7 @@ def print_minimal_traceback():
 		tb = tb.tb_next
 	lineno = last_interesting.tb_lineno
 	filename = last_interesting.tb_frame.f_code.co_filename
-	print("Failed to build job %s on %s line %d" % (e.jobid, filename, lineno,))
+	if isinstance(e, JobError):
+		print("Failed to build job %s on %s line %d" % (e.jobid, filename, lineno,))
+	else:
+		print("Server returned error on %s line %d:\n%s" % (filename, lineno, e.args[0]))
