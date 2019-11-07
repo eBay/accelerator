@@ -70,8 +70,7 @@ class Methods(object):
 
 	def _build_dep_tree(self, method, tree={}):
 		if method not in self.db:
-			print("METHOD:  Error, no such method exists: \"%s\"" % method)
-			exit(1)
+			raise Exception("Method %r doesn't exist" % method)
 		dependencies = self.db[method].get('dep', [])
 		tree.setdefault(method, {'dep' : dependencies, 'level' : -1, 'method' : method})
 		if not dependencies:
