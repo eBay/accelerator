@@ -309,7 +309,7 @@ class DB:
 
 
 def auth(user, passphrase):
-	return authdict.get(user) == passphrase
+	return authdict.get(user) == passphrase or (allow_passwordless and user not in authdict)
 
 @route('/<user>/<automata>/since/<timestamp>')
 def since(user, automata, timestamp):
@@ -374,6 +374,8 @@ def slash_list():
 
 
 def readauth(filename):
+	if not os.path.exists(filename):
+		return {}
 	d = {}
 	with open(filename) as fh:
 		for line in fh:
@@ -395,7 +397,7 @@ def jsonify(callback):
 
 
 def main(argv):
-	global authdict, db
+	global authdict, allow_passwordless, db
 
 	parser = ArgumentParser(prog='urd')
 	group = parser.add_mutually_exclusive_group()
@@ -404,13 +406,19 @@ def main(argv):
 	parser.add_argument('--path', type=str, default='urd.db',
 		help='database directory (can be relative to project directory) (default: urd.db)',
 	)
+	parser.add_argument('--allow-passwordless', action='store_true', help='accept any pass for users not in passwd.')
 	parser.add_argument('--quiet', action='store_true', help='less chatty.')
 	args = parser.parse_args(argv)
 	if not args.quiet:
 		print('-'*79)
 		print(args)
 		print()
-	authdict = readauth(os.path.join(args.path, 'passwd'))
+
+	auth_fn = os.path.join(args.path, 'passwd')
+	authdict = readauth(auth_fn)
+	allow_passwordless = args.allow_passwordless
+	if not authdict and not args.allow_passwordless:
+		raise Exception('No users in %r and --allow-passwordless not specified.' % (auth_fn,))
 	db = DB(args.path, not args.quiet)
 
 	bottle.install(jsonify)

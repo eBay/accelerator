@@ -365,7 +365,7 @@ def main(argv, config):
 
 	if config.get('urd') == 'local':
 		from accelerator import urd
-		t = DeadlyThread(target=urd.main, args=(['--quiet'],), name='urd')
+		t = DeadlyThread(target=urd.main, args=(['--quiet', '--allow-passwordless'],), name='urd')
 		t.daemon = True
 		t.start()
 
