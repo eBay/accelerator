@@ -93,6 +93,14 @@ class JobID(unicode):
 		from accelerator.extras import json_load
 		return json_load(self.filename(filename, sliceno), unicode_as_utf8bytes=unicode_as_utf8bytes)
 
+	def dataset(self, name='default'):
+		from accelerator.dataset import Dataset
+		return Dataset(self, name)
+
+	def datasets(self):
+		from accelerator.dataset import job_datasets
+		return job_datasets(self)
+
 	# Look like a string after pickling
 	def __reduce__(self):
 		return unicode, (unicode(self),)
