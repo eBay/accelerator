@@ -106,11 +106,11 @@ class DB:
 
 	def _parse_add(self, line):
 		key = line[1]
-		user, automata = key.split('/')
+		user, build = key.split('/')
 		flags = line[4].split(',') if line[4] else []
 		data = DotDict(timestamp=line[0],
 			user=user,
-			automata=automata,
+			build=build,
 			deps=json.loads(line[2]),
 			joblist=json.loads(line[3]),
 			flags=flags,
@@ -127,9 +127,9 @@ class DB:
 
 	def _validate_data(self, data, with_deps=True):
 		if with_deps:
-			assert set(data) == {'timestamp', 'joblist', 'caption', 'user', 'automata', 'deps', 'flags',}
+			assert set(data) == {'timestamp', 'joblist', 'caption', 'user', 'build', 'deps', 'flags',}
 			assert isinstance(data.user, unicode)
-			assert isinstance(data.automata, unicode)
+			assert isinstance(data.build, unicode)
 			assert isinstance(data.deps, dict)
 			for v in itervalues(data.deps):
 				assert isinstance(v, dict)
@@ -146,9 +146,9 @@ class DB:
 			self._validate_data(data)
 			json_deps = json.dumps(data.deps)
 			json_joblist = json.dumps(data.joblist)
-			key = '%s/%s' % (data.user, data.automata,)
+			key = '%s/%s' % (data.user, data.build,)
 			flags = ','.join(data.flags)
-			for s in json_deps, json_joblist, data.caption, data.user, data.automata, data.timestamp, flags:
+			for s in json_deps, json_joblist, data.caption, data.user, data.build, data.timestamp, flags:
 				assert '|' not in s, s
 			logdata = [json_deps, json_joblist, flags, data.caption,]
 		elif action == 'truncate':
@@ -178,7 +178,7 @@ class DB:
 
 	@locked
 	def add(self, data):
-		key = '%s/%s' % (data.user, data.automata)
+		key = '%s/%s' % (data.user, data.build)
 		new = False
 		changed = False
 		ghosted = 0
@@ -263,15 +263,15 @@ class DB:
 	def log(self, action, data):
 		if self._initialised:
 			if action == 'truncate':
-				user, automata = data.key.split('/')
+				user, build = data.key.split('/')
 			else:
-				user, automata = data.user, data.automata
+				user, build = data.user, data.build
 			assert '/' not in user
-			assert '/' not in automata
+			assert '/' not in build
 			path = os.path.join(self.path, user)
 			if not os.path.isdir(path):
 				os.makedirs(path)
-			with open(os.path.join(path, automata + '.urd'), 'a') as fh:
+			with open(os.path.join(path, build + '.urd'), 'a') as fh:
 				fh.write(self._serialise(action, data) + '\n')
 
 	@locked
@@ -311,21 +311,21 @@ class DB:
 def auth(user, passphrase):
 	return authdict.get(user) == passphrase or (allow_passwordless and user not in authdict)
 
-@route('/<user>/<automata>/since/<timestamp>')
-def since(user, automata, timestamp):
-	return db.since(user + '/' + automata, timestamp)
+@route('/<user>/<build>/since/<timestamp>')
+def since(user, build, timestamp):
+	return db.since(user + '/' + build, timestamp)
 
-@route('/<user>/<automata>/latest')
-def latest(user, automata):
-	return db.latest(user + '/' + automata)
+@route('/<user>/<build>/latest')
+def latest(user, build):
+	return db.latest(user + '/' + build)
 
-@route('/<user>/<automata>/first')
-def first(user, automata):
-	return db.first(user + '/' + automata)
+@route('/<user>/<build>/first')
+def first(user, build):
+	return db.first(user + '/' + build)
 
-@route('/<user>/<automata>/<timestamp>')
-def single(user, automata, timestamp):
-	key = user + '/' + automata
+@route('/<user>/<build>/<timestamp>')
+def single(user, build, timestamp):
+	key = user + '/' + build
 	if len(timestamp) > 1 and timestamp[0] in '<>':
 		if timestamp[0] == '<':
 			minmaxfunc = max
@@ -360,12 +360,12 @@ def add():
 	return result
 
 
-@route('/truncate/<user>/<automata>/<timestamp>', method='POST')
+@route('/truncate/<user>/<build>/<timestamp>', method='POST')
 @auth_basic(auth)
-def truncate(user, automata, timestamp):
+def truncate(user, build, timestamp):
 	if user != request.auth[0]:
 		abort(401, "Error:  user does not match authentication!")
-	return db.truncate(user + '/' + automata, timestamp)
+	return db.truncate(user + '/' + build, timestamp)
 
 
 @route('/test/<user>', method='POST')

@@ -563,14 +563,14 @@ class Urd(object):
 		path = self._path(path)
 		assert self._current, 'Tried to finish %s with nothing running' % (path,)
 		assert path == self._current, 'Tried to finish %s while running %s' % (path, self._current,)
-		user, automata = path.split('/')
+		user, build = path.split('/')
 		self._current = None
 		caption = caption or self._current_caption or ''
 		timestamp = timestamp or self._current_timestamp
 		assert timestamp, 'No timestamp specified in begin or finish for %s' % (path,)
 		data = DotDict(
 			user=user,
-			automata=automata,
+			build=build,
 			joblist=self.joblist.as_tuples,
 			deps=self._deps,
 			caption=caption,
