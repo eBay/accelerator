@@ -30,7 +30,7 @@ import json
 import re
 from datetime import datetime
 import operator
-from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
+from argparse import ArgumentParser
 import os.path
 
 from accelerator.compat import iteritems, itervalues, unicode
@@ -396,13 +396,12 @@ def jsonify(callback):
 def main(argv):
 	global authdict, db
 
-	parser = ArgumentParser(
-		prog='urd',
-		formatter_class=ArgumentDefaultsHelpFormatter
-	)
-	parser.add_argument('--port', type=int, default=8080, help='server port')
-	parser.add_argument('--path', type=str, default='./urd.db',
-		help='database directory (can be relative to project directory)',
+	parser = ArgumentParser(prog='urd')
+	group = parser.add_mutually_exclusive_group()
+	group.add_argument('--port', type=int, help='listen on tcp port')
+	group.add_argument('--socket', help='listen on unix socket (can be relative to project directory) (default: socket.dir/urd)')
+	parser.add_argument('--path', type=str, default='urd.db',
+		help='database directory (can be relative to project directory) (default: urd.db)',
 	)
 	args = parser.parse_args(argv)
 	print('-'*79)
@@ -412,4 +411,18 @@ def main(argv):
 	db = DB(args.path)
 
 	bottle.install(jsonify)
-	bottle.run(host='localhost', port=args.port, debug=False, reloader=False, quiet=False)
+
+	kw = dict(debug=False, reloader=False, quiet=False)
+	if args.port is not None:
+		kw['host'] = 'localhost'
+		kw['port'] = args.port
+	else:
+		from accelerator.unixhttp import WSGIUnixServer, WSGIUnixRequestHandler
+		from accelerator.daemon import check_socket
+		socket = args.socket or '.socket.dir/urd'
+		check_socket(socket)
+		kw['server_class'] = WSGIUnixServer
+		kw['handler_class'] = WSGIUnixRequestHandler
+		kw['host'] = socket
+		kw['port'] = 0
+	bottle.run(**kw)
