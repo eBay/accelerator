@@ -350,16 +350,21 @@ class JobList(_ListTypePreserver):
 		l = self.find(method)
 		return l[-1] if l else default
 
-	def print_profile(self, verbose=True):
+	@property
+	def profile(self):
 		total = 0
 		seen = set()
 		per_method = defaultdict(int)
 		for jid in self:
 			if jid not in seen:
 				seen.add(jid)
-				t = job_post(jid).profile.total
+				t = jid.post().profile.total
 				total += t
 				per_method[jid.method] += t
+		return total, per_method
+
+	def print_profile(self, verbose=True):
+		total, per_method = self.profile
 		if verbose and per_method:
 			print("Time per method:")
 			tmpl = "   %%-%ds  %%s  (%%d%%%%)" % (max(len(method) for method in per_method),)
