@@ -540,7 +540,6 @@ class Urd(object):
 
 	def begin(self, path, timestamp=None, caption=None, update=False):
 		assert not self._current, 'Tried to begin %s while running %s' % (path, self._current,)
-		assert self._user, "Set URD_AUTH to be able to record jobs in urd"
 		self._current = self._path(path)
 		self._current_timestamp = timestamp
 		self._current_caption = caption
@@ -655,7 +654,7 @@ def run_automata(options):
 	if 'URD_AUTH' in os.environ:
 		user, password = os.environ['URD_AUTH'].split(':', 1)
 	else:
-		user, password = None, None
+		user, password = os.environ['USER'], ''
 	info = a.info()
 	urd = Urd(a, info, user, password, options.horizon)
 	if options.quick:
