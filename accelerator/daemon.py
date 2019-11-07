@@ -261,9 +261,10 @@ def parse_args(argv):
 	return parser.parse_args(argv)
 
 
-def exitfunction(*a):
-	signal.signal(signal.SIGTERM, signal.SIG_IGN)
-	signal.signal(signal.SIGINT, signal.SIG_IGN)
+def exitfunction(*a, from_thread=False):
+	if not from_thread:
+		signal.signal(signal.SIGTERM, signal.SIG_IGN)
+		signal.signal(signal.SIGINT, signal.SIG_IGN)
 	print()
 	print('The daemon deathening! %d %s' % (os.getpid(), children,))
 	print()
@@ -272,6 +273,18 @@ def exitfunction(*a):
 	time.sleep(0.16) # give iowrapper a chance to output our last words
 	os.killpg(os.getpgid(0), signal.SIGKILL)
 	os._exit(1) # we really should be dead already
+
+# A Thread that kills the server if it exits
+class DeadlyThread(Thread):
+	def run(self):
+		try:
+			Thread.run(self)
+		except Exception:
+			traceback.print_exc()
+		finally:
+			print("Thread %r died. That's bad." % (self.name,))
+			exitfunction(from_thread=True)
+
 
 def check_socket(fn):
 	dn = os.path.dirname(fn)
@@ -322,7 +335,7 @@ def main(argv, config):
 	buf_up(statmsg_wr, socket.SO_SNDBUF)
 	buf_up(statmsg_rd, socket.SO_RCVBUF)
 
-	t = Thread(target=statmsg_sink, args=(statmsg_rd,), name="statmsg sink")
+	t = DeadlyThread(target=statmsg_sink, args=(statmsg_rd,), name="statmsg sink")
 	t.daemon = True
 	t.start()
 
@@ -352,7 +365,7 @@ def main(argv, config):
 
 	if config.get('urd') == 'local':
 		from accelerator import urd
-		t = Thread(target=urd.main, args=([],), name='urd')
+		t = DeadlyThread(target=urd.main, args=([],), name='urd')
 		t.daemon = True
 		t.start()
 
