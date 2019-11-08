@@ -37,6 +37,8 @@ from accelerator.compat import PY3
 from accelerator.standard_methods import dataset_type
 from accelerator import g
 
+options = {'numeric_comma': True}
+
 depend_extra = (dataset_type,)
 
 all_typenames = set(dataset_type.convfuncs)
@@ -99,7 +101,8 @@ def _verify(name, types, data, coltype, want, default, want_fail, kw):
 
 def test_numbers():
 	verify('floats', ['float32', 'float64', 'number'], [b'1.5', b'-inf', b'5e-1'], [1.5, float('-inf'), 0.5], all_source_types=True)
-	verify('numeric_comma', ['float32', 'float64', 'number'], [b'1,5', b'1.0', b'9'], [1.5, 42.0, 9.0], '42', numeric_comma=True)
+	if options.numeric_comma:
+		verify('numeric_comma', ['float32', 'float64', 'number'], [b'1,5', b'1.0', b'9'], [1.5, 42.0, 9.0], '42', numeric_comma=True)
 	verify('float32 rounds', ['float32'], [b'1.2'], [1.2000000476837158])
 	verify('filter_bad', ['int32_10', 'int64_10', 'bits32_10', 'bits64_10', 'float32', 'float64', 'number'], [b'4', b'nah', b'1', b'0'], [4, 1, 0], filter_bad=True)
 
@@ -119,7 +122,8 @@ def test_numbers():
 		verify('base %d i' % (base,), types, values, [27, 27, 27], all_source_types=all_source_types)
 		all_source_types = False
 	verify('inty numbers', ['number', 'number:int'], [b'42', b'42.0', b'42.0000000', b'43.'], [42, 42, 42, 43])
-	verify('inty numbers numeric_comma', ['number', 'number:int'], [b'42', b'42,0', b'42,0000000', b'43,'], [42, 42, 42, 43], numeric_comma=True)
+	if options.numeric_comma:
+		verify('inty numbers numeric_comma', ['number', 'number:int'], [b'42', b'42,0', b'42,0000000', b'43,'], [42, 42, 42, 43], numeric_comma=True)
 
 	# Python 2 accepts 42L as an integer, python 3 doesn't. The number
 	# type falls back to python parsing, verify this works properly.

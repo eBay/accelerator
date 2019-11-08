@@ -52,9 +52,12 @@ def main(urd):
 	print("Testing subjobs and dataset typing")
 	urd.build("test_subjobs_type", datasets=dict(typed=ds, untyped=reimp_csv))
 	urd.build("test_subjobs_nesting")
-	# This one is so you get a more useful error message if numeric_comma is broken.
-	urd.build("dataset_type", datasets=dict(source=source), options=dict(numeric_comma=True, column2type=dict(b="float64"), defaults=dict(b="0")));
-	urd.build("test_dataset_type_corner_cases");
+	if "comma" in urd.flags:
+		# This one is so you get a more useful error message if numeric_comma is broken.
+		urd.build("dataset_type", datasets=dict(source=source), options=dict(numeric_comma=True, column2type=dict(b="float64"), defaults=dict(b="0")));
+		urd.build("test_dataset_type_corner_cases");
+	else:
+		urd.build("test_dataset_type_corner_cases", options=dict(numeric_comma=False));
 
 	print()
 	print("Testing dataset chaining, filtering, callbacks and rechaining")
@@ -98,3 +101,11 @@ def main(urd):
 	urd.build("test_json")
 	urd.build("test_jobwithfile")
 	urd.build("test_report")
+
+	if "comma" not in urd.flags:
+		print()
+		print('           ##################################################')
+		print('           ##         SKIPPED NUMERIC COMMA TESTS          ##')
+		print('           ##  use "--flags comma" to include those tests  ##')
+		print('           ##################################################')
+		print()
