@@ -67,7 +67,7 @@ method packages:
 	accelerator.standard_methods
 	accelerator.test_methods
 
-urd: # URL/socket to your urd.
+urd: local # can also be URL/socket to your urd
 
 result directory: {prefix}/results
 source directory: {source}
@@ -142,6 +142,9 @@ def main(argv):
 	socket_dir = join(options.directory, '.socket.dir')
 	if not exists(socket_dir):
 		mkdir(socket_dir, 0o750)
+	urd_dir = join(options.directory, 'urd.db')
+	if not exists(urd_dir):
+		mkdir(urd_dir)
 	with open(slices_conf, 'w') as fh:
 		fh.write('%d\n' % (options.slices,))
 	method_dir = join(options.directory, options.name)
