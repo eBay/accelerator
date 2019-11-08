@@ -449,6 +449,7 @@ class Urd(object):
 		else:
 			auth = b64encode(auth)
 		self._headers = {'Content-Type': 'application/json', 'Authorization': 'Basic ' + auth}
+		self._auth_tested = False
 
 	def _path(self, path):
 		if '/' not in path:
@@ -540,6 +541,12 @@ class Urd(object):
 
 	def begin(self, path, timestamp=None, caption=None, update=False):
 		assert not self._current, 'Tried to begin %s while running %s' % (path, self._current,)
+		if not self._auth_tested:
+			try:
+				self._call('%s/test/%s' % (self._url, self._user,), True)
+			except UrdPermissionError:
+				raise Exception('Urd says permission denied, did you forget to set URD_AUTH?')
+			self._auth_tested = True
 		self._current = self._path(path)
 		self._current_timestamp = timestamp
 		self._current_caption = caption

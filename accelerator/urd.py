@@ -368,6 +368,13 @@ def truncate(user, automata, timestamp):
 	return db.truncate(user + '/' + automata, timestamp)
 
 
+@route('/test/<user>', method='POST')
+@auth_basic(auth)
+def test(user):
+	if user != request.auth[0]:
+		abort(401, "Error:  user does not match authentication!")
+
+
 @route('/list')
 def slash_list():
 	return sorted(db.keys())
