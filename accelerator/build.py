@@ -47,6 +47,15 @@ from accelerator import unixhttp; unixhttp # for unixhttp:// URLs, as used to ta
 class DaemonError(Exception):
 	pass
 
+class UrdError(Exception):
+	pass
+
+class UrdPermissionError(UrdError):
+	pass
+
+class UrdConflictError(UrdError):
+	pass
+
 
 class Automata:
 	"""
@@ -456,31 +465,35 @@ class Urd(object):
 		tries_left = 3
 		while True:
 			try:
-				r = urlopen(req)
-				try:
+				with urlopen(req) as r:
+					code = r.getcode()
+					if code == 401:
+						raise UrdPermissionError()
+					if code == 409:
+						raise UrdConflictError()
 					d = r.read()
 					if PY3:
 						d = d.decode('utf-8')
 					return fmt(d)
-				finally:
-					try:
-						r.close()
-					except Exception:
-						pass
 			except HTTPError as e:
-				if e.code in (401, 409,):
-					raise
+				# It seems inconsistent if we get HTTPError or not for 4xx codes.
+				if e.code == 401:
+					raise UrdPermissionError()
+				if e.code == 409:
+					raise UrdConflictError()
 				tries_left -= 1
 				if not tries_left:
-					raise
+					raise UrdError('Error %d from urd' % (e.code,))
 				print('Error %d from urd, %d tries left' % (e.code, tries_left,), file=sys.stderr)
-			except ValueError:
+			except ValueError as e:
 				tries_left -= 1
+				msg = 'Bad data from urd, %s: %s' % (type(e).__name__, e,)
 				if not tries_left:
-					raise
-				print('Bad data from urd, %d tries left' % (tries_left,), file=sys.stderr)
+					raise UrdError(msg)
+				print('%s, %d tries left' % (msg, tries_left,), file=sys.stderr)
 			except URLError:
 				print('Error contacting urd', file=sys.stderr)
+				raise UrdError('Error contacting urd')
 			time.sleep(4)
 
 	def _get(self, path, *a):
