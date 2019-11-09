@@ -27,7 +27,7 @@ from datetime import datetime, date, time, timedelta
 from accelerator.compat import iteritems, unicode, long, PY3
 
 from accelerator.extras import DotDict, json_load, json_save, json_encode
-from accelerator.jobid import JobID
+from accelerator.job import Job
 
 def generate(caption, method, params, package=None, python=None, why_build=False):
 	data = DotDict()
@@ -148,5 +148,5 @@ def save_setup(jobid, data):
 	del data['params']
 	if '_typing' in data:
 		data['_typing'] = data['_typing'][data['method']]
-	filename = JobID(jobid).filename('setup.json')
+	filename = Job(jobid).filename('setup.json')
 	json_save(data, filename, _encoder=encode_setup)

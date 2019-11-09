@@ -86,7 +86,7 @@ def load_cfg(fn):
 	global cfg
 
 	from accelerator.configfile import load_config
-	from accelerator.jobid import WORKDIRS
+	from accelerator.job import WORKDIRS
 
 	cfg = load_config(fn)
 	for k, v in cfg.workdirs.items():

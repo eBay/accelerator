@@ -22,7 +22,7 @@ from __future__ import division
 
 import os
 
-from accelerator.jobid import JobID
+from accelerator.job import Job
 
 
 class WorkSpace:
@@ -71,7 +71,7 @@ class WorkSpace:
 	def update(self, parallelism=4):
 		"""find all new jobids on disk"""
 		from os.path import exists, join
-		from accelerator.jobid import dirnamematcher
+		from accelerator.job import dirnamematcher
 		from accelerator.safe_pool import Pool
 		from itertools import compress
 		cand = set(filter(dirnamematcher(self.name), os.listdir(self.path)))
@@ -88,7 +88,7 @@ class WorkSpace:
 		# Also anything where the mtime has changed needs to be rechecked, at least
 		# in DataBase.
 		# So we need to keep mtimes and look at them, plus the above recent_bad_jobids
-		new = [JobID(j) for j in cand - self.known_jobids]
+		new = [Job(j) for j in cand - self.known_jobids]
 		if new:
 			pool = Pool(processes=parallelism)
 			pathv = [join(self.path, j, 'post.json') for j in new]
@@ -101,7 +101,7 @@ class WorkSpace:
 	def allocate_jobs(self, num_jobs):
 		""" create num_jobs directories in self.path with jobid-compliant naming """
 		highest = self._get_highest_jobnumber()
-		jobidv = [JobID.create(self.name, highest + 1 + x) for x in range(num_jobs)]
+		jobidv = [Job._create(self.name, highest + 1 + x) for x in range(num_jobs)]
 		for jobid in jobidv:
 			fullpath = os.path.join(self.path, jobid)
 			print("WORKDIR:  Allocate_job \"%s\"" % fullpath)

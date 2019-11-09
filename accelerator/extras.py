@@ -31,7 +31,7 @@ import sys
 from accelerator.compat import PY2, PY3, pickle, izip, iteritems, first_value
 from accelerator.compat import num_types, uni, unicode, str_types
 
-from accelerator.jobid import JobID
+from accelerator.job import Job
 from accelerator.status import status
 
 def _fn(filename, jobid, sliceno):
@@ -42,7 +42,7 @@ def _fn(filename, jobid, sliceno):
 		if not jobid:
 			from accelerator.g import JOBID
 			jobid = JOBID
-		filename = JobID(jobid).filename(filename, sliceno)
+		filename = Job(jobid).filename(filename, sliceno)
 	return filename
 
 def _typelistnone(v, t):
@@ -62,14 +62,14 @@ def job_params(jobid=None, default_empty=False):
 		)
 	from accelerator.setupfile import load_setup
 	from accelerator.dataset import Dataset
-	from accelerator.jobid import JobID
+	from accelerator.job import Job
 	d = load_setup(jobid)
 	for method, tl in iteritems(d.get('_typing', {})):
 		_apply_typing(d.params[method].options, tl)
 	d.update(d.params[d.method])
 	d.datasets = DotDict({k: _typelistnone(v, Dataset) for k, v in d.datasets.items()})
-	d.jobids = DotDict({k: _typelistnone(v, JobID) for k, v in d.jobids.items()})
-	d.jobid = JobID(d.jobid)
+	d.jobids = DotDict({k: _typelistnone(v, Job) for k, v in d.jobids.items()})
+	d.jobid = Job(d.jobid)
 	return d
 
 def job_post(jobid):
@@ -505,7 +505,7 @@ class OptionDefault(object):
 class JobWithFile(namedtuple('JobWithFile', 'jobid filename sliced extra')):
 	def __new__(cls, jobid, filename, sliced=False, extra=None):
 		assert not filename.startswith('/'), "Specify relative filenames to JobWithFile"
-		return tuple.__new__(cls, (JobID(jobid), filename, sliced, extra,))
+		return tuple.__new__(cls, (Job(jobid), filename, sliced, extra,))
 
 	def resolve(self, sliceno=None):
 		if sliceno is None:

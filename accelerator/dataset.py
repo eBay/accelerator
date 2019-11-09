@@ -37,7 +37,7 @@ from accelerator.compat import builtins, open, getarglist, izip, izip_longest
 
 from accelerator import blob
 from accelerator.extras import DotDict, job_params, _ListTypePreserver
-from accelerator.jobid import JobID
+from accelerator.job import Job
 from accelerator.gzwrite import typed_writer
 
 kwlist = set(kwlist)
@@ -75,7 +75,7 @@ iskeyword = frozenset(kwlist).__contains__
 #
 # Going from a DatasetColumn to a filename is like this for version 2 and 3 datasets:
 #     jid, path = dc.location.split('/', 1)
-#     jid = JobID(jid)
+#     jid = Job(jid)
 #     if dc.offsets:
 #         jid.filename(path)
 #         seek to dc.offsets[sliceno], read only ds.lines[sliceno] values.
@@ -187,7 +187,7 @@ class Dataset(unicode):
 			})
 			obj.jobid = None
 		else:
-			obj.jobid = JobID(jobid)
+			obj.jobid = Job(jobid)
 			obj._data = DotDict(_ds_load(obj))
 			assert obj._data.version[0] == 3 and obj._data.version[1] >= 0, "%s/%s: Unsupported dataset pickle version %r" % (jobid, name, obj._data.version,)
 			obj._data.columns = dict(obj._data.columns)
@@ -255,7 +255,7 @@ class Dataset(unicode):
 			d._data.previous = override_previous
 			d._update_caches()
 		d._data.parent = '%s/%s' % (d.jobid, d.name,)
-		d.jobid = JobID(uni(JOBID))
+		d.jobid = Job(uni(JOBID))
 		d.name = uni(name)
 		d._save()
 		_datasets_written.append(d.name)
@@ -296,7 +296,7 @@ class Dataset(unicode):
 	def column_filename(self, colname, sliceno=None):
 		dc = self.columns[colname]
 		jid, name = dc.location.split('/', 1)
-		jid = JobID(jid)
+		jid = Job(jid)
 		if dc.offsets:
 			return jid.filename(name)
 		else:
@@ -679,7 +679,7 @@ class Dataset(unicode):
 		assert set(columns) == set(filenames), "columns and filenames don't have the same keys"
 		if self.jobid and (self.jobid != jobid or self.name != name):
 			self._data.parent = '%s/%s' % (self.jobid, self.name,)
-		self.jobid = JobID(jobid)
+		self.jobid = Job(jobid)
 		self.name = name
 		self._data.filename = uni(filename) or self._data.filename or None
 		self._data.caption  = uni(caption) or self._data.caption or jobid
@@ -1182,7 +1182,7 @@ def job_datasets(jobid):
 	if isinstance(jobid, Dataset):
 		jobid = jobid.jobid
 	else:
-		jobid = JobID(jobid)
+		jobid = Job(jobid)
 	fn = jobid.filename('datasets.txt')
 	if not os.path.exists(fn):
 		# It's not an error to list datasets in a job without them.

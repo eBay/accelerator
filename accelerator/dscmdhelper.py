@@ -24,7 +24,7 @@ from __future__ import division, print_function
 
 from os.path import join, exists, realpath
 
-from accelerator.jobid import WORKDIRS
+from accelerator.job import WORKDIRS
 from accelerator.dataset import Dataset
 
 def name2ds(n):

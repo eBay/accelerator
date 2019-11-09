@@ -38,7 +38,7 @@ from accelerator.compat import quote_plus, getarglist
 
 from accelerator import setupfile
 from accelerator.extras import json_encode, json_decode, DotDict, job_post,_ListTypePreserver
-from accelerator.jobid import JobID
+from accelerator.job import Job
 from accelerator.dispatch import JobError
 from accelerator.status import print_status_stacks
 from accelerator import unixhttp; unixhttp # for unixhttp:// URLs, as used to talk to the daemon
@@ -74,7 +74,7 @@ class Automata:
 		self.flags = flags or []
 		self.job_method = None
 		# Workspaces should be per Automata
-		from accelerator.jobid import WORKDIRS
+		from accelerator.job import WORKDIRS
 		WORKDIRS.update(self.list_workdirs())
 		self.update_method_deps()
 		self.clear_record()
@@ -249,7 +249,7 @@ class Automata:
 			print('        -  %44s' % method.ljust(44), end=' ')
 			print(' %s' % (make_msg,), end=' ')
 			if self.print_full_jobpath:
-				print(' %s' % JobID(item.link).path, end=' ')
+				print(' %s' % Job(item.link).path, end=' ')
 			else:
 				print(' %s' % item.link, end=' ')
 			if item.make != True and 'total_time' in item:
@@ -290,7 +290,7 @@ class Automata:
 			stk = stack()[1]
 			print("Called from %s line %d" % (stk[1], stk[2],))
 			exit()
-		jid = JobID(jid, record_as or method)
+		jid = Job(jid, record_as or method)
 		self.record[record_in].append(jid)
 		return jid
 
@@ -313,9 +313,9 @@ def fmttime(t, short=False):
 
 class JobList(_ListTypePreserver):
 	"""
-	A list of JobIDs with some convenience methods.
+	A list of Jobs with some convenience methods.
 	.find(method) a new JobList with only jobs with that method in it.
-	.get(method, default=None) latest JobID with that method.
+	.get(method, default=None) latest Job with that method.
 	[method] Same as .get but error if no job with that method is in the list.
 	.as_tuples The same list but as (method, jid) tuples.
 	.pretty a pretty-printed version (string).
@@ -429,7 +429,7 @@ def _urd_typeify(d):
 	res = DotDict()
 	for k, v in d.items():
 		if k == 'joblist':
-			v = JobList(JobID(e[1], e[0]) for e in v)
+			v = JobList(Job(e[1], e[0]) for e in v)
 		elif isinstance(v, dict):
 			v = _urd_typeify(v)
 		res[k] = v

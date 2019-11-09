@@ -31,7 +31,7 @@ from time import time, sleep
 import json
 import ctypes
 
-from accelerator.jobid import JobID, WORKDIRS
+from accelerator.job import Job, WORKDIRS
 from accelerator.compat import pickle, iteritems, setproctitle, QueueEmpty, getarglist, open
 from accelerator.extras import job_params, ResultIterMagic
 from accelerator.dispatch import JobError
@@ -207,7 +207,7 @@ def fmt_tb(skip_level):
 def execute_process(workdir, jobid, slices, result_directory, common_directory, source_directory, index=None, workdirs=None, daemon_url=None, subjob_cookie=None, parent_pid=0):
 	WORKDIRS.update(workdirs)
 
-	g.JOBID = jobid = JobID(jobid)
+	g.JOBID = jobid = Job(jobid)
 	setproctitle('launch')
 	path = os.path.join(workdir, jobid)
 	try:

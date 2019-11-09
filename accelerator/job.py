@@ -1,6 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
+# Modifications copyright (c) 2019 Carl Drougge                            #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -32,7 +33,7 @@ def dirnamematcher(name):
 	return re.compile(re.escape(name) + r'-[0-9]+$').match
 
 
-class JobID(unicode):
+class Job(unicode):
 	"""
 	A string that is a jobid, but also has some extra properties:
 	.method The job method (can be the "name" when from build or urd).
@@ -54,8 +55,8 @@ class JobID(unicode):
 		return obj
 
 	@classmethod
-	def create(cls, name, number):
-		return JobID('%s-%d' % (name, number,))
+	def _create(cls, name, number):
+		return Job('%s-%d' % (name, number,))
 
 	@property
 	def method(self):
