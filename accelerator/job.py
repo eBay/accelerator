@@ -20,6 +20,8 @@
 import os
 import re
 
+from collections import namedtuple
+
 from accelerator.compat import unicode, PY2
 
 
@@ -74,7 +76,6 @@ class Job(unicode):
 		return os.path.join(self.path, filename)
 
 	def withfile(self, filename, sliced=False, extra=None):
-		from accelerator.extras import JobWithFile
 		return JobWithFile(self, filename, sliced, extra)
 
 	def params(self):
@@ -105,3 +106,26 @@ class Job(unicode):
 	# Look like a string after pickling
 	def __reduce__(self):
 		return unicode, (unicode(self),)
+
+
+class JobWithFile(namedtuple('JobWithFile', 'jobid filename sliced extra')):
+	def __new__(cls, jobid, filename, sliced=False, extra=None):
+		assert not filename.startswith('/'), "Specify relative filenames to JobWithFile"
+		return tuple.__new__(cls, (Job(jobid), filename, sliced, extra,))
+
+	def resolve(self, sliceno=None):
+		if sliceno is None:
+			assert not self.sliced, "A sliced file requires a sliceno"
+		else:
+			assert self.sliced, "An unsliced file can not have a sliceno"
+		return self.jobid.filename(self.filename, sliceno)
+
+	def load(self, sliceno=None, encoding='bytes'):
+		"""blob.load this file"""
+		from accelerator.extras import pickle_load
+		return pickle_load(self.resolve(sliceno), encoding=encoding)
+
+	def json_load(self, sliceno=None, unicode_as_utf8bytes=PY2):
+		from accelerator.extras import json_load
+		return json_load(self.resolve(sliceno), unicode_as_utf8bytes=unicode_as_utf8bytes)
+

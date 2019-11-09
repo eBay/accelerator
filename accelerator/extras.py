@@ -25,13 +25,13 @@ import os
 import datetime
 import json
 from traceback import print_exc
-from collections import namedtuple, OrderedDict
+from collections import OrderedDict
 import sys
 
 from accelerator.compat import PY2, PY3, pickle, izip, iteritems, first_value
 from accelerator.compat import num_types, uni, unicode, str_types
 
-from accelerator.job import Job
+from accelerator.job import Job, JobWithFile
 from accelerator.status import status
 
 def _fn(filename, jobid, sliceno):
@@ -501,25 +501,6 @@ class OptionDefault(object):
 	def __init__(self, value, default=None):
 		self.value = value
 		self.default = default
-
-class JobWithFile(namedtuple('JobWithFile', 'jobid filename sliced extra')):
-	def __new__(cls, jobid, filename, sliced=False, extra=None):
-		assert not filename.startswith('/'), "Specify relative filenames to JobWithFile"
-		return tuple.__new__(cls, (Job(jobid), filename, sliced, extra,))
-
-	def resolve(self, sliceno=None):
-		if sliceno is None:
-			assert not self.sliced, "A sliced file requires a sliceno"
-		else:
-			assert self.sliced, "An unsliced file can not have a sliceno"
-		return self.jobid.filename(self.filename, sliceno)
-
-	def load(self, sliceno=None, encoding='bytes'):
-		"""blob.load this file"""
-		return pickle_load(self.resolve(sliceno), encoding=encoding)
-
-	def json_load(self, sliceno=None, unicode_as_utf8bytes=PY2):
-		return json_load(self.resolve(sliceno), unicode_as_utf8bytes=unicode_as_utf8bytes)
 
 typing_conv = dict(
 	set=set,

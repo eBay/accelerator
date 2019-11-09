@@ -25,7 +25,8 @@ from datetime import datetime, date, time, timedelta
 
 from accelerator.compat import iteritems, itervalues, first_value, str_types, int_types, num_types, unicode
 
-from accelerator.extras import OptionEnum, OptionEnumValue, OptionString, OptionDefault, RequiredOption, JobWithFile, typing_conv
+from accelerator.extras import OptionEnum, OptionEnumValue, OptionString, OptionDefault, RequiredOption, typing_conv
+from accelerator.job import JobWithFile
 
 class OptionException(Exception):
 	pass

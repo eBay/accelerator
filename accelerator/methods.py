@@ -224,7 +224,7 @@ def options2required(options):
 
 
 def options2typing(method, options):
-	from accelerator.extras import JobWithFile
+	from accelerator.job import JobWithFile
 	res = {}
 	def value2spec(value):
 		if isinstance(value, list):
