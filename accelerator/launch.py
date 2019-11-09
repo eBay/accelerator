@@ -34,7 +34,7 @@ import ctypes
 from accelerator.job import Job, WORKDIRS
 from accelerator.compat import pickle, iteritems, setproctitle, QueueEmpty, getarglist, open
 from accelerator.extras import job_params, ResultIterMagic
-from accelerator.dispatch import JobError
+from accelerator.build import JobError
 from accelerator import g
 from accelerator import blob
 from accelerator import status

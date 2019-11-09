@@ -27,20 +27,8 @@ from signal import SIGTERM, SIGKILL
 from accelerator.compat import PY3
 
 from accelerator.status import children, statmsg_endwait
+from accelerator.build import JobError
 
-class JobError(Exception):
-	def __init__(self, jobid, method, status):
-		Exception.__init__(self, "Failed to build %s (%s)" % (jobid, method,))
-		self.jobid = jobid
-		self.method = method
-		self.status = status
-
-	def format_msg(self):
-		res = ["%s (%s):" % (self.jobid, self.method,)]
-		for component, msg in self.status.items():
-			res.append("  %s:" % (component,))
-			res.append("   %s" % (msg.replace("\n", "\n    "),))
-		return "\n".join(res)
 
 valid_fds = []
 def update_valid_fds():

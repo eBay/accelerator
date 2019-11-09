@@ -19,7 +19,7 @@
 
 from accelerator import g
 from accelerator.build import Automata, JobList, DaemonError
-from accelerator.dispatch import JobError
+from accelerator.build import JobError
 from accelerator.status import status
 
 _a = None
