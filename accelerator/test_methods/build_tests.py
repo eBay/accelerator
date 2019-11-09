@@ -21,6 +21,7 @@ from __future__ import division
 from __future__ import unicode_literals
 
 from accelerator.dataset import Dataset
+from accelerator.build import JobError
 
 def main(urd):
 	assert urd.info.slices >= 3, "The tests don't work with less than 3 slices (you have %d)." % (urd.info.slices,)
@@ -52,12 +53,19 @@ def main(urd):
 	print("Testing subjobs and dataset typing")
 	urd.build("test_subjobs_type", datasets=dict(typed=ds, untyped=reimp_csv))
 	urd.build("test_subjobs_nesting")
-	if "comma" in urd.flags:
-		# This one is so you get a more useful error message if numeric_comma is broken.
+	try:
+		# Test if numeric_comma is broken (presumably because no suitable locale
+		# was found, since there are not actually any commas in the source dataset.)
 		urd.build("dataset_type", datasets=dict(source=source), options=dict(numeric_comma=True, column2type=dict(b="float64"), defaults=dict(b="0")));
-		urd.build("test_dataset_type_corner_cases");
-	else:
-		urd.build("test_dataset_type_corner_cases", options=dict(numeric_comma=False));
+		comma_broken = False
+	except JobError as e:
+		comma_broken = True
+		urd.warn()
+		urd.warn('SKIPPED NUMERIC COMMA TESTS')
+		urd.warn('Follow the instructions in this error to enable numeric comma:')
+		urd.warn()
+		urd.warn(e.format_msg())
+	urd.build("test_dataset_type_corner_cases", options=dict(numeric_comma=not comma_broken));
 
 	print()
 	print("Testing dataset chaining, filtering, callbacks and rechaining")
@@ -101,11 +109,3 @@ def main(urd):
 	urd.build("test_json")
 	urd.build("test_jobwithfile")
 	urd.build("test_report")
-
-	if "comma" not in urd.flags:
-		print()
-		print('           ##################################################')
-		print('           ##         SKIPPED NUMERIC COMMA TESTS          ##')
-		print('           ##  use "--flags comma" to include those tests  ##')
-		print('           ##################################################')
-		print()
