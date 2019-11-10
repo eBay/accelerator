@@ -29,12 +29,11 @@ from operator import itemgetter
 from collections import defaultdict
 from base64 import b64encode
 from importlib import import_module
-from os.path import realpath
 from argparse import ArgumentParser, RawTextHelpFormatter
 
 from accelerator.compat import unicode, str_types, PY3
 from accelerator.compat import urlencode, urlopen, Request, URLError, HTTPError
-from accelerator.compat import quote_plus, getarglist
+from accelerator.compat import getarglist
 
 from accelerator import setupfile
 from accelerator.extras import json_encode, json_decode, DotDict, job_post,_ListTypePreserver
@@ -703,15 +702,8 @@ def find_automata(a, package, script):
 					raise
 	raise Exception('No build script "%s" found in {%s}' % (script, ', '.join(package)))
 
-def run_automata(options):
-	if options.port:
-		assert not options.socket, "Specify either socket or port (with optional hostname)"
-		url = 'http://' + (options.hostname or 'localhost') + ':' + str(options.port)
-	else:
-		assert not options.hostname, "Specify either socket or port (with optional hostname)"
-		url = 'unixhttp://' + quote_plus(realpath(options.socket or '.socket.dir/default'))
-
-	a = Automata(url, verbose=options.verbose, flags=options.flags.split(','), infoprints=True, print_full_jobpath=options.fullpath)
+def run_automata(options, cfg):
+	a = Automata(cfg.url, verbose=options.verbose, flags=options.flags.split(','), infoprints=True, print_full_jobpath=options.fullpath)
 
 	if options.abort:
 		a.abort()
@@ -743,14 +735,11 @@ def run_automata(options):
 	urd._show_warnings()
 
 
-def main(argv):
+def main(argv, cfg):
 	parser = ArgumentParser(
 		usage="run [options] [script]",
 		formatter_class=RawTextHelpFormatter,
 	)
-	parser.add_argument('-p', '--port',     default=None,        help="framework listening port", )
-	parser.add_argument('-H', '--hostname', default=None,        help="framework hostname", )
-	parser.add_argument('-S', '--socket',   default=None,        help="framework unix socket (default .socket.dir/default)", )
 	parser.add_argument('-f', '--flags',    default='',          help="comma separated list of flags", )
 	parser.add_argument('-A', '--abort',    action='store_true', help="abort (fail) currently running job(s)", )
 	parser.add_argument('-q', '--quick',    action='store_true', help="skip method updates and checking workdirs for new jobs", )
@@ -772,7 +761,7 @@ def main(argv):
 	if options.quiet: options.verbose = False
 
 	try:
-		run_automata(options)
+		run_automata(options, cfg)
 		return 0
 	except (JobError, DaemonError):
 		# If it's a JobError we don't care about the local traceback,

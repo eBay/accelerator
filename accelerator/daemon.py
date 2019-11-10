@@ -250,14 +250,8 @@ class XtdHandler(BaseWebHandler):
 
 
 def parse_args(argv):
-	parser = argparse.ArgumentParser(
-		prog="daemon",
-		formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-	)
+	parser = argparse.ArgumentParser(prog="daemon")
 	parser.add_argument('--debug', action='store_true')
-	group = parser.add_mutually_exclusive_group()
-	group.add_argument('--port', type=int, help='Listen on tcp port')
-	group.add_argument('--socket', help='Listen on unix socket', default='.socket.dir/default')
 	return parser.parse_args(argv)
 
 
@@ -352,16 +346,14 @@ def main(argv, config):
 		signal.signal(signal.SIGINFO, siginfo)
 		signal.siginterrupt(signal.SIGINFO, False)
 
-	if options.port:
-		server = ThreadedHTTPServer(('', options.port), XtdHandler)
-		daemon_url = 'http://localhost:%d' % (options.port,)
+	if isinstance(config.listen, tuple):
+		server = ThreadedHTTPServer(config.listen, XtdHandler)
 	else:
-		check_socket(options.socket)
+		check_socket(config.listen)
 		# We want the socket to be world writeable, protect it with dir permissions.
 		u = os.umask(0)
-		server = ThreadedUnixHTTPServer(options.socket, XtdHandler)
+		server = ThreadedUnixHTTPServer(config.listen, XtdHandler)
 		os.umask(u)
-		daemon_url = configfile.resolve_socket_url(options.socket)
 
 	if config.get('urd') == 'local':
 		from accelerator import urd
@@ -369,7 +361,7 @@ def main(argv, config):
 		t.daemon = True
 		t.start()
 
-	ctrl = control.Main(config, options, daemon_url)
+	ctrl = control.Main(config, options, config.url)
 	print()
 	ctrl.print_workdirs()
 	print()
@@ -384,9 +376,5 @@ def main(argv, config):
 	if config.get('urd') == 'local':
 		config.urd = configfile.resolve_socket_url('.socket.dir/urd')
 
-	if options.port:
-		serving_on = "port %d" % (options.port,)
-	else:
-		serving_on = options.socket
-	print("Serving on %s\n" % (serving_on,), file=sys.stderr)
+	print("Serving on %s\n" % (config.listen,), file=sys.stderr)
 	server.serve_forever()

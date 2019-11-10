@@ -43,7 +43,7 @@ def resolve_socket_url(path, special=None):
 	elif special and path == special:
 		return special
 	else:
-		return 'unixhttp://' + quote_plus(os.path.realpath(path))
+		return 'unixhttp://' + quote_plus(path)
 
 
 def load_config(filename):
@@ -52,8 +52,9 @@ def load_config(filename):
 	key = None
 	multivalued = {'workdirs', 'method packages', 'interpreters'}
 	required = {'slices', 'logfile', 'workdirs', 'method packages'}
-	known = {'target workdir', 'urd', 'result directory', 'source directory', 'project directory'} | required | multivalued
+	known = {'target workdir', 'listen', 'urd', 'result directory', 'source directory', 'project directory'} | required | multivalued
 	cfg = {key: [] for key in multivalued}
+	cfg['listen'] = '.socket.dir/daemon'
 
 	class _E(Exception):
 		pass
@@ -132,6 +133,13 @@ def load_config(filename):
 		if res.target_workdir not in res.workdirs:
 			raise _E('target workdir %r not in defined workdirs %r' % (res.target_workdir, set(res.workdirs),))
 		res.interpreters = dict(res.interpreters)
+		if '/' not in res.listen and ':' in res.listen:
+			hostname, post = res.listen.rsplit(':', 1)
+			res.listen = (hostname, int(post),)
+			res.url = 'http://%s:%d' % (hostname or 'localhost', res.listen[1],)
+		else:
+			socket = os.path.join(res.project_directory, res.listen)
+			res.url = resolve_socket_url(os.path.realpath(socket))
 	except _E as e:
 		if lineno is None:
 			prefix = 'Error in %s:\n' % (filename,)

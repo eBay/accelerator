@@ -130,7 +130,7 @@ cmd_dsinfo.help = '''Display information about datasets'''
 
 def cmd_run(argv):
 	from accelerator.build import main
-	return main(argv)
+	return main(argv, cfg)
 cmd_run.help = '''Run a build script'''
 
 def cmd_daemon(argv):
