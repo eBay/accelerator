@@ -148,6 +148,48 @@ def cmd_urd(argv):
 	main(argv, cfg)
 cmd_urd.help = '''Run the urd daemon'''
 
+def cmd_curl(argv):
+	if argv and argv[0] in ('daemon', 'urd',):
+		which = argv.pop(0)
+	else:
+		which = 'urd'
+	if '--help' in argv or '-h' in argv or not argv:
+		from os import environ
+		from os.path import basename
+		print('Usage: curl [daemon|urd] [curl options] path')
+		print('curl daemon talks to the daemon, curl urd talks to urd (default).')
+		print()
+		cmdname = basename(sys.argv[0])
+		print('Examples:')
+		print('%s curl %s/test/latest' % (cmdname, environ['USER'],))
+		print('%s curl daemon status' % (cmdname,))
+		return
+	url_end = argv.pop()
+	socket_opts = []
+	if which == 'urd':
+		url_start = cfg.urd
+	else: # daemon
+		url_start = cfg.url
+	if url_start.startswith('unixhttp://'):
+		from accelerator.compat import unquote_plus
+		url_start = url_start.split('://', 1)[1]
+		if '/' in url_start:
+			socket, url_start = url_start.split('/', 1)
+		else:
+			socket, url_start = url_start, ''
+		socket_opts = ['--unix-socket', unquote_plus(socket)]
+		url_start = join('http://.', url_start)
+	argv = ['curl', '-s'] + socket_opts + argv + [join(url_start, url_end)]
+	from subprocess import Popen, PIPE
+	import json
+	output, _ = Popen(argv, stdout=PIPE).communicate()
+	try:
+		output = json.dumps(json.loads(output), indent=4)
+	except Exception:
+		pass
+	print(output)
+cmd_curl.help = '''http request (with curl) to urd or the daemon'''
+
 DEBUG_COMMANDS = {'dsgrep', 'dsinfo',}
 
 COMMANDS = dict(
@@ -157,6 +199,7 @@ COMMANDS = dict(
 	daemon=cmd_daemon,
 	init=cmd_init,
 	urd=cmd_urd,
+	curl=cmd_curl,
 )
 
 class HelpFixArgumentParser(ArgumentParser):
