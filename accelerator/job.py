@@ -108,6 +108,23 @@ class Job(unicode):
 		return unicode, (unicode(self),)
 
 
+class CurrentJob(Job):
+	"""The currently running job (as passed to the method),
+	with extra functions for writing data."""
+
+	def save(self, obj, filename='result.pickle', sliceno=None, temp=None):
+		from accelerator.extras import pickle_save
+		pickle_save(obj, filename, sliceno, temp=temp)
+
+	def json_save(self, obj, filename='result.json', sliceno=None, sort_keys=True, temp=None):
+		from accelerator.extras import json_save
+		json_save(obj, filename, sliceno, sort_keys=sort_keys, temp=temp)
+
+	def datasetwriter(self, columns={}, filename=None, hashlabel=None, hashlabel_override=False, caption=None, previous=None, name='default', parent=None, meta_only=False, for_single_slice=None):
+		from accelerator.dataset import DatasetWriter
+		return DatasetWriter(columns=columns, filename=filename, hashlabel=hashlabel, hashlabel_override=hashlabel_override, caption=caption, previous=previous, name=name, parent=parent, meta_only=meta_only, for_single_slice=for_single_slice)
+
+
 class JobWithFile(namedtuple('JobWithFile', 'jobid filename sliced extra')):
 	def __new__(cls, jobid, filename, sliced=False, extra=None):
 		assert not filename.startswith('/'), "Specify relative filenames to JobWithFile"
