@@ -24,20 +24,16 @@ from __future__ import division, print_function
 
 import argparse
 from math import ceil
-from fcntl import ioctl
-from termios import TIOCGWINSZ
-import struct
 import locale
 from datetime import datetime, time, date
+
+from accelerator.compat import terminal_size
 from accelerator import dscmdhelper
 from accelerator.dataset import job_datasets
 
 #dscmdhelper.init()
 
-try:
-	LINES, COLUMNS, _, _ = struct.unpack('HHHH', ioctl(0, TIOCGWINSZ, struct.pack('HHHH', 0, 0, 0, 0)))
-except Exception:
-	LINES, COLUMNS = 24, 80
+COLUMNS, LINES = terminal_size()
 
 def quote(x):
 	if (x is None) or ({' ', '"', "'"} & set(x)):

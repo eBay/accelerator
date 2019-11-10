@@ -54,6 +54,26 @@ if sys.version_info[0] == 2:
 	def getarglist(func):
 		from inspect import getargspec
 		return getargspec(func).args
+	def terminal_size():
+		from termios import TIOCGWINSZ
+		import struct
+		from fcntl import ioctl
+		from collections import namedtuple
+		from os import environ
+		def ifgood(name):
+			try:
+				v = int(environ[name])
+				if v > 0:
+					return v
+			except (KeyError, ValueError):
+				pass
+		lines, columns = ifgood('LINES'), ifgood('COLUMNS')
+		if not lines or not columns:
+			try:
+				fb_lines, fb_columns, _, _ = struct.unpack('HHHH', ioctl(0, TIOCGWINSZ, struct.pack('HHHH', 0, 0, 0, 0)))
+			except Exception:
+				fb_lines, fb_columns = 24, 80
+		return namedtuple('terminal_size', 'columns lines')(columns or fb_columns, lines or fb_lines)
 else:
 	PY2 = False
 	PY3 = True
@@ -86,6 +106,7 @@ else:
 	def getarglist(func):
 		from inspect import getfullargspec
 		return getfullargspec(func).args
+	from shutil import get_terminal_size as terminal_size
 
 def first_value(d):
 	return next(itervalues(d) if isinstance(d, dict) else iter(d))
