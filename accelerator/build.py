@@ -468,6 +468,7 @@ class Urd(object):
 			auth = b64encode(auth)
 		self._headers = {'Content-Type': 'application/json', 'Authorization': 'Basic ' + auth}
 		self._auth_tested = False
+		self._warnings = []
 
 	def _path(self, path):
 		if '/' not in path:
@@ -618,6 +619,58 @@ class Urd(object):
 		datasets['previous'] = self._latest_joblist.get(name)
 		return self.build(method, options, datasets, jobids, name, caption, why_build, workdir)
 
+	def warn(self, line=''):
+		"""Add a warning message to be displayed at the end of the build"""
+		self._warnings.extend(l.rstrip() for l in line.expandtabs().split('\n'))
+
+	def _show_warnings(self):
+		if self._warnings:
+			from itertools import chain
+			from accelerator.compat import terminal_size
+			max_width = max(34, terminal_size().columns - 6)
+			def reflow(line):
+				indent = ''
+				for c in line:
+					if c.isspace():
+						indent += c
+					else:
+						break
+				width = max(max_width - len(indent), 25)
+				current = ''
+				between = ''
+				for word in line[len(indent):].split(' '):
+					if len(current + word) >= width:
+						if len(word) > width / 2 and word.startswith('"/') and (word.endswith('"') or word.endswith('",')):
+							for pe in word.split('/'):
+								if len(current + pe) >= width:
+									if current:
+										yield indent + current
+										current = ('/' if between == '/' else '') + pe
+									else:
+										yield indent + between + pe
+								else:
+									current += between + pe
+								between = '/'
+						else:
+							if current:
+								yield indent + current
+								current = word
+							else:
+								yield indent + word
+					else:
+						current += between + word
+					between = ' '
+				if current:
+					yield indent + current
+			warnings = list(chain.from_iterable(reflow(w) for w in self._warnings))
+			print()
+			width = max(len(line) for line in warnings)
+			print('\x1b[35m' + ('#' * (width + 6)) + '\x1b[m')
+			for line in warnings:
+				print('\x1b[35m##\x1b[m', line.ljust(width), '\x1b[35m##\x1b[m')
+			print('\x1b[35m' + ('#' * (width + 6)) + '\x1b[m')
+			self._warnings = []
+
 
 def find_automata(a, package, script):
 	all_packages = sorted(a.config()['method_directories'])
@@ -687,6 +740,7 @@ def run_automata(options):
 	else:
 		a.update_methods()
 	module_ref.main(urd)
+	urd._show_warnings()
 
 
 def main(argv):
