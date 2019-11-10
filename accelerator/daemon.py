@@ -41,7 +41,6 @@ from accelerator.web import ThreadedHTTPServer, ThreadedUnixHTTPServer, BaseWebH
 
 from accelerator import autoflush
 from accelerator import control
-from accelerator import configfile
 from accelerator.extras import json_encode, json_decode, DotDict
 from accelerator.build import JobError
 from accelerator.status import statmsg_sink, children, print_status_stacks, status_stacks_export
@@ -355,9 +354,9 @@ def main(argv, config):
 		server = ThreadedUnixHTTPServer(config.listen, XtdHandler)
 		os.umask(u)
 
-	if config.get('urd') == 'local':
+	if config.get('urd_listen') == 'local':
 		from accelerator import urd
-		t = DeadlyThread(target=urd.main, args=(['--quiet', '--allow-passwordless'],), name='urd')
+		t = DeadlyThread(target=urd.main, args=(['--quiet', '--allow-passwordless'], config), name='urd')
 		t.daemon = True
 		t.start()
 
@@ -369,12 +368,13 @@ def main(argv, config):
 	XtdHandler.ctrl = ctrl
 	job_tracking[None].workdir = ctrl.target_workdir
 
-	for n in ("project_directory", "result_directory", "source_directory", "urd"):
-		print("%17s: %s" % (n.replace("_", " "), config.get(n),))
+	for n in ("project_directory", "result_directory", "source_directory", "urd_listen"):
+		if n == "urd_listen":
+			dispn = "urd"
+		else:
+			dispn = n.replace("_", " ")
+		print("%17s: %s" % (dispn, config.get(n),))
 	print()
-
-	if config.get('urd') == 'local':
-		config.urd = configfile.resolve_socket_url('.socket.dir/urd')
 
 	print("Serving on %s\n" % (config.listen,), file=sys.stderr)
 	server.serve_forever()

@@ -145,7 +145,7 @@ cmd_init.help = '''Create a project directory'''
 
 def cmd_urd(argv):
 	from accelerator.urd import main
-	main(argv)
+	main(argv, cfg)
 cmd_urd.help = '''Run the urd daemon'''
 
 DEBUG_COMMANDS = {'dsgrep', 'dsinfo',}

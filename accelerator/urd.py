@@ -403,13 +403,10 @@ def jsonify(callback):
 	return func
 
 
-def main(argv):
+def main(argv, cfg):
 	global authdict, allow_passwordless, db
 
 	parser = ArgumentParser(prog='urd')
-	group = parser.add_mutually_exclusive_group()
-	group.add_argument('--port', type=int, help='listen on tcp port')
-	group.add_argument('--socket', help='listen on unix socket (can be relative to project directory) (default: socket.dir/urd)')
 	parser.add_argument('--path', type=str, default='urd.db',
 		help='database directory (can be relative to project directory) (default: urd.db)',
 	)
@@ -431,16 +428,17 @@ def main(argv):
 	bottle.install(jsonify)
 
 	kw = dict(debug=False, reloader=False, quiet=args.quiet)
-	if args.port is not None:
-		kw['host'] = 'localhost'
-		kw['port'] = args.port
+	listen = cfg.urd_listen
+	if isinstance(listen, tuple):
+		kw['host'], kw['port'] = listen
 	else:
 		from accelerator.unixhttp import WSGIUnixServer, WSGIUnixRequestHandler
 		from accelerator.daemon import check_socket
-		socket = args.socket or '.socket.dir/urd'
-		check_socket(socket)
+		if listen == 'local':
+			listen = '.socket.dir/urd'
+		check_socket(listen)
 		kw['server_class'] = WSGIUnixServer
 		kw['handler_class'] = WSGIUnixRequestHandler
-		kw['host'] = socket
+		kw['host'] = listen
 		kw['port'] = 0
 	bottle.run(**kw)

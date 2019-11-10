@@ -37,13 +37,25 @@ def interpolate(s):
 	return _re_var.subn(lambda m: os.environ.get(m.group(1), m.group(2)), s)[0]
 
 
-def resolve_socket_url(path, special=None):
-	if '://' in path:
-		return path
-	elif special and path == special:
-		return special
+def resolve_listen(listen):
+	if '/' not in listen and ':' in listen:
+		hostname, post = listen.rsplit(':', 1)
+		listen = (hostname or 'localhost', int(post),)
+		url = 'http://%s:%d' % (hostname, listen[1],)
 	else:
-		return 'unixhttp://' + quote_plus(path)
+		url = None
+	return listen, url
+
+def fixup_listen(project_directory, listen, urd=False):
+	listen, url = listen
+	if not isinstance(listen, tuple):
+		if urd and listen == 'local':
+			dir = '.socket.dir/urd'
+		else:
+			dir = listen
+		socket = os.path.join(project_directory, dir)
+		url = 'unixhttp://' + quote_plus(os.path.realpath(socket))
+	return listen, url
 
 
 def load_config(filename):
@@ -54,7 +66,7 @@ def load_config(filename):
 	required = {'slices', 'logfile', 'workdirs', 'method packages'}
 	known = {'target workdir', 'listen', 'urd', 'result directory', 'source directory', 'project directory'} | required | multivalued
 	cfg = {key: [] for key in multivalued}
-	cfg['listen'] = '.socket.dir/daemon'
+	cfg['listen'] = '.socket.dir/daemon', None
 
 	class _E(Exception):
 		pass
@@ -73,7 +85,8 @@ def load_config(filename):
 		slices=int,
 		workdirs=partial(parse_pair, 'workdir'),
 		interpreters=partial(parse_pair, 'interpreter'),
-		urd=partial(resolve_socket_url, special='local'),
+		listen=resolve_listen,
+		urd=resolve_listen,
 	)
 	checkers = dict(
 		interpreter=check_interpreter,
@@ -133,13 +146,11 @@ def load_config(filename):
 		if res.target_workdir not in res.workdirs:
 			raise _E('target workdir %r not in defined workdirs %r' % (res.target_workdir, set(res.workdirs),))
 		res.interpreters = dict(res.interpreters)
-		if '/' not in res.listen and ':' in res.listen:
-			hostname, post = res.listen.rsplit(':', 1)
-			res.listen = (hostname, int(post),)
-			res.url = 'http://%s:%d' % (hostname or 'localhost', res.listen[1],)
+		res.listen, res.url = fixup_listen(res.project_directory, res.listen)
+		if res.get('urd'):
+			res.urd_listen, res.urd = fixup_listen(res.project_directory, res.urd, True)
 		else:
-			socket = os.path.join(res.project_directory, res.listen)
-			res.url = resolve_socket_url(os.path.realpath(socket))
+			res.urd_listen, res.urd = None, None
 	except _E as e:
 		if lineno is None:
 			prefix = 'Error in %s:\n' % (filename,)
