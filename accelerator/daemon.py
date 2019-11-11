@@ -248,12 +248,6 @@ class XtdHandler(BaseWebHandler):
 			return
 
 
-def parse_args(argv):
-	parser = argparse.ArgumentParser(prog="daemon")
-	parser.add_argument('--debug', action='store_true')
-	return parser.parse_args(argv)
-
-
 def exitfunction(*a, from_thread=False):
 	if not from_thread:
 		signal.signal(signal.SIGTERM, signal.SIG_IGN)
@@ -301,7 +295,9 @@ def siginfo(sig, frame):
 	print_status_stacks()
 
 def main(argv, config):
-	options = parse_args(argv)
+	parser = argparse.ArgumentParser(prog=argv.pop(0))
+	parser.add_argument('--debug', action='store_true')
+	options = parser.parse_args(argv)
 
 	# all forks belong to the same happy family
 	try:
@@ -356,7 +352,7 @@ def main(argv, config):
 
 	if config.get('urd_listen') == 'local':
 		from accelerator import urd
-		t = DeadlyThread(target=urd.main, args=(['--quiet', '--allow-passwordless'], config), name='urd')
+		t = DeadlyThread(target=urd.main, args=(['urd', '--quiet', '--allow-passwordless'], config), name='urd')
 		t.daemon = True
 		t.start()
 

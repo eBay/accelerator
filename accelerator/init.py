@@ -94,7 +94,7 @@ def main(argv):
 	from accelerator.configfile import interpolate
 
 	parser = ArgumentParser(
-		prog='init',
+		prog=argv.pop(0),
 		description=r'''
 			Creates an accelerator project directory.
 			Defaults to the current directory.

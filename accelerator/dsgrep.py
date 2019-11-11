@@ -33,8 +33,8 @@ from accelerator.dscmdhelper import name2ds
 from accelerator import g
 
 def main(argv):
-	usage = "dsgrep [options] pattern ds [ds [...]] [column [column [...]]"
-	parser = ArgumentParser(usage=usage)
+	usage = "%(prog)s [options] pattern ds [ds [...]] [column [column [...]]"
+	parser = ArgumentParser(usage=usage, prog=argv.pop(0))
 	parser.add_argument('-c', '--chain',       dest="chain",      action='store_true', help="Follow dataset chains", )
 	parser.add_argument('-i', '--ignore-case', dest="ignorecase", action='store_true', help="Case insensitive pattern", )
 	parser.add_argument('pattern')

@@ -22,7 +22,7 @@ from __future__ import unicode_literals
 
 import sys
 from os import getcwd, chdir
-from os.path import dirname, realpath, join
+from os.path import dirname, basename, realpath, join
 from locale import resetlocale
 from glob import glob
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
@@ -149,20 +149,19 @@ def cmd_urd(argv):
 cmd_urd.help = '''Run the urd daemon'''
 
 def cmd_curl(argv):
+	prog = argv.pop(0)
 	if argv and argv[0] in ('daemon', 'urd',):
 		which = argv.pop(0)
 	else:
 		which = 'urd'
 	if '--help' in argv or '-h' in argv or not argv:
 		from os import environ
-		from os.path import basename
-		print('Usage: curl [daemon|urd] [curl options] path')
-		print('curl daemon talks to the daemon, curl urd talks to urd (default).')
+		print('Usage: %s [daemon|urd] [curl options] path' % (prog,))
+		print('%s daemon talks to the daemon, %s urd talks to urd (default).' % (prog, prog,))
 		print()
-		cmdname = basename(sys.argv[0])
 		print('Examples:')
-		print('%s curl %s/test/latest' % (cmdname, environ['USER'],))
-		print('%s curl daemon status' % (cmdname,))
+		print('%s %s/example/latest' % (prog, environ['USER'],))
+		print('%s daemon status' % (prog,))
 		return
 	url_end = argv.pop()
 	socket_opts = []
@@ -248,6 +247,7 @@ def main():
 		if args.command == 'init':
 			config_fn = False
 		setup(config_fn, debug_cmd=args.command in DEBUG_COMMANDS)
+		argv.insert(0, '%s %s' % (basename(sys.argv[0]), args.command,))
 		return COMMANDS[args.command](argv)
 	except UserError as e:
 		print(e, file=sys.stderr)

@@ -737,7 +737,8 @@ def run_automata(options, cfg):
 
 def main(argv, cfg):
 	parser = ArgumentParser(
-		usage="run [options] [script]",
+		prog=argv.pop(0),
+		usage="%(prog)s [options] [script]",
 		formatter_class=RawTextHelpFormatter,
 	)
 	parser.add_argument('-f', '--flags',    default='',          help="comma separated list of flags", )
