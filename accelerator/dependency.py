@@ -36,6 +36,8 @@ def find_possible_jobs(db, methods, job):
 	method = job['method']
 	params = {method: job['params'][method]}
 	optset = methods.params2optset(params)
+	if not optset:
+		return {}
 	def inner():
 		for uid, job in db.match_exact([(method, 0, optset,)]):
 			yield job.id, ()
