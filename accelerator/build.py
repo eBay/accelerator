@@ -219,7 +219,8 @@ class Automata:
 		"""
 		Return jobid of "method"
 		"""
-		return self.job_retur.jobs[method].link
+		if 'jobs' in self.job_retur:
+			return self.job_retur.jobs[method].link
 
 	def dump_history(self):
 		return self.history
@@ -299,7 +300,7 @@ class Automata:
 			print(json_encode(res.why_build, as_str=True))
 			print()
 			from inspect import stack
-			stk = stack()[1]
+			stk = stack()[2]
 			print("Called from %s line %d" % (stk[1], stk[2],))
 			exit()
 		jid = Job(jid, record_as or method)
