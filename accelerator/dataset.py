@@ -105,8 +105,8 @@ def _dsid(t):
 			return None
 		t = '%s/%s' % (jid.split('/')[0], uni(name) or 'default')
 	elif isinstance(t, DatasetWriter):
-		from accelerator.g import JOBID
-		t = '%s/%s' % (JOBID, t.name)
+		from accelerator.g import job
+		t = '%s/%s' % (job, t.name)
 	if '/' not in t:
 		t += '/default'
 	return uni(t)
@@ -168,8 +168,8 @@ class Dataset(unicode):
 		else:
 			suffix = '/' + name
 		if jobid is _new_dataset_marker:
-			from accelerator.g import JOBID
-			fullname = JOBID + suffix
+			from accelerator.g import job
+			fullname = job + suffix
 		else:
 			fullname = jobid + suffix
 		obj = unicode.__new__(cls, fullname)
@@ -246,7 +246,7 @@ class Dataset(unicode):
 			assert not left_over, "Columns in filter not available in dataset: %r" % (left_over,)
 			assert filtered_columns, "Filter produced no desired columns."
 			d._data.columns = filtered_columns
-		from accelerator.g import JOBID
+		from accelerator.g import job
 		if override_previous is not _no_override:
 			override_previous = _dsid(override_previous)
 			if override_previous:
@@ -255,7 +255,7 @@ class Dataset(unicode):
 			d._data.previous = override_previous
 			d._update_caches()
 		d._data.parent = '%s/%s' % (d.jobid, d.name,)
-		d.jobid = Job(uni(JOBID))
+		d.jobid = job
 		d.name = uni(name)
 		d._save()
 		_datasets_written.append(d.name)
@@ -272,9 +272,9 @@ class Dataset(unicode):
 			else:
 				return mkiter(fn)
 		if sliceno is None:
-			from accelerator.g import SLICES
+			from accelerator.g import slices
 			from itertools import chain
-			return chain(*[one_slice(s) for s in range(SLICES)])
+			return chain(*[one_slice(s) for s in range(slices)])
 		else:
 			return one_slice(sliceno)
 
@@ -290,8 +290,8 @@ class Dataset(unicode):
 		return res
 
 	def _hashfilter(self, sliceno, hashlabel, it):
-		from accelerator.g import SLICES
-		return compress(it, self._column_iterator(None, hashlabel, hashfilter=(sliceno, SLICES)))
+		from accelerator.g import slices
+		return compress(it, self._column_iterator(None, hashlabel, hashfilter=(sliceno, slices)))
 
 	def column_filename(self, colname, sliceno=None):
 		dc = self.columns[colname]
@@ -385,7 +385,7 @@ class Dataset(unicode):
 		and you will get warnings about incorrect ending order of statuses.)
 		"""
 
-		from accelerator.g import SLICES
+		from accelerator.g import slices
 
 		if isinstance(datasets, str_types + (Dataset, dict)):
 			datasets = [datasets]
@@ -421,7 +421,7 @@ class Dataset(unicode):
 			else:
 				rehash_on = False
 			if sliceno is None:
-				for ix in builtins.range(SLICES):
+				for ix in builtins.range(slices):
 					# Ignore rehashing - order is generally not guaranteed with sliceno=None
 					to_iter.append((d, ix, False,))
 			else:
@@ -447,7 +447,7 @@ class Dataset(unicode):
 			kw["status_reporting"] = False
 			def rr_inner(d, rehash):
 				todo = []
-				for ix in builtins.range(SLICES):
+				for ix in builtins.range(slices):
 					part = (d, ix, rehash)
 					todo.append(chain.from_iterable(Dataset._iterate_datasets([part], **kw)))
 				fv = object() # unique marker
@@ -637,11 +637,11 @@ class Dataset(unicode):
 
 	@staticmethod
 	def _linefixup(lines):
-		from accelerator.g import SLICES
+		from accelerator.g import slices
 		if isinstance(lines, dict):
-			assert set(lines) == set(range(SLICES)), "Lines must be specified for all slices"
+			assert set(lines) == set(range(slices)), "Lines must be specified for all slices"
 			lines = [c for _, c in sorted(lines.items())]
-		assert len(lines) == SLICES, "Lines must be specified for all slices"
+		assert len(lines) == slices, "Lines must be specified for all slices"
 		return lines
 
 	def append(self, columns, filenames, lines, minmax={}, filename=None, hashlabel=None, hashlabel_override=False, caption=None, previous=None, name='default'):
@@ -672,17 +672,16 @@ class Dataset(unicode):
 
 	def _append(self, columns, filenames, minmax, filename, caption, previous, name):
 		from accelerator.sourcedata import type2iter
-		from accelerator.g import JOBID
-		jobid = uni(JOBID)
+		from accelerator.g import job
 		name = uni(name)
 		filenames = {uni(k): uni(v) for k, v in filenames.items()}
 		assert set(columns) == set(filenames), "columns and filenames don't have the same keys"
-		if self.jobid and (self.jobid != jobid or self.name != name):
+		if self.jobid and (self.jobid != job or self.name != name):
 			self._data.parent = '%s/%s' % (self.jobid, self.name,)
-		self.jobid = Job(jobid)
+		self.jobid = job
 		self.name = name
 		self._data.filename = uni(filename) or self._data.filename or None
-		self._data.caption  = uni(caption) or self._data.caption or jobid
+		self._data.caption  = uni(caption) or self._data.caption or uni(job)
 		self._data.previous = _dsid(previous)
 		for n in ('cache', 'cache_distance'):
 			if n in self._data: del self._data[n]
@@ -696,7 +695,7 @@ class Dataset(unicode):
 				type=t,
 				backing_type=t,
 				name=filenames[n],
-				location='%s/%s/%%s.%s' % (jobid, self.name, filenames[n]),
+				location='%s/%s/%%s.%s' % (job, self.name, filenames[n]),
 				min=mm[0],
 				max=mm[1],
 				offsets=None,
@@ -719,12 +718,12 @@ class Dataset(unicode):
 			self._data['cache_distance'] = cache_distance
 
 	def _maybe_merge(self, n):
-		from accelerator.g import SLICES
-		if SLICES < 2:
+		from accelerator.g import slices
+		if slices < 2:
 			return
 		fn = self.column_filename(n)
-		sizes = [os.path.getsize(fn % (sliceno,)) for sliceno in range(SLICES)]
-		if sum(sizes) / SLICES > 524288: # arbitrary guess of good size
+		sizes = [os.path.getsize(fn % (sliceno,)) for sliceno in range(slices)]
+		if sum(sizes) / slices > 524288: # arbitrary guess of good size
 			return
 		offsets = []
 		pos = 0
@@ -926,8 +925,8 @@ class DatasetWriter(object):
 			kw = {} if default is _nodefault else {'default': default}
 			fn = self.column_filename(colname, sliceno)
 			if filtered and colname == self.hashlabel:
-				from accelerator.g import SLICES
-				w = wt(fn, hashfilter=(sliceno, SLICES), **kw)
+				from accelerator.g import slices
+				w = wt(fn, hashfilter=(sliceno, slices), **kw)
 				self.hashcheck = w.hashcheck
 			else:
 				w = wt(fn, **kw)
@@ -984,8 +983,8 @@ class DatasetWriter(object):
 	def _allwriters(self):
 		if self._allwriters_:
 			return self._allwriters_
-		from accelerator.g import SLICES
-		self._allwriters_ = [self._mkwriters(sliceno, False) for sliceno in range(SLICES)]
+		from accelerator.g import slices
+		self._allwriters_ = [self._mkwriters(sliceno, False) for sliceno in range(slices)]
 		return self._allwriters_
 
 	def get_split_write(self):
@@ -1013,16 +1012,16 @@ class DatasetWriter(object):
 		f_____ = ['def split(' + ', '.join(names) + '):']
 		f_list = ['def split_list(v):']
 		f_dict = ['def split_dict(d):']
-		from accelerator.g import SLICES
+		from accelerator.g import slices
 		hl = self.hashlabel
 		if hl:
 			w_d['h'] = self._allwriters[0][hl].hash
-			f_____.append('w_l = writers[h(%s) %% %d]' % (self._clean_names[hl], SLICES,))
-			f_list.append('w_l = writers[h(v[%d]) %% %d]' % (self._order.index(hl), SLICES,))
-			f_dict.append('w_l = writers[h(d[%r]) %% %d]' % (hl, SLICES,))
+			f_____.append('w_l = writers[h(%s) %% %d]' % (self._clean_names[hl], slices,))
+			f_list.append('w_l = writers[h(v[%d]) %% %d]' % (self._order.index(hl), slices,))
+			f_dict.append('w_l = writers[h(d[%r]) %% %d]' % (hl, slices,))
 		else:
 			from itertools import cycle
-			w_d['c'] = cycle(range(SLICES))
+			w_d['c'] = cycle(range(slices))
 			f_____.append('w_l = writers[next(c)]')
 			f_list.append('w_l = writers[next(c)]')
 			f_dict.append('w_l = writers[next(c)]')
@@ -1076,10 +1075,10 @@ class DatasetWriter(object):
 		"""Normally you don't need to call this, but if you want to
 		pass yourself as a dataset to a subjob you need to call
 		this first."""
-		from accelerator.g import running, SLICES, JOBID
+		from accelerator.g import running, slices, job
 		assert running == self._running or running == 'synthesis', "Finish where you started or in synthesis"
 		self.close()
-		assert len(self._lens) == SLICES, "Not all slices written, missing %r" % (set(range(SLICES)) - set(self._lens),)
+		assert len(self._lens) == slices, "Not all slices written, missing %r" % (set(range(slices)) - set(self._lens),)
 		args = dict(
 			columns={k: v[0].split(':')[-1] for k, v in self.columns.items()},
 			filenames=self._clean_names,
@@ -1094,7 +1093,7 @@ class DatasetWriter(object):
 		if self.parent:
 			res = Dataset(self.parent)
 			res.append(hashlabel_override=self.hashlabel_override, **args)
-			res = Dataset((JOBID, self.name))
+			res = Dataset((job, self.name))
 		else:
 			res = Dataset.new(**args)
 		del _datasetwriters[self.name]

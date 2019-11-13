@@ -54,8 +54,8 @@ def name2ds(n):
 		return None
 	slices = ds.jobid.params().slices
 	from accelerator import g
-	if hasattr(g, 'SLICES'):
-		assert g.SLICES == slices, "Dataset %s needs %d slices, by we are already using %d slices" % (ds, slices, g.SLICES)
+	if hasattr(g, 'slices'):
+		assert g.slices == slices, "Dataset %s needs %d slices, by we are already using %d slices" % (ds, slices, g.slices)
 	else:
-		g.SLICES = slices
+		g.slices = slices
 	return ds

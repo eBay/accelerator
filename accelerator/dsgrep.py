@@ -101,7 +101,7 @@ def main(argv):
 	
 	try:
 		children = []
-		for sliceno in range(g.SLICES):
+		for sliceno in range(g.slices):
 			p = Process(target=one_slice, args=(sliceno,), name='slice-%d' % (sliceno,))
 			p.start()
 			children.append(p)

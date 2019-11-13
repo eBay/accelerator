@@ -228,11 +228,6 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 	method_ref.datasets= params.datasets
 	method_ref.jobids  = params.jobids
 
-	# compatibility names
-	g.SLICES           = slices
-	g.JOBID            = g.job
-	g.jobid            = g.job
-
 	g.daemon_url       = daemon_url
 	g.running          = 'launch'
 	status._start('%s %s' % (jobid, params.method,), parent_pid)

@@ -46,7 +46,7 @@ def compress(data):
 
 def verify(zipname, inside_filenames, want_ds, **kw):
 	opts=dict(
-		filename=g.jobid.filename(zipname),
+		filename=g.job.filename(zipname),
 		inside_filenames=inside_filenames,
 	)
 	opts.update(kw)

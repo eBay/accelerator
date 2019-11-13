@@ -59,7 +59,7 @@ def verify(params, jwf):
 	assert jid.load('inner.pickle') == {'inner': None}
 	assert jid.json_load('inner.json') == {'inner': None}
 
-def synthesis(params, jobid):
+def synthesis(params, job):
 	data = {'foo'}
 	if options.inner:
 		if options.file.sliced:
@@ -77,4 +77,4 @@ def synthesis(params, jobid):
 		blob.save(data, 'data')
 		# use different ways to construct the jwf so both get tested.
 		verify(params, JobWithFile(params.jobid, 'data'))
-		verify(params, jobid.withfile('data', True))
+		verify(params, job.withfile('data', True))

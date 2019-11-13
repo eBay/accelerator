@@ -31,7 +31,7 @@ from accelerator.dataset import Dataset, DatasetWriter
 
 jobids = ('selfchain',)
 
-def synthesis(jobid):
+def synthesis(job):
 	manual_chain = [Dataset(jobids.selfchain, name) for name in "abcdefgh"]
 	manual_abf = [manual_chain[0], manual_chain[1], manual_chain[5]]
 	# build a local abf chain
@@ -40,11 +40,11 @@ def synthesis(jobid):
 		name = "abf%d" % (ix,)
 		prev = ds.link_to_here(name, override_previous=prev)
 	manual_abf_data = list(Dataset.iterate_list(None, None, manual_abf))
-	local_abf_data = list(Dataset(jobid, "abf2").iterate_chain(None, None))
+	local_abf_data = list(Dataset(job, "abf2").iterate_chain(None, None))
 	assert manual_abf_data == local_abf_data
 	# disconnect h, verify there is no chain
 	manual_chain[-1].link_to_here("alone", override_previous=None)
-	assert len(Dataset(jobid, "alone").chain()) == 1
+	assert len(Dataset(job, "alone").chain()) == 1
 	# check that the original chain is unhurt
 	assert manual_chain == manual_chain[-1].chain()
 
@@ -67,9 +67,9 @@ def synthesis(jobid):
 	assert "cache" not in full_chain[-1]._data # just to be sure..
 	full_chain[-2].link_to_here("nocache", override_previous=None)
 	full_chain[-1].link_to_here("withcache", override_previous=full_chain[-3])
-	assert "cache" not in Dataset(jobid, "nocache")._data
-	assert "cache" in Dataset(jobid, "withcache")._data
+	assert "cache" not in Dataset(job, "nocache")._data
+	assert "cache" in Dataset(job, "withcache")._data
 	# And make sure they both get the right data too.
 	assert list(Dataset(prev).iterate_chain(None, "ix")) == list(range(ix))
-	assert list(Dataset(jobid, "nocache").iterate_chain(None, "ix")) == [ix - 2]
-	assert list(Dataset(jobid, "withcache").iterate_chain(None, "ix")) == list(range(ix - 2)) + [ix - 1]
+	assert list(Dataset(job, "nocache").iterate_chain(None, "ix")) == [ix - 2]
+	assert list(Dataset(job, "withcache").iterate_chain(None, "ix")) == list(range(ix - 2)) + [ix - 1]

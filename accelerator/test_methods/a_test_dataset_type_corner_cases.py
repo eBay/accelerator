@@ -72,7 +72,7 @@ def _verify(name, types, data, coltype, want, default, want_fail, kw):
 	dw.set_slice(0)
 	for ix, v in enumerate(data):
 		dw.write(v, b'1' if ix % 2 == 0 else b'skip')
-	for sliceno in range(1, g.SLICES):
+	for sliceno in range(1, g.slices):
 		dw.set_slice(sliceno)
 	bytes_ds = dw.finish()
 	for typ in types:
@@ -306,7 +306,7 @@ def test_filter_bad_across_types():
 		if v[0]:
 			add_want(v)
 		dw.write(*v[1:])
-	for sliceno in range(1, g.SLICES):
+	for sliceno in range(1, g.slices):
 		dw.set_slice(sliceno)
 	source_ds = dw.finish()
 	# Once with just filter_bad, once with some defaults too.
