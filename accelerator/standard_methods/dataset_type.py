@@ -797,7 +797,8 @@ convert_template = r'''
 {
 	PyGILState_STATE gstate = PyGILState_Ensure();
 	g g;
-	gzFile outfh;
+	gzFile outfhs[slices];
+	memset(outfhs, 0, sizeof(outfhs));
 	const char *line;
 	int res = 1;
 	char buf[%(datalen)s];
@@ -805,6 +806,8 @@ convert_template = r'''
 	char buf_col_min[%(datalen)s];
 	char buf_col_max[%(datalen)s];
 	char *badmap = 0;
+	uint16_t *slicemap = 0;
+	int chosen_slice = 0;
 	int fd = open(in_fn, O_RDONLY);
 	if (fd < 0) goto errfd;
 	if (lseek(fd, offset, 0) != offset) goto errfd;
@@ -812,11 +815,17 @@ convert_template = r'''
 	g.fh = gzdopen(fd, "rb");
 	if (!g.fh) goto errfd;
 	fd = -1;
-	outfh = gzopen(out_fn, "wb");
-	err1(!outfh);
+	for (int i = 0; i < slices; i++) {
+		outfhs[i] = gzopen(out_fns[i], "wb");
+		err1(!outfhs[i]);
+	}
 	if (badmap_fd != -1) {
 		badmap = mmap(0, badmap_size, PROT_READ | PROT_WRITE, MAP_NOSYNC | MAP_SHARED, badmap_fd, 0);
 		err1(!badmap);
+	}
+	if (slicemap_fd != -1) {
+		slicemap = mmap(0, slicemap_size, PROT_READ, MAP_NOSYNC | MAP_SHARED, slicemap_fd, 0);
+		err1(!slicemap);
 	}
 	if (default_value) {
 		err1(default_value_is_None);
@@ -857,7 +866,8 @@ convert_template = r'''
 			*default_count += 1;
 		}
 		%(minmax_code)s;
-		err1(gzwrite(outfh, ptr, %(datalen)s) != %(datalen)s);
+		if (slicemap) chosen_slice = slicemap[i];
+		err1(gzwrite(outfhs[chosen_slice], ptr, %(datalen)s) != %(datalen)s);
 	}
 	gzFile minmaxfh = gzopen(minmax_fn, "wb");
 	err1(!minmaxfh);
@@ -867,8 +877,11 @@ convert_template = r'''
 	if (gzclose(minmaxfh)) res = 1;
 err:
 	if (g_cleanup(&g)) res = 1;
-	if (outfh && gzclose(outfh)) res = 1;
+	for (int i = 0; i < slices; i++) {
+		if (outfhs[i] && gzclose(outfhs[i])) res = 1;
+	}
 	if (badmap) munmap(badmap, badmap_size);
+	if (slicemap) munmap(slicemap, slicemap_size);
 errfd:
 	if (fd >= 0) close(fd);
 	PyGILState_Release(gstate);
@@ -973,7 +986,8 @@ err:
 %(proto)s
 {
 	g g;
-	gzFile outfh;
+	gzFile outfhs[slices];
+	memset(outfhs, 0, sizeof(outfhs));
 	const char *line;
 	int  res = 1;
 	char buf[GZNUMBER_MAX_BYTES];
@@ -988,6 +1002,8 @@ err:
 	double d_col_min = 0;
 	double d_col_max = 0;
 	char *badmap = 0;
+	uint16_t *slicemap = 0;
+	int chosen_slice = 0;
 	const int allow_float = !fmt;
 	PyGILState_STATE gstate = PyGILState_Ensure();
 	int fd = open(in_fn, O_RDONLY);
@@ -997,11 +1013,17 @@ err:
 	g.fh = gzdopen(fd, "rb");
 	if (!g.fh) goto errfd;
 	fd = -1;
-	outfh = gzopen(out_fn, "wb");
-	err1(!outfh);
+	for (int i = 0; i < slices; i++) {
+		outfhs[i] = gzopen(out_fns[i], "wb");
+		err1(!outfhs[i]);
+	}
 	if (badmap_fd != -1) {
 		badmap = mmap(0, badmap_size, PROT_READ | PROT_WRITE, MAP_NOSYNC | MAP_SHARED, badmap_fd, 0);
 		err1(!badmap);
+	}
+	if (slicemap_fd != -1) {
+		slicemap = mmap(0, slicemap_size, PROT_READ, MAP_NOSYNC | MAP_SHARED, slicemap_fd, 0);
+		err1(!slicemap);
 	}
 	if (default_value) {
 		err1(default_value_is_None);
@@ -1103,7 +1125,8 @@ err:
 				if (o_v) Py_INCREF(o_v);
 			}
 		}
-		err1(gzwrite(outfh, ptr, len) != len);
+		if (slicemap) chosen_slice = slicemap[i];
+		err1(gzwrite(outfhs[chosen_slice], ptr, len) != len);
 	}
 	gzFile minmaxfh = gzopen(minmax_fn, "wb");
 	err1(!minmaxfh);
@@ -1120,15 +1143,18 @@ err:
 	Py_XDECREF(o_col_max);
 	PyGILState_Release(gstate);
 	if (g_cleanup(&g)) res = 1;
-	if (outfh && gzclose(outfh)) res = 1;
+	for (int i = 0; i < slices; i++) {
+		if (outfhs[i] && gzclose(outfhs[i])) res = 1;
+	}
 	if (badmap) munmap(badmap, badmap_size);
+	if (slicemap) munmap(slicemap, slicemap_size);
 errfd:
 	if (fd >= 0) close(fd);
 	return res;
 }
 '''
 
-proto_template = 'int convert_column_%s(const char *in_fn, const char *out_fn, const char *minmax_fn, const char *default_value, uint32_t default_len, int default_value_is_None, const char *fmt, const char *fmt_b, int record_bad, int skip_bad, int badmap_fd, size_t badmap_size, uint64_t *bad_count, uint64_t *default_count, off_t offset, int64_t max_count)'
+proto_template = 'int convert_column_%s(const char *in_fn, const char **out_fns, const char *minmax_fn, const char *default_value, uint32_t default_len, int default_value_is_None, const char *fmt, const char *fmt_b, int record_bad, int skip_bad, int badmap_fd, size_t badmap_size, int slices, int slicemap_fd, size_t slicemap_size, uint64_t *bad_count, uint64_t *default_count, off_t offset, int64_t max_count)'
 
 protos = []
 funcs = [noneval_data]
@@ -1143,11 +1169,14 @@ convert_blob_template = r'''
 {
 	PyGILState_STATE gstate = PyGILState_Ensure();
 	g g;
-	gzFile outfh;
+	gzFile outfhs[slices];
+	memset(outfhs, 0, sizeof(outfhs));
 	const char *line;
 	int res = 1;
 	uint8_t *defbuf = 0;
 	char *badmap = 0;
+	uint16_t *slicemap = 0;
+	int chosen_slice = 0;
 	int fd = open(in_fn, O_RDONLY);
 	if (fd < 0) goto errfd;
 	if (lseek(fd, offset, 0) != offset) goto errfd;
@@ -1155,11 +1184,17 @@ convert_blob_template = r'''
 	g.fh = gzdopen(fd, "rb");
 	if (!g.fh) goto errfd;
 	fd = -1;
-	outfh = gzopen(out_fn, "wb");
-	err1(!outfh);
+	for (int i = 0; i < slices; i++) {
+		outfhs[i] = gzopen(out_fns[i], "wb");
+		err1(!outfhs[i]);
+	}
 	if (badmap_fd != -1) {
 		badmap = mmap(0, badmap_size, PROT_READ | PROT_WRITE, MAP_NOSYNC | MAP_SHARED, badmap_fd, 0);
 		err1(!badmap);
+	}
+	if (slicemap_fd != -1) {
+		slicemap = mmap(0, slicemap_size, PROT_READ, MAP_NOSYNC | MAP_SHARED, slicemap_fd, 0);
+		err1(!slicemap);
 	}
 %(setup)s
 	if (default_value) {
@@ -1193,8 +1228,9 @@ convert_blob_template = r'''
 			*bad_count += 1;
 			continue;
 		}
+		if (slicemap) chosen_slice = slicemap[i];
 		if (line == NoneMarker) {
-			err1(gzwrite(outfh, "\xff\0\0\0\0", 5) != 5);
+			err1(gzwrite(outfhs[chosen_slice], "\xff\0\0\0\0", 5) != 5);
 			continue;
 		}
 %(convert)s
@@ -1203,10 +1239,10 @@ convert_blob_template = r'''
 				uint8_t lenbuf[5];
 				lenbuf[0] = 255;
 				memcpy(lenbuf + 1, &len, 4);
-				err1(gzwrite(outfh, lenbuf, 5) != 5);
+				err1(gzwrite(outfhs[chosen_slice], lenbuf, 5) != 5);
 			} else {
 				uint8_t len8 = len;
-				err1(gzwrite(outfh, &len8, 1) != 1);
+				err1(gzwrite(outfhs[chosen_slice], &len8, 1) != 1);
 			}
 		} else {
 			if (record_bad && !default_value) {
@@ -1223,7 +1259,7 @@ convert_blob_template = r'''
 			len = default_len;
 			*default_count += 1;
 		}
-		err1(gzwrite(outfh, ptr, len) != len);
+		err1(gzwrite(outfhs[chosen_slice], ptr, len) != len);
 %(cleanup)s
 	}
 	gzFile minmaxfh = gzopen(minmax_fn, "wb");
@@ -1234,8 +1270,11 @@ convert_blob_template = r'''
 err:
 	if (defbuf) free(defbuf);
 	if (g_cleanup(&g)) res = 1;
-	if (outfh && gzclose(outfh)) res = 1;
+	for (int i = 0; i < slices; i++) {
+		if (outfhs[i] && gzclose(outfhs[i])) res = 1;
+	}
 	if (badmap) munmap(badmap, badmap_size);
+	if (slicemap) munmap(slicemap, slicemap_size);
 errfd:
 	if (fd >= 0) close(fd);
 	PyGILState_Release(gstate);
@@ -1464,8 +1503,10 @@ static PyObject *py_numeric_comma(PyObject *dummy, PyObject *o_localename)
 c_module_wrapper_template = r'''
 static PyObject *py_%s(PyObject *self, PyObject *args)
 {
+	PyObject *res = 0;
 	const char *in_fn;
-	const char *out_fn;
+	PyObject *o_out_fns;
+	const char **out_fns = 0;
 	const char *minmax_fn;
 	PyObject *o_default_value;
 	const char *default_value;
@@ -1479,15 +1520,18 @@ static PyObject *py_%s(PyObject *self, PyObject *args)
 	int skip_bad;
 	int badmap_fd;
 	PY_LONG_LONG badmap_size;
+	int slices;
+	int slicemap_fd;
+	PY_LONG_LONG slicemap_size;
 	PyObject *o_bad_count;
 	uint64_t bad_count = 0;
 	PyObject *o_default_count;
 	uint64_t default_count = 0;
 	PY_LONG_LONG offset;
 	PY_LONG_LONG max_count;
-	if (!PyArg_ParseTuple(args, "etetetOiiOOiiiLOOLL",
+	if (!PyArg_ParseTuple(args, "etOetOiiOOiiiLiiLOOLL",
 		Py_FileSystemDefaultEncoding, &in_fn,
-		Py_FileSystemDefaultEncoding, &out_fn,
+		&o_out_fns,
 		Py_FileSystemDefaultEncoding, &minmax_fn,
 		&o_default_value,
 		&default_len,
@@ -1498,6 +1542,9 @@ static PyObject *py_%s(PyObject *self, PyObject *args)
 		&skip_bad,
 		&badmap_fd,
 		&badmap_size,
+		&slices,
+		&slicemap_fd,
+		&slicemap_size,
 		&o_bad_count,
 		&o_default_count,
 		&offset,
@@ -1513,12 +1560,27 @@ static PyObject *py_%s(PyObject *self, PyObject *args)
 	if (!PyList_Check(o_default_count)) Py_RETURN_TRUE;
 	if (PyList_Size(o_default_count) != 1) Py_RETURN_TRUE;
 
-	if (%s(in_fn, out_fn, minmax_fn, default_value, default_len, default_value_is_None, fmt, fmt_b, record_bad, skip_bad, badmap_fd, badmap_size, &bad_count, &default_count, offset, max_count)) {
-		Py_RETURN_TRUE;
+	if (!PyList_Check(o_out_fns)) Py_RETURN_TRUE;
+	int out_fns_len = PyList_Size(o_out_fns);
+	if (out_fns_len != slices) Py_RETURN_TRUE;
+	out_fns = malloc(out_fns_len * sizeof(char *));
+	err1(!out_fns);
+	for (int i = 0; i < slices; i++) {
+		out_fns[i] = PyBytes_AS_STRING(PyList_GetItem(o_out_fns, i));
+		err1(!out_fns[i]);
 	}
-	if (PyList_SetItem(o_default_count, 0, PyLong_FromUnsignedLongLong(default_count))) return 0;
-	if (PyList_SetItem(o_bad_count, 0, PyLong_FromUnsignedLongLong(bad_count))) return 0;
-	Py_RETURN_FALSE;
+
+	if (%s(in_fn, out_fns, minmax_fn, default_value, default_len, default_value_is_None, fmt, fmt_b, record_bad, skip_bad, badmap_fd, badmap_size, slices, slicemap_fd, slicemap_size, &bad_count, &default_count, offset, max_count)) {
+		res = Py_True;
+		goto err;
+	}
+	err1(PyList_SetItem(o_default_count, 0, PyLong_FromUnsignedLongLong(default_count)));
+	err1(PyList_SetItem(o_bad_count, 0, PyLong_FromUnsignedLongLong(bad_count)));
+	res = Py_False;
+err:
+	if (out_fns) free(out_fns);
+	if (res) Py_INCREF(res);
+	return res;
 }
 '''
 

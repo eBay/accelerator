@@ -24,6 +24,7 @@ from resource import getpagesize
 from os import unlink
 from mmap import mmap, PROT_READ
 from shutil import copyfileobj
+from struct import Struct
 
 from accelerator.compat import NoneType, unicode, imap, iteritems, itervalues, PY2
 
@@ -83,8 +84,7 @@ def prepare(params):
 		coltype = coltype.split(':', 1)[0]
 		columns[options.rename.get(colname, colname)] = dataset_type.typerename.get(coltype, coltype)
 	hashlabel = options.hashlabel or options.rename.get(d.hashlabel, d.hashlabel)
-	if hashlabel in columns:
-		rehashing = True
+	rehashing = (hashlabel in columns)
 	if options.filter_bad or rehashing or options.discard_untyped:
 		assert options.discard_untyped is not False, "Can't keep untyped when " + ("filtering bad" if options.filter_bad else "rehashing")
 		parent = None
@@ -121,24 +121,16 @@ def prepare(params):
 	return dw, dws
 
 
-def badmap_init(vars, name, all_bad=False):
+def map_init(vars, name, scale_factor=1):
 	if not vars.badmap_size:
 		pagesize = getpagesize()
 		line_count = datasets.source.lines[vars.sliceno]
 		vars.badmap_size = (line_count // 8 // pagesize + 1) * pagesize
+		vars.slicemap_size = vars.badmap_size * 2
 	fh = open(name, 'w+b')
-	vars.badmap_fhs.append(fh)
-	vars.badmap_fd = fh.fileno()
-	if all_bad:
-		togo = vars.badmap_size
-		fill = b'\xff' * 65536
-		while togo >= 65536:
-			fh.write(fill)
-			togo -= 65536
-		fh.write(b'\xff' * togo)
-		fh.flush()
-	else:
-		fh.truncate(vars.badmap_size)
+	vars.map_fhs.append(fh)
+	fh.truncate(vars.badmap_size * scale_factor)
+	return fh.fileno()
 
 
 def analysis(sliceno, params, prepare_res):
@@ -168,7 +160,9 @@ def analysis(sliceno, params, prepare_res):
 		known_line_count=0,
 		badmap_size=0,
 		badmap_fd=-1,
-		badmap_fhs=[],
+		slicemap_size=0,
+		slicemap_fd=-1,
+		map_fhs=[],
 		res_bad_count={},
 		res_default_count={},
 		res_minmax={},
@@ -179,7 +173,7 @@ def analysis(sliceno, params, prepare_res):
 		rev_rename={v: k for k, v in options.rename.items() if v in datasets.source.columns},
 	)
 	if options.filter_bad:
-		badmap_init(vars, 'badmap%d' % (sliceno,))
+		vars.badmap_fd = map_init(vars, 'badmap%d' % (sliceno,))
 		bad_count, default_count, minmax = analysis_lap(vars)
 		if sum(itervalues(bad_count)):
 			vars.first_lap = False
@@ -187,11 +181,11 @@ def analysis(sliceno, params, prepare_res):
 			final_bad_count = max(itervalues(final_bad_count))
 		else:
 			final_bad_count = 0
-		for fh in vars.badmap_fhs:
-			fh.close()
 	else:
 		bad_count, default_count, minmax = analysis_lap(vars)
 		final_bad_count = 0
+	for fh in vars.map_fhs:
+		fh.close()
 	return bad_count, final_bad_count, default_count, minmax, vars.hash_lines
 
 
@@ -207,6 +201,29 @@ class IntegerBytesWrapper(object):
 	def __setitem__(self, key, value):
 		self.inner[key] = chr(value)
 
+# But even in python3 we can only get int8 support for free,
+# and slicemap needs int16.
+class Int16BytesWrapper(object):
+	_s = Struct('=H')
+	def __init__(self, inner):
+		self.inner = inner
+	def close(self):
+		self.inner.close()
+	def __getitem__(self, key):
+		return self._s.unpack_from(self.inner, key * 2)[0]
+	def __setitem__(self, key, value):
+		self._s.pack_into(self.inner, key * 2, value)
+	def __iter__(self):
+		if PY2:
+			def it():
+				for o in range(len(self.inner) // 2):
+					yield self[o]
+		else:
+			def it():
+				for v, in self._s.iter_unpack(self.inner):
+					yield v
+		return it()
+
 
 def analysis_lap(vars):
 	if vars.rehashing:
@@ -214,54 +231,40 @@ def analysis_lap(vars):
 			out_fn = 'hashtmp.%d' % (vars.sliceno,)
 			colname = vars.rev_rename.get(vars.dw.hashlabel, vars.dw.hashlabel)
 			coltype = options.column2type[colname]
-			real_coltype = one_column(vars, colname, coltype, out_fn, True)
+			vars.rehashing = False
+			real_coltype = one_column(vars, colname, coltype, [out_fn], True)
+			vars.rehashing = True
 			assert vars.res_bad_count[colname] == 0 # imlicitly has a default
+			vars.slicemap_fd = map_init(vars, 'slicemap%d' % (vars.sliceno,), 2)
+			slicemap = mmap(vars.slicemap_fd, vars.slicemap_size)
+			slicemap = Int16BytesWrapper(slicemap)
 			hash = typed_writer(real_coltype).hash
 			slices = vars.slices
-			# This builds "badmap"s for all slices where the lines are
-			# bad except for the slice the value hashed to.
-			hash_badmaps = []
-			hash_fds = []
 			vars.hash_lines = hash_lines = [0] * slices
-			for s in range(slices):
-				badmap_init(vars, 'badmap%d.%d' % (vars.sliceno, s,), True)
-				hash_fds.append(vars.badmap_fd)
-				badmap = mmap(vars.badmap_fd, vars.badmap_size)
-				if PY2:
-					badmap = IntegerBytesWrapper(badmap)
-				hash_badmaps.append(badmap)
 			for ix, value in enumerate(typed_reader(real_coltype)(out_fn)):
 				dest_slice = hash(value) % slices
-				hash_badmaps[dest_slice][ix // 8] -= 1 << (ix % 8)
+				slicemap[ix] = dest_slice
 				hash_lines[dest_slice] += 1
 			unlink(out_fn)
 	for colname, coltype in iteritems(options.column2type):
 		dest_colname = options.rename.get(colname, colname)
 		if vars.rehashing:
-			per_slice_things = {k: [] for k in ('res_bad_count', 'res_default_count', 'res_minmax')}
-			for s, fd in enumerate(hash_fds):
-				vars.badmap_fd = fd
-				out_fn = vars.dw.column_filename(dest_colname, sliceno=s)
-				one_column(vars, colname, coltype, out_fn)
-				for k, v in per_slice_things.items():
-					v.append(vars[k][colname])
-			for k, v in per_slice_things.items():
-				vars[k][colname] = v
+			out_fns = [vars.dw.column_filename(dest_colname, sliceno=s) for s in range(vars.slices)]
 		else:
-			out_fn = vars.dw.column_filename(dest_colname)
-			one_column(vars, colname, coltype, out_fn)
+			out_fns = [vars.dw.column_filename(dest_colname)]
+		one_column(vars, colname, coltype, out_fns)
 	return vars.res_bad_count, vars.res_default_count, vars.res_minmax
 
 
-def one_column(vars, colname, coltype, out_fn, for_hasher=False):
+def one_column(vars, colname, coltype, out_fns, for_hasher=False):
 	if for_hasher:
 		record_bad = skip_bad = False
 	elif vars.first_lap:
 		record_bad = options.filter_bad
-		skip_bad = vars.rehashing
+		skip_bad = False
 	else:
 		record_bad = 0
-		skip_bad = options.filter_bad or vars.rehashing
+		skip_bad = options.filter_bad
 	minmax_fn = 'minmax%d' % (vars.sliceno,)
 
 	fmt = fmt_b = None
@@ -319,7 +322,11 @@ def one_column(vars, colname, coltype, out_fn, for_hasher=False):
 		bad_count = cstuff.mk_uint64()
 		default_count = cstuff.mk_uint64()
 		c = getattr(cstuff.backend, 'convert_column_' + cfunc)
-		res = c(*cstuff.bytesargs(in_fn, out_fn, minmax_fn, default_value, default_len, default_value_is_None, fmt, fmt_b, record_bad, skip_bad, vars.badmap_fd, vars.badmap_size, bad_count, default_count, offset, max_count))
+		if vars.rehashing:
+			c_slices = vars.slices
+		else:
+			c_slices = 1
+		res = c(*cstuff.bytesargs(in_fn, out_fns, minmax_fn, default_value, default_len, default_value_is_None, fmt, fmt_b, record_bad, skip_bad, vars.badmap_fd, vars.badmap_size, c_slices, vars.slicemap_fd, vars.slicemap_size, bad_count, default_count, offset, max_count))
 		assert not res, 'Failed to convert ' + colname
 		vars.res_bad_count[colname] = bad_count[0]
 		vars.res_default_count[colname] = default_count[0]
@@ -345,37 +352,47 @@ def one_column(vars, colname, coltype, out_fn, for_hasher=False):
 			badmap = mmap(vars.badmap_fd, vars.badmap_size)
 			if PY2:
 				badmap = IntegerBytesWrapper(badmap)
+		if vars.rehashing:
+			slicemap = mmap(vars.slicemap_fd, vars.slicemap_size)
+			slicemap = Int16BytesWrapper(slicemap)
 		bad_count = 0
 		default_count = 0
 		dont_minmax_types = {'bytes', 'ascii', 'unicode', 'json'}
 		real_coltype = dataset_type.typerename.get(coltype, coltype)
 		do_minmax = real_coltype not in dont_minmax_types
-		with typed_writer(real_coltype)(out_fn) as fh:
-			col_min = col_max = None
-			for ix, v in enumerate(d._column_iterator(vars.sliceno, colname, _type='bytes')):
-				if skip_bad:
-					if badmap[ix // 8] & (1 << (ix % 8)):
-						bad_count += 1
-						continue
-				try:
-					v = pyfunc(v)
-				except ValueError:
-					if default_value is not nodefault:
-						v = default_value
-						default_count += 1
-					elif record_bad:
-						bad_count += 1
-						bv = badmap[ix // 8]
-						badmap[ix // 8] = bv | (1 << (ix % 8))
-						continue
-					else:
-						raise Exception("Invalid value %r with no default in %s" % (v, colname,))
-				if do_minmax and not isinstance(v, NoneType):
-					if col_min is None:
-						col_min = col_max = v
-					if v < col_min: col_min = v
-					if v > col_max: col_max = v
-				fh.write(v)
+		fhs = [typed_writer(real_coltype)(fn) for fn in out_fns]
+		write = fhs[0].write
+		col_min = col_max = None
+		for ix, v in enumerate(d._column_iterator(vars.sliceno, colname, _type='bytes')):
+			if skip_bad:
+				if badmap[ix // 8] & (1 << (ix % 8)):
+					bad_count += 1
+					continue
+			try:
+				v = pyfunc(v)
+			except ValueError:
+				if default_value is not nodefault:
+					v = default_value
+					default_count += 1
+				elif record_bad:
+					bad_count += 1
+					bv = badmap[ix // 8]
+					badmap[ix // 8] = bv | (1 << (ix % 8))
+					continue
+				else:
+					raise Exception("Invalid value %r with no default in %s" % (v, colname,))
+			if do_minmax and not isinstance(v, NoneType):
+				if col_min is None:
+					col_min = col_max = v
+				if v < col_min: col_min = v
+				if v > col_max: col_max = v
+			if vars.rehashing:
+				write = fhs[slicemap[ix]].write
+			write(v)
+		for fh in fhs:
+			fh.close()
+		if vars.rehashing:
+			slicemap.close()
 		if options.filter_bad:
 			badmap.close()
 		vars.res_bad_count[colname] = bad_count
@@ -453,14 +470,10 @@ def synthesis(params, analysis_res, prepare_res):
 							copyfileobj(in_fh, out_fh)
 		for sliced_dw in dws:
 			sliced_dw.discard()
-		for sliceno, data in enumerate(analysis_res):
-			for s in range(params.slices):
-				dw.set_minmax((sliceno, s), {k: v[s] for k, v in data[3].items()})
 		for sliceno, counts in enumerate(zip(*[data[4] for data in analysis_res])):
 			dw.set_lines(sliceno, sum(counts))
-	else:
-		for sliceno, data in enumerate(analysis_res):
-			dw.set_minmax(sliceno, data[3])
+	for sliceno, data in enumerate(analysis_res):
+		dw.set_minmax(sliceno, data[3])
 	d = dw.finish()
 	res.good_line_count_per_slice = num_lines_per_split
 	res.good_line_count_total = sum(num_lines_per_split)
