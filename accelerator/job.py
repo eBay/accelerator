@@ -112,6 +112,12 @@ class CurrentJob(Job):
 	"""The currently running job (as passed to the method),
 	with extra functions for writing data."""
 
+	def __new__(cls, jobid, params, result_directory, source_directory):
+		obj = Job.__new__(cls, jobid, params.method)
+		obj.result_directory = result_directory
+		obj.source_directory = source_directory
+		return obj
+
 	def save(self, obj, filename='result.pickle', sliceno=None, temp=None):
 		from accelerator.extras import pickle_save
 		pickle_save(obj, filename, sliceno, temp=temp)
