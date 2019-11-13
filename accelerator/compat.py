@@ -125,10 +125,10 @@ def uni(s):
 # phase/slice. You can use it in the method to override that if you want.
 def setproctitle(title):
 	from accelerator import g
-	if hasattr(g, 'METHOD'):
-		title = '%s %s (%s)' % (g.JOBID, uni(title), g.METHOD,)
-	elif hasattr(g, 'JOBID'):
-		title = '%s %s' % (g.JOBID, uni(title),)
+	if hasattr(g, 'params'):
+		title = '%s %s (%s)' % (g.job, uni(title), g.params.method,)
+	elif hasattr(g, 'job'):
+		title = '%s %s' % (g.job, uni(title),)
 	else:
 		title = uni(title)
 	if PY2:

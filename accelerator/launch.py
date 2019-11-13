@@ -204,7 +204,7 @@ def fmt_tb(skip_level):
 def execute_process(workdir, jobid, slices, result_directory, common_directory, source_directory, index=None, workdirs=None, daemon_url=None, subjob_cookie=None, parent_pid=0):
 	WORKDIRS.update(workdirs)
 
-	g.JOBID = jobid
+	g.job = jobid
 	setproctitle('launch')
 	path = os.path.join(workdir, jobid)
 	try:
@@ -232,9 +232,6 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 	g.SLICES           = slices
 	g.JOBID            = g.job
 	g.jobid            = g.job
-	g.METHOD           = params.method
-	g.CAPTION          = params.caption
-	g.SOURCE_DIRECTORY = source_directory
 
 	g.daemon_url       = daemon_url
 	g.running          = 'launch'

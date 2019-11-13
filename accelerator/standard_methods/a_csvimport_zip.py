@@ -92,12 +92,12 @@ def namefix(d, name):
 		name += '_'
 	return name
 
-def prepare(params, SOURCE_DIRECTORY):
+def prepare(job):
 	def tmpfn():
 		cnt = 0
 		while True:
 			cnt += 1
-			yield params.jobid.filename(str(cnt))
+			yield job.filename(str(cnt))
 	tmpfn = tmpfn()
 	namemap = dict(options.inside_filenames)
 	if namemap and (options.include_re or options.exclude_re):
@@ -106,7 +106,7 @@ def prepare(params, SOURCE_DIRECTORY):
 	res = []
 	include_re = re.compile(options.include_re or r'.')
 	exclude_re = re.compile(options.exclude_re or r'^$')
-	with ZipFile(join(SOURCE_DIRECTORY, options.filename), 'r') as z:
+	with ZipFile(join(job.source_directory, options.filename), 'r') as z:
 		for info in z.infolist():
 			fn = ffn = info.filename
 			if fn.endswith('/') or info.external_attr & 0x40000000:
@@ -133,14 +133,14 @@ def prepare(params, SOURCE_DIRECTORY):
 		assert 'default' not in (x[2] for x in res[:-1]), 'When chaining the dataset named "default" must be last (or non-existant)'
 	return [x[:3] for x in res]
 
-def analysis(sliceno, prepare_res, params, SOURCE_DIRECTORY):
-	with ZipFile(join(SOURCE_DIRECTORY, options.filename), 'r') as z:
-		for tmpfn, zfn, dsn in prepare_res[sliceno::params.slices]:
+def analysis(sliceno, slices, prepare_res, job):
+	with ZipFile(join(job.source_directory, options.filename), 'r') as z:
+		for tmpfn, zfn, dsn in prepare_res[sliceno::slices]:
 			with z.open(zfn) as rfh:
 				with open(tmpfn, 'wb') as wfh:
 					copyfileobj(rfh, wfh)
 
-def synthesis(prepare_res, params):
+def synthesis(prepare_res):
 	opts = DotDict((k, v) for k, v in options.items() if k in a_csvimport.options)
 	lst = prepare_res
 	previous = datasets.previous

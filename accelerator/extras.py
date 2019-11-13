@@ -40,8 +40,8 @@ def _fn(filename, jobid, sliceno):
 		assert not sliceno, "Don't specify full path (%r) and sliceno." % (filename,)
 	else:
 		if not jobid:
-			from accelerator.g import JOBID
-			jobid = JOBID
+			from accelerator.g import job
+			jobid = job
 		filename = Job(jobid).filename(filename, sliceno)
 	return filename
 

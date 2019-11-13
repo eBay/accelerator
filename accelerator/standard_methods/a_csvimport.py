@@ -90,7 +90,7 @@ def reader_status(status_fd, update):
 			break
 		count = struct.unpack("=Q", data)[0]
 
-def reader_process(params, filename, write_fds, labels_fd, success_fd, status_fd, comment_char, lf_char):
+def reader_process(slices, filename, write_fds, labels_fd, success_fd, status_fd, comment_char, lf_char):
 	# Terrible hack - try to close FDs we didn't want in this process.
 	# (This is important, if the main process dies this won't be
 	# detected if we still have these open.)
@@ -106,7 +106,7 @@ def reader_process(params, filename, write_fds, labels_fd, success_fd, status_fd
 			except OSError:
 				pass
 	setproctitle("reader")
-	res = cstuff.backend.reader(filename.encode("ascii"), params.slices, options.skip_lines, write_fds, labels_fd, status_fd, comment_char, lf_char)
+	res = cstuff.backend.reader(filename.encode("ascii"), slices, options.skip_lines, write_fds, labels_fd, status_fd, comment_char, lf_char)
 	os.write(success_fd, b"\x01" if res else b"\0")
 	os.close(success_fd)
 
@@ -124,7 +124,7 @@ def char2int(name, empty_value, specials="empty"):
 	assert len(char) == 1, msg
 	return cstuff.backend.char2int(char)
 
-def prepare(SOURCE_DIRECTORY, params):
+def prepare(job, slices):
 	# use 256 as a marker value, because that's not a possible char value (assuming 8 bit chars)
 	lf_char = char2int("newline", 256)
 	# separator uses lf_char or \n as the empty value, because memchr might mishandle 256.
@@ -136,11 +136,11 @@ def prepare(SOURCE_DIRECTORY, params):
 		quote_char = 257
 	else:
 		quote_char = char2int("quotes", 257, "True/False/empty")
-	filename = os.path.join(SOURCE_DIRECTORY, options.filename)
+	filename = os.path.join(job.source_directory, options.filename)
 	orig_filename = filename
 	assert 1 <= options.compression <= 9
 
-	fds = [os.pipe() for _ in range(params.slices)]
+	fds = [os.pipe() for _ in range(slices)]
 	read_fds = [t[0] for t in fds]
 	write_fds = [t[1] for t in fds]
 
@@ -151,7 +151,7 @@ def prepare(SOURCE_DIRECTORY, params):
 	success_rfd, success_wfd = os.pipe()
 	status_rfd, status_wfd = os.pipe()
 
-	p = Process(target=reader_process, name="reader", args=(params, filename, write_fds, labels_wfd, success_wfd, status_wfd, comment_char, lf_char))
+	p = Process(target=reader_process, name="reader", args=(slices, filename, write_fds, labels_wfd, success_wfd, status_wfd, comment_char, lf_char))
 	p.start()
 	for fd in write_fds:
 		os.close(fd)
@@ -210,7 +210,7 @@ def prepare(SOURCE_DIRECTORY, params):
 
 	return separator, quote_char, lf_char, filename, orig_filename, labels, dw, bad_dw, skipped_dw, read_fds, success_rfd, status_rfd,
 
-def analysis(sliceno, params, prepare_res, update_top_status):
+def analysis(sliceno, slices, prepare_res, update_top_status):
 	separator, quote_char, lf_char, filename, _, labels, dw, bad_dw, skipped_dw, fds, _, status_fd, = prepare_res
 	if sliceno == 0:
 		t = Thread(
@@ -246,12 +246,12 @@ def analysis(sliceno, params, prepare_res, update_top_status):
 		out_fns.append(cstuff.NULL)
 	r_num = cstuff.mk_uint64(3) # [good_count, bad_count, comment_count]
 	gzip_mode = b"wb%d" % (options.compression,)
-	res = cstuff.backend.import_slice(*cstuff.bytesargs(fds[sliceno], sliceno, params.slices, len(labels), out_fns, gzip_mode, separator, r_num, quote_char, lf_char, options.allow_bad))
+	res = cstuff.backend.import_slice(*cstuff.bytesargs(fds[sliceno], sliceno, slices, len(labels), out_fns, gzip_mode, separator, r_num, quote_char, lf_char, options.allow_bad))
 	assert res == 0, "c backend failed in slice %d" % (sliceno,)
 	os.close(fds[sliceno])
 	return list(r_num)
 
-def synthesis(params, prepare_res, analysis_res):
+def synthesis(prepare_res, analysis_res):
 	separator, _, _, filename, _, labels, dw, bad_dw, skipped_dw, fds, success_fd, _, = prepare_res
 	# Analysis may have gotten a perfectly legitimate EOF if something
 	# went wrong in the reader process, so we need to check that all
@@ -283,9 +283,9 @@ def synthesis(params, prepare_res, analysis_res):
 		skipped_lines_per_slice=skipped_counts,
 	)
 	blob.save(res, 'import')
-	write_report(res, params, labels)
+	write_report(res, labels)
 
-def write_report(res, params, labels):
+def write_report(res, labels):
 	with Report() as r:
 		divider = (res.num_lines + res.num_broken_lines + res.num_skipped_lines) or 1
 		r.println("Number of rows read\n")

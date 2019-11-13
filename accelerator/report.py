@@ -33,10 +33,10 @@ class Report():
 		self.s = ''
 		self.line()
 		t = time.strftime('%a, %d %b %Y %H:%M:%S +0000', time.gmtime())
-		self.println( '[%s]%s[%s]' % (t, ' ' * (76 - len(t) - len(g.JOBID)), g.JOBID,))
+		self.println( '[%s]%s[%s]' % (t, ' ' * (76 - len(t) - len(g.job)), g.job,))
 		self.line()
-		self.println('Method \"%s\" report.' % g.METHOD)
-		caption = g.CAPTION
+		self.println('Method \"%s\" report.' % g.params.method)
+		caption = g.params.caption
 		if caption:
 			self.println('Caption \"%s\"' % caption)
 		self.line()
