@@ -816,7 +816,7 @@ convert_template = r'''
 	if (!g.fh) goto errfd;
 	fd = -1;
 	for (int i = 0; i < slices; i++) {
-		outfhs[i] = gzopen(out_fns[i], "wb");
+		outfhs[i] = gzopen(out_fns[i], gzip_mode);
 		err1(!outfhs[i]);
 	}
 	if (badmap_fd != -1) {
@@ -869,7 +869,7 @@ convert_template = r'''
 		if (slicemap) chosen_slice = slicemap[i];
 		err1(gzwrite(outfhs[chosen_slice], ptr, %(datalen)s) != %(datalen)s);
 	}
-	gzFile minmaxfh = gzopen(minmax_fn, "wb");
+	gzFile minmaxfh = gzopen(minmax_fn, gzip_mode);
 	err1(!minmaxfh);
 	res = g.error;
 	if (gzwrite(minmaxfh, buf_col_min, %(datalen)s) != %(datalen)s) res = 1;
@@ -1014,7 +1014,7 @@ err:
 	if (!g.fh) goto errfd;
 	fd = -1;
 	for (int i = 0; i < slices; i++) {
-		outfhs[i] = gzopen(out_fns[i], "wb");
+		outfhs[i] = gzopen(out_fns[i], gzip_mode);
 		err1(!outfhs[i]);
 	}
 	if (badmap_fd != -1) {
@@ -1128,7 +1128,7 @@ err:
 		if (slicemap) chosen_slice = slicemap[i];
 		err1(gzwrite(outfhs[chosen_slice], ptr, len) != len);
 	}
-	gzFile minmaxfh = gzopen(minmax_fn, "wb");
+	gzFile minmaxfh = gzopen(minmax_fn, gzip_mode);
 	err1(!minmaxfh);
 	res = g.error;
 	if (minlen) {
@@ -1154,7 +1154,7 @@ errfd:
 }
 '''
 
-proto_template = 'int convert_column_%s(const char *in_fn, const char **out_fns, const char *minmax_fn, const char *default_value, uint32_t default_len, int default_value_is_None, const char *fmt, const char *fmt_b, int record_bad, int skip_bad, int badmap_fd, size_t badmap_size, int slices, int slicemap_fd, size_t slicemap_size, uint64_t *bad_count, uint64_t *default_count, off_t offset, int64_t max_count)'
+proto_template = 'int convert_column_%s(const char *in_fn, const char **out_fns, const char *gzip_mode, const char *minmax_fn, const char *default_value, uint32_t default_len, int default_value_is_None, const char *fmt, const char *fmt_b, int record_bad, int skip_bad, int badmap_fd, size_t badmap_size, int slices, int slicemap_fd, size_t slicemap_size, uint64_t *bad_count, uint64_t *default_count, off_t offset, int64_t max_count)'
 
 protos = []
 funcs = [noneval_data]
@@ -1185,7 +1185,7 @@ convert_blob_template = r'''
 	if (!g.fh) goto errfd;
 	fd = -1;
 	for (int i = 0; i < slices; i++) {
-		outfhs[i] = gzopen(out_fns[i], "wb");
+		outfhs[i] = gzopen(out_fns[i], gzip_mode);
 		err1(!outfhs[i]);
 	}
 	if (badmap_fd != -1) {
@@ -1262,7 +1262,7 @@ convert_blob_template = r'''
 		err1(gzwrite(outfhs[chosen_slice], ptr, len) != len);
 %(cleanup)s
 	}
-	gzFile minmaxfh = gzopen(minmax_fn, "wb");
+	gzFile minmaxfh = gzopen(minmax_fn, gzip_mode);
 	err1(!minmaxfh);
 	res = g.error;
 	if (gzwrite(minmaxfh, "\xff\0\0\0\0\xff\0\0\0\0", 10) != 10) res = 1;
@@ -1507,6 +1507,7 @@ static PyObject *py_%s(PyObject *self, PyObject *args)
 	const char *in_fn;
 	PyObject *o_out_fns;
 	const char **out_fns = 0;
+	const char *gzip_mode;
 	const char *minmax_fn;
 	PyObject *o_default_value;
 	const char *default_value;
@@ -1529,9 +1530,10 @@ static PyObject *py_%s(PyObject *self, PyObject *args)
 	uint64_t default_count = 0;
 	PY_LONG_LONG offset;
 	PY_LONG_LONG max_count;
-	if (!PyArg_ParseTuple(args, "etOetOiiOOiiiLiiLOOLL",
+	if (!PyArg_ParseTuple(args, "etOetetOiiOOiiiLiiLOOLL",
 		Py_FileSystemDefaultEncoding, &in_fn,
 		&o_out_fns,
+		Py_FileSystemDefaultEncoding, &gzip_mode,
 		Py_FileSystemDefaultEncoding, &minmax_fn,
 		&o_default_value,
 		&default_len,
@@ -1570,7 +1572,7 @@ static PyObject *py_%s(PyObject *self, PyObject *args)
 		err1(!out_fns[i]);
 	}
 
-	if (%s(in_fn, out_fns, minmax_fn, default_value, default_len, default_value_is_None, fmt, fmt_b, record_bad, skip_bad, badmap_fd, badmap_size, slices, slicemap_fd, slicemap_size, &bad_count, &default_count, offset, max_count)) {
+	if (%s(in_fn, out_fns, gzip_mode, minmax_fn, default_value, default_len, default_value_is_None, fmt, fmt_b, record_bad, skip_bad, badmap_fd, badmap_size, slices, slicemap_fd, slicemap_size, &bad_count, &default_count, offset, max_count)) {
 		res = Py_True;
 		goto err;
 	}

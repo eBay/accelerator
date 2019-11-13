@@ -63,6 +63,7 @@ options = {
 	'discard_untyped'           : bool, # Make unconverted columns inaccessible ("new" dataset)
 	'filter_bad'                : False, # Implies discard_untyped
 	'numeric_comma'             : False, # floats as "3,14"
+	'compression'               : 6,     # gzip level
 }
 
 datasets = ('source', 'previous',)
@@ -73,6 +74,7 @@ byteslike_types = ('bytes', 'ascii', 'unicode',)
 cstuff = dataset_type.init()
 
 def prepare(params):
+	assert 1 <= options.compression <= 9
 	cstuff.backend.init()
 	d = datasets.source
 	columns = {}
@@ -326,7 +328,8 @@ def one_column(vars, colname, coltype, out_fns, for_hasher=False):
 			c_slices = vars.slices
 		else:
 			c_slices = 1
-		res = c(*cstuff.bytesargs(in_fn, out_fns, minmax_fn, default_value, default_len, default_value_is_None, fmt, fmt_b, record_bad, skip_bad, vars.badmap_fd, vars.badmap_size, c_slices, vars.slicemap_fd, vars.slicemap_size, bad_count, default_count, offset, max_count))
+		gzip_mode = "wb%d" % (options.compression,)
+		res = c(*cstuff.bytesargs(in_fn, out_fns, gzip_mode, minmax_fn, default_value, default_len, default_value_is_None, fmt, fmt_b, record_bad, skip_bad, vars.badmap_fd, vars.badmap_size, c_slices, vars.slicemap_fd, vars.slicemap_size, bad_count, default_count, offset, max_count))
 		assert not res, 'Failed to convert ' + colname
 		vars.res_bad_count[colname] = bad_count[0]
 		vars.res_default_count[colname] = default_count[0]
