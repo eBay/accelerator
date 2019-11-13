@@ -70,10 +70,7 @@ def call_analysis(analysis_func, sliceno_, q, preserve_result, parent_pid, outpu
 		status._start(slicename, parent_pid, 't')
 		setproctitle(slicename)
 		os.close(_prof_fd)
-		for stupid_inconsistent_name in ('sliceno', 'index'):
-			if stupid_inconsistent_name in kw:
-				kw[stupid_inconsistent_name] = sliceno_
-			setattr(g, stupid_inconsistent_name, sliceno_)
+		kw['sliceno'] = g.sliceno = sliceno_
 		for dw in dataset._datasetwriters.values():
 			if dw._for_single_slice is None:
 				dw._set_slice(sliceno_)
@@ -220,7 +217,8 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 	method_ref = import_module(params.package+'.a_'+params.method)
 	g.sliceno = -1
 
-	jobid = CurrentJob(jobid, params, result_directory, source_directory)
+	g.job = CurrentJob(jobid, params, result_directory, source_directory)
+	g.slices = slices
 
 	g.options          = params.options
 	g.datasets         = params.datasets
@@ -232,16 +230,11 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 
 	# compatibility names
 	g.SLICES           = slices
-	g.JOBID            = jobid
-	g.jobid            = jobid
+	g.JOBID            = g.job
+	g.jobid            = g.job
 	g.METHOD           = params.method
-	g.WORKSPACEPATH    = workdir
 	g.CAPTION          = params.caption
-	g.PACKAGE          = params.package
-	g.RESULT_DIRECTORY = result_directory
-	g.COMMON_DIRECTORY = common_directory
 	g.SOURCE_DIRECTORY = source_directory
-	g.index            = -1
 
 	g.daemon_url       = daemon_url
 	g.running          = 'launch'
