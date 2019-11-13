@@ -44,17 +44,17 @@ class WorkSpace:
 
 	def _check_metafile(self):
 		""" verify or write metadata file in workdir """
-		filename = os.path.join(self.path, "%s-slices.conf" % (self.name,))
+		filename = os.path.join(self.path, ".slices")
 		if not os.path.isdir(self.path):
 			print('\nERROR:  Directory \"%s\" does not exist!' % (self.path,))
 			return False
 		if not os.path.exists(filename):
-			print('\nCreate %s-slices.conf in %s.' % (self.name, self.path,))
+			print('\nCreate ' + filename)
 			try:
 				with open(filename, 'w') as F:
 					F.write(str(self.slices)+'\n')
 			except IOError:
-				print('\nERROR:  Could not create %s-slices.conf in %s.' % (self.name, self.path,))
+				print('\nERROR:  Could not create ' + filename)
 				return False
 		with open(filename) as F:
 			file_slices = int(F.read())

@@ -121,7 +121,7 @@ def main(argv):
 	workdir = interpolate(cfg_workdir)
 	if not exists(workdir):
 		makedirs(workdir)
-	slices_conf = join(workdir, options.name + '-slices.conf')
+	slices_conf = join(workdir, '.slices')
 	try:
 		with open(slices_conf, 'r') as fh:
 			workdir_slices = int(fh.read())
