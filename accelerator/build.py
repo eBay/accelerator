@@ -557,6 +557,10 @@ class Urd(object):
 		url = '%s/%s/since/%s' % (self._url, path, timestamp,)
 		return self._call(url, fmt=json.loads)
 
+	def list(self):
+		url = '/'.join((self._url, 'list'))
+		return self._call(url, fmt=json.loads)
+
 	def begin(self, path, timestamp=None, caption=None, update=False):
 		assert not self._current, 'Tried to begin %s while running %s' % (path, self._current,)
 		if not self._auth_tested:
