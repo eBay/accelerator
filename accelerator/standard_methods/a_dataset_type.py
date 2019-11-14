@@ -449,15 +449,20 @@ def synthesis(slices, analysis_res, prepare_res):
 			print()
 	else:
 		lines = d.lines
-	if options.defaults:
+	if options.defaults and sum(sum(data[2].values()) for data in analysis_res):
 		print('Defaulted values')
 		for colname in sorted(options.defaults):
-			print('    %s:' % (colname,))
-			print('        Slice   Defaulted line count')
 			defaulted = [data[2][colname] for data in analysis_res]
-			for sliceno, cnt in enumerate(defaulted):
-				print('        %5d   %d' % (sliceno, cnt,))
-			print('        total   %d' % (sum(defaulted),))
+			if sum(defaulted):
+				print('    %s:' % (colname,))
+				print('        Slice   Defaulted line count')
+				slicecnt = 0
+				for sliceno, cnt in enumerate(defaulted):
+					if cnt:
+						print('        %5d   %d' % (sliceno, cnt,))
+						slicecnt += 1
+				if slicecnt > 1:
+					print('        total   %d' % (sum(defaulted),))
 	dw, dws = prepare_res
 	if dws: # rehashing
 		if dw: # not as a chain
