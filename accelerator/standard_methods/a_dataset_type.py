@@ -28,9 +28,8 @@ from struct import Struct
 
 from accelerator.compat import NoneType, unicode, imap, iteritems, itervalues, PY2
 
-from accelerator.extras import OptionEnum, json_save, DotDict
+from accelerator.extras import OptionEnum, DotDict
 from accelerator.gzwrite import typed_writer, typed_reader
-from accelerator.report import report
 from accelerator.sourcedata import type2iter
 from . import dataset_type
 
@@ -410,61 +409,54 @@ def one_column(vars, colname, coltype, out_fns, for_hasher=False):
 	return real_coltype
 
 def synthesis(slices, analysis_res, prepare_res):
-	r = report()
-	res = DotDict()
 	d = datasets.source
 	analysis_res = list(analysis_res)
 	if options.filter_bad:
-		num_lines_per_split = [num - data[1] for num, data in zip(d.lines, analysis_res)]
-		res.bad_line_count_per_slice = [data[1] for data in analysis_res]
-		res.bad_line_count_total = sum(res.bad_line_count_per_slice)
-		r.println('Slice   Bad line count')
-		for sliceno, cnt in enumerate(res.bad_line_count_per_slice):
-			r.println('%5d   %d' % (sliceno, cnt,))
-		r.println('total   %d' % (res.bad_line_count_total,))
-		r.line()
-		r.println('Slice   Bad line number')
-		reported_count = 0
-		for sliceno, data in enumerate(analysis_res):
-			fn = 'badmap%d' % (sliceno,)
-			if data[1] and reported_count < 32:
-				with open(fn, 'rb') as fh:
-					badmap = mmap(fh.fileno(), 0, prot=PROT_READ)
-					for ix, v in enumerate(imap(ord, badmap)):
-						if v:
-							for jx in range(8):
-								if v & (1 << jx):
-									r.println('%5d   %d' % (sliceno, ix * 8 + jx,))
-									reported_count += 1
-									if reported_count >= 32: break
-							if reported_count >= 32: break
-					badmap.close()
-			unlink(fn)
-		if reported_count >= 32:
-			r.println('...')
-		r.line()
-		res.bad_line_count_per_column = {}
-		r.println('Bad line count   Column')
-		for colname in sorted(analysis_res[0][0]):
-			cnt = sum(data[0][colname] for data in analysis_res)
-			r.println('%14d   %s' % (cnt, colname,))
-			res.bad_line_count_per_column[colname] = cnt
-		r.line()
+		lines = [num - data[1] for num, data in zip(d.lines, analysis_res)]
+		bad_line_count_per_slice = [data[1] for data in analysis_res]
+		bad_line_count_total = sum(bad_line_count_per_slice)
+		if bad_line_count_total:
+			print('Slice   Bad line count')
+			for sliceno, cnt in enumerate(bad_line_count_per_slice):
+				print('%5d   %d' % (sliceno, cnt,))
+			print('total   %d' % (bad_line_count_total,))
+			print()
+			print('Slice   Bad line number')
+			reported_count = 0
+			for sliceno, data in enumerate(analysis_res):
+				fn = 'badmap%d' % (sliceno,)
+				if data[1] and reported_count < 32:
+					with open(fn, 'rb') as fh:
+						badmap = mmap(fh.fileno(), 0, prot=PROT_READ)
+						for ix, v in enumerate(imap(ord, badmap)):
+							if v:
+								for jx in range(8):
+									if v & (1 << jx):
+										print('%5d   %d' % (sliceno, ix * 8 + jx,))
+										reported_count += 1
+										if reported_count >= 32: break
+								if reported_count >= 32: break
+						badmap.close()
+				unlink(fn)
+			if reported_count >= 32:
+				print('...')
+			print()
+			print('Bad line count   Column')
+			for colname in sorted(analysis_res[0][0]):
+				cnt = sum(data[0][colname] for data in analysis_res)
+				print('%14d   %s' % (cnt, colname,))
+			print()
 	else:
-		num_lines_per_split = d.lines
+		lines = d.lines
 	if options.defaults:
-		r.println('Defaulted values')
-		res.defaulted_per_slice = {}
-		res.defaulted_total = {}
+		print('Defaulted values')
 		for colname in sorted(options.defaults):
-			r.println('    %s:' % (colname,))
-			r.println('        Slice   Defaulted line count')
-			res.defaulted_per_slice[colname] = [data[2][colname] for data in analysis_res]
-			res.defaulted_total[colname] = sum(res.defaulted_per_slice[colname])
-			for sliceno, cnt in enumerate(res.defaulted_per_slice[colname]):
-				r.println('        %5d   %d' % (sliceno, cnt,))
-			r.println('        total   %d' % (res.defaulted_total[colname],))
-		r.line()
+			print('    %s:' % (colname,))
+			print('        Slice   Defaulted line count')
+			defaulted = [data[2][colname] for data in analysis_res]
+			for sliceno, cnt in enumerate(defaulted):
+				print('        %5d   %d' % (sliceno, cnt,))
+			print('        total   %d' % (sum(defaulted),))
 	dw, dws = prepare_res
 	if dws: # rehashing
 		if dw: # not as a chain
@@ -488,13 +480,7 @@ def synthesis(slices, analysis_res, prepare_res):
 				for s, count in enumerate(data[4]):
 					dws[sliceno].set_lines(s, count)
 	else:
-		for sliceno, count in enumerate(num_lines_per_split):
+		for sliceno, count in enumerate(lines):
 			dw.set_lines(sliceno, count)
 		for sliceno, data in enumerate(analysis_res):
 			dw.set_minmax(sliceno, data[3])
-	res.good_line_count_per_slice = num_lines_per_split
-	res.good_line_count_total = sum(num_lines_per_split)
-	r.line()
-	r.println('Total of %d lines converted' % (res.good_line_count_total,))
-	r.close()
-	json_save(res)
