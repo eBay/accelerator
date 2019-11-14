@@ -184,6 +184,7 @@ def analysis(sliceno, slices, prepare_res):
 		bad_count, default_count, minmax = analysis_lap(vars)
 		if sum(itervalues(bad_count)):
 			vars.first_lap = False
+			vars.res_bad_count = {}
 			final_bad_count, default_count, minmax = analysis_lap(vars)
 			final_bad_count = max(itervalues(final_bad_count))
 		else:
