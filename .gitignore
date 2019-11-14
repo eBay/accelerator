@@ -2,5 +2,6 @@
 __pycache__/
 *.so
 /build
+/dist
 /accelerator.egg-info
 /accelerator/standard_methods/_generated_*.c
