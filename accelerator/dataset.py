@@ -956,21 +956,23 @@ class DatasetWriter(object):
 					w(values[k])
 			self.write_dict = write_dict
 			hix = -1
-		w_d = {'w%d' % (ix,): w for ix, w in enumerate(w_l)}
 		names = [self._clean_names[n] for n in self._order]
+		used_names = set(names)
+		w_names = [_clean_name('w%d' % (ix,), used_names) for ix in range(len(w_l))]
+		w_d = dict(zip(w_names, w_l))
 		f = ['def write(' + ', '.join(names) + '):']
 		f_list = ['def write_list(values):']
 		if len(names) == 1: # only the hashlabel, no check needed
-			f.append(' w0(%s)' % tuple(names))
-			f_list.append(' w0(values[0])')
+			f.append(' %s(%s)' % (w_names[0], names[0],))
+			f_list.append(' %s(values[0])' % (w_names[0],))
 		else:
 			if hl:
-				f.append(' if w%d(%s):' % (hix, names[hix],))
-				f_list.append(' if w%d(values[%d]):' % (hix, hix,))
+				f.append(' if %s(%s):' % (w_names[hix], names[hix],))
+				f_list.append(' if %s(values[%d]):' % (w_names[hix], hix,))
 			for ix in range(len(names)):
 				if ix != hix:
-					f.append('  w%d(%s)' % (ix, names[ix],))
-					f_list.append('  w%d(values[%d])' % (ix, ix,))
+					f.append('  %s(%s)' % (w_names[ix], names[ix],))
+					f_list.append('  %s(values[%d])' % (w_names[ix], ix,))
 			if hl and not discard:
 				f.append(' else: raise Exception(%r)' % (wrong_slice_msg,))
 				f_list.append(' else: raise Exception(%r)' % (wrong_slice_msg,))
@@ -1001,34 +1003,42 @@ class DatasetWriter(object):
 		if g.running == 'analysis':
 			assert self._for_single_slice == g.sliceno, "Only use dataset in designated slice"
 		assert self._started != 1, "Don't use both a split writer and set_slice"
-		w_d = {}
 		names = [self._clean_names[n] for n in self._order]
-		w_d['names'] = names
 		def key(t):
 			return self._order.index(t[0])
 		def d2l(d):
 			return [w.write for _, w in sorted(d.items(), key=key)]
-		w_d['writers'] = [d2l(d) for d in self._allwriters]
 		f_____ = ['def split(' + ', '.join(names) + '):']
 		f_list = ['def split_list(v):']
 		f_dict = ['def split_dict(d):']
 		from accelerator.g import slices
 		hl = self.hashlabel
+		used_names = set(names)
+		name_w_l = _clean_name('w_l', used_names)
+		name_hsh = _clean_name('hsh', used_names)
+		name_cyc = _clean_name('cyc', used_names)
+		name_next = _clean_name('next', used_names)
+		name_writers = _clean_name('writers', used_names)
+		w_d = {}
+		w_d[name_writers] = [d2l(d) for d in self._allwriters]
+		w_d[name_next] = next
 		if hl:
-			w_d['h'] = self._allwriters[0][hl].hash
-			f_____.append('w_l = writers[h(%s) %% %d]' % (self._clean_names[hl], slices,))
-			f_list.append('w_l = writers[h(v[%d]) %% %d]' % (self._order.index(hl), slices,))
-			f_dict.append('w_l = writers[h(d[%r]) %% %d]' % (hl, slices,))
+			w_d[name_hsh] = self._allwriters[0][hl].hash
+			prefix = '%s = %s[%s(' % (name_w_l, name_writers, name_hsh,)
+			f_____.append('%s%s) %% %d]' % (prefix, self._clean_names[hl], slices,))
+			f_list.append('%sv[%d]) %% %d]' % (prefix, self._order.index(hl), slices,))
+			f_dict.append('%sd[%r]) %% %d]' % (prefix, hl, slices,))
 		else:
 			from itertools import cycle
-			w_d['c'] = cycle(range(slices))
-			f_____.append('w_l = writers[next(c)]')
-			f_list.append('w_l = writers[next(c)]')
-			f_dict.append('w_l = writers[next(c)]')
+			w_d[name_cyc] = cycle(range(slices))
+			code = '%s = %s[%s(%s)]' % (name_w_l, name_writers, name_next, name_cyc,)
+			f_____.append(code)
+			f_list.append(code)
+			f_dict.append(code)
 		for ix in range(len(names)):
-			f_____.append('w_l[%d](%s)' % (ix, names[ix],))
-			f_list.append('w_l[%d](v[%d])' % (ix, ix,))
-			f_dict.append('w_l[%d](d[%r])' % (ix, self._order[ix],))
+			f_____.append('%s[%d](%s)' % (name_w_l, ix, names[ix],))
+			f_list.append('%s[%d](v[%d])' % (name_w_l, ix, ix,))
+			f_dict.append('%s[%d](d[%r])' % (name_w_l, ix, self._order[ix],))
 		eval(compile('\n '.join(f_____), '<DatasetWriter generated split_write>'     , 'exec'), w_d)
 		eval(compile('\n '.join(f_list), '<DatasetWriter generated split_write_list>', 'exec'), w_d)
 		eval(compile('\n '.join(f_dict), '<DatasetWriter generated split_write_dict>', 'exec'), w_d)
