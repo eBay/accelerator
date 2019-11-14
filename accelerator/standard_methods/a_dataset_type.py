@@ -194,6 +194,8 @@ def analysis(sliceno, slices, prepare_res):
 		final_bad_count = 0
 	for fh in vars.map_fhs:
 		fh.close()
+	if rehashing:
+		unlink('slicemap%d' % (sliceno,))
 	return bad_count, final_bad_count, default_count, minmax, vars.hash_lines
 
 
@@ -425,9 +427,8 @@ def synthesis(slices, analysis_res, prepare_res):
 			print('Slice   Bad line number')
 			reported_count = 0
 			for sliceno, data in enumerate(analysis_res):
-				fn = 'badmap%d' % (sliceno,)
 				if data[1] and reported_count < 32:
-					with open(fn, 'rb') as fh:
+					with open('badmap%d' % (sliceno,), 'rb') as fh:
 						badmap = mmap(fh.fileno(), 0, prot=PROT_READ)
 						for ix, v in enumerate(imap(ord, badmap)):
 							if v:
@@ -438,7 +439,6 @@ def synthesis(slices, analysis_res, prepare_res):
 										if reported_count >= 32: break
 								if reported_count >= 32: break
 						badmap.close()
-				unlink(fn)
 			if reported_count >= 32:
 				print('...')
 			print()
@@ -447,6 +447,8 @@ def synthesis(slices, analysis_res, prepare_res):
 				cnt = sum(data[0][colname] for data in analysis_res)
 				print('%14d   %s' % (cnt, colname,))
 			print()
+		for sliceno in range(slices):
+			unlink('badmap%d' % (sliceno,))
 	else:
 		lines = d.lines
 	if options.defaults and sum(sum(data[2].values()) for data in analysis_res):
