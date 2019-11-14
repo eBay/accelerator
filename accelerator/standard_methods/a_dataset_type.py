@@ -63,6 +63,7 @@ options = {
 	'discard_untyped'           : bool, # Make unconverted columns inaccessible ("new" dataset)
 	'filter_bad'                : False, # Implies discard_untyped
 	'numeric_comma'             : False, # floats as "3,14"
+	'as_chain'                  : False, # one dataset per slice if rehashing (avoids rewriting at the end)
 	'compression'               : 6,     # gzip level
 }
 
@@ -98,28 +99,34 @@ def prepare(params):
 	if rehashing:
 		previous = datasets.previous
 		for sliceno in range(params.slices):
+			if options.as_chain and sliceno == params.slices - 1:
+				name = 'default'
+			else:
+				name = str(sliceno)
 			dw = DatasetWriter(
 				columns=columns,
 				caption='%s (from slice %d)' % (options.caption, sliceno,),
 				hashlabel=hashlabel,
 				hashlabel_override=True,
-				parent=parent,
 				previous=previous,
 				meta_only=True,
-				name=str(sliceno),
+				name=name,
 				for_single_slice=sliceno,
 			)
 			previous = dw
 			dws.append(dw)
-	dw = DatasetWriter(
-		columns=columns,
-		caption=options.caption,
-		hashlabel=hashlabel,
-		hashlabel_override=True,
-		parent=parent,
-		previous=datasets.previous,
-		meta_only=True,
-	)
+	if rehashing and options.as_chain:
+		dw = None
+	else:
+		dw = DatasetWriter(
+			columns=columns,
+			caption=options.caption,
+			hashlabel=hashlabel,
+			hashlabel_override=True,
+			parent=parent,
+			previous=datasets.previous,
+			meta_only=True,
+		)
 	return dw, dws
 
 
@@ -446,9 +453,6 @@ def synthesis(params, analysis_res, prepare_res):
 		r.line()
 	else:
 		num_lines_per_split = d.lines
-	dw, dws = prepare_res
-	for sliceno, count in enumerate(num_lines_per_split):
-		dw.set_lines(sliceno, count)
 	if options.defaults:
 		r.println('Defaulted values')
 		res.defaulted_per_slice = {}
@@ -462,22 +466,33 @@ def synthesis(params, analysis_res, prepare_res):
 				r.println('        %5d   %d' % (sliceno, cnt,))
 			r.println('        total   %d' % (res.defaulted_total[colname],))
 		r.line()
+	dw, dws = prepare_res
 	if dws: # rehashing
-		for colname in dw.columns:
-			for sliceno in range(params.slices):
-				out_fn = dw.column_filename(colname, sliceno=sliceno)
-				with open(out_fn, 'wb') as out_fh:
-					for s in range(params.slices):
-						src_fn = dws[s].column_filename(colname, sliceno=sliceno)
-						with open(src_fn, 'rb') as in_fh:
-							copyfileobj(in_fh, out_fh)
-		for sliced_dw in dws:
-			sliced_dw.discard()
-		for sliceno, counts in enumerate(zip(*[data[4] for data in analysis_res])):
-			dw.set_lines(sliceno, sum(counts))
-	for sliceno, data in enumerate(analysis_res):
-		dw.set_minmax(sliceno, data[3])
-	d = dw.finish()
+		if dw: # not as a chain
+			for colname in dw.columns:
+				for sliceno in range(params.slices):
+					out_fn = dw.column_filename(colname, sliceno=sliceno)
+					with open(out_fn, 'wb') as out_fh:
+						for s in range(params.slices):
+							src_fn = dws[s].column_filename(colname, sliceno=sliceno)
+							with open(src_fn, 'rb') as in_fh:
+								copyfileobj(in_fh, out_fh)
+			for sliced_dw in dws:
+				sliced_dw.discard()
+			for sliceno, counts in enumerate(zip(*[data[4] for data in analysis_res])):
+				dw.set_lines(sliceno, sum(counts))
+			for sliceno, data in enumerate(analysis_res):
+				dw.set_minmax(sliceno, data[3])
+		else:
+			for sliceno, data in enumerate(analysis_res):
+				dws[sliceno].set_minmax(-1, data[3])
+				for s, count in enumerate(data[4]):
+					dws[sliceno].set_lines(s, count)
+	else:
+		for sliceno, count in enumerate(num_lines_per_split):
+			dw.set_lines(sliceno, count)
+		for sliceno, data in enumerate(analysis_res):
+			dw.set_minmax(sliceno, data[3])
 	res.good_line_count_per_slice = num_lines_per_split
 	res.good_line_count_total = sum(num_lines_per_split)
 	r.line()
