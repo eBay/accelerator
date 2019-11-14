@@ -125,7 +125,7 @@ def main(argv):
 	try:
 		with open(slices_conf, 'r') as fh:
 			workdir_slices = int(fh.read())
-	except OSError:
+	except IOError:
 		workdir_slices = None
 	if workdir_slices and options.slices is None:
 		options.slices = workdir_slices

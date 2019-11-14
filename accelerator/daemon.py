@@ -248,8 +248,8 @@ class XtdHandler(BaseWebHandler):
 			return
 
 
-def exitfunction(*a, from_thread=False):
-	if not from_thread:
+def exitfunction(*a):
+	if a != (DeadlyThread,): # if not called from a DeadlyThread
 		signal.signal(signal.SIGTERM, signal.SIG_IGN)
 		signal.signal(signal.SIGINT, signal.SIG_IGN)
 	print()
@@ -270,7 +270,7 @@ class DeadlyThread(Thread):
 			traceback.print_exc()
 		finally:
 			print("Thread %r died. That's bad." % (self.name,))
-			exitfunction(from_thread=True)
+			exitfunction(DeadlyThread)
 
 
 def check_socket(fn):

@@ -485,7 +485,8 @@ class Urd(object):
 		tries_left = 3
 		while True:
 			try:
-				with urlopen(req) as r:
+				r = urlopen(req)
+				try:
 					code = r.getcode()
 					if code == 401:
 						raise UrdPermissionError()
@@ -495,6 +496,11 @@ class Urd(object):
 					if PY3:
 						d = d.decode('utf-8')
 					return fmt(d)
+				finally:
+					try:
+						r.close()
+					except Exception:
+						pass
 			except HTTPError as e:
 				# It seems inconsistent if we get HTTPError or not for 4xx codes.
 				if e.code == 401:

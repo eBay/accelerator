@@ -51,7 +51,10 @@ install_opener(build_opener(UnixHTTPHandler))
 
 
 from wsgiref.simple_server import WSGIServer, WSGIRequestHandler
-from socketserver import UnixStreamServer
+if PY3:
+	from socketserver import UnixStreamServer
+else:
+	from SocketServer import UnixStreamServer
 
 class WSGIUnixServer(UnixStreamServer, WSGIServer):
 	def server_bind(self):
