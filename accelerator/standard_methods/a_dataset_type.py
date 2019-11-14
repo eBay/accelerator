@@ -30,7 +30,6 @@ from accelerator.compat import NoneType, unicode, imap, iteritems, itervalues, P
 
 from accelerator.extras import OptionEnum, json_save, DotDict
 from accelerator.gzwrite import typed_writer, typed_reader
-from accelerator.dataset import DatasetWriter
 from accelerator.report import report
 from accelerator.sourcedata import type2iter
 from . import dataset_type
@@ -74,7 +73,7 @@ byteslike_types = ('bytes', 'ascii', 'unicode',)
 
 cstuff = dataset_type.init()
 
-def prepare(params):
+def prepare(job, slices):
 	assert 1 <= options.compression <= 9
 	cstuff.backend.init()
 	d = datasets.source
@@ -98,12 +97,12 @@ def prepare(params):
 	dws = []
 	if rehashing:
 		previous = datasets.previous
-		for sliceno in range(params.slices):
-			if options.as_chain and sliceno == params.slices - 1:
+		for sliceno in range(slices):
+			if options.as_chain and sliceno == slices - 1:
 				name = 'default'
 			else:
 				name = str(sliceno)
-			dw = DatasetWriter(
+			dw = job.datasetwriter(
 				columns=columns,
 				caption='%s (from slice %d)' % (options.caption, sliceno,),
 				hashlabel=hashlabel,
@@ -118,7 +117,7 @@ def prepare(params):
 	if rehashing and options.as_chain:
 		dw = None
 	else:
-		dw = DatasetWriter(
+		dw = job.datasetwriter(
 			columns=columns,
 			caption=options.caption,
 			hashlabel=hashlabel,
@@ -142,7 +141,7 @@ def map_init(vars, name, scale_factor=1):
 	return fh.fileno()
 
 
-def analysis(sliceno, params, prepare_res):
+def analysis(sliceno, slices, prepare_res):
 	if options.numeric_comma:
 		try_locales = [
 			'da_DK', 'nb_NO', 'nn_NO', 'sv_SE', 'fi_FI',
@@ -165,7 +164,7 @@ def analysis(sliceno, params, prepare_res):
 		rehashing = False
 	vars = DotDict(
 		sliceno=sliceno,
-		slices=params.slices,
+		slices=slices,
 		known_line_count=0,
 		badmap_size=0,
 		badmap_fd=-1,
@@ -410,7 +409,7 @@ def one_column(vars, colname, coltype, out_fns, for_hasher=False):
 		vars.res_minmax[colname] = [col_min, col_max]
 	return real_coltype
 
-def synthesis(params, analysis_res, prepare_res):
+def synthesis(slices, analysis_res, prepare_res):
 	r = report()
 	res = DotDict()
 	d = datasets.source
@@ -470,10 +469,10 @@ def synthesis(params, analysis_res, prepare_res):
 	if dws: # rehashing
 		if dw: # not as a chain
 			for colname in dw.columns:
-				for sliceno in range(params.slices):
+				for sliceno in range(slices):
 					out_fn = dw.column_filename(colname, sliceno=sliceno)
 					with open(out_fn, 'wb') as out_fh:
-						for s in range(params.slices):
+						for s in range(slices):
 							src_fn = dws[s].column_filename(colname, sliceno=sliceno)
 							with open(src_fn, 'rb') as in_fh:
 								copyfileobj(in_fh, out_fh)
