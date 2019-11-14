@@ -64,5 +64,6 @@ def synthesis():
 
 	# merge b and c but not a
 	jid = subjobs.build('dataset_sort', options=opts, datasets=dict(source=c, previous=sorted_a))
-	assert list(Dataset(jid).iterate(None, 'num')) == [0, 1, 2]
-	assert list(Dataset(jid).iterate_chain(None, 'num')) == [2, 3, 0, 1, 2]
+	# test with new style job.dataset
+	assert list(jid.dataset().iterate(None, 'num')) == [0, 1, 2]
+	assert list(jid.dataset().iterate_chain(None, 'num')) == [2, 3, 0, 1, 2]

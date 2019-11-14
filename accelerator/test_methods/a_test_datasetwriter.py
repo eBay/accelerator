@@ -32,17 +32,17 @@ from . import test_data
 
 depend_extra=(test_data,)
 
-def prepare(params):
-	assert params.slices >= test_data.value_cnt
+def prepare(job, slices):
+	assert slices >= test_data.value_cnt
 	dw_default = DatasetWriter()
 	dw_default.add("a", "number")
 	dw_default.add("b", "ascii")
 	DatasetWriter(name="named", columns={"c": "bool", "d": "date"})
-	dw_passed = DatasetWriter(name="passed", columns={t: t for t in test_data.data})
+	dw_passed = job.datasetwriter(name="passed", columns={t: t for t in test_data.data})
 	return dw_passed, 42
 
-def analysis(sliceno, prepare_res):
-	dw_default = DatasetWriter()
+def analysis(sliceno, prepare_res, job):
+	dw_default = job.datasetwriter()
 	dw_named = DatasetWriter(name="named")
 	dw_passed, num = prepare_res
 	dw_default.write(a=sliceno, b="a")
@@ -53,7 +53,7 @@ def analysis(sliceno, prepare_res):
 	if 0 < sliceno < test_data.value_cnt:
 		dw_passed.write_dict({k: v[sliceno] for k, v in test_data.data.items()})
 
-def synthesis(prepare_res, params):
+def synthesis(prepare_res, slices, job):
 	dw_passed, _ = prepare_res
 	# Using set_slice on a dataset that was written in analysis is not
 	# actually supported, but since it currently works (as long as that
@@ -66,9 +66,9 @@ def synthesis(prepare_res, params):
 	dw_synthesis_split.get_split_write()(1, "a")
 	dw_synthesis_split.get_split_write_list()([2, "b"])
 	dw_synthesis_split.get_split_write_dict()({"a": 3, "b": "c"})
-	dw_synthesis_manual = DatasetWriter(name="synthesis_manual", columns={"sliceno": "int32"})
-	dw_nonetest = DatasetWriter(name="nonetest", columns={t: t for t in test_data.data})
-	for sliceno in range(params.slices):
+	dw_synthesis_manual = job.datasetwriter(name="synthesis_manual", columns={"sliceno": "int32"})
+	dw_nonetest = job.datasetwriter(name="nonetest", columns={t: t for t in test_data.data})
+	for sliceno in range(slices):
 		dw_synthesis_manual.set_slice(sliceno)
 		dw_synthesis_manual.write(sliceno)
 		dw_nonetest.set_slice(sliceno)

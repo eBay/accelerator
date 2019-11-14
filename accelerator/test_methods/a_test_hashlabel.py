@@ -81,7 +81,7 @@ def analysis(sliceno, prepare_res, params):
 				pass
 			assert good, "%s allowed writing in wrong slice" % (fn,)
 
-def synthesis(prepare_res, params):
+def synthesis(prepare_res, params, job, slices):
 	dws = prepare_res
 	for dw in (dws.unhashed_split, dws.up_split,):
 		w = dw.get_split_write_list()
@@ -96,8 +96,9 @@ def synthesis(prepare_res, params):
 		("up_checked", "up_split"),
 		("down_checked", "down_discarded", "down_discarded_list", "down_discarded_dict"),
 	):
-		dws = {name: Dataset((params.jobid, name)) for name in names}
-		for sliceno in range(params.slices):
+		dws = {name: job.dataset(name) for name in names}
+		assert dws == {name: Dataset((params.jobid, name)) for name in names}, "Old style Dataset((params.jobid, name)) broken"
+		for sliceno in range(slices):
 			data = {name: list(dws[name].iterate(sliceno)) for name in names}
 			good = data[names[0]]
 			for name in names[1:]:
@@ -106,15 +107,15 @@ def synthesis(prepare_res, params):
 	# Verify that both up and down hashed on the expected column
 	hash = typed_writer("int32").hash
 	for colname in ("up", "down"):
-		ds = Dataset((params.jobid, colname + "_checked"))
-		for sliceno in range(params.slices):
+		ds = job.dataset(colname + "_checked")
+		for sliceno in range(slices):
 			for value in ds.iterate(sliceno, colname):
-				assert hash(value) % params.slices == sliceno, "Bad hashing on %s in slice %d" % (colname, sliceno,)
+				assert hash(value) % slices == sliceno, "Bad hashing on %s in slice %d" % (colname, sliceno,)
 
 	# Verify that up and down are not the same, to catch hashing
 	# not actually hashing.
-	up = list(Dataset((params.jobid, "up_checked")).iterate(None))
-	down = list(Dataset((params.jobid, "down_checked")).iterate(None))
+	up = list(job.dataset("up_checked").iterate(None))
+	down = list(job.dataset("down_checked").iterate(None))
 	assert up != down, "Hashlabel did not change slice distribution"
 	# And check that the data is still the same.
 	assert sorted(up) == sorted(down) == all_data, "Hashed datasets have wrong data"
@@ -123,10 +124,10 @@ def synthesis(prepare_res, params):
 	# (Can't use sliceno None, because that won't rehash, and even if it did
 	# the order wouldn't match. Order doesn't even match in the rehashed
 	# individual slices.)
-	up = Dataset((params.jobid, "up_checked"))
-	down = Dataset((params.jobid, "down_checked"))
-	unhashed = Dataset((params.jobid, "unhashed_manual"))
-	for sliceno in range(params.slices):
+	up = job.dataset("up_checked")
+	down = job.dataset("down_checked")
+	unhashed = job.dataset("unhashed_manual")
+	for sliceno in range(slices):
 		a = list(up.iterate(sliceno))
 		b = list(down.iterate(sliceno, hashlabel="up", rehash=True))
 		c = list(unhashed.iterate(sliceno, hashlabel="up", rehash=True))

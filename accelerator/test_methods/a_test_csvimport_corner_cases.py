@@ -35,7 +35,7 @@ from accelerator.compat import PY3, uni
 def openx(filename):
 	return open(filename, "xb" if PY3 else "wbx")
 
-def check_array(params, lines, filename, bad_lines=(), **options):
+def check_array(job, lines, filename, bad_lines=(), **options):
 	d = {}
 	d_bad = {}
 	with openx(filename) as fh:
@@ -50,7 +50,7 @@ def check_array(params, lines, filename, bad_lines=(), **options):
 			ix = str(ix).encode("ascii")
 			fh.write(ix + b"," + data + b"," + data + b"\n")
 	options.update(
-		filename=params.jobid.filename(filename),
+		filename=job.filename(filename),
 		allow_bad=bool(bad_lines),
 		labelsonfirstline=False,
 		labels=["ix", "0", "1"],
@@ -101,12 +101,12 @@ def require_failure(name, options):
 		return
 	raise Exception("File with %s was imported without error." % (name,))
 
-def check_bad_file(params, name, data):
+def check_bad_file(job, name, data):
 	filename = name + ".txt"
 	with openx(filename) as fh:
 		fh.write(data)
 	options=dict(
-		filename=params.jobid.filename(filename),
+		filename=job.filename(filename),
 	)
 	require_failure(name, options)
 
@@ -124,7 +124,7 @@ def byteline(start, stop, nl, q):
 		return s.lstrip(bytechr(q))
 
 # Check that no separator is fine with various newlines, and with various quotes
-def check_no_separator(params):
+def check_no_separator(job):
 	def write(data):
 		fh.write(data + nl_b)
 		wrote_c[data] += 1
@@ -146,7 +146,7 @@ def check_no_separator(params):
 					write(byteline(splitpoint, 256, nl, q))
 			try:
 				jid = subjobs.build("csvimport", options=dict(
-					filename=params.jobid.filename(filename),
+					filename=job.filename(filename),
 					quotes=q_b.decode("iso-8859-1"),
 					newline=nl_b.decode("iso-8859-1"),
 					separator='',
@@ -158,35 +158,35 @@ def check_no_separator(params):
 			got_c = Counter(Dataset(jid).iterate(None, "data"))
 			assert got_c == wrote_c, "Importing %r (%s) gave wrong contents" % (filename, jid,)
 
-def check_good_file(params, name, data, d, d_bad={}, d_skipped={}, **options):
+def check_good_file(job, name, data, d, d_bad={}, d_skipped={}, **options):
 	filename = name + ".txt"
 	with openx(filename) as fh:
 		fh.write(data)
 	options.update(
-		filename=params.jobid.filename(filename),
+		filename=job.filename(filename),
 	)
 	verify_ds(options, d, d_bad, d_skipped, filename)
 
-def synthesis(params):
-	check_good_file(params, "mixed line endings", b"ix,0,1\r\n1,a,a\n2,b,b\r\n3,c,c", {1: b"a", 2: b"b", 3: b"c"})
-	check_good_file(params, "ignored quotes", b"ix,0,1\n1,'a,'a\n2,'b','b'\n3,\"c\",\"c\"\n4,d',d'\n", {1: b"'a", 2: b"'b'", 3: b'"c"', 4: b"d'"})
-	check_good_file(params, "ignored quotes and extra fields", b"ix,0,1\n1,\"a,\"a\n2,'b,c',d\n3,d\",d\"\n", {1: b'"a', 3: b'd"'}, allow_bad=True, d_bad={3: b"2,'b,c',d"})
-	check_good_file(params, "spaces and quotes", b"ix,0,1\none,a,a\ntwo, b, b\n three,c,c\n4,\"d\"\"\",d\"\n5, 'e',\" 'e'\"\n", {b"one": b"a", b"two": b" b", b" three": b"c", 4: b'd"', 5: b" 'e'"}, quotes=True)
-	check_good_file(params, "empty fields", b"ix,0,1\n1,,''\n2,,\n3,'',\n4,\"\",", {1: b"", 2: b"", 3: b"", 4: b""}, quotes=True)
-	check_good_file(params, "renamed fields", b"0,1,2\n0,foo,foo", {0: b"foo"}, rename={"0": "ix", "2": "0"})
-	check_good_file(params, "discarded field", b"ix,0,no,1\n0,yes,no,yes\n1,a,'foo,bar',a", {0: b"yes", 1: b"a"}, quotes=True, discard={"no"})
-	check_good_file(params, "bad quotes", b"""ix,0,1\n1,a,a\n2,"b,"b\n\n3,'c'c','c'c'\n4,"d",'d'\n""", {1: b"a", 4: b"d"}, quotes=True, allow_bad=True, d_bad={3: b'2,"b,"b', 4: b"", 5: b"3,'c'c','c'c'"})
-	check_good_file(params, "comments", b"""# blah\nix,0,1\n1,a,a\n2,b,b\n#3,c,c\n4,#d,#d\n""", {1: b"a", 2: b"b", 4: b"#d"}, comment="#", d_skipped={1: b"# blah", 5: b"#3,c,c"})
-	check_good_file(params, "not comments", b"""ix,0,1\n1,a,a\n2,b,b\n#3,c,c\n4,#d,#d\n""", {1: b"a", 2: b"b", b"#3": b"c", 4: b"#d"})
-	check_good_file(params, "a little of everything", b""";not,1,labels\na,2,1\n;a,3,;a\n";b",4,;b\n'c,5,c'\r\n d,6,' d'\ne,7,e,\n,8,""", {4: b";b", 6: b" d", 8: b""}, allow_bad=True, rename={"a": "0", "2": "ix"}, quotes=True, comment=";", d_bad={5: b"'c,5,c'", 7: b"e,7,e,"}, d_skipped={1: b";not,1,labels", 3: b";a,3,;a"})
-	check_good_file(params, "skipped lines", b"""just some text\n\nix,0,1\n1,a,a\n2,b,b""", {1: b"a", 2: b"b"}, skip_lines=2, d_skipped={1: b"just some text", 2: b""})
-	check_good_file(params, "skipped and bad lines", b"""not data here\nnor here\nix,0,1\n1,a,a\n2,b\n3,c,c""", {1: b"a", 3: b"c"}, skip_lines=2, allow_bad=True, d_bad={5: b"2,b"}, d_skipped={1: b"not data here", 2: b"nor here"})
-	check_good_file(params, "override labels", b"""a,b,c\n0,foo,foo""", {0: b"foo"}, labels=["ix", "0", "1"])
-	check_good_file(params, "only labels", b"""ix,0,1""", {})
-	check_good_file(params, "empty file", b"", {}, labels=["ix", "0", "1"])
-	check_good_file(params, "lineno with bad lines", b"ix,0,1\n2,a,a\n3,b\nc\n5,d,d\n6,e,e\n7\n8,g,g\n\n", {2: b"a", 5: b"d", 6: b"e", 8: b"g"}, d_bad={3: b"3,b", 4: b"c", 7: b"7", 9: b""}, allow_bad=True, lineno_label="num")
-	check_good_file(params, "lineno with skipped lines", b"a\nb\n3,c,c\n4,d,d", {3: b"c", 4: b"d"}, lineno_label="l", labels=["ix", "0", "1"], labelsonfirstline=False, skip_lines=2, d_skipped={1: b"a", 2: b"b"})
-	check_good_file(params, "lineno with comment lines", b"ix,0,1\n2,a,a\n3,b,b\n#4,c,c\n5,d,d", {2: b"a", 3: b"b", 5: b"d"}, lineno_label="another name", comment="#", d_skipped={4: b"#4,c,c"})
+def synthesis(job):
+	check_good_file(job, "mixed line endings", b"ix,0,1\r\n1,a,a\n2,b,b\r\n3,c,c", {1: b"a", 2: b"b", 3: b"c"})
+	check_good_file(job, "ignored quotes", b"ix,0,1\n1,'a,'a\n2,'b','b'\n3,\"c\",\"c\"\n4,d',d'\n", {1: b"'a", 2: b"'b'", 3: b'"c"', 4: b"d'"})
+	check_good_file(job, "ignored quotes and extra fields", b"ix,0,1\n1,\"a,\"a\n2,'b,c',d\n3,d\",d\"\n", {1: b'"a', 3: b'd"'}, allow_bad=True, d_bad={3: b"2,'b,c',d"})
+	check_good_file(job, "spaces and quotes", b"ix,0,1\none,a,a\ntwo, b, b\n three,c,c\n4,\"d\"\"\",d\"\n5, 'e',\" 'e'\"\n", {b"one": b"a", b"two": b" b", b" three": b"c", 4: b'd"', 5: b" 'e'"}, quotes=True)
+	check_good_file(job, "empty fields", b"ix,0,1\n1,,''\n2,,\n3,'',\n4,\"\",", {1: b"", 2: b"", 3: b"", 4: b""}, quotes=True)
+	check_good_file(job, "renamed fields", b"0,1,2\n0,foo,foo", {0: b"foo"}, rename={"0": "ix", "2": "0"})
+	check_good_file(job, "discarded field", b"ix,0,no,1\n0,yes,no,yes\n1,a,'foo,bar',a", {0: b"yes", 1: b"a"}, quotes=True, discard={"no"})
+	check_good_file(job, "bad quotes", b"""ix,0,1\n1,a,a\n2,"b,"b\n\n3,'c'c','c'c'\n4,"d",'d'\n""", {1: b"a", 4: b"d"}, quotes=True, allow_bad=True, d_bad={3: b'2,"b,"b', 4: b"", 5: b"3,'c'c','c'c'"})
+	check_good_file(job, "comments", b"""# blah\nix,0,1\n1,a,a\n2,b,b\n#3,c,c\n4,#d,#d\n""", {1: b"a", 2: b"b", 4: b"#d"}, comment="#", d_skipped={1: b"# blah", 5: b"#3,c,c"})
+	check_good_file(job, "not comments", b"""ix,0,1\n1,a,a\n2,b,b\n#3,c,c\n4,#d,#d\n""", {1: b"a", 2: b"b", b"#3": b"c", 4: b"#d"})
+	check_good_file(job, "a little of everything", b""";not,1,labels\na,2,1\n;a,3,;a\n";b",4,;b\n'c,5,c'\r\n d,6,' d'\ne,7,e,\n,8,""", {4: b";b", 6: b" d", 8: b""}, allow_bad=True, rename={"a": "0", "2": "ix"}, quotes=True, comment=";", d_bad={5: b"'c,5,c'", 7: b"e,7,e,"}, d_skipped={1: b";not,1,labels", 3: b";a,3,;a"})
+	check_good_file(job, "skipped lines", b"""just some text\n\nix,0,1\n1,a,a\n2,b,b""", {1: b"a", 2: b"b"}, skip_lines=2, d_skipped={1: b"just some text", 2: b""})
+	check_good_file(job, "skipped and bad lines", b"""not data here\nnor here\nix,0,1\n1,a,a\n2,b\n3,c,c""", {1: b"a", 3: b"c"}, skip_lines=2, allow_bad=True, d_bad={5: b"2,b"}, d_skipped={1: b"not data here", 2: b"nor here"})
+	check_good_file(job, "override labels", b"""a,b,c\n0,foo,foo""", {0: b"foo"}, labels=["ix", "0", "1"])
+	check_good_file(job, "only labels", b"""ix,0,1""", {})
+	check_good_file(job, "empty file", b"", {}, labels=["ix", "0", "1"])
+	check_good_file(job, "lineno with bad lines", b"ix,0,1\n2,a,a\n3,b\nc\n5,d,d\n6,e,e\n7\n8,g,g\n\n", {2: b"a", 5: b"d", 6: b"e", 8: b"g"}, d_bad={3: b"3,b", 4: b"c", 7: b"7", 9: b""}, allow_bad=True, lineno_label="num")
+	check_good_file(job, "lineno with skipped lines", b"a\nb\n3,c,c\n4,d,d", {3: b"c", 4: b"d"}, lineno_label="l", labels=["ix", "0", "1"], labelsonfirstline=False, skip_lines=2, d_skipped={1: b"a", 2: b"b"})
+	check_good_file(job, "lineno with comment lines", b"ix,0,1\n2,a,a\n3,b,b\n#4,c,c\n5,d,d", {2: b"a", 3: b"b", 5: b"d"}, lineno_label="another name", comment="#", d_skipped={4: b"#4,c,c"})
 
 	bad_lines = [
 		b"bad,bad",
@@ -216,13 +216,13 @@ def synthesis(params):
 		b"\xff\x00\x08\x00",
 		(b"'lot''s of ''quotes'' around here: '''''''' '", b"lot's of 'quotes' around here: '''' ")
 	]
-	check_array(params, good_lines, "strange values.txt", bad_lines, quotes=True)
+	check_array(job, good_lines, "strange values.txt", bad_lines, quotes=True)
 	# The lines will be 2 * length + 3 bytes (plus lf)
 	long_lines = [b"a" * length for length in (64 * 1024 - 2, 999, 999, 1999, 3000, 65000, 8 * 1024 * 1024 - 99)]
-	check_array(params, long_lines, "long lines.txt")
-	check_bad_file(params, "extra field", b"foo,bar\nwith,extra,field\nok,here\n")
-	check_bad_file(params, "missing field", b"foo,bar\nmissing\nok,here\n")
-	check_bad_file(params, "no valid lines", b"foo\nc,\n")
+	check_array(job, long_lines, "long lines.txt")
+	check_bad_file(job, "extra field", b"foo,bar\nwith,extra,field\nok,here\n")
+	check_bad_file(job, "missing field", b"foo,bar\nmissing\nok,here\n")
+	check_bad_file(job, "no valid lines", b"foo\nc,\n")
 
 	# let's also check some really idiotic combinations
 	for combo in permutations([0, 10, 13, 255], 3):
@@ -240,7 +240,7 @@ def synthesis(params):
 			comment,
 		]
 		check_good_file(
-			params,
+			job,
 			name,
 			data=newline.join(data).encode("iso-8859-1"),
 			d={0: b"a", 2: b"", b"": b"", 4: b","},
@@ -250,4 +250,4 @@ def synthesis(params):
 			comment=comment,
 		)
 
-	check_no_separator(params)
+	check_no_separator(job)
