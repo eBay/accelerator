@@ -54,7 +54,7 @@ TYPENAME = OptionEnum(dataset_type.convfuncs.keys())
 
 options = {
 	'column2type'               : {'COLNAME': TYPENAME},
-	'hashlabel'                 : str,
+	'hashlabel'                 : str, # leave as None to inherit hashlabel, set to '' to not have a hashlabel
 	'defaults'                  : {}, # {'COLNAME': value}, unspecified -> method fails on unconvertible unless filter_bad
 	'rename'                    : {}, # {'OLDNAME': 'NEWNAME'} doesn't shadow OLDNAME.
 	'caption'                   : 'typed dataset',
@@ -84,7 +84,10 @@ def prepare(job, slices):
 			raise Exception("Dataset %s column %r is type %s, must be one of %r" % (d, colname, d.columns[colname].type, byteslike_types,))
 		coltype = coltype.split(':', 1)[0]
 		columns[options.rename.get(colname, colname)] = dataset_type.typerename.get(coltype, coltype)
-	hashlabel = options.hashlabel or options.rename.get(d.hashlabel, d.hashlabel)
+	if options.hashlabel is None:
+		hashlabel = options.rename.get(d.hashlabel, d.hashlabel)
+	else:
+		hashlabel = options.hashlabel or None
 	rehashing = (hashlabel in columns)
 	if options.filter_bad or rehashing or options.discard_untyped:
 		assert options.discard_untyped is not False, "Can't keep untyped when " + ("filtering bad" if options.filter_bad else "rehashing")
@@ -105,7 +108,6 @@ def prepare(job, slices):
 				columns=columns,
 				caption='%s (from slice %d)' % (options.caption, sliceno,),
 				hashlabel=hashlabel,
-				hashlabel_override=True,
 				previous=previous,
 				meta_only=True,
 				name=name,
