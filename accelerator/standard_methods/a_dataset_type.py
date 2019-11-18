@@ -86,6 +86,8 @@ def prepare(job, slices):
 		columns[options.rename.get(colname, colname)] = dataset_type.typerename.get(coltype, coltype)
 	if options.hashlabel is None:
 		hashlabel = options.rename.get(d.hashlabel, d.hashlabel)
+		if hashlabel not in columns:
+			hashlabel = None
 	else:
 		hashlabel = options.hashlabel or None
 	rehashing = (hashlabel in columns)
