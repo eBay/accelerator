@@ -78,6 +78,7 @@ def main(urd):
 	urd.build("test_sort_stability")
 	urd.build("test_sort_chaining")
 	urd.build("test_rehash")
+	urd.build("test_dataset_type_hashing")
 
 	print()
 	print("Test hashlabels")
