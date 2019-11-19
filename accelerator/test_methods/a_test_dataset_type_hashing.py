@@ -29,6 +29,8 @@ Also verify that hashing discards untyped columns, and that parent
 hashlabel is inherited or discarded as appropriate.
 '''
 
+from itertools import cycle
+
 from accelerator.compat import unicode
 from accelerator import subjobs
 from accelerator.extras import DotDict
@@ -42,9 +44,46 @@ def synthesis(job):
 		src_ds = dw.finish()
 		test(src_ds, dict(column2type={'a': 'int32_10', 'b': 'number:int'}, filter_bad=True), 800)
 		test(src_ds, dict(column2type={'a': 'int64_10', 'b': 'number', 'c': 'json'}, filter_bad=True), 666)
-		test(src_ds, dict(column2type={'a': 'float32', 'b': 'number:int', 'c': 'json'}, filter_bad=True), 533)
+		test(src_ds, dict(column2type={'a': 'floatint32ei', 'b': 'number:int', 'c': 'json'}, filter_bad=True), 533)
 		test(src_ds, dict(column2type={'from_a': 'number', 'from_b': 'float64', 'from_c': 'ascii'}, rename=dict(a='from_a', b='from_b', c='from_c')), 1000)
 		test(src_ds, dict(column2type={'c': 'bits32_16', 'a': 'float32', 'b': 'bytes'}, rename=dict(a='c', b='a', c='b')), 1000)
+
+	# this doesn't test as many permutations, it's just to test more column types.
+	dw = job.datasetwriter(name='more types')
+	cols = {
+		'floatbooli': cycle(['1.42 or so', '0 maybe', '1 (exactly)']),
+		'datetime:%Y%m%d %H:%M': ['2019%02d%02d 17:%02d' % (t % 12 + 1, t % 28 + 1, t % 60) for t in range(1000)],
+		'date:%Y%m%d': ['2019%02d%02d' % (t % 12 + 1, t % 28 + 1,) for t in range(1000)],
+		'time:%H:%M': ['%02d:%02d' % (t // 60, t % 60) for t in range(1000)],
+		'timei:%H:%M': ['%02d:%02d%c' % (t // 60, t % 60, chr(t % 26 + 65)) for t in range(1000)],
+	}
+	gens = []
+	for coltype, gen in cols.items():
+		dw.add(coltype.split(':')[0], 'ascii')
+		gens.append(iter(gen))
+	dw.add('half', 'bytes')
+	gens.append(cycle([b'1', b'no']))
+	w = dw.get_split_write()
+	for _ in range(1000):
+		w(*map(next, gens))
+	src_ds = dw.finish()
+	column2type = {t.split(':')[0]: t for t in cols}
+	for hl in column2type:
+		hashed = subjobs.build('dataset_type', options=dict(column2type=column2type, hashlabel=hl), datasets=dict(source=src_ds)).dataset()
+		unhashed = subjobs.build('dataset_type', options=dict(column2type=column2type), datasets=dict(source=src_ds)).dataset()
+		rehashed = subjobs.build('dataset_rehash', options=dict(hashlabel=hl), datasets=dict(source=unhashed)).dataset()
+		assert hashed.lines == rehashed.lines
+		assert sum(hashed.lines) == 1000
+		assert set(hashed.columns.keys()) == set(unhashed.columns.keys()) == set(rehashed.columns.keys())
+		# and again with a bad column
+		column2type['half'] = 'float32'
+		hashed = subjobs.build('dataset_type', options=dict(column2type=column2type, hashlabel=hl, filter_bad=True), datasets=dict(source=src_ds)).dataset()
+		unhashed = subjobs.build('dataset_type', options=dict(column2type=column2type, filter_bad=True), datasets=dict(source=src_ds)).dataset()
+		rehashed = subjobs.build('dataset_rehash', options=dict(hashlabel=hl), datasets=dict(source=unhashed)).dataset()
+		del column2type['half']
+		assert hashed.lines == rehashed.lines
+		assert sum(hashed.lines) == 500
+		assert set(hashed.columns.keys()) == set(unhashed.columns.keys()) == set(rehashed.columns.keys())
 
 def test(src_ds, opts, expect_lines):
 	opts = DotDict(opts)
