@@ -79,11 +79,7 @@ def main(argv):
 
 	if args.list or args.chainedlist:
 		for n in args.dataset:
-			ds = dscmdhelper.name2ds(n)
-			if not ds:
-				badinput.append(n)
-				continue
-			dsvec = job_datasets(ds)
+			dsvec = job_datasets(n)
 			if dsvec:
 				print('%s' % (n,))
 				v = []
