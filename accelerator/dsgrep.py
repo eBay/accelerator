@@ -37,6 +37,7 @@ def main(argv):
 	parser = ArgumentParser(usage=usage, prog=argv.pop(0))
 	parser.add_argument('-c', '--chain',       dest="chain",      action='store_true', help="Follow dataset chains", )
 	parser.add_argument('-i', '--ignore-case', dest="ignorecase", action='store_true', help="Case insensitive pattern", )
+	parser.add_argument('-s', '--slice',       dest="slice",      action='append',     help="Grep this slice only. Can be specified multiple times.",  type=int)
 	parser.add_argument('pattern')
 	parser.add_argument('dataset')
 	parser.add_argument('columns', nargs='*', default=[])
@@ -101,7 +102,8 @@ def main(argv):
 	
 	try:
 		children = []
-		for sliceno in range(g.slices):
+		want_slices = set(args.slice) if args.slice else range(g.slices)
+		for sliceno in want_slices:
 			p = Process(target=one_slice, args=(sliceno,), name='slice-%d' % (sliceno,))
 			p.start()
 			children.append(p)
