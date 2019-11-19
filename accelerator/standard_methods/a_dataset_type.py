@@ -56,7 +56,7 @@ options = {
 	'column2type'               : {'COLNAME': TYPENAME},
 	'hashlabel'                 : str, # leave as None to inherit hashlabel, set to '' to not have a hashlabel
 	'defaults'                  : {}, # {'COLNAME': value}, unspecified -> method fails on unconvertible unless filter_bad
-	'rename'                    : {}, # {'OLDNAME': 'NEWNAME'} doesn't shadow OLDNAME.
+	'rename'                    : {}, # {'OLDNAME': 'NEWNAME'} doesn't shadow OLDNAME. (Other COLNAMEs use NEWNAME.)
 	'caption'                   : 'typed dataset',
 	'discard_untyped'           : bool, # Make unconverted columns inaccessible ("new" dataset)
 	'filter_bad'                : False, # Implies discard_untyped
@@ -77,13 +77,15 @@ def prepare(job, slices):
 	cstuff.backend.init()
 	d = datasets.source
 	columns = {}
+	rev_rename = {v: k for k, v in options.rename.items() if k in d.columns and v in options.column2type}
 	for colname, coltype in iteritems(options.column2type):
-		if colname not in d.columns:
+		orig_colname = rev_rename.get(colname, colname)
+		if orig_colname not in d.columns:
 			raise Exception("Dataset %s doesn't have a column named %r (has %r)" % (d, colname, set(d.columns),))
-		if d.columns[colname].type not in byteslike_types:
-			raise Exception("Dataset %s column %r is type %s, must be one of %r" % (d, colname, d.columns[colname].type, byteslike_types,))
+		if d.columns[orig_colname].type not in byteslike_types:
+			raise Exception("Dataset %s column %r is type %s, must be one of %r" % (d, orig_colname, d.columns[orig_colname].type, byteslike_types,))
 		coltype = coltype.split(':', 1)[0]
-		columns[options.rename.get(colname, colname)] = dataset_type.typerename.get(coltype, coltype)
+		columns[colname] = dataset_type.typerename.get(coltype, coltype)
 	if options.hashlabel is None:
 		hashlabel = options.rename.get(d.hashlabel, d.hashlabel)
 		if hashlabel not in columns:
@@ -96,8 +98,8 @@ def prepare(job, slices):
 		parent = None
 	else:
 		parent = datasets.source
-	if options.hashlabel and options.hashlabel not in columns:
-		raise Exception("Can't rehash on untyped column %r." % (options.hashlabel,))
+	if options.hashlabel and hashlabel not in columns:
+		raise Exception("Can't rehash on untyped column %r." % (hashlabel,))
 	dws = []
 	if rehashing:
 		previous = datasets.previous
@@ -181,7 +183,7 @@ def analysis(sliceno, slices, prepare_res):
 		rehashing=rehashing,
 		hash_lines=None,
 		dw=dw,
-		rev_rename={v: k for k, v in options.rename.items() if v in datasets.source.columns},
+		rev_rename={v: k for k, v in options.rename.items() if k in datasets.source.columns and v in options.column2type},
 	)
 	if options.filter_bad:
 		vars.badmap_fd = map_init(vars, 'badmap%d' % (sliceno,))
@@ -244,7 +246,7 @@ def analysis_lap(vars):
 		if vars.first_lap:
 			out_fn = 'hashtmp.%d' % (vars.sliceno,)
 			colname = vars.rev_rename.get(vars.dw.hashlabel, vars.dw.hashlabel)
-			coltype = options.column2type[colname]
+			coltype = options.column2type[options.rename.get(colname, colname)]
 			vars.rehashing = False
 			real_coltype = one_column(vars, colname, coltype, [out_fn], True)
 			vars.rehashing = True
@@ -261,12 +263,11 @@ def analysis_lap(vars):
 				hash_lines[dest_slice] += 1
 			unlink(out_fn)
 	for colname, coltype in iteritems(options.column2type):
-		dest_colname = options.rename.get(colname, colname)
 		if vars.rehashing:
-			out_fns = [vars.dw.column_filename(dest_colname, sliceno=s) for s in range(vars.slices)]
+			out_fns = [vars.dw.column_filename(colname, sliceno=s) for s in range(vars.slices)]
 		else:
-			out_fns = [vars.dw.column_filename(dest_colname)]
-		one_column(vars, colname, coltype, out_fns)
+			out_fns = [vars.dw.column_filename(colname)]
+		one_column(vars, vars.rev_rename.get(colname, colname), coltype, out_fns)
 	return vars.res_bad_count, vars.res_default_count, vars.res_minmax
 
 
