@@ -52,7 +52,7 @@ def name2ds(n):
 		ds = Dataset(n)
 	except IOError:
 		return None
-	slices = ds.jobid.params().slices
+	slices = ds.jobid.params.slices
 	from accelerator import g
 	if hasattr(g, 'slices'):
 		assert g.slices == slices, "Dataset %s needs %d slices, by we are already using %d slices" % (ds, slices, g.slices)

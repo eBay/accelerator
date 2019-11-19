@@ -21,6 +21,7 @@ import os
 import re
 
 from collections import namedtuple
+from functools import wraps
 
 from accelerator.compat import unicode, PY2
 
@@ -35,6 +36,15 @@ def dirnamematcher(name):
 	return re.compile(re.escape(name) + r'-[0-9]+$').match
 
 
+def _cachedprop(meth):
+	@property
+	@wraps(meth)
+	def wrapper(self):
+		if meth.__name__ not in self._cache:
+			self._cache[meth.__name__] = meth(self)
+		return self._cache[meth.__name__]
+	return wrapper
+
 class Job(unicode):
 	"""
 	A string that is a jobid, but also has some extra properties:
@@ -42,10 +52,15 @@ class Job(unicode):
 	.number The job number as an int.
 	.workdir The workdir name (the part before -number in the jobid)
 	.path The filesystem directory where the job is stored.
+	.params setup.json from this job.
+	.post post.json from this job.
+	.datasets list of Datasets in this job.
 	And some functions:
-	.filename to join .path with a filename
-	.params to load setup.json from this job
-	.post to load post.json from this job
+	.withfile a JobWithFile with this job.
+	.filename to join .path with a filename.
+	.load to load a pickle.
+	.json_load to load a json file.
+	.dataset to get a named Dataset.
 
 	Decay's to a (unicode) string when pickled.
 	"""
@@ -53,18 +68,18 @@ class Job(unicode):
 		obj = unicode.__new__(cls, jobid)
 		obj.workdir, tmp = jobid.rsplit('-', 1)
 		obj.number = int(tmp)
-		obj._method = method
+		obj._cache = {}
+		if method:
+			obj._cache['method'] = method
 		return obj
 
 	@classmethod
 	def _create(cls, name, number):
 		return Job('%s-%d' % (name, number,))
 
-	@property
+	@_cachedprop
 	def method(self):
-		if not self._method:
-			self._method = self.params().method
-		return self._method
+		return self.params.method
 
 	@property
 	def path(self):
@@ -78,10 +93,12 @@ class Job(unicode):
 	def withfile(self, filename, sliced=False, extra=None):
 		return JobWithFile(self, filename, sliced, extra)
 
+	@_cachedprop
 	def params(self):
 		from accelerator.extras import job_params
 		return job_params(self)
 
+	@_cachedprop
 	def post(self):
 		from accelerator.extras import job_post
 		return job_post(self)
@@ -99,6 +116,7 @@ class Job(unicode):
 		from accelerator.dataset import Dataset
 		return Dataset(self, name)
 
+	@_cachedprop
 	def datasets(self):
 		from accelerator.dataset import job_datasets
 		return job_datasets(self)
@@ -114,6 +132,7 @@ class CurrentJob(Job):
 
 	def __new__(cls, jobid, params, result_directory, source_directory):
 		obj = Job.__new__(cls, jobid, params.method)
+		obj._cache['params'] = params
 		obj.result_directory = result_directory
 		obj.source_directory = source_directory
 		return obj

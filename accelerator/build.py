@@ -371,7 +371,7 @@ class JobList(_ListTypePreserver):
 		for jid in self:
 			if jid not in seen:
 				seen.add(jid)
-				t = jid.post().profile.total
+				t = jid.post.profile.total
 				total += t
 				per_method[jid.method] += t
 		return total, per_method
