@@ -28,7 +28,7 @@ with and without quoting.
 from accelerator import subjobs
 from accelerator.dispatch import JobError
 from accelerator.dataset import Dataset
-from accelerator.compat import open, uni
+from accelerator.compat import uni
 
 # different types so verify_failure can tell them apart
 class CSVImportException(Exception):
@@ -40,15 +40,15 @@ class WrongDataException(Exception):
 class WrongLabelsException(Exception):
 	pass
 
-def verify_failure(params, sep, data, testing_what, want_exc, **kw):
+def verify_failure(job, sep, data, testing_what, want_exc, **kw):
 	try:
-		check_one(params, "\n", sep, data, prefix="failing", **kw)
+		check_one(job, "\n", sep, data, prefix="failing", **kw)
 	except want_exc:
 		# The right exception, hooray! (Other exceptions will fail the method.)
 		return
 	raise Exception("Self test failure, check didn't fail for " + testing_what)
 
-def check_one(params, newline, sep, data, want_res=None, prefix="", quotes=False, leave_bad=False):
+def check_one(job, newline, sep, data, want_res=None, prefix="", quotes=False, leave_bad=False):
 	sep_c = uni(chr(sep))
 	# Can't have separator character in unquoted values
 	if not quotes and not leave_bad:
@@ -57,7 +57,7 @@ def check_one(params, newline, sep, data, want_res=None, prefix="", quotes=False
 		want_res = [tuple(s.encode("ascii") for s in line) for line in data[1:]]
 	filename = "%s_csv.%d.%s.txt" % (prefix, sep, "CRLF" if newline == "\r\n" else ord(newline))
 	newline = uni(newline)
-	with open(filename, "w", encoding="iso-8859-1") as fh:
+	with job.open(filename, "w", encoding="iso-8859-1", temp=True) as fh:
 		for line in data:
 			if quotes:
 				line = [quotes + el.replace(quotes, quotes + quotes) + quotes for el in line]
@@ -65,7 +65,7 @@ def check_one(params, newline, sep, data, want_res=None, prefix="", quotes=False
 			fh.write(newline)
 	try:
 		jid = subjobs.build("csvimport", options=dict(
-			filename=params.jobid.filename(filename),
+			filename=job.filename(filename),
 			separator=sep_c,
 			quotes=quotes,
 			newline='' if "\n" in newline else newline,
@@ -80,7 +80,7 @@ def check_one(params, newline, sep, data, want_res=None, prefix="", quotes=False
 	if res != want_res:
 		raise WrongDataException("csvimport gave wrong data for separator %d with newline %r: %r (expected %r)" % (sep, newline, res, want_res,))
 
-def synthesis(params):
+def synthesis(job):
 	# Any iso-8859-1 character is a valid separator, but let's try
 	# only a few popular or likely problem-characters to save time.
 	separators = (
@@ -108,15 +108,15 @@ def synthesis(params):
 	# Sanity check, make sure the various checks actually work.
 	# Make sure to use separate separators in all of them, to avoid
 	# cross-contamination.
-	verify_failure(params, 1, data + [["short", "line"]], "short line", CSVImportException)
-	verify_failure(params, 2, data, "wrong data", WrongDataException, want_res=["wrong"])
-	verify_failure(params, 44, [["a", "b,c"]], "wrong labels", WrongLabelsException, leave_bad=True)
+	verify_failure(job, 1, data + [["short", "line"]], "short line", CSVImportException)
+	verify_failure(job, 2, data, "wrong data", WrongDataException, want_res=["wrong"])
+	verify_failure(job, 44, [["a", "b,c"]], "wrong labels", WrongLabelsException, leave_bad=True)
 
 	# check that all the combinations we expect to work do in fact work
 	for newline in ("\n", "\r\n", "\r", "\xfe"):
 		for sep in separators:
-			check_one(params, newline, sep, data, prefix="unquoted", quotes=False)
+			check_one(job, newline, sep, data, prefix="unquoted", quotes=False)
 			if sep != 34:
-				check_one(params, newline, sep, data, prefix="doublequoted", quotes='"')
+				check_one(job, newline, sep, data, prefix="doublequoted", quotes='"')
 			if sep != 39:
-				check_one(params, newline, sep, data, prefix="singlequoted", quotes="'")
+				check_one(job, newline, sep, data, prefix="singlequoted", quotes="'")

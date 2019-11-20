@@ -61,7 +61,6 @@ default is to include directories.
 
 from zipfile import ZipFile
 from shutil import copyfileobj
-from os import unlink
 from os.path import join
 import re
 
@@ -137,7 +136,7 @@ def analysis(sliceno, slices, prepare_res, job):
 	with ZipFile(join(job.source_directory, options.filename), 'r') as z:
 		for tmpfn, zfn, dsn in prepare_res[sliceno::slices]:
 			with z.open(zfn) as rfh:
-				with open(tmpfn, 'wb') as wfh:
+				with job.open(tmpfn, 'wb', temp=True) as wfh:
 					copyfileobj(rfh, wfh)
 
 def synthesis(prepare_res):
@@ -147,7 +146,6 @@ def synthesis(prepare_res):
 	for fn, info, dsn in lst:
 		opts.filename = fn
 		jid = subjobs.build('csvimport', options=opts, datasets=dict(previous=previous), caption="Import of %s from %s" % (info.filename, options.filename,))
-		unlink(fn)
 		previous = Dataset(jid).link_to_here(dsn)
 		if options.chaining == 'off':
 			previous = None
