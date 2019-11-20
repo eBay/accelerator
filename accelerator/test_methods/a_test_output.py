@@ -51,7 +51,9 @@ def test(params, p=False, a=False, s=False):
 	jid = subjobs.build(name, options=opts)
 	d = jid.filename('OUTPUT/')
 	chked = set()
+	all = []
 	def chk(part):
+		output = jid.output(part)
 		if isinstance(part, int):
 			data = opts['a'] % (part,)
 			part = str(part)
@@ -62,15 +64,20 @@ def test(params, p=False, a=False, s=False):
 			got = fh.read()
 		want = prefix + '\n' + data + '\n'
 		assert got == prefix + '\n' + data + '\n', "%s produced %r in %s, expected %r" % (jid, got, part, want,)
+		assert output == got, 'job.output disagrees with manual file reading for %s in %s. %r != %r' % (part, jid, output, got,)
+		all.append(got)
 	if p:
 		chk('prepare')
-	if s:
-		chk('synthesis')
 	if a:
 		for sliceno in range(params.slices):
 			chk(sliceno)
+	if s:
+		chk('synthesis')
 	unchked = set(os.listdir(d)) - chked
 	assert not unchked, "Unexpected OUTPUT files from %s: %r" % (jid, unchked,)
+	output = jid.output()
+	got = ''.join(all)
+	assert output == got, 'job.output disagrees with manual file reading for <all> in %s. %r != %r' % (jid, output, got,)
 
 def synthesis(params):
 	test(params, s=True)

@@ -23,7 +23,7 @@ import re
 from collections import namedtuple
 from functools import wraps
 
-from accelerator.compat import unicode, PY2
+from accelerator.compat import unicode, PY2, open
 
 
 # WORKDIRS should live in the Automata class, but only for callers
@@ -61,8 +61,9 @@ class Job(unicode):
 	.load to load a pickle.
 	.json_load to load a json file.
 	.dataset to get a named Dataset.
+	.output to get what the job printed.
 
-	Decay's to a (unicode) string when pickled.
+	Decays to a (unicode) string when pickled.
 	"""
 	def __new__(cls, jobid, method=None):
 		obj = unicode.__new__(cls, jobid)
@@ -120,6 +121,25 @@ class Job(unicode):
 	def datasets(self):
 		from accelerator.dataset import job_datasets
 		return job_datasets(self)
+
+	def output(self, what=None):
+		if isinstance(what, int):
+			fns = [str(what)]
+		else:
+			assert what in (None, 'prepare', 'analysis', 'synthesis'), 'Unknown output %r' % (what,)
+			if what in (None, 'analysis'):
+				fns = [str(sliceno) for sliceno in range(self.params.slices)]
+				if what is None:
+					fns = ['prepare'] + fns + ['synthesis']
+			else:
+				fns = [what]
+		res = []
+		for fn in fns:
+			fn = self.filename('OUTPUT/' + fn)
+			if os.path.exists(fn):
+				with open(fn, 'rt', encoding='utf-8', errors='backslashreplace') as fh:
+					res.append(fh.read())
+		return ''.join(res)
 
 	# Look like a string after pickling
 	def __reduce__(self):
