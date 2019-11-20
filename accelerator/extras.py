@@ -176,17 +176,13 @@ def symlink(filename, destpath):
 
 
 def stackup():
-	"""Returns (filename, lineno) for the first caller not
-	in the same file as the caller of this function"""
+	"""Returns (filename, lineno) for the first caller not in the accelerator dir."""
 
 	from inspect import stack
-	blacklist = None
+	blacklist = os.path.dirname(__file__)
 	for stk in stack()[1:]:
-		if blacklist:
-			if stk[1] != blacklist:
-				return stk[1], stk[2]
-		else:
-			blacklist = stk[1]
+		if os.path.dirname(stk[1]) != blacklist:
+			return stk[1], stk[2]
 	return '?', -1
 
 class Temp:
