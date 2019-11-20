@@ -23,7 +23,7 @@ import re
 from collections import namedtuple
 from functools import wraps
 
-from accelerator.compat import unicode, PY2, open
+from accelerator.compat import unicode, PY2, PY3, open
 
 
 # WORKDIRS should live in the Automata class, but only for callers
@@ -60,6 +60,7 @@ class Job(unicode):
 	.filename to join .path with a filename.
 	.load to load a pickle.
 	.json_load to load a json file.
+	.open to open a file (like standard open)
 	.dataset to get a named Dataset.
 	.output to get what the job printed.
 
@@ -90,6 +91,10 @@ class Job(unicode):
 		if sliceno is not None:
 			filename = '%s.%d' % (filename, sliceno,)
 		return os.path.join(self.path, filename)
+
+	def open(self, filename, mode='r', sliceno=None, encoding=None, errors=None):
+		assert 'r' in mode, "Don't write to other jobs"
+		return open(self.filename(filename, sliceno), mode, encoding=encoding, errors=errors)
 
 	def withfile(self, filename, sliced=False, extra=None):
 		return JobWithFile(self, filename, sliced, extra)
@@ -168,6 +173,24 @@ class CurrentJob(Job):
 	def datasetwriter(self, columns={}, filename=None, hashlabel=None, hashlabel_override=False, caption=None, previous=None, name='default', parent=None, meta_only=False, for_single_slice=None):
 		from accelerator.dataset import DatasetWriter
 		return DatasetWriter(columns=columns, filename=filename, hashlabel=hashlabel, hashlabel_override=hashlabel_override, caption=caption, previous=previous, name=name, parent=parent, meta_only=meta_only, for_single_slice=for_single_slice)
+
+	def open(self, filename, mode='r', sliceno=None, encoding=None, errors=None, temp=None):
+		"""Mostly like standard open with sliceno and temp,
+		but you must use it as context manager
+		with job.open(...) as fh:
+		and the file will have a temp name until the with block ends.
+		"""
+		if 'r' in mode:
+			return Job.open(self, filename, mode, sliceno, encoding, errors)
+		if PY3 and 'x' not in mode:
+			mode = mode.replace('w', 'x')
+		def _open(fn, _mode):
+			# ignore the passed mode, use the one we have
+			return open(fn, mode, encoding=encoding, errors=errors)
+		from accelerator.extras import FileWriteMove
+		fwm = FileWriteMove(self.filename(filename, sliceno), temp=temp)
+		fwm._open = _open
+		return fwm
 
 
 class JobWithFile(namedtuple('JobWithFile', 'jobid filename sliced extra')):

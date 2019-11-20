@@ -222,7 +222,7 @@ class FileWriteMove(object):
 		self._status = status('Saving ' + self.filename)
 		self._status.__enter__()
 		# stupid python3 feels that w and x are exclusive, while python2 requires both.
-		fh = open(self.tmp_filename, 'xb' if PY3 else 'wbx')
+		fh = getattr(self, '_open', open)(self.tmp_filename, 'xb' if PY3 else 'wbx')
 		self.close = fh.close
 		return fh
 	def __exit__(self, e_type, e_value, e_tb):
