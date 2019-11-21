@@ -85,6 +85,15 @@ iskeyword = frozenset(kwlist).__contains__
 #
 # The dataset pickle is jid/name/dataset.pickle, so jid/default/dataset.pickle for the default dataset.
 
+class DatasetError(Exception):
+	pass
+
+class NoSuchDatasetError(DatasetError):
+	pass
+
+class DatasetUsageError(DatasetError):
+	pass
+
 def _clean_name(n, seen_n):
 	n = ''.join(c if c.isalnum() else '_' for c in n)
 	if n[0].isdigit():
@@ -124,7 +133,10 @@ _ds_cache = {}
 def _ds_load(obj):
 	n = unicode(obj)
 	if n not in _ds_cache:
-		_ds_cache[n] = blob.load(obj._name('pickle'), obj.jobid)
+		fn = obj.jobid.filename(obj._name('pickle'))
+		if not os.path.exists(fn):
+			raise NoSuchDatasetError('Dataset %r does not exist' % (n,))
+		_ds_cache[n] = blob.load(fn)
 		_ds_cache.update(_ds_cache[n].get('cache', ()))
 	return _ds_cache[n]
 
@@ -688,7 +700,7 @@ class Dataset(unicode):
 		minmax = self._minmax_merge(minmax)
 		for n, t in sorted(columns.items()):
 			if t not in type2iter:
-				raise Exception('Unknown type %s on column %s' % (t, n,))
+				raise DatasetUsageError('Unknown type %s on column %s' % (t, n,))
 			mm = minmax.get(n, (None, None,))
 			t = uni(t)
 			self._data.columns[n] = DatasetColumn(
@@ -946,7 +958,7 @@ class DatasetWriter(object):
 					for k, w in w_i:
 						w(values[k])
 				elif not discard:
-					raise Exception(wrong_slice_msg)
+					raise DatasetUsageError(wrong_slice_msg)
 			self.write_dict = write_dict
 			hix = self._order.index(hl)
 		else:
@@ -960,6 +972,8 @@ class DatasetWriter(object):
 		used_names = set(names)
 		w_names = [_clean_name('w%d' % (ix,), used_names) for ix in range(len(w_l))]
 		w_d = dict(zip(w_names, w_l))
+		errcls = _clean_name('DatasetUsageError', used_names)
+		w_d[errcls] = DatasetUsageError
 		f = ['def write(' + ', '.join(names) + '):']
 		f_list = ['def write_list(values):']
 		if len(names) == 1: # only the hashlabel, no check needed
@@ -974,8 +988,8 @@ class DatasetWriter(object):
 					f.append('  %s(%s)' % (w_names[ix], names[ix],))
 					f_list.append('  %s(values[%d])' % (w_names[ix], ix,))
 			if hl and not discard:
-				f.append(' else: raise Exception(%r)' % (wrong_slice_msg,))
-				f_list.append(' else: raise Exception(%r)' % (wrong_slice_msg,))
+				f.append(' else: raise %s(%r)' % (errcls, wrong_slice_msg,))
+				f_list.append(' else: raise %s(%r)' % (errcls, wrong_slice_msg,))
 		eval(compile('\n'.join(f), '<DatasetWriter generated write>', 'exec'), w_d)
 		self.write = w_d['write']
 		eval(compile('\n'.join(f_list), '<DatasetWriter generated write_list>', 'exec'), w_d)
