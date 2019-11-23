@@ -57,7 +57,7 @@ def main(urd):
 	try:
 		# Test if numeric_comma is broken (presumably because no suitable locale
 		# was found, since there are not actually any commas in the source dataset.)
-		urd.build("dataset_type", datasets=dict(source=source), options=dict(numeric_comma=True, column2type=dict(b="float64"), defaults=dict(b="0")));
+		urd.build("dataset_type", datasets=dict(source=source), options=dict(numeric_comma=True, column2type=dict(b="float64"), defaults=dict(b="0")))
 		comma_broken = False
 	except JobError as e:
 		comma_broken = True
@@ -66,7 +66,7 @@ def main(urd):
 		urd.warn('Follow the instructions in this error to enable numeric comma:')
 		urd.warn()
 		urd.warn(e.format_msg())
-	urd.build("test_dataset_type_corner_cases", options=dict(numeric_comma=not comma_broken));
+	urd.build("test_dataset_type_corner_cases", options=dict(numeric_comma=not comma_broken))
 
 	print()
 	print("Testing dataset chaining, filtering, callbacks and rechaining")
@@ -80,6 +80,7 @@ def main(urd):
 	urd.build("test_sort_chaining")
 	urd.build("test_rehash")
 	urd.build("test_dataset_type_hashing")
+	urd.build("test_dataset_type_chaining")
 
 	print()
 	print("Test hashlabels")
