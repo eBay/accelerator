@@ -134,15 +134,15 @@ def prepare(job, slices):
 	return dw, dws
 
 
-def map_init(vars, name, scale_factor=1):
+def map_init(vars, name, z='badmap_size'):
 	if not vars.badmap_size:
 		pagesize = getpagesize()
 		line_count = datasets.source.lines[vars.sliceno]
 		vars.badmap_size = (line_count // 8 // pagesize + 1) * pagesize
-		vars.slicemap_size = vars.badmap_size * 2
+		vars.slicemap_size = (line_count * 2 // pagesize + 1) * pagesize
 	fh = open(name, 'w+b')
 	vars.map_fhs.append(fh)
-	fh.truncate(vars.badmap_size * scale_factor)
+	fh.truncate(vars[z])
 	return fh.fileno()
 
 
@@ -251,7 +251,7 @@ def analysis_lap(vars):
 			real_coltype = one_column(vars, colname, coltype, [out_fn], True)
 			vars.rehashing = True
 			assert vars.res_bad_count[colname] == [0] # imlicitly has a default
-			vars.slicemap_fd = map_init(vars, 'slicemap%d' % (vars.sliceno,), 2)
+			vars.slicemap_fd = map_init(vars, 'slicemap%d' % (vars.sliceno,), 'slicemap_size')
 			slicemap = mmap(vars.slicemap_fd, vars.slicemap_size)
 			slicemap = Int16BytesWrapper(slicemap)
 			hash = typed_writer(real_coltype).hash
