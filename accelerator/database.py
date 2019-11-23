@@ -27,7 +27,7 @@ from collections import namedtuple
 from accelerator.compat import iteritems, itervalues
 
 from accelerator.safe_pool import Pool
-from accelerator.extras import job_params, OptionEnum, OptionDefault
+from accelerator.extras import _job_params, OptionEnum, OptionDefault
 
 
 Job = namedtuple('Job', 'id method params optset hash time total')
@@ -68,7 +68,7 @@ def _mkjob(setup):
 
 def _get_params(jobid):
 	try:
-		return jobid, job_params(jobid)
+		return jobid, _job_params(jobid)
 	except:
 		from traceback import print_exc
 		print_exc()

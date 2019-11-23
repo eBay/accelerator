@@ -53,6 +53,14 @@ def _typelistnone(v, t):
 	else:
 		return None
 
+def _job_params(jobid):
+	from accelerator.setupfile import load_setup
+	d = load_setup(jobid)
+	for method, tl in iteritems(d.get('_typing', {})):
+		_apply_typing(d.params[method].options, tl)
+	d.update(d.params[d.method])
+	return d
+
 def job_params(jobid=None, default_empty=False):
 	if default_empty and not jobid:
 		return DotDict(
@@ -60,13 +68,9 @@ def job_params(jobid=None, default_empty=False):
 			datasets=DotDict(),
 			jobids=DotDict(),
 		)
-	from accelerator.setupfile import load_setup
 	from accelerator.dataset import Dataset
 	from accelerator.job import Job
-	d = load_setup(jobid)
-	for method, tl in iteritems(d.get('_typing', {})):
-		_apply_typing(d.params[method].options, tl)
-	d.update(d.params[d.method])
+	d = _job_params(jobid)
 	d.datasets = DotDict({k: _typelistnone(v, Dataset) for k, v in d.datasets.items()})
 	d.jobids = DotDict({k: _typelistnone(v, Job) for k, v in d.jobids.items()})
 	d.jobid = Job(d.jobid)
