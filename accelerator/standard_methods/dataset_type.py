@@ -808,7 +808,8 @@ convert_template = r'''
 	char *badmap = 0;
 	uint16_t *slicemap = 0;
 	int chosen_slice = 0;
-	err1(g_init(&g, in_fn, offset, 1));
+	int current_file = 0;
+	err1(g_init(&g, in_fns[current_file], offsets[current_file], 1));
 	for (int i = 0; i < slices; i++) {
 		outfhs[i] = gzopen(out_fns[i], gzip_mode);
 		err1(!outfhs[i]);
@@ -838,8 +839,18 @@ convert_template = r'''
 #endif
 	}
 	%(minmax_setup)s;
-	if (max_count < 0) max_count = INT64_MAX;
-	for (int i = 0; (line = read_line(&g)) && i < max_count; i++) {
+	int64_t i = 0;
+	int64_t first_line;
+	int64_t max_count;
+more_infiles:
+	first_line = i;
+	max_count = max_counts[current_file];
+	if (max_count < 0) {
+		max_count = INT64_MAX;
+	} else {
+		max_count += first_line;
+	}
+	for (; i < max_count && (line = read_line(&g)); i++) {
 		if (slicemap) chosen_slice = slicemap[i];
 		if (skip_bad && badmap[i / 8] & (1 << (i %% 8))) {
 			bad_count[chosen_slice] += 1;
@@ -854,7 +865,7 @@ convert_template = r'''
 				continue;
 			}
 			if (!default_value) {
-				fprintf(stderr, "\n    Failed to convert \"%%s\" from %%s line %%d\n\n", line, in_fn, i + 1);
+				fprintf(stderr, "\n    Failed to convert \"%%s\" from %%s line %%lld\n\n", line, g.filename, (long long)i - first_line + 1);
 				goto err;
 			}
 			ptr = defbuf;
@@ -862,6 +873,11 @@ convert_template = r'''
 		}
 		%(minmax_code)s;
 		err1(gzwrite(outfhs[chosen_slice], ptr, %(datalen)s) != %(datalen)s);
+	}
+	current_file++;
+	if (current_file < in_count) {
+		g_init(&g, in_fns[current_file], offsets[current_file], 0);
+		goto more_infiles;
 	}
 	gzFile minmaxfh = gzopen(minmax_fn, gzip_mode);
 	err1(!minmaxfh);
@@ -996,9 +1012,10 @@ err:
 	char *badmap = 0;
 	uint16_t *slicemap = 0;
 	int chosen_slice = 0;
+	int current_file = 0;
 	const int allow_float = !fmt;
 	PyGILState_STATE gstate = PyGILState_Ensure();
-	err1(g_init(&g, in_fn, offset, 1));
+	err1(g_init(&g, in_fns[current_file], offsets[current_file], 1));
 	for (int i = 0; i < slices; i++) {
 		outfhs[i] = gzopen(out_fns[i], gzip_mode);
 		err1(!outfhs[i]);
@@ -1020,8 +1037,18 @@ err:
 		defbuf[0] = 0;
 		deflen = 1;
 	}
-	if (max_count < 0) max_count = INT64_MAX;
-	for (int i = 0; (line = read_line(&g)) && i < max_count; i++) {
+	int64_t i = 0;
+	int64_t first_line;
+	int64_t max_count;
+more_infiles:
+	first_line = i;
+	max_count = max_counts[current_file];
+	if (max_count < 0) {
+		max_count = INT64_MAX;
+	} else {
+		max_count += first_line;
+	}
+	for (; i < max_count && (line = read_line(&g)); i++) {
 		if (slicemap) chosen_slice = slicemap[i];
 		if (skip_bad && badmap[i / 8] & (1 << (i %% 8))) {
 			bad_count[chosen_slice] += 1;
@@ -1036,7 +1063,7 @@ err:
 				continue;
 			}
 			if (!deflen) {
-				fprintf(stderr, "\n    Failed to convert \"%%s\" from %%s line %%d\n\n", line, in_fn, i + 1);
+				fprintf(stderr, "\n    Failed to convert \"%%s\" from %%s line %%lld\n\n", line, g.filename, (long long)i - first_line + 1);
 				goto err;
 			}
 			ptr = defbuf;
@@ -1114,6 +1141,11 @@ err:
 		}
 		err1(gzwrite(outfhs[chosen_slice], ptr, len) != len);
 	}
+	current_file++;
+	if (current_file < in_count) {
+		g_init(&g, in_fns[current_file], offsets[current_file], 0);
+		goto more_infiles;
+	}
 	gzFile minmaxfh = gzopen(minmax_fn, gzip_mode);
 	err1(!minmaxfh);
 	res = g.error;
@@ -1138,7 +1170,7 @@ err:
 }
 '''
 
-proto_template = 'int convert_column_%s(const char *in_fn, const char **out_fns, const char *gzip_mode, const char *minmax_fn, const char *default_value, uint32_t default_len, int default_value_is_None, const char *fmt, const char *fmt_b, int record_bad, int skip_bad, int badmap_fd, size_t badmap_size, int slices, int slicemap_fd, size_t slicemap_size, uint64_t *bad_count, uint64_t *default_count, off_t offset, int64_t max_count)'
+proto_template = 'int convert_column_%s(const char **in_fns, int in_count, const char **out_fns, const char *gzip_mode, const char *minmax_fn, const char *default_value, uint32_t default_len, int default_value_is_None, const char *fmt, const char *fmt_b, int record_bad, int skip_bad, int badmap_fd, size_t badmap_size, int slices, int slicemap_fd, size_t slicemap_size, uint64_t *bad_count, uint64_t *default_count, off_t *offsets, int64_t *max_counts)'
 
 protos = []
 funcs = [noneval_data]
@@ -1161,7 +1193,8 @@ convert_blob_template = r'''
 	char *badmap = 0;
 	uint16_t *slicemap = 0;
 	int chosen_slice = 0;
-	err1(g_init(&g, in_fn, offset, 1));
+	int current_file = 0;
+	err1(g_init(&g, in_fns[current_file], offsets[current_file], 1));
 	for (int i = 0; i < slices; i++) {
 		outfhs[i] = gzopen(out_fns[i], gzip_mode);
 		err1(!outfhs[i]);
@@ -1200,8 +1233,18 @@ convert_blob_template = r'''
 		default_value = "\xff\0\0\0\0";
 		default_len = 5;
 	}
-	if (max_count < 0) max_count = INT64_MAX;
-	for (int i = 0; (line = read_line(&g)) && i < max_count; i++) {
+	int64_t i = 0;
+	int64_t first_line;
+	int64_t max_count;
+more_infiles:
+	first_line = i;
+	max_count = max_counts[current_file];
+	if (max_count < 0) {
+		max_count = INT64_MAX;
+	} else {
+		max_count += first_line;
+	}
+	for (; i < max_count && (line = read_line(&g)); i++) {
 		if (slicemap) chosen_slice = slicemap[i];
 		if (skip_bad && badmap[i / 8] & (1 << (i %% 8))) {
 			bad_count[chosen_slice] += 1;
@@ -1230,7 +1273,7 @@ convert_blob_template = r'''
 				continue;
 			}
 			if (!default_value) {
-				fprintf(stderr, "\n    Failed to convert \"%%s\" from %%s line %%d\n\n", line, in_fn, i + 1);
+				fprintf(stderr, "\n    Failed to convert \"%%s\" from %%s line %%lld\n\n", line, g.filename, (long long)i - first_line + 1);
 				goto err;
 			}
 			ptr = (const uint8_t *)default_value;
@@ -1239,6 +1282,11 @@ convert_blob_template = r'''
 		}
 		err1(gzwrite(outfhs[chosen_slice], ptr, len) != len);
 %(cleanup)s
+	}
+	current_file++;
+	if (current_file < in_count) {
+		g_init(&g, in_fns[current_file], offsets[current_file], 0);
+		goto more_infiles;
 	}
 	gzFile minmaxfh = gzopen(minmax_fn, gzip_mode);
 	err1(!minmaxfh);
@@ -1495,7 +1543,9 @@ c_module_wrapper_template = r'''
 static PyObject *py_%s(PyObject *self, PyObject *args)
 {
 	PyObject *res = 0;
-	const char *in_fn;
+	PyObject *o_in_fns;
+	int in_count;
+	const char **in_fns = 0;
 	PyObject *o_out_fns;
 	const char **out_fns = 0;
 	const char *gzip_mode;
@@ -1519,10 +1569,13 @@ static PyObject *py_%s(PyObject *self, PyObject *args)
 	uint64_t *bad_count = 0;
 	PyObject *o_default_count;
 	uint64_t *default_count = 0;
-	PY_LONG_LONG offset;
-	PY_LONG_LONG max_count;
-	if (!PyArg_ParseTuple(args, "etOetetOiiOOiiiLiiLOOLL",
-		Py_FileSystemDefaultEncoding, &in_fn,
+	PyObject *o_offsets;
+	off_t *offsets = 0;
+	PyObject *o_max_counts;
+	int64_t *max_counts = 0;
+	if (!PyArg_ParseTuple(args, "OiOetetOiiOOiiiLiiLOOOO",
+		&o_in_fns,
+		&in_count,
 		&o_out_fns,
 		Py_FileSystemDefaultEncoding, &gzip_mode,
 		Py_FileSystemDefaultEncoding, &minmax_fn,
@@ -1540,8 +1593,8 @@ static PyObject *py_%s(PyObject *self, PyObject *args)
 		&slicemap_size,
 		&o_bad_count,
 		&o_default_count,
-		&offset,
-		&max_count
+		&o_offsets,
+		&o_max_counts
 	)) {
 		return 0;
 	}
@@ -1553,10 +1606,31 @@ static PyObject *py_%s(PyObject *self, PyObject *args)
 	if (!PyList_Check(o_default_count)) Py_RETURN_TRUE;
 	if (PyList_Size(o_default_count) != slices) Py_RETURN_TRUE;
 
+	if (!PyList_Check(o_in_fns)) Py_RETURN_TRUE;
+	if (!PyList_Check(o_offsets)) Py_RETURN_TRUE;
+	if (!PyList_Check(o_max_counts)) Py_RETURN_TRUE;
+	if (PyList_Size(o_in_fns) != in_count) Py_RETURN_TRUE;
+	if (PyList_Size(o_offsets) != in_count) Py_RETURN_TRUE;
+	if (PyList_Size(o_max_counts) != in_count) Py_RETURN_TRUE;
+	in_fns = malloc(in_count * sizeof(*in_fns));
+	err1(!in_fns);
+	offsets = malloc(in_count * sizeof(*offsets));
+	err1(!offsets);
+	max_counts = malloc(in_count * sizeof(*max_counts));
+	err1(!max_counts);
+	for (int i = 0; i < in_count; i++) {
+		in_fns[i] = PyBytes_AS_STRING(PyList_GetItem(o_in_fns, i));
+		err1(!in_fns[i]);
+		offsets[i] = PyLong_AsLongLong(PyList_GetItem(o_offsets, i));
+		err1(PyErr_Occurred());
+		max_counts[i] = PyLong_AsLongLong(PyList_GetItem(o_max_counts, i));
+		err1(PyErr_Occurred());
+	}
+
 	if (!PyList_Check(o_out_fns)) Py_RETURN_TRUE;
 	int out_fns_len = PyList_Size(o_out_fns);
 	if (out_fns_len != slices) Py_RETURN_TRUE;
-	out_fns = malloc(out_fns_len * sizeof(char *));
+	out_fns = malloc(out_fns_len * sizeof(*out_fns));
 	err1(!out_fns);
 	default_count = malloc(slices * 8);
 	err1(!default_count);
@@ -1568,7 +1642,7 @@ static PyObject *py_%s(PyObject *self, PyObject *args)
 		default_count[i] = bad_count[i] = 0;
 	}
 
-	if (%s(in_fn, out_fns, gzip_mode, minmax_fn, default_value, default_len, default_value_is_None, fmt, fmt_b, record_bad, skip_bad, badmap_fd, badmap_size, slices, slicemap_fd, slicemap_size, bad_count, default_count, offset, max_count)) {
+	if (%s(in_fns, in_count, out_fns, gzip_mode, minmax_fn, default_value, default_len, default_value_is_None, fmt, fmt_b, record_bad, skip_bad, badmap_fd, badmap_size, slices, slicemap_fd, slicemap_size, bad_count, default_count, offsets, max_counts)) {
 		res = Py_True;
 		goto err;
 	}
@@ -1581,6 +1655,9 @@ err:
 	if (bad_count) free(bad_count);
 	if (default_count) free(default_count);
 	if (out_fns) free(out_fns);
+	if (max_counts) free(max_counts);
+	if (offsets) free(offsets);
+	if (in_fns) free(in_fns);
 	if (res) Py_INCREF(res);
 	return res;
 }
