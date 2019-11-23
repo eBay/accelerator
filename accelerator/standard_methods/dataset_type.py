@@ -1574,9 +1574,10 @@ static PyObject *py_%s(PyObject *self, PyObject *args)
 	for (int i = 0; i < slices; i++) {
 		out_fns[i] = PyBytes_AS_STRING(PyList_GetItem(o_out_fns, i));
 		err1(!out_fns[i]);
+		default_count[i] = bad_count[i] = 0;
 	}
 
-	if (%s(in_fn, out_fns, gzip_mode, minmax_fn, default_value, default_len, default_value_is_None, fmt, fmt_b, record_bad, skip_bad, badmap_fd, badmap_size, slices, slicemap_fd, slicemap_size, &bad_count, &default_count, offset, max_count)) {
+	if (%s(in_fn, out_fns, gzip_mode, minmax_fn, default_value, default_len, default_value_is_None, fmt, fmt_b, record_bad, skip_bad, badmap_fd, badmap_size, slices, slicemap_fd, slicemap_size, bad_count, default_count, offset, max_count)) {
 		res = Py_True;
 		goto err;
 	}
