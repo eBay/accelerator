@@ -808,13 +808,7 @@ convert_template = r'''
 	char *badmap = 0;
 	uint16_t *slicemap = 0;
 	int chosen_slice = 0;
-	int fd = open(in_fn, O_RDONLY);
-	if (fd < 0) goto errfd;
-	if (lseek(fd, offset, 0) != offset) goto errfd;
-	g_init(&g, in_fn);
-	g.fh = gzdopen(fd, "rb");
-	if (!g.fh) goto errfd;
-	fd = -1;
+	err1(g_init(&g, in_fn, offset, 1));
 	for (int i = 0; i < slices; i++) {
 		outfhs[i] = gzopen(out_fns[i], gzip_mode);
 		err1(!outfhs[i]);
@@ -882,8 +876,6 @@ err:
 	}
 	if (badmap) munmap(badmap, badmap_size);
 	if (slicemap) munmap(slicemap, slicemap_size);
-errfd:
-	if (fd >= 0) close(fd);
 	PyGILState_Release(gstate);
 	return res;
 }
@@ -1006,13 +998,7 @@ err:
 	int chosen_slice = 0;
 	const int allow_float = !fmt;
 	PyGILState_STATE gstate = PyGILState_Ensure();
-	int fd = open(in_fn, O_RDONLY);
-	if (fd < 0) goto errfd;
-	if (lseek(fd, offset, 0) != offset) goto errfd;
-	g_init(&g, in_fn);
-	g.fh = gzdopen(fd, "rb");
-	if (!g.fh) goto errfd;
-	fd = -1;
+	err1(g_init(&g, in_fn, offset, 1));
 	for (int i = 0; i < slices; i++) {
 		outfhs[i] = gzopen(out_fns[i], gzip_mode);
 		err1(!outfhs[i]);
@@ -1148,8 +1134,6 @@ err:
 	}
 	if (badmap) munmap(badmap, badmap_size);
 	if (slicemap) munmap(slicemap, slicemap_size);
-errfd:
-	if (fd >= 0) close(fd);
 	return res;
 }
 '''
@@ -1177,13 +1161,7 @@ convert_blob_template = r'''
 	char *badmap = 0;
 	uint16_t *slicemap = 0;
 	int chosen_slice = 0;
-	int fd = open(in_fn, O_RDONLY);
-	if (fd < 0) goto errfd;
-	if (lseek(fd, offset, 0) != offset) goto errfd;
-	g_init(&g, in_fn);
-	g.fh = gzdopen(fd, "rb");
-	if (!g.fh) goto errfd;
-	fd = -1;
+	err1(g_init(&g, in_fn, offset, 1));
 	for (int i = 0; i < slices; i++) {
 		outfhs[i] = gzopen(out_fns[i], gzip_mode);
 		err1(!outfhs[i]);
@@ -1275,8 +1253,6 @@ err:
 	}
 	if (badmap) munmap(badmap, badmap_size);
 	if (slicemap) munmap(slicemap, slicemap_size);
-errfd:
-	if (fd >= 0) close(fd);
 	PyGILState_Release(gstate);
 	return res;
 }
@@ -1345,19 +1321,34 @@ typedef struct {
 static const char NoneMarker[1] = {0};
 static char decimal_separator = '.';
 
-static void g_init(g *g, const char *filename)
+static int g_init(g *g, const char *filename, off_t offset, const int first)
 {
+	if (!first) {
+		int e = gzclose(g->fh);
+		g->fh = 0;
+		if (e || g->error) return 1;
+	}
 	g->fh = 0;
 	g->pos = g->len = 0;
 	g->error = 0;
 	g->filename = filename;
-	g->largetmp = 0;
+	if (first) g->largetmp = 0;
+	int fd = open(filename, O_RDONLY);
+	if (fd < 0) return 1;
+	if (lseek(fd, offset, 0) != offset) goto errfd;
+	g->fh = gzdopen(fd, "rb");
+	if (!g->fh) goto errfd;
+	return 0;
+errfd:
+	close(fd);
+	return 1;
 }
 
 static int g_cleanup(g *g)
 {
 	if (g->largetmp) free(g->largetmp);
-	return gzclose(g->fh);
+	if (g->fh) return gzclose(g->fh);
+	return 0;
 }
 
 int numeric_comma(const char *localename)
