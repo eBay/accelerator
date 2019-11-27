@@ -27,7 +27,7 @@ from shutil import copyfileobj
 from struct import Struct
 import itertools
 
-from accelerator.compat import NoneType, unicode, imap, iteritems, itervalues, PY2
+from accelerator.compat import NoneType, unicode, imap, itervalues, PY2
 
 from accelerator.extras import OptionEnum, DotDict
 from accelerator.gzwrite import typed_writer, typed_reader
@@ -45,11 +45,11 @@ Also rehashes if you type the hashlabel, or specify a new hashlabel.
 # doesn't have a default. With filter_bad the value is filtered out
 # together with all other values on the same line.
 #
-# With filter_bad a new dataset is produced - columns not specified in
-# column2type become inaccessible.
-#
-# If you need to preserve unconverted columns with filter_bad, specify them
-# as converted to bytes.
+# With filter_bad, when rehashing or when typing a chain a new dataset is
+# produced, so any columns not in column2type that are not of a bytes-like
+# type will be discarded. You can set discard_untyped to discard all
+# unspecified columns, or set it to False to get an error if any columns
+# were not preservable (except columns renamed over).
 
 TYPENAME = OptionEnum(dataset_type.convfuncs.keys())
 
@@ -78,36 +78,83 @@ def prepare(job, slices):
 	assert 1 <= options.compression <= 9
 	cstuff.backend.init()
 	d = datasets.source
-	columns = {}
-	rev_rename = {v: k for k, v in options.rename.items() if k in d.columns and v in options.column2type}
-	for colname, coltype in iteritems(options.column2type):
-		orig_colname = rev_rename.get(colname, colname)
-		if orig_colname not in d.columns:
-			raise Exception("Dataset %s doesn't have a column named %r (has %r)" % (d, colname, set(d.columns),))
-		if d.columns[orig_colname].type not in byteslike_types:
-			raise Exception("Dataset %s column %r is type %s, must be one of %r" % (d, orig_colname, d.columns[orig_colname].type, byteslike_types,))
-		coltype = coltype.split(':', 1)[0]
-		columns[colname] = dataset_type.typerename.get(coltype, coltype)
-	if options.hashlabel is None:
-		hashlabel = options.rename.get(d.hashlabel, d.hashlabel)
-		if hashlabel not in columns:
-			hashlabel = None
-	else:
-		hashlabel = options.hashlabel or None
-	rehashing = (hashlabel in columns)
 	chain = d.chain(stop_ds={datasets.previous: 'source'}, length=options.length)
 	if len(chain) == 1:
 		filename = d.filename
 	else:
 		filename = None
-	lines = [sum(d.lines[sliceno] for d in chain) for sliceno in range(slices)]
-	if options.filter_bad or rehashing or options.discard_untyped:
-		assert options.discard_untyped is not False, "Can't keep untyped when " + ("filtering bad" if options.filter_bad else "rehashing")
+	lines = [sum(ds.lines[sliceno] for ds in chain) for sliceno in range(slices)]
+	columns = {}
+	column2type = dict(options.column2type)
+	rev_rename = {}
+	for k, v in options.rename.items():
+		if k in d.columns and (v in column2type or options.discard_untyped is not True):
+			if v in rev_rename:
+				raise Exception('Both column %r and column %r rename to %r' % (rev_rename[v], k, v,))
+			rev_rename[v] = k
+	for colname, coltype in column2type.items():
+		orig_colname = rev_rename.get(colname, colname)
+		for ds in chain:
+			if orig_colname not in ds.columns:
+				raise Exception("Dataset %s doesn't have a column named %r (has %r)" % (ds, orig_colname, set(ds.columns),))
+			if ds.columns[orig_colname].type not in byteslike_types:
+				raise Exception("Dataset %s column %r is type %s, must be one of %r" % (ds, orig_colname, ds.columns[orig_colname].type, byteslike_types,))
+		coltype = coltype.split(':', 1)[0]
+		columns[colname] = dataset_type.typerename.get(coltype, coltype)
+	if options.hashlabel is None:
+		hashlabel = options.rename.get(d.hashlabel, d.hashlabel)
+		if hashlabel in columns:
+			if rev_rename.get(hashlabel, hashlabel) != d.hashlabel:
+				# hashlabel gets overwritten
+				hashlabel = None
+		rehashing = (hashlabel in columns)
+		hashlabel_override = False
+	else:
+		hashlabel = options.hashlabel or None
+		rehashing = bool(hashlabel)
+		hashlabel_override = True
+	if (options.filter_bad or rehashing or len(chain) > 1) and not options.discard_untyped:
+		untyped_columns = set(d.columns)
+		for ds in chain:
+			untyped_columns &= set(ds.columns)
+		orig_columns = set(rev_rename.get(n, n) for n in columns)
+		untyped_columns -= set(columns) # anything renamed over is irrelevant
+		untyped_columns -= orig_columns
+		if options.discard_untyped is False:
+			missing = set(d.columns) - untyped_columns - set(columns) - orig_columns
+			if missing:
+				raise Exception('discard_untyped is False, but not all columns in %s exist in the whole chain (missing %r)' % (d, missing,))
+		cand2type = {}
+		unkeepable = set()
+		for colname in sorted(untyped_columns):
+			target_colname = options.rename.get(colname, colname)
+			if target_colname in cand2type:
+				continue
+			ts = set(ds.columns[colname].type for ds in chain)
+			if len(ts) == 1:
+				t = ts.pop()
+			else:
+				# We could be a bit more generous and use bytes for other
+				# workable combinations, or even unicode for {ascii, unicode}.
+				t = 'BAD'
+			if t in byteslike_types:
+				cand2type[target_colname] = t
+			else:
+				unkeepable.add(colname)
+		if options.discard_untyped is False:
+			assert not unkeepable, 'The following columns had unkeepable or varying types: %r' % (unkeepable,)
+		else:
+			columns.update(cand2type)
+			column2type.update((k, 'unicode:utf-8' if v == 'unicode' else v) for k, v in cand2type.items())
+	if options.filter_bad or rehashing or options.discard_untyped or len(chain) > 1:
 		parent = None
 	else:
-		parent = datasets.source if len(chain) == 1 else None
-	if options.hashlabel and hashlabel not in columns:
-		raise Exception("Can't rehash on untyped column %r." % (hashlabel,))
+		parent = datasets.source
+	if hashlabel and hashlabel not in columns:
+		if options.hashlabel:
+			raise Exception("Can't rehash on untyped column %r." % (hashlabel,))
+		hashlabel = None # it gets inherited from the parent if we're keeping it.
+		hashlabel_override = False
 	dws = []
 	if rehashing:
 		previous = datasets.previous
@@ -135,13 +182,13 @@ def prepare(job, slices):
 			columns=columns,
 			caption=options.caption,
 			hashlabel=hashlabel,
-			hashlabel_override=True,
+			hashlabel_override=hashlabel_override,
 			filename=filename,
 			parent=parent,
 			previous=datasets.previous,
 			meta_only=True,
 		)
-	return dw, dws, chain, lines
+	return dw, dws, lines, chain, column2type
 
 
 def map_init(vars, name, z='badmap_size'):
@@ -171,7 +218,7 @@ def analysis(sliceno, slices, prepare_res):
 				break
 		else:
 			raise Exception("Failed to enable numeric_comma, please install at least one of the following locales: " + " ".join(try_locales))
-	dw, dws, chain, lines = prepare_res
+	dw, dws, lines, chain, column2type = prepare_res
 	if dws:
 		dw = dws[sliceno]
 		rehashing = True
@@ -195,7 +242,8 @@ def analysis(sliceno, slices, prepare_res):
 		dw=dw,
 		chain=chain,
 		lines=lines,
-		rev_rename={v: k for k, v in options.rename.items() if k in datasets.source.columns and v in options.column2type},
+		column2type=column2type,
+		rev_rename={v: k for k, v in options.rename.items() if k in datasets.source.columns and v in column2type},
 	)
 	if options.filter_bad:
 		vars.badmap_fd = map_init(vars, 'badmap%d' % (sliceno,))
@@ -258,7 +306,7 @@ def analysis_lap(vars):
 		if vars.first_lap:
 			out_fn = 'hashtmp.%d' % (vars.sliceno,)
 			colname = vars.rev_rename.get(vars.dw.hashlabel, vars.dw.hashlabel)
-			coltype = options.column2type[options.rename.get(colname, colname)]
+			coltype = vars.column2type[options.rename.get(colname, colname)]
 			vars.rehashing = False
 			real_coltype = one_column(vars, colname, coltype, [out_fn], True)
 			vars.rehashing = True
@@ -274,7 +322,7 @@ def analysis_lap(vars):
 				slicemap[ix] = dest_slice
 				hash_lines[dest_slice] += 1
 			unlink(out_fn)
-	for colname, coltype in iteritems(options.column2type):
+	for colname, coltype in vars.column2type.items():
 		if vars.rehashing:
 			out_fns = [vars.dw.column_filename(colname, sliceno=s) for s in range(vars.slices)]
 		else:
@@ -438,7 +486,7 @@ def one_column(vars, colname, coltype, out_fns, for_hasher=False):
 	return real_coltype
 
 def synthesis(slices, analysis_res, prepare_res):
-	dw, dws, chain, lines = prepare_res
+	dw, dws, lines, _, _ = prepare_res
 	analysis_res = list(analysis_res)
 	if options.filter_bad:
 		bad_line_count_per_slice = [sum(data[1]) for data in analysis_res]
