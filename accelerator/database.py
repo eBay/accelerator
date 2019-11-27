@@ -27,7 +27,7 @@ from collections import namedtuple
 from accelerator.compat import iteritems, itervalues
 
 from accelerator.safe_pool import Pool
-from accelerator.extras import _job_params, OptionEnum, OptionDefault
+from accelerator.extras import _job_params, job_post, OptionEnum, OptionDefault
 
 
 Job = namedtuple('Job', 'id method params optset hash time total')
@@ -68,7 +68,7 @@ def _mkjob(setup):
 
 def _get_params(jobid):
 	try:
-		return jobid, _job_params(jobid)
+		return jobid, (_job_params(jobid), list(job_post(jobid).subjobs))
 	except:
 		from traceback import print_exc
 		print_exc()
@@ -90,7 +90,7 @@ class DataBase:
 		self._fsjid = set()
 
 	def add_single_jobid(self, jobid):
-		job = _mkjob(_paramsdict[jobid])
+		job = _mkjob(_paramsdict[jobid][0])
 		self.db_by_method[job.method].insert(0, job)
 		return job
 
@@ -120,14 +120,33 @@ class DataBase:
 		for j in set(_paramsdict) - self._fsjid:
 			del _paramsdict[j]
 		discarded_due_to_hash_list = []
-		# Keep lists of jobs per method, only with valid hashes
-		self.db_by_method = defaultdict(list)
-		for setup in itervalues(_paramsdict):
+
+		# Keep only jobs with valid hashes.
+		job_candidates = {}
+		for setup, subjobs in itervalues(_paramsdict):
 			if setup.hash in dict_of_hashes.get(setup.method, ()):
-				job = _mkjob(setup)
-				self.db_by_method[job.method].append(job)
+				job_candidates[setup.jobid] = (setup, subjobs)
 			else:
 				discarded_due_to_hash_list.append(setup.jobid)
+
+		# Keep only jobs where all subjobs are valid.
+		discarded_due_to_subjobs = []
+		done = False
+		while not done:
+			done = True
+			for setup, subjobs in list(itervalues(job_candidates)):
+				for j in subjobs:
+					if j not in job_candidates:
+						done = False
+						discarded_due_to_subjobs.append(setup.jobid)
+						del job_candidates[setup.jobid]
+						break
+
+		# Keep lists of jobs per method, only with valid hashes
+		self.db_by_method = defaultdict(list)
+		for setup, _ in itervalues(job_candidates):
+			job = _mkjob(setup)
+			self.db_by_method[job.method].append(job)
 		# Newest first
 		for l in itervalues(self.db_by_method):
 			l.sort(key=attrgetter('time'), reverse=True)
