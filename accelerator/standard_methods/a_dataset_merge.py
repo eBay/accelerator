@@ -26,12 +26,14 @@ Columns from later datasets override columns of the same name
 from earlier datasets.
 '''
 
-from accelerator.dataset import merge_datasets
-
 options = dict(
 	allow_unrelated=False,
 )
 datasets = (['source'], 'previous',)
 
 def synthesis():
-	merge_datasets(datasets.source, allow_unrelated=options.allow_unrelated, previous=datasets.previous)
+	assert len(datasets.source) >= 2, 'Must have at least two datasets to join'
+	current = datasets.source[0]
+	for ix, ds in enumerate(datasets.source[1:-1]):
+		current = current.merge(ds, name=str(ix), allow_unrelated=options.allow_unrelated)
+	current.merge(datasets.source[-1], allow_unrelated=options.allow_unrelated, previous=datasets.previous)

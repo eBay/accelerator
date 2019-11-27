@@ -21,10 +21,10 @@ from __future__ import division
 from __future__ import unicode_literals
 
 description = r'''
-Test merge_datasets() and the dataset_merge method.
+Test Dataset.merge() and the dataset_merge method.
 '''
 
-from accelerator.dataset import Dataset, DatasetWriter, merge_datasets
+from accelerator.dataset import DatasetWriter, DatasetUsageError
 from accelerator import subjobs
 from accelerator.dispatch import JobError
 
@@ -37,18 +37,18 @@ def mkds(name, columns, data, **kw):
 	return dw.finish()
 
 merges = {}
-def merge(name, *parents, **kw):
-	merges[name] = (parents, kw)
-	return merge_datasets(parents, name=name, **kw)
+def merge(name, a, b, **kw):
+	merges[name] = ((a, b), kw)
+	return a.merge(b, name=name, **kw)
 
 failed_merges = []
-def fail_merge(*parents, **kw):
-	failed_merges.append((parents, kw,))
+def fail_merge(a, b, **kw):
+	failed_merges.append(((a, b), kw,))
 	try:
-		merge_datasets(parents, name='failme', **kw)
-	except Exception:
+		a.merge(b, name='failme', **kw)
+	except DatasetUsageError:
 		return
-	raise Exception("Merging %r with %r didn't fail as it should have" % (parents, kw,))
+	raise Exception("Merging %s and %s with %r didn't fail as it should have" % (a, b, kw,))
 
 checks = {}
 def check(ds, want):
@@ -80,12 +80,17 @@ def synthesis(params):
 	bd0 = merge('bd0', b0, d0) # immediate parents are not shared
 	# bd contains columns 0, 1, 2, 3 and 4, with 0 and 1 from a (via d -> c -> a), 2 from b, 3 from c and 4 from d
 	check(bd0, [(1, 2, 14, 25, 37), (3, 4, 16, 26, 38), (5, 6, 18, 27, 39)])
-	cbdb0 = merge('cbdb0', c0, bd0, b0) # more than two datasets with complex parent relationship
+	# more than two datasets with complex parent relationship
+	# merged in two stages here, but a single dataset_merge job later.
+	cbd0 = merge('cbd0', c0, bd0)
+	del merges['cbd0']
+	cbdb0 = merge('cbdb0', cbd0, b0)
+	merges['cbdb0'] = ((c0, bd0, b0), {})
 	# cbdb contains columns 0, 1, 2, 3 and 4, with 0 from a (via d -> c -> a), 1 and 2 from b, 3 from c and 4 from d
 	check(cbdb0, [(1, 13, 14, 25, 37), (3, 15, 16, 26, 38), (5, 17, 18, 27, 39)])
 	fail_merge(a0, a1) # no parents
 	fail_merge(b0, b1) # parents not shared
-	fail_merge(b0, c0, b0) # repeated parent
+	fail_merge(b0, b0) # merge with self
 	other = mkds('other', ['5'], [(31,), (32,), (33,)])
 	fail_merge(a0, other) # parents not shared
 	aother = merge('aother', a0, other, allow_unrelated=True)
@@ -137,7 +142,7 @@ def synthesis(params):
 		if 'previous' in kw:
 			a_ds['previous'] = kw.pop('previous')
 		jid = subjobs.build('dataset_merge', datasets=a_ds, options=kw)
-		check(Dataset(jid), checks[name])
+		check(jid.dataset(), checks[name])
 	for parents, kw in failed_merges:
 		try:
 			subjobs.build('dataset_merge', datasets=dict(source=parents), options=kw)
