@@ -56,6 +56,16 @@ def synthesis(job):
 	assert typed_b.hashlabel == 'a'
 	assert set(typed_b.iterate(None)) == {('a', 'b'), ('A', 'B')}, typed_b
 
+	# Test renaming over the original hashlabel
+	dw = job.datasetwriter(name='c', columns={'a': 'unicode', 'b': 'ascii', 'c': 'bytes', 'd': 'unicode'}, hashlabel='a')
+	write = dw.get_split_write()
+	write('\xe5', 'b', b'c', '0')
+	c = dw.finish()
+	assert c.hashlabel == 'a'
+	typed_c = subjobs.build('dataset_type', options=dict(column2type={'a': 'ascii', 'd': 'number'}, rename={'c': 'a'}), datasets=dict(source=c)).dataset()
+	assert typed_c.hashlabel == None
+	assert list(typed_c.iterate(None)) == [('c', 'b', b'c', 0)], typed_c
+
 	# Test various types for hashing and discarding of bad lines.
 	for hl in (None, 'a', 'b', 'c'):
 		dw = job.datasetwriter(name='hashed on %s' % (hl,), columns={'a': 'unicode', 'b': 'unicode', 'c': 'unicode'}, hashlabel=hl)

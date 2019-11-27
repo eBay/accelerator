@@ -657,10 +657,11 @@ class Dataset(unicode):
 		return lines
 
 	def append(self, columns, filenames, lines, minmax={}, filename=None, hashlabel=None, hashlabel_override=False, caption=None, previous=None, name='default'):
-		if hashlabel:
-			hashlabel = uni(hashlabel)
-			if not hashlabel_override:
-				assert self.hashlabel == hashlabel, 'Hashlabel mismatch %s != %s' % (self.hashlabel, hashlabel,)
+		hashlabel = uni(hashlabel)
+		if hashlabel_override:
+			self._data.hashlabel = hashlabel
+		elif hashlabel:
+			assert self.hashlabel == hashlabel, 'Hashlabel mismatch %s != %s' % (self.hashlabel, hashlabel,)
 		assert self._linefixup(lines) == self.lines, "New columns don't have the same number of lines as parent columns"
 		columns = {uni(k): uni(v) for k, v in columns.items()}
 		self._append(columns, filenames, minmax, filename, caption, previous, name)

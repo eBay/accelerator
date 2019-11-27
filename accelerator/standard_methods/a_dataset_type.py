@@ -102,17 +102,18 @@ def prepare(job, slices):
 		coltype = coltype.split(':', 1)[0]
 		columns[colname] = dataset_type.typerename.get(coltype, coltype)
 	if options.hashlabel is None:
+		hashlabel_override = False
 		hashlabel = options.rename.get(d.hashlabel, d.hashlabel)
 		if hashlabel in columns:
 			if rev_rename.get(hashlabel, hashlabel) != d.hashlabel:
 				# hashlabel gets overwritten
 				hashlabel = None
+				hashlabel_override = True
 		rehashing = (hashlabel in columns)
-		hashlabel_override = False
 	else:
+		hashlabel_override = True
 		hashlabel = options.hashlabel or None
 		rehashing = bool(hashlabel)
-		hashlabel_override = True
 	if (options.filter_bad or rehashing or len(chain) > 1) and not options.discard_untyped:
 		untyped_columns = set(d.columns)
 		for ds in chain:
