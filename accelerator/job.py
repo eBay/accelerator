@@ -2,6 +2,7 @@
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
 # Modifications copyright (c) 2019 Carl Drougge                            #
+# Modifications copyright (c) 2019 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -68,8 +69,12 @@ class Job(unicode):
 	"""
 	def __new__(cls, jobid, method=None):
 		obj = unicode.__new__(cls, jobid)
-		obj.workdir, tmp = jobid.rsplit('-', 1)
-		obj.number = int(tmp)
+		try:
+			obj.workdir, tmp = jobid.rsplit('-', 1)
+			obj.number = int(tmp)
+		except ValueError:
+			print('Not a valid jobid: "%s".' % (jobid,))
+			exit(-1)
 		obj._cache = {}
 		if method:
 			obj._cache['method'] = method
