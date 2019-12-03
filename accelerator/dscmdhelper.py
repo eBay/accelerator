@@ -25,7 +25,7 @@ from __future__ import division, print_function
 from os.path import join, exists, realpath
 
 from accelerator.job import WORKDIRS
-from accelerator.dataset import Dataset
+from accelerator.dataset import Dataset, NoSuchDatasetError
 
 def name2ds(n):
 	if exists(n):
@@ -50,7 +50,7 @@ def name2ds(n):
 		return None
 	try:
 		ds = Dataset(n)
-	except IOError:
+	except NoSuchDatasetError:
 		return None
 	slices = ds.job.params.slices
 	from accelerator import g
