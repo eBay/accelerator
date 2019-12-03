@@ -35,6 +35,9 @@ WORKDIRS = {}
 class NoSuchJobError(Exception):
 	pass
 
+class NoSuchWorkdir(Exception):
+	pass
+
 
 def dirnamematcher(name):
 	return re.compile(re.escape(name) + r'-[0-9]+$').match
@@ -92,6 +95,8 @@ class Job(unicode):
 
 	@property
 	def path(self):
+		if self.workdir not in WORKDIRS:
+			raise NoSuchWorkdir('Not a valid workdir: "%s"' % (self.workdir,))
 		return os.path.join(WORKDIRS[self.workdir], self)
 
 	def filename(self, filename, sliceno=None):

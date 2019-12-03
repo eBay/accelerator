@@ -30,7 +30,7 @@ from datetime import datetime, time, date
 from accelerator.compat import terminal_size
 from accelerator import dscmdhelper
 from accelerator.dataset import job_datasets, NoSuchDatasetError
-from accelerator.job import NoSuchJobError
+from accelerator.job import NoSuchJobError, NoSuchWorkdir
 
 #dscmdhelper.init()
 
@@ -103,13 +103,7 @@ def main(argv):
 	for n in args.dataset:
 		try:
 			ds = dscmdhelper.name2ds(n)
-		except NoSuchDatasetError:
-			badinput.append(n)
-			continue
-		except KeyError:
-			badinput.append(n)
-			continue
-		except NoSuchJobError:
+		except (NoSuchDatasetError, NoSuchWorkdir, NoSuchJobError):
 			badinput.append(n)
 			continue
 
