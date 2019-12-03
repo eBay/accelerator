@@ -32,6 +32,9 @@ from accelerator.compat import unicode, PY2, PY3, open
 
 WORKDIRS = {}
 
+class NoSuchJobError(Exception):
+	pass
+
 
 def dirnamematcher(name):
 	return re.compile(re.escape(name) + r'-[0-9]+$').match
@@ -73,8 +76,7 @@ class Job(unicode):
 			obj.workdir, tmp = jobid.rsplit('-', 1)
 			obj.number = int(tmp)
 		except ValueError:
-			print('Not a valid jobid: "%s".' % (jobid,))
-			exit(-1)
+			raise NoSuchJobError('Not a valid jobid: "%s".' % (jobid,))
 		obj._cache = {}
 		if method:
 			obj._cache['method'] = method

@@ -48,10 +48,7 @@ def name2ds(n):
 	elif n.startswith('/'):
 		# meant to be a path, but it does not exist
 		return None
-	try:
-		ds = Dataset(n)
-	except NoSuchDatasetError:
-		return None
+	ds = Dataset(n)
 	slices = ds.job.params.slices
 	from accelerator import g
 	if hasattr(g, 'slices'):
