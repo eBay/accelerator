@@ -32,6 +32,7 @@ from datetime import datetime
 import operator
 from argparse import ArgumentParser
 import os.path
+from functools import total_ordering
 
 from accelerator.compat import iteritems, itervalues, unicode
 from accelerator.extras import DotDict
@@ -55,6 +56,42 @@ def joblistlike(jl):
 		for s in v:
 			assert isinstance(s, unicode), s
 	return True
+
+
+@total_ordering
+class TimeStamp(str):
+	"""Can be a string like 2019-12-09T12:19:04 (day and time are optional)
+	or an int >= 0. All integers sort before all dates."""
+	def __new__(cls, ts):
+		if isinstance(ts, TimeStamp):
+			return ts
+		try:
+			ts = int(ts, 10)
+			assert ts >= 0, "Invalid timestamp %d" % (ts,)
+		except ValueError:
+			assert re.match(r"\d{4}-\d{2}(-\d{2}(T\d{2}(:\d{2}(:\d{2})?)?)?)?", ts), "Invalid timestamp %s" % (ts,)
+		obj = str.__new__(cls, str(ts))
+		obj._ts = ts
+		return obj
+
+	def __eq__(self, other):
+		if not isinstance(other, TimeStamp):
+			other = TimeStamp(other)
+		return self._ts == other._ts
+
+	def __lt__(self, other):
+		if not isinstance(other, TimeStamp):
+			other = TimeStamp(other)
+		if isinstance(self._ts, int):
+			if isinstance(other._ts, int):
+				return self._ts < other._ts
+			else:
+				return True
+		else:
+			if isinstance(other._ts, int):
+				return False
+			else:
+				return self._ts < other._ts
 
 
 class DB:
@@ -122,9 +159,6 @@ class DB:
 		timestamp, key = line
 		self.truncate(key, timestamp)
 
-	def _validate_timestamp(self, timestamp):
-		assert re.match(r"\d{4}-\d{2}-\d{2}(T\d{2}(:\d{2}(:\d{2})?)?)?", timestamp), timestamp
-
 	def _validate_data(self, data, with_deps=True):
 		if with_deps:
 			assert set(data) == {'timestamp', 'joblist', 'caption', 'user', 'build', 'deps', 'flags',}
@@ -139,7 +173,7 @@ class DB:
 		assert joblistlike(data.joblist), data.joblist
 		assert data.joblist
 		assert isinstance(data.caption, unicode)
-		self._validate_timestamp(data.timestamp)
+		data.timestamp = TimeStamp(data.timestamp)
 
 	def _serialise(self, action, data):
 		if action == 'add':
@@ -154,10 +188,9 @@ class DB:
 		elif action == 'truncate':
 			key = data.key
 			logdata = []
-			if data.timestamp != '0':
-				self._validate_timestamp(data.timestamp)
 		else:
 			assert "can't happen"
+		data.timestamp = TimeStamp(data.timestamp)
 		while True: # paranoia
 			now = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%f")
 			if now != self._lasttime: break
@@ -182,6 +215,7 @@ class DB:
 		new = False
 		changed = False
 		ghosted = 0
+		data.timestamp = TimeStamp(data.timestamp)
 		is_ghost = self._is_ghost(data)
 		if is_ghost:
 			db = self.ghost_db[key]
@@ -244,6 +278,7 @@ class DB:
 		old = self.db[key]
 		new = {}
 		ghost = {}
+		timestamp = TimeStamp(timestamp)
 		for ts, data in iteritems(old):
 			if ts < timestamp:
 				new[ts] = data
@@ -277,10 +312,11 @@ class DB:
 	@locked
 	def get(self, key, timestamp):
 		db = self.db[key]
-		return db.get(timestamp)
+		return db.get(TimeStamp(timestamp))
 
 	@locked
 	def since(self, key, timestamp):
+		timestamp = TimeStamp(timestamp)
 		return sorted(k for k in self.db[key] if k > timestamp)
 
 	@locked
@@ -330,9 +366,12 @@ def single(user, build, timestamp):
 		if timestamp[0] == '<':
 			minmaxfunc = max
 			if timestamp[1] == '=':
-				# we want 20140410 <= 201404 to be True
-				def cmpfunc(k, ts):
-					return k <= ts or k.startswith(ts)
+				if '-' in timestamp:
+					# we want 2014-04-10 <= 2014-04 to be True
+					def cmpfunc(k, ts):
+						return k <= ts or k.startswith(ts)
+				else:
+					cmpfunc = operator.le
 				timestamp = timestamp[2:]
 			else:
 				cmpfunc = operator.lt
@@ -345,8 +384,10 @@ def single(user, build, timestamp):
 			else:
 				cmpfunc = operator.gt
 				timestamp = timestamp[1:]
+		timestamp = TimeStamp(timestamp)
 		return db.limited_endpoint(key, timestamp, cmpfunc, minmaxfunc)
 	else:
+		timestamp = TimeStamp(timestamp)
 		return db.get(key, timestamp)
 
 
