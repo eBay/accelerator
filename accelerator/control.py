@@ -191,8 +191,14 @@ class Main:
 
 
 	def get_methods(self):
-		return self.Methods.db
+		return {k: self.method_info(k) for k in self.Methods.db}
 
 
 	def method_info(self, method):
-		return self.Methods.db.get(method, '')
+		d = self.Methods.db.get(method, None)
+		if d:
+			d = dict(d)
+			p = self.Methods.params[method]
+			for k in ('options', 'datasets', 'jobs'):
+				d[k] = [v[0] if isinstance(v, (list, tuple)) else v for v in p[k]]
+			return d

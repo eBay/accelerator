@@ -88,7 +88,7 @@ class Automata:
 		# Workspaces should be per Automata
 		from accelerator.job import WORKDIRS
 		WORKDIRS.update(self.list_workdirs())
-		self.update_method_deps()
+		self.update_method_info()
 		self.clear_record()
 		# Only do this when run from shell.
 		if infoprints:
@@ -277,18 +277,33 @@ class Automata:
 
 	def update_methods(self):
 		resp = self._url_get('update_methods')
-		self.update_method_deps()
+		self.update_method_info()
 		return resp
 
-	def update_method_deps(self):
-		info = self.methods_info()
-		self.dep_methods = {str(name): set(map(str, data.get('dep', ()))) for name, data in info.items()}
+	def update_method_info(self):
+		self._method_info = self.methods_info()
 
 	def list_workdirs(self):
 		return self._url_json('list_workdirs')
 
-	def call_method(self, method, options={}, datasets={}, jobs={}, record_in=None, record_as=None, why_build=False, caption=None, workdir=None):
-		jid, res = self._submit(method, options, datasets, jobs, caption, why_build=why_build, workdir=workdir)
+	def call_method(self, method, options={}, datasets={}, jobs={}, record_in=None, record_as=None, why_build=False, caption=None, workdir=None, **kw):
+		info = self._method_info[method]
+		bad = set()
+		argmap = {}
+		params = dict(options=dict(options), datasets=dict(datasets), jobs=dict(jobs))
+		for thing in ('options', 'datasets', 'jobs'):
+			target = params[thing]
+			for n in info[thing]:
+				if n in argmap:
+					bad.add(n)
+				argmap[n] = target
+		for n in bad:
+			del argmap[n]
+		for k, v in kw.items():
+			if k not in argmap:
+				raise Exception('Keyword %s has no unambiguous target' % (k,))
+			argmap[k][k] = v
+		jid, res = self._submit(method, caption=caption, why_build=why_build, workdir=workdir, **params)
 		if why_build: # specified by caller
 			return res.why_build
 		if 'why_build' in res: # done by server anyway (because --flags why_build)
@@ -618,16 +633,16 @@ class Urd(object):
 		"""Build jobs in this workdir, None to restore default"""
 		self.workdir = workdir
 
-	def build(self, method, options={}, datasets={}, jobs={}, name=None, caption=None, why_build=False, workdir=None):
-		return self._a.call_method(method, options=options, datasets=datasets, jobs=jobs, record_as=name, caption=caption, why_build=why_build, workdir=workdir or self.workdir)
+	def build(self, method, options={}, datasets={}, jobs={}, name=None, caption=None, why_build=False, workdir=None, **kw):
+		return self._a.call_method(method, options=options, datasets=datasets, jobs=jobs, record_as=name, caption=caption, why_build=why_build, workdir=workdir or self.workdir, **kw)
 
-	def build_chained(self, method, options={}, datasets={}, jobs={}, name=None, caption=None, why_build=False, workdir=None):
-		datasets = dict(datasets or {})
-		assert 'previous' not in datasets, "Don't specify previous dataset to build_chained"
+	def build_chained(self, method, options={}, datasets={}, jobs={}, name=None, caption=None, why_build=False, workdir=None, **kw):
+		assert 'previous' not in set(datasets) | set(jobs) | set(kw), "Don't specify previous to build_chained"
 		assert name, "build_chained must have 'name'"
 		assert self._latest_joblist is not None, "Can't build_chained without a dependency to chain from"
-		datasets['previous'] = self._latest_joblist.get(name)
-		return self.build(method, options, datasets, jobs, name, caption, why_build, workdir)
+		kw = dict(kw)
+		kw['previous'] = self._latest_joblist.get(name)
+		return self.build(method, options, datasets, jobs, name, caption, why_build, workdir, **kw)
 
 	def warn(self, line=''):
 		"""Add a warning message to be displayed at the end of the build"""
@@ -739,7 +754,7 @@ def run_automata(options, cfg):
 	info = a.info()
 	urd = Urd(a, info, user, password, options.horizon)
 	if options.quick:
-		a.update_method_deps()
+		a.update_method_info()
 	else:
 		a.update_methods()
 	module_ref.main(urd)

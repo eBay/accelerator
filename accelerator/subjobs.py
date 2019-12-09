@@ -21,24 +21,30 @@ from accelerator import g
 from accelerator.build import Automata, JobList, DaemonError
 from accelerator.build import JobError
 from accelerator.status import status
+from accelerator.compat import getarglist
 
 _a = None
 _record = {}
+_bad_kws = set()
 
 jobs = JobList()
 
-def build(method, options={}, datasets={}, jobs={}, name=None, caption=None):
+def build(method, options={}, datasets={}, jobs={}, name=None, caption=None, **kw):
 	"""Just like urd.build, but for making subjobs"""
 	
-	global _a
+	global _a, _bad_kws
 	assert g.running != 'analysis', "Analysis is not allowed to make subjobs"
 	assert g.subjob_cookie, "Can't build subjobs: out of cookies"
 	if not _a:
 		_a = Automata(g.daemon_url, subjob_cookie=g.subjob_cookie)
-		_a.update_method_deps()
+		_a.update_method_info()
 		_a.record[None] = _a.jobs = globals()['jobs']
+		_bad_kws = set(getarglist(_a.call_method))
+	bad_kws = _bad_kws & set(kw)
+	if bad_kws:
+		raise Exception('subjobs.build does not accept these keywords: %r' % (bad_kws,))
 	def run():
-			return _a.call_method(method, options=options, datasets=datasets, jobs=jobs, record_as=name, caption=caption)
+		return _a.call_method(method, options=options, datasets=datasets, jobs=jobs, record_as=name, caption=caption, **kw)
 	try:
 		if name or caption:
 			msg = 'Building subjob %s' % (name or method,)
