@@ -18,8 +18,8 @@
 ############################################################################
 
 from accelerator import g
-from accelerator.build import Automata, JobList, DaemonError
-from accelerator.build import JobError
+from accelerator.build import Automata, JobList
+from accelerator.error import DaemonError, JobError
 from accelerator.status import status
 from accelerator.compat import getarglist
 

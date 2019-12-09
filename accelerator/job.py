@@ -25,18 +25,13 @@ from collections import namedtuple
 from functools import wraps
 
 from accelerator.compat import unicode, PY2, PY3, open
+from accelerator.error import NoSuchJobError, NoSuchWorkdirError
 
 
 # WORKDIRS should live in the Automata class, but only for callers
 # (methods read it too, though hopefully only through the functions in this module)
 
 WORKDIRS = {}
-
-class NoSuchJobError(Exception):
-	pass
-
-class NoSuchWorkdir(Exception):
-	pass
 
 
 def dirnamematcher(name):
@@ -96,7 +91,7 @@ class Job(unicode):
 	@property
 	def path(self):
 		if self.workdir not in WORKDIRS:
-			raise NoSuchWorkdir('Not a valid workdir: "%s"' % (self.workdir,))
+			raise NoSuchWorkdirError('Not a valid workdir: "%s"' % (self.workdir,))
 		return os.path.join(WORKDIRS[self.workdir], self)
 
 	def filename(self, filename, sliceno=None):

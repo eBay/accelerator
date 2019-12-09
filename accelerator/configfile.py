@@ -59,7 +59,7 @@ def fixup_listen(project_directory, listen, urd=False):
 
 
 def load_config(filename):
-	from accelerator.shell import UserError
+	from accelerator.error import UserError
 
 	key = None
 	multivalued = {'workdirs', 'method packages', 'interpreters'}

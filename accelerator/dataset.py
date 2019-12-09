@@ -39,6 +39,7 @@ from accelerator import blob
 from accelerator.extras import DotDict, job_params, _ListTypePreserver
 from accelerator.job import Job
 from accelerator.gzwrite import typed_writer
+from accelerator.error import NoSuchDatasetError, DatasetUsageError
 
 kwlist = set(kwlist)
 # Add some keywords that are not in all versions
@@ -84,15 +85,6 @@ iskeyword = frozenset(kwlist).__contains__
 # There is a ds.column_filename function to do this for you (not the seeking, obviously).
 #
 # The dataset pickle is jid/name/dataset.pickle, so jid/default/dataset.pickle for the default dataset.
-
-class DatasetError(Exception):
-	pass
-
-class NoSuchDatasetError(DatasetError):
-	pass
-
-class DatasetUsageError(DatasetError):
-	pass
 
 def _clean_name(n, seen_n):
 	n = ''.join(c if c.isalnum() else '_' for c in n)

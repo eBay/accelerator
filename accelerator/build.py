@@ -39,34 +39,8 @@ from accelerator import setupfile
 from accelerator.extras import json_encode, json_decode, DotDict, job_post,_ListTypePreserver
 from accelerator.job import Job
 from accelerator.status import print_status_stacks
+from accelerator.error import JobError, DaemonError, UrdError, UrdPermissionError, UrdConflictError
 from accelerator import unixhttp; unixhttp # for unixhttp:// URLs, as used to talk to the daemon
-
-
-class DaemonError(Exception):
-	pass
-
-class UrdError(Exception):
-	pass
-
-class UrdPermissionError(UrdError):
-	pass
-
-class UrdConflictError(UrdError):
-	pass
-
-class JobError(Exception):
-	def __init__(self, jobid, method, status):
-		Exception.__init__(self, "Failed to build %s (%s)" % (jobid, method,))
-		self.jobid = jobid
-		self.method = method
-		self.status = status
-
-	def format_msg(self):
-		res = ["%s (%s):" % (self.jobid, self.method,)]
-		for component, msg in self.status.items():
-			res.append("  %s:" % (component,))
-			res.append("   %s" % (msg.replace("\n", "\n    "),))
-		return "\n".join(res)
 
 
 class Automata:

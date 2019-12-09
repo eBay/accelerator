@@ -27,10 +27,9 @@ from locale import resetlocale
 from glob import glob
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 
-cfg = None
+from accelerator.error import UserError
 
-class UserError(Exception):
-	pass
+cfg = None
 
 def find_cfgs(basedir='.', wildcard=False):
 	"""Find all accelerator.conf (or accelerator*.conf if wildcard=True)

@@ -90,7 +90,7 @@ def main(argv):
 	from os.path import exists, join, realpath
 	from sys import version_info
 	from argparse import ArgumentParser
-	from accelerator.shell import UserError
+	from accelerator.error import UserError
 	from accelerator.configfile import interpolate
 
 	parser = ArgumentParser(
