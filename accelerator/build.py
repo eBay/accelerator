@@ -287,22 +287,20 @@ class Automata:
 		return self._url_json('list_workdirs')
 
 	def call_method(self, method, options={}, datasets={}, jobs={}, record_in=None, record_as=None, why_build=False, caption=None, workdir=None, **kw):
+		if method not in self._method_info:
+			raise Exception('Unknown method %s' % (method,))
 		info = self._method_info[method]
-		bad = set()
-		argmap = {}
 		params = dict(options=dict(options), datasets=dict(datasets), jobs=dict(jobs))
+		argmap = defaultdict(list)
 		for thing in ('options', 'datasets', 'jobs'):
-			target = params[thing]
 			for n in info[thing]:
-				if n in argmap:
-					bad.add(n)
-				argmap[n] = target
-		for n in bad:
-			del argmap[n]
+				argmap[n].append(thing)
 		for k, v in kw.items():
 			if k not in argmap:
-				raise Exception('Keyword %s has no unambiguous target' % (k,))
-			argmap[k][k] = v
+				raise Exception('Keyword %s not in options/datasets/jobs for method %s' % (k, method,))
+			if len(argmap[k]) != 1:
+				raise Exception('Keyword %s has several targets on method %s: %r' % (k, method, argmap[k],))
+			params[argmap[k][0]][k] = v
 		jid, res = self._submit(method, caption=caption, why_build=why_build, workdir=workdir, **params)
 		if why_build: # specified by caller
 			return res.why_build
