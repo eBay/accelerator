@@ -54,19 +54,19 @@ def main(urd):
 	print()
 	print("Testing dataset creation, export, import")
 	source = urd.build("test_datasetwriter")
-	urd.build("test_datasetwriter_verify", datasets=dict(source=source))
+	urd.build("test_datasetwriter_verify", source=source)
 	urd.build("test_dataset_in_prepare")
 	ds = Dataset(source, "passed")
 	csvname = "out.csv.gz"
 	csvname_uncompressed = "out.csv"
-	csv = urd.build("csvexport", options=dict(filename=csvname, separator="\t"), datasets=dict(source=ds))
-	csv_uncompressed = urd.build("csvexport", options=dict(filename=csvname_uncompressed, separator="\t"), datasets=dict(source=ds))
-	csv_quoted = urd.build("csvexport", options=dict(filename=csvname, quote_fields='"'), datasets=dict(source=ds))
-	reimp_csv = urd.build("csvimport", options=dict(filename=csv.filename(csvname), separator="\t"))
-	reimp_csv_uncompressed = urd.build("csvimport", options=dict(filename=csv_uncompressed.filename(csvname_uncompressed), separator="\t"))
-	reimp_csv_quoted = urd.build("csvimport", options=dict(filename=csv_quoted.filename(csvname), quotes=True))
-	urd.build("test_compare_datasets", datasets=dict(a=reimp_csv, b=reimp_csv_uncompressed))
-	urd.build("test_compare_datasets", datasets=dict(a=reimp_csv, b=reimp_csv_quoted))
+	csv = urd.build("csvexport", filename=csvname, separator="\t", source=ds)
+	csv_uncompressed = urd.build("csvexport", filename=csvname_uncompressed, separator="\t", source=ds)
+	csv_quoted = urd.build("csvexport", filename=csvname, quote_fields='"', source=ds)
+	reimp_csv = urd.build("csvimport", filename=csv.filename(csvname), separator="\t")
+	reimp_csv_uncompressed = urd.build("csvimport", filename=csv_uncompressed.filename(csvname_uncompressed), separator="\t")
+	reimp_csv_quoted = urd.build("csvimport", filename=csv_quoted.filename(csvname), quotes=True)
+	urd.build("test_compare_datasets", a=reimp_csv, b=reimp_csv_uncompressed)
+	urd.build("test_compare_datasets", a=reimp_csv, b=reimp_csv_quoted)
 	urd.build("test_dataset_column_names")
 	urd.build("test_dataset_merge")
 
@@ -77,12 +77,12 @@ def main(urd):
 
 	print()
 	print("Testing subjobs and dataset typing")
-	urd.build("test_subjobs_type", datasets=dict(typed=ds, untyped=reimp_csv))
+	urd.build("test_subjobs_type", typed=ds, untyped=reimp_csv)
 	urd.build("test_subjobs_nesting")
 	try:
 		# Test if numeric_comma is broken (presumably because no suitable locale
 		# was found, since there are not actually any commas in the source dataset.)
-		urd.build("dataset_type", datasets=dict(source=source), options=dict(numeric_comma=True, column2type=dict(b="float64"), defaults=dict(b="0")))
+		urd.build("dataset_type", source=source, numeric_comma=True, column2type=dict(b="float64"), defaults=dict(b="0"))
 		comma_broken = False
 	except JobError as e:
 		comma_broken = True
@@ -91,7 +91,7 @@ def main(urd):
 		urd.warn('Follow the instructions in this error to enable numeric comma:')
 		urd.warn()
 		urd.warn(e.format_msg())
-	urd.build("test_dataset_type_corner_cases", options=dict(numeric_comma=not comma_broken))
+	urd.build("test_dataset_type_corner_cases", numeric_comma=not comma_broken)
 
 	print()
 	print("Testing dataset chaining, filtering, callbacks and rechaining")
