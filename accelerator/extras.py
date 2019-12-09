@@ -66,13 +66,13 @@ def job_params(jobid=None, default_empty=False):
 		return DotDict(
 			options=DotDict(),
 			datasets=DotDict(),
-			jobids=DotDict(),
+			jobs=DotDict(),
 		)
 	from accelerator.dataset import Dataset
 	from accelerator.job import Job
 	d = _job_params(jobid)
 	d.datasets = DotDict({k: _typelistnone(v, Dataset) for k, v in d.datasets.items()})
-	d.jobids = DotDict({k: _typelistnone(v, Job) for k, v in d.jobids.items()})
+	d.jobs = DotDict({k: _typelistnone(v, Job) for k, v in d.jobs.items()})
 	d.jobid = Job(d.jobid)
 	return d
 

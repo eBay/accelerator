@@ -44,7 +44,7 @@ options = dict(
 
 datasets = (['source'],) # normally just one, but you can specify several
 
-jobids = ('previous',)
+jobs = ('previous',)
 
 @contextmanager
 def mkwrite_gz(filename):
@@ -75,8 +75,8 @@ def csvexport(sliceno, filename, labelsonfirstline):
 	if not options.labels:
 		options.labels = sorted(d.columns)
 	if options.chain_source:
-		if jobids.previous:
-			prev_source = job_params(jobids.previous).datasets.source
+		if jobs.previous:
+			prev_source = job_params(jobs.previous).datasets.source
 			assert len(datasets.source) == len(prev_source)
 		else:
 			prev_source = [None] * len(datasets.source)

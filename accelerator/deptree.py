@@ -61,7 +61,7 @@ class DepTree:
 			for submethod in set(collect(method)):
 				data['params'].update(tree[submethod]['params'])
 		self._fix_options(False)
-		self._fix_jobids('jobids')
+		self._fix_jobids('jobs')
 		self._fix_jobids('datasets')
 
 	def add_flags(self, flags):

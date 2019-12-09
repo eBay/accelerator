@@ -127,7 +127,7 @@ def load_methods(all_packages, data):
 				res_warnings.append('%s.a_%s should probably depend_extra on %s' % (package, key, dep_names[dep],))
 			res_hashes[key] = ("%040x" % (hash ^ hash_extra,),)
 			res_params[key] = params = DotDict()
-			for name, default in (('options', {},), ('datasets', (),), ('jobids', (),),):
+			for name, default in (('options', {},), ('datasets', (),), ('jobs', (),),):
 				params[name] = getattr(mod, name, default)
 			equivalent_hashes = getattr(mod, 'equivalent_hashes', ())
 			if equivalent_hashes:

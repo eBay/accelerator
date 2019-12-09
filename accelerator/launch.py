@@ -222,11 +222,11 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 
 	g.options          = params.options
 	g.datasets         = params.datasets
-	g.jobids           = params.jobids
+	g.jobs             = params.jobs
 
 	method_ref.options = params.options
 	method_ref.datasets= params.datasets
-	method_ref.jobids  = params.jobids
+	method_ref.jobs    = params.jobs
 
 	g.daemon_url       = daemon_url
 	g.running          = 'launch'

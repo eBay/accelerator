@@ -44,7 +44,7 @@ def jobchain(length=-1, reverse=False, tip_jobid=None, stop_jobid=None):
 		stuff = stop_jobid.items()
 		stop_jobid = set()
 		for parent, var in stuff:
-			jobid = job_params(parent).jobids.get(var)
+			jobid = job_params(parent).jobs.get(var)
 			assert jobid, "%s not set in %s" % (var, parent)
 			stop_jobid.add(jobid)
 	assert isinstance(stop_jobid, (list, tuple, set,)), "stop_jobid must be str, dict or set-ish"
@@ -59,7 +59,7 @@ def jobchain(length=-1, reverse=False, tip_jobid=None, stop_jobid=None):
 	else:
 		l_jobid = []
 	while length:
-		jobid = job_params(jobid).jobids.get('previous')
+		jobid = job_params(jobid).jobs.get('previous')
 		if not jobid:
 			break
 		if jobid in stop_jobid:

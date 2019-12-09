@@ -171,7 +171,7 @@ def _reprify(o):
 
 def params2defaults(params):
 	d = DotDict()
-	for key in ('datasets', 'jobids',):
+	for key in ('datasets', 'jobs',):
 		r = {}
 		for v in params[key]:
 			if isinstance(v, list):

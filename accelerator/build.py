@@ -141,7 +141,7 @@ class Automata:
 	def config(self):
 		return self._url_json('config')
 
-	def _submit(self, method, options, datasets, jobids, caption=None, wait=True, why_build=False, workdir=None):
+	def _submit(self, method, options, datasets, jobs, caption=None, wait=True, why_build=False, workdir=None):
 		"""
 		Submit job to server and conditionaly wait for completion.
 		"""
@@ -152,7 +152,7 @@ class Automata:
 			self.monitor.submit(method)
 		if not caption:
 			caption = 'fsm_' + method
-		params = {method: dict(options=options, datasets=datasets, jobids=jobids,)}
+		params = {method: dict(options=options, datasets=datasets, jobs=jobs,)}
 		data = setupfile.generate(caption, method, params, why_build=why_build)
 		if self.subjob_cookie:
 			data.subjob_cookie = self.subjob_cookie
@@ -287,8 +287,8 @@ class Automata:
 	def list_workdirs(self):
 		return self._url_json('list_workdirs')
 
-	def call_method(self, method, options={}, datasets={}, jobids={}, record_in=None, record_as=None, why_build=False, caption=None, workdir=None):
-		jid, res = self._submit(method, options, datasets, jobids, caption, why_build=why_build, workdir=workdir)
+	def call_method(self, method, options={}, datasets={}, jobs={}, record_in=None, record_as=None, why_build=False, caption=None, workdir=None):
+		jid, res = self._submit(method, options, datasets, jobs, caption, why_build=why_build, workdir=workdir)
 		if why_build: # specified by caller
 			return res.why_build
 		if 'why_build' in res: # done by server anyway (because --flags why_build)
@@ -618,16 +618,16 @@ class Urd(object):
 		"""Build jobs in this workdir, None to restore default"""
 		self.workdir = workdir
 
-	def build(self, method, options={}, datasets={}, jobids={}, name=None, caption=None, why_build=False, workdir=None):
-		return self._a.call_method(method, options=options, datasets=datasets, jobids=jobids, record_as=name, caption=caption, why_build=why_build, workdir=workdir or self.workdir)
+	def build(self, method, options={}, datasets={}, jobs={}, name=None, caption=None, why_build=False, workdir=None):
+		return self._a.call_method(method, options=options, datasets=datasets, jobs=jobs, record_as=name, caption=caption, why_build=why_build, workdir=workdir or self.workdir)
 
-	def build_chained(self, method, options={}, datasets={}, jobids={}, name=None, caption=None, why_build=False, workdir=None):
+	def build_chained(self, method, options={}, datasets={}, jobs={}, name=None, caption=None, why_build=False, workdir=None):
 		datasets = dict(datasets or {})
 		assert 'previous' not in datasets, "Don't specify previous dataset to build_chained"
 		assert name, "build_chained must have 'name'"
 		assert self._latest_joblist is not None, "Can't build_chained without a dependency to chain from"
 		datasets['previous'] = self._latest_joblist.get(name)
-		return self.build(method, options, datasets, jobids, name, caption, why_build, workdir)
+		return self.build(method, options, datasets, jobs, name, caption, why_build, workdir)
 
 	def warn(self, line=''):
 		"""Add a warning message to be displayed at the end of the build"""

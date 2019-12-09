@@ -47,12 +47,15 @@ def load_setup(jobid):
 	You probably want to use extras.job_params instead.
 	"""
 	d = json_load('setup.json', jobid)
-	if d['version'] == 1:
+	if d.version == 1:
+		d.jobs = d.pop('jobids')
+		d.version = 2
+	if d.version == 2:
 		if '_typing' in d:
 			d['_typing'] = {d.method: d['_typing']}
-		d.params = {d.method: DotDict({k: d[k] for k in ('options', 'datasets', 'jobids')})}
+		d.params = {d.method: DotDict({k: d[k] for k in ('options', 'datasets', 'jobs')})}
 	else:
-		raise Exception("Don't know how to load setup.json version %d" % (d['version'],))
+		raise Exception("Don't know how to load setup.json version %d (in %s)" % (d.version, jobid,))
 	return d
 
 def update_setup(jobid, **kw):
@@ -98,7 +101,7 @@ def encode_setup(data, sort_keys=True, as_str=False):
 	res = _encode_with_compact(
 		copy(data),
 		compact_keys=('starttime', 'endtime', 'profile', '_typing',),
-		special_keys=('options', 'datasets', 'jobids',),
+		special_keys=('options', 'datasets', 'jobs',),
 	)
 	if PY3 and not as_str:
 		res = res.encode('ascii')
@@ -143,7 +146,7 @@ def _encode_with_compact(data, compact_keys, extra_indent=0, separator='\n', spe
 
 def save_setup(jobid, data):
 	data = dict(data)
-	data['version'] = 1
+	data['version'] = 2
 	data.update(data['params'][data['method']])
 	del data['params']
 	if '_typing' in data:

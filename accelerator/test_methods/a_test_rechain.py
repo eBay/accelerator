@@ -29,10 +29,10 @@ on re-chaining.
 
 from accelerator.dataset import Dataset, DatasetWriter
 
-jobids = ('selfchain',)
+jobs = ('selfchain',)
 
 def synthesis(job):
-	manual_chain = [Dataset(jobids.selfchain, name) for name in "abcdefgh"]
+	manual_chain = [Dataset(jobs.selfchain, name) for name in "abcdefgh"]
 	manual_abf = [manual_chain[0], manual_chain[1], manual_chain[5]]
 	# build a local abf chain
 	prev = None

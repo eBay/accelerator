@@ -27,7 +27,7 @@ _record = {}
 
 jobs = JobList()
 
-def build(method, options={}, datasets={}, jobids={}, name=None, caption=None):
+def build(method, options={}, datasets={}, jobs={}, name=None, caption=None):
 	"""Just like urd.build, but for making subjobs"""
 	
 	global _a
@@ -36,9 +36,9 @@ def build(method, options={}, datasets={}, jobids={}, name=None, caption=None):
 	if not _a:
 		_a = Automata(g.daemon_url, subjob_cookie=g.subjob_cookie)
 		_a.update_method_deps()
-		_a.record[None] = _a.jobs = jobs
+		_a.record[None] = _a.jobs = globals()['jobs']
 	def run():
-			return _a.call_method(method, options=options, datasets=datasets, jobids=jobids, record_as=name, caption=caption)
+			return _a.call_method(method, options=options, datasets=datasets, jobs=jobs, record_as=name, caption=caption)
 	try:
 		if name or caption:
 			msg = 'Building subjob %s' % (name or method,)
