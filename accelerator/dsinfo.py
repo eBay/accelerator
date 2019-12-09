@@ -108,7 +108,7 @@ def main(argv):
 			badinput.append(n)
 			continue
 
-		print(quote("%s/%s" % (ds.jobid, ds.name,)))
+		print(quote("%s/%s" % (ds.job, ds.name,)))
 		if ds.parent:
 			if isinstance(ds.parent, list):
 				print("    Parents:")
@@ -159,7 +159,7 @@ def main(argv):
 			chain = ds.chain()
 			print("    Chain length {0:n}, from {1} to {2}".format(len(chain), chain[0], chain[-1]))
 			if args.chain:
-				data = tuple((ix, "%s/%s" % (x.jobid, x.name), "{:n}".format(sum(x.lines))) for ix, x in enumerate(chain))
+				data = tuple((ix, "%s/%s" % (x.job, x.name), "{:n}".format(sum(x.lines))) for ix, x in enumerate(chain))
 				max_n, max_l = colwidth(x[1:] for x in data)
 				template = "{0:3}: {1:%d} ({2:>%d})" % (max_n, max_l)
 				printcolwise(data, template, lambda x: (x[0], x[1], x[2]), minrows=8, indent=8)

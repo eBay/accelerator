@@ -133,7 +133,7 @@ _ds_cache = {}
 def _ds_load(obj):
 	n = unicode(obj)
 	if n not in _ds_cache:
-		fn = obj.jobid.filename(obj._name('pickle'))
+		fn = obj.job.filename(obj._name('pickle'))
 		if not os.path.exists(fn):
 			raise NoSuchDatasetError('Dataset %r does not exist' % (n,))
 		_ds_cache[n] = blob.load(fn)
@@ -169,10 +169,10 @@ class Dataset(unicode):
 			jobid = job_params(jobid, default_empty=True).datasets.get(dsname)
 			if not jobid:
 				return None
+		assert jobid, "If you really meant to use yourself as a dataset, pass your jobid explicitly."
 		if '/' in jobid:
 			assert not name, "Don't pass both a separate name and jobid as jid/name"
 			jobid, name = jobid.split('/', 1)
-		assert jobid, "If you really meant to use yourself as a dataset, pass params.jobid explicitly."
 		name = uni(name or 'default')
 		assert '/' not in name
 		if name == 'default':
@@ -197,9 +197,9 @@ class Dataset(unicode):
 				'previous': None,
 				'lines': [],
 			})
-			obj.jobid = None
+			obj.job = None
 		else:
-			obj.jobid = Job(jobid)
+			obj.job = Job(jobid)
 			obj._data = DotDict(_ds_load(obj))
 			assert obj._data.version[0] == 3 and obj._data.version[1] >= 0, "%s/%s: Unsupported dataset pickle version %r" % (jobid, name, obj._data.version,)
 			obj._data.columns = dict(obj._data.columns)
@@ -266,8 +266,8 @@ class Dataset(unicode):
 				Dataset(override_previous)
 			d._data.previous = override_previous
 			d._update_caches()
-		d._data.parent = '%s/%s' % (d.jobid, d.name,)
-		d.jobid = job
+		d._data.parent = '%s/%s' % (d.job, d.name,)
+		d.job = job
 		d.name = uni(name)
 		d._save()
 		_datasets_written.append(d.name)
@@ -306,7 +306,7 @@ class Dataset(unicode):
 			related = parents(self, set()) & parents(other, set())
 			if not related:
 				raise DatasetUsageError("%s and %s have no common ancenstors, set allow_unrelated to allow this" % (self, other,))
-		new_ds.jobid = job
+		new_ds.job = job
 		new_ds.name = name
 		new_ds._data.previous = previous
 		new_ds._data.parent = (self, other)
@@ -341,7 +341,7 @@ class Dataset(unicode):
 				res.append(self._column_iterator(sliceno, col))
 			else:
 				not_found.append(col)
-		assert not not_found, 'Columns %r not found in %s/%s' % (not_found, self.jobid, self.name)
+		assert not not_found, 'Columns %r not found in %s/%s' % (not_found, self.job, self.name)
 		return res
 
 	def _hashfilter(self, sliceno, hashlabel, it):
@@ -732,9 +732,9 @@ class Dataset(unicode):
 		name = uni(name)
 		filenames = {uni(k): uni(v) for k, v in filenames.items()}
 		assert set(columns) == set(filenames), "columns and filenames don't have the same keys"
-		if self.jobid and (self.jobid != job or self.name != name):
-			self._data.parent = '%s/%s' % (self.jobid, self.name,)
-		self.jobid = job
+		if self.job and (self.job != job or self.name != name):
+			self._data.parent = '%s/%s' % (self.job, self.name,)
+		self.job = job
 		self.name = name
 		self._data.filename = uni(filename) or self._data.filename or None
 		self._data.caption  = uni(caption) or self._data.caption or uni(job)
@@ -1244,13 +1244,13 @@ class SkipSlice(Exception):
 	"""Raise this in pre_callback to skip iterating the coming slice
 	(if your callback doesn't want sliceno, this is the same as SkipJob)"""
 
-def job_datasets(jobid):
-	"""All datasets in a jobid"""
-	if isinstance(jobid, Dataset):
-		jobid = jobid.jobid
+def job_datasets(job):
+	"""All datasets in a job"""
+	if isinstance(job, Dataset):
+		job = job.job
 	else:
-		jobid = Job(jobid)
-	fn = jobid.filename('datasets.txt')
+		job = Job(job)
+	fn = job.filename('datasets.txt')
 	if not os.path.exists(fn):
 		# It's not an error to list datasets in a job without them.
 		return []
@@ -1260,5 +1260,5 @@ def job_datasets(jobid):
 	# Do this backwards to improve chances that we take advantage of cache.
 	# (Names are written to datasets.txt in finish() order.)
 	for name in reversed(names):
-		res.append(Dataset(jobid, name))
+		res.append(Dataset(job, name))
 	return list(reversed(res))
