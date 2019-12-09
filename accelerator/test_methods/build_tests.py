@@ -27,6 +27,31 @@ def main(urd):
 	assert urd.info.slices >= 3, "The tests don't work with less than 3 slices (you have %d)." % (urd.info.slices,)
 
 	print()
+	print("Testing urd.build and job.load")
+	want = ({'foo': 'foo', 'a': 'a'}, {'foo': None, 'b': None}, {'foo': None, 'c': None})
+	job = urd.build("test_build_kws")
+	assert job.load() == want
+	bad = None
+	try:
+		urd.build("test_build_kws", options=dict(foo='bar'), foo='baz')
+		bad = 'Allowed ambiguous keyword "foo"'
+	except Exception:
+		pass
+	assert not bad, bad
+	want[0]['foo'] = 'bar'
+	want[0]['a'] = 'A'
+	job = urd.build("test_build_kws", options=dict(foo='bar'), a='A')
+	assert job.load() == want
+	assert urd.build("test_build_kws", options=dict(foo='bar'), a='A', b=None, c=None) == job
+	want[2]['c'] = job
+	job = urd.build("test_build_kws", options=dict(foo='bar', a='override this from kw'), a='A', c=job)
+	assert job.load() == want
+	want[0]['foo'] = 'foo'
+	want[2]['c'] = job
+	job = urd.build("test_build_kws", a='A', b=None, c=job, datasets=dict(b='overridden'))
+	assert job.load() == want
+
+	print()
 	print("Testing dataset creation, export, import")
 	source = urd.build("test_datasetwriter")
 	urd.build("test_datasetwriter_verify", datasets=dict(source=source))

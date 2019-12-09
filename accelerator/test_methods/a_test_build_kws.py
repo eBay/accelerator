@@ -21,30 +21,13 @@ from __future__ import division
 from __future__ import unicode_literals
 
 description = r'''
-Type datasets.untyped the same as datasets.typed in a subjob, then verify
-(in another subjob) the the results are correct.
+This method is called to test that urd.build finds the correct target for
+keywords, and also that it does not accept ambiguous keywords.
 '''
 
-from accelerator import subjobs
-
-datasets=("typed", "untyped")
+options = {'foo': 'foo', 'a': 'a'}
+datasets = ('foo', 'b')
+jobs = ('foo', 'c')
 
 def synthesis():
-	typerename = dict(
-		int64="int64_10",
-		int32="int32_10",
-		bits64="bits64_10",
-		bits32="bits32_10",
-		bool="strbool",
-		datetime="datetime:%Y-%m-%d %H:%M:%S.%f",
-		date="date:%Y-%m-%d",
-		time="time:%H:%M:%S.%f",
-		unicode="unicode:utf-8",
-	)
-	columns = {k: typerename.get(v.type, v.type) for k, v in datasets.typed.columns.items()}
-	retyped = subjobs.build(
-		"dataset_type",
-		column2type=columns,
-		source=datasets.untyped,
-	)
-	subjobs.build("test_compare_datasets", datasets=dict(a=datasets.typed, b=retyped))
+	return (options, datasets, jobs)
