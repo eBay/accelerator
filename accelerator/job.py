@@ -193,17 +193,17 @@ class CurrentJob(Job):
 		return fwm
 
 
-class JobWithFile(namedtuple('JobWithFile', 'jobid filename sliced extra')):
-	def __new__(cls, jobid, filename, sliced=False, extra=None):
+class JobWithFile(namedtuple('JobWithFile', 'job filename sliced extra')):
+	def __new__(cls, job, filename, sliced=False, extra=None):
 		assert not filename.startswith('/'), "Specify relative filenames to JobWithFile"
-		return tuple.__new__(cls, (Job(jobid), filename, sliced, extra,))
+		return tuple.__new__(cls, (Job(job), filename, sliced, extra,))
 
 	def resolve(self, sliceno=None):
 		if sliceno is None:
 			assert not self.sliced, "A sliced file requires a sliceno"
 		else:
 			assert self.sliced, "An unsliced file can not have a sliceno"
-		return self.jobid.filename(self.filename, sliceno)
+		return self.job.filename(self.filename, sliceno)
 
 	def load(self, sliceno=None, encoding='bytes'):
 		"""blob.load this file"""
