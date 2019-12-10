@@ -27,6 +27,7 @@ import os
 import json
 from operator import itemgetter
 from collections import defaultdict
+from datetime import date
 from base64 import b64encode
 from importlib import import_module
 from argparse import ArgumentParser, RawTextHelpFormatter
@@ -435,6 +436,25 @@ def _urd_typeify(d):
 		res[k] = v
 	return res
 
+def _tsfix(ts):
+	if ts is None:
+		return None
+	errmsg = 'Specify timestamps as strings, ints, datetimes or (timestamp, integer), not %r' % (ts,)
+	if isinstance(ts, (tuple, list,)):
+		assert len(ts) == 2, errmsg
+		ts, integer = ts
+		assert isinstance(integer, int), errmsg
+	else:
+		integer = None
+	if isinstance(ts, (int, date,)):
+		ts = str(ts)
+	assert isinstance(ts, str_types), errmsg
+	assert ts, errmsg
+	if integer is None:
+		return ts
+	else:
+		return '%s+%d' % (ts, integer,)
+
 class Urd(object):
 	def __init__(self, a, info, user, password, horizon=None):
 		self._a = a
@@ -527,7 +547,7 @@ class Urd(object):
 			return 'latest'
 
 	def get(self, path, timestamp):
-		return self._get(path, timestamp)
+		return self._get(path, _tsfix(timestamp))
 
 	def latest(self, path):
 		return self.get(path, self._latest_str())
@@ -537,7 +557,7 @@ class Urd(object):
 
 	def peek(self, path, timestamp):
 		path = self._path(path)
-		url = '/'.join((self._url, path, timestamp,))
+		url = '/'.join((self._url, path, _tsfix(timestamp),))
 		return UrdResponse(self._call(url))
 
 	def peek_latest(self, path):
@@ -548,7 +568,7 @@ class Urd(object):
 
 	def since(self, path, timestamp):
 		path = self._path(path)
-		url = '%s/%s/since/%s' % (self._url, path, timestamp,)
+		url = '%s/%s/since/%s' % (self._url, path, _tsfix(timestamp),)
 		return self._call(url, fmt=json.loads)
 
 	def list(self):
@@ -564,7 +584,7 @@ class Urd(object):
 				raise Exception('Urd says permission denied, did you forget to set URD_AUTH?')
 			self._auth_tested = True
 		self._current = self._path(path)
-		self._current_timestamp = timestamp
+		self._current_timestamp = _tsfix(timestamp)
 		self._current_caption = caption
 		self._update = update
 		self._deps = {}
@@ -582,7 +602,10 @@ class Urd(object):
 		user, build = path.split('/')
 		self._current = None
 		caption = caption or self._current_caption or ''
-		timestamp = timestamp or self._current_timestamp
+		if timestamp is None:
+			timestamp = self._current_timestamp
+		else:
+			timestamp = _tsfix(timestamp)
 		assert timestamp, 'No timestamp specified in begin or finish for %s' % (path,)
 		data = DotDict(
 			user=user,
@@ -598,7 +621,7 @@ class Urd(object):
 		return self._call(url, data)
 
 	def truncate(self, path, timestamp):
-		url = '%s/truncate/%s/%s' % (self._url, self._path(path), timestamp,)
+		url = '%s/truncate/%s/%s' % (self._url, self._path(path), _tsfix(timestamp),)
 		return self._call(url, '')
 
 	def set_workdir(self, workdir):
