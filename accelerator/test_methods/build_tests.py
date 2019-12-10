@@ -23,6 +23,8 @@ from __future__ import unicode_literals
 from accelerator.dataset import Dataset
 from accelerator.build import JobError
 
+from datetime import date, datetime, timedelta
+
 def main(urd):
 	assert urd.info.slices >= 3, "The tests don't work with less than 3 slices (you have %d)." % (urd.info.slices,)
 
@@ -50,6 +52,60 @@ def main(urd):
 	want[2]['c'] = job
 	job = urd.build("test_build_kws", a='A', b=None, c=job, datasets=dict(b='overridden'))
 	assert job.load() == want
+
+	print()
+	print("Testing urd.begin/end/truncate/get/peek/latest/first/since")
+	urd.truncate("tests_urd", 0)
+	assert not urd.peek_latest("tests_urd").joblist
+	urd.begin("tests_urd", 1)
+	urd.build("test_build_kws")
+	fin = urd.finish("tests_urd")
+	assert fin == {'new': True, 'changed': False, 'is_ghost': False}, fin
+	urd.begin("tests_urd", 1)
+	job = urd.build("test_build_kws")
+	fin = urd.finish("tests_urd")
+	assert fin == {'new': False, 'changed': False, 'is_ghost': False}, fin
+	urd.begin("tests_urd", 1) # will be overridden to 2 in finish
+	jl = urd.latest("tests_urd").joblist
+	assert jl == [job], '%r != [%r]' % (jl, job,)
+	urd.build("test_build_kws", options=dict(foo='bar', a='A'))
+	urd.finish("tests_urd", 2)
+	dep_jl = list(urd.peek_latest("tests_urd").deps.values())[0].joblist
+	assert dep_jl == jl, '%r != %r' % (dep_jl, jl,)
+	assert urd.since("tests_urd", 0) == ['1', '2']
+	urd.truncate("tests_urd", 2)
+	assert urd.since("tests_urd", 0) == ['1']
+	urd.truncate("tests_urd", 0)
+	assert urd.since("tests_urd", 0) == []
+	ordered_ts = [1, 2, 1000000000, '1978-01-01', '1978-01-01+0', '1978-01-01+2', '1978-01-01 00:00', '1978-01-01T00:00+42', '2017-06-27', '2017-06-27T17:00:00', '2017-06-27 17:00:00+42']
+	for ts in ordered_ts:
+		urd.begin("tests_urd")
+		if ts == 1000000000:
+			urd.get("tests_urd", '1')
+		urd.build("test_build_kws")
+		urd.finish("tests_urd", ts)
+	urd.begin("tests_urd")
+	urd.build("test_build_kws")
+	urd.finish("tests_urd", ('2019-12', 3))
+	ordered_ts.append('2019-12+3')
+	ordered_ts = [str(v).replace(' ', 'T') for v in ordered_ts]
+	assert urd.since("tests_urd", 0) == ordered_ts
+	assert urd.since("tests_urd", '1978-01-01') == ordered_ts[4:]
+	assert urd.peek_first("tests_urd").timestamp == '1'
+	assert not urd.peek("tests_urd", 2).deps
+	dep_jl = list(urd.peek("tests_urd", 1000000000).deps.values())[0].joblist
+	assert dep_jl == [job]
+	assert urd.peek("tests_urd", ('2017-06-27 17:00:00', 42)).timestamp == '2017-06-27T17:00:00+42'
+	while ordered_ts:
+		urd.truncate("tests_urd", ordered_ts.pop())
+		assert urd.since("tests_urd", 0) == ordered_ts, ordered_ts
+	want = [date.today() - timedelta(10), datetime.utcnow()]
+	for ts in want:
+		urd.begin("tests_urd", ts)
+		urd.build("test_build_kws")
+		urd.finish("tests_urd")
+	assert urd.since("tests_urd", 0) == [str(ts).replace(' ', 'T') for ts in want]
+	urd.truncate("tests_urd", 0)
 
 	print()
 	print("Testing dataset creation, export, import")
