@@ -60,38 +60,69 @@ def joblistlike(jl):
 
 @total_ordering
 class TimeStamp(str):
-	"""Can be a string like 2019-12-09T12:19:04 (day and time are optional)
-	or an int >= 0. All integers sort before all dates."""
+	"""Can be a string like 2019-12-09T12:19:04.123456 (day and time are
+	optional, partial time ok) and/or an int >= 0.
+	Integers without datetimes sort before all datetimes.
+	Datetimes without integers sort before the same datetime with an integer.
+	When both are specified they are separated by a +
+	"""
 	def __new__(cls, ts):
 		if isinstance(ts, TimeStamp):
 			return ts
 		try:
-			ts = int(ts, 10)
-			assert ts >= 0, "Invalid timestamp %d" % (ts,)
+			integer = int(ts, 10)
+			assert integer >= 0, 'Invalid timestamp %d' % (ts,)
+			ts = None
 		except ValueError:
-			assert re.match(r"\d{4}-\d{2}(-\d{2}(T\d{2}(:\d{2}(:\d{2})?)?)?)?", ts), "Invalid timestamp %s" % (ts,)
-		obj = str.__new__(cls, str(ts))
+			m = re.match(r'(\d{4}-\d{2}(?:-\d{2}(?:[T ]\d{2}(?::\d{2}(?::\d{2}(?:\.\d{1,6})?)?)?)?)?)(\+\d+)?$', ts)
+			assert m, 'Invalid timestamp %s' % (ts,)
+			ts, integer = m.groups()
+			ts = ts.replace(' ', 'T')
+			integer = int(integer[1:], 10) if integer else None
+		assert ts is not None or integer is not None, 'Invalid timestamp %s' % (ts,)
+		if ts:
+			if integer is not None:
+				strval = '%s+%d' % (ts, integer,)
+			else:
+				strval = ts
+		else:
+			strval = str(integer)
+		obj = str.__new__(cls, strval)
 		obj._ts = ts
+		obj._integer = integer
 		return obj
+
+	__hash__ = str.__hash__
 
 	def __eq__(self, other):
 		if not isinstance(other, TimeStamp):
 			other = TimeStamp(other)
-		return self._ts == other._ts
+		return self._ts == other._ts and self._integer == other._integer
 
 	def __lt__(self, other):
 		if not isinstance(other, TimeStamp):
 			other = TimeStamp(other)
-		if isinstance(self._ts, int):
-			if isinstance(other._ts, int):
-				return self._ts < other._ts
+		if self._ts is not None:
+			if other._ts is not None:
+				if self._integer is not None:
+					if self._ts == other._ts:
+						if other._integer is not None:
+							return self._integer < other._integer
+						else:
+							return False
+					else:
+						return self._ts < other._ts
+				else:
+					if other._integer is not None:
+						return self._ts <= other._ts
+					else:
+						return self._ts < other._ts
 			else:
-				return True
-		else:
-			if isinstance(other._ts, int):
 				return False
-			else:
-				return self._ts < other._ts
+		elif other._ts is not None:
+			return True
+		else:
+			return self._integer < other._integer
 
 
 class DB:
