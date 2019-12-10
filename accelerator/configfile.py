@@ -80,6 +80,12 @@ def load_config(filename):
 			raise _E("Don't override DEFAULT interpreter")
 		if not os.path.isfile(val[1]):
 			raise _E('%r does not exist' % (val,))
+	def check_workdirs(val):
+		name, path = val
+		if name in (v[0] for v in cfg['workdirs']):
+			raise _E('Workdir %s redefined' % (name,))
+		if path in (v[1] for v in cfg['workdirs']):
+			raise _E('Workdir path %r re-used' % (path,))
 
 	parsers = dict(
 		slices=int,
@@ -90,6 +96,7 @@ def load_config(filename):
 	)
 	checkers = dict(
 		interpreter=check_interpreter,
+		workdirs=check_workdirs,
 	)
 
 	try:
