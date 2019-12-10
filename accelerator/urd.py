@@ -32,7 +32,6 @@ from datetime import datetime
 import operator
 from argparse import ArgumentParser
 import os.path
-from functools import total_ordering
 
 from accelerator.compat import iteritems, itervalues, unicode
 from accelerator.extras import DotDict
@@ -58,7 +57,6 @@ def joblistlike(jl):
 	return True
 
 
-@total_ordering
 class TimeStamp(str):
 	"""Can be a string like 2019-12-09T12:19:04.123456 (day and time are
 	optional, partial time ok) and/or an int >= 0.
@@ -123,6 +121,17 @@ class TimeStamp(str):
 			return True
 		else:
 			return self._integer < other._integer
+
+	def __le__(self, other):
+		if not isinstance(other, TimeStamp):
+			other = TimeStamp(other)
+		return self < other or self == other
+
+	def __ge__(self, other):
+		return not self < other
+
+	def __gt__(self, other):
+		return not self <= other
 
 
 class DB:
