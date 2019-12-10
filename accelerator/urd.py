@@ -247,6 +247,7 @@ class DB:
 		changed = False
 		ghosted = 0
 		data.timestamp = TimeStamp(data.timestamp)
+		assert data.timestamp != '0', "Timestamp 0 is special, you can't add it."
 		is_ghost = self._is_ghost(data)
 		if is_ghost:
 			db = self.ghost_db[key]
