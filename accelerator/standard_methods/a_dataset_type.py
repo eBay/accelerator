@@ -57,7 +57,7 @@ options = {
 	'column2type'               : {'COLNAME': TYPENAME},
 	'hashlabel'                 : str, # leave as None to inherit hashlabel, set to '' to not have a hashlabel
 	'defaults'                  : {}, # {'COLNAME': value}, unspecified -> method fails on unconvertible unless filter_bad
-	'rename'                    : {}, # {'OLDNAME': 'NEWNAME'} doesn't shadow OLDNAME. (Other COLNAMEs use NEWNAME.)
+	'rename'                    : {}, # {'OLDNAME': 'NEWNAME'} doesn't shadow OLDNAME. (Other COLNAMEs use NEWNAME.) Use {'OLDNAME': None} to discard OLDNAME.
 	'caption'                   : 'typed dataset',
 	'discard_untyped'           : bool, # Make unconverted columns inaccessible ("new" dataset)
 	'filter_bad'                : False, # Implies discard_untyped
@@ -179,6 +179,14 @@ def prepare(job, slices):
 	if rehashing and options.as_chain:
 		dw = None
 	else:
+		if parent:
+			# Discard columns with rename set to None (unless already renamed over)
+			discard = {colname: None for colname, t in options.rename.items() if t is None and colname not in columns and colname in parent.columns}
+			if hashlabel in discard:
+				hashlabel = None
+				hashlabel_override = True
+				assert options.hashlabel is None, "Can't hash on discarded column %r" % (options.hashlabel,)
+			columns.update(discard)
 		dw = job.datasetwriter(
 			columns=columns,
 			caption=options.caption,

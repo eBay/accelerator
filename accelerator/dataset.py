@@ -679,7 +679,7 @@ class Dataset(unicode):
 		res = Dataset(_new_dataset_marker, name)
 		res._data.lines = list(Dataset._linefixup(lines))
 		res._data.hashlabel = hashlabel
-		res._append(columns, filenames, minmax, filename, caption, previous, name)
+		res._append(columns, filenames, minmax, filename, caption, previous, None, name)
 		return res
 
 	@staticmethod
@@ -691,7 +691,7 @@ class Dataset(unicode):
 		assert len(lines) == slices, "Lines must be specified for all slices"
 		return lines
 
-	def append(self, columns, filenames, lines, minmax={}, filename=None, hashlabel=None, hashlabel_override=False, caption=None, previous=None, name='default'):
+	def append(self, columns, filenames, lines, minmax={}, filename=None, hashlabel=None, hashlabel_override=False, caption=None, previous=None, column_filter=None, name='default'):
 		hashlabel = uni(hashlabel)
 		if hashlabel_override:
 			self._data.hashlabel = hashlabel
@@ -699,7 +699,7 @@ class Dataset(unicode):
 			assert self.hashlabel == hashlabel, 'Hashlabel mismatch %s != %s' % (self.hashlabel, hashlabel,)
 		assert self._linefixup(lines) == self.lines, "New columns don't have the same number of lines as parent columns"
 		columns = {uni(k): uni(v) for k, v in columns.items()}
-		self._append(columns, filenames, minmax, filename, caption, previous, name)
+		self._append(columns, filenames, minmax, filename, caption, previous, column_filter, name)
 
 	def _minmax_merge(self, minmax):
 		def minmax_fixup(a, b):
@@ -718,7 +718,7 @@ class Dataset(unicode):
 					res[name] = [min(mm[0], omm[0]), max(mm[1], omm[1])]
 		return res
 
-	def _append(self, columns, filenames, minmax, filename, caption, previous, name):
+	def _append(self, columns, filenames, minmax, filename, caption, previous, column_filter, name):
 		from accelerator.sourcedata import type2iter
 		from accelerator.g import job
 		name = uni(name)
@@ -734,6 +734,12 @@ class Dataset(unicode):
 		for n in ('cache', 'cache_distance'):
 			if n in self._data: del self._data[n]
 		minmax = self._minmax_merge(minmax)
+		if column_filter:
+			column_filter = set(column_filter)
+			filtered_columns = {k: v for k, v in self._data.columns.items() if k in column_filter}
+			left_over = column_filter - set(filtered_columns)
+			assert not left_over, "Columns in filter not available in dataset: %r" % (left_over,)
+			self._data.columns = filtered_columns
 		for n, t in sorted(columns.items()):
 			if t not in type2iter:
 				raise DatasetUsageError('Unknown type %s on column %s' % (t, n,))
@@ -839,6 +845,9 @@ class DatasetWriter(object):
 	sorted order if you passed a dict). The dw.write() function names the
 	arguments from the columns too.
 	
+	If you set a column type to None that column is not inherited from the
+	parent dataset. (Only works as an init argument, not with dw.add.)
+	
 	If you set hashlabel you can use dw.hashcheck(v) to check if v
 	belongs in this slice. You can also call enable_hash_discard
 	(in each slice, or after each set_slice), then the writer will
@@ -901,10 +910,17 @@ class DatasetWriter(object):
 			obj.meta_only = meta_only
 			obj._for_single_slice = for_single_slice
 			obj._clean_names = {}
+			discard_columns = {k for k, v in columns.items() if v is None}
+			columns = {k: v for k, v in columns.items() if v is not None}
 			if parent:
-				obj._pcolumns = Dataset(parent).columns
+				parent_cols = Dataset(parent).columns
+				unknown_discards = discard_columns - set(parent_cols)
+				assert not unknown_discards, "Can't discard non-existant columns %r" % (unknown_discards,)
+				obj._pcolumns = {k: v for k, v in parent_cols.items() if k not in discard_columns}
 				obj._seen_n = set(c.name.lower() for c in obj._pcolumns.values())
+				obj._column_filter = set(obj._pcolumns)
 			else:
+				assert not discard_columns, "Can't discard columns without a parent"
 				obj._pcolumns = {}
 				obj._seen_n = set()
 			obj._started = False
@@ -912,6 +928,8 @@ class DatasetWriter(object):
 			obj._minmax = {}
 			obj._order = []
 			for k, v in sorted(columns.items()):
+				if v is None:
+					continue
 				if isinstance(v, tuple):
 					v = v.type
 				obj.add(k, v)
@@ -1152,7 +1170,7 @@ class DatasetWriter(object):
 		)
 		if self.parent:
 			res = Dataset(self.parent)
-			res.append(hashlabel_override=self.hashlabel_override, **args)
+			res.append(hashlabel_override=self.hashlabel_override, column_filter=self._column_filter, **args)
 			res = Dataset((job, self.name))
 		else:
 			res = Dataset.new(**args)
