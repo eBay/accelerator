@@ -42,7 +42,6 @@ def verify(jobid, wanted):
 		assert line.endswith("[" + jobid + "]\n"), line
 		ln()
 		ln('Method "test_report" report.')
-		ln('Caption "fsm_test_report"')
 		ln()
 		ln("Options")
 		ln("  i : 42 ")

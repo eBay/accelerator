@@ -126,7 +126,7 @@ class Automata:
 		if self.monitor and not why_build:
 			self.monitor.submit(method)
 		if not caption:
-			caption = 'fsm_' + method
+			caption = ''
 		params = {method: dict(options=options, datasets=datasets, jobs=jobs,)}
 		data = setupfile.generate(caption, method, params, why_build=why_build)
 		if self.subjob_cookie:
