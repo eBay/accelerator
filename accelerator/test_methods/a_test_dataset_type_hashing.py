@@ -36,15 +36,16 @@ from accelerator import subjobs
 from accelerator.extras import DotDict
 
 def synthesis(job):
-	# Test keeping untyped columns of bytes-like types.
+	# Test keeping untyped columns.
 	dw = job.datasetwriter(name='a', columns={'a': 'unicode', 'b': 'bytes', 'c': 'ascii', 'd': 'number'})
 	write = dw.get_split_write()
+	write('A', None, None, None)
 	write('a', b'b', 'c', 0)
 	a = dw.finish()
 	assert a.hashlabel == None
 	typed_a = subjobs.build('dataset_type', options=dict(hashlabel='a', column2type={'a': 'ascii'}), datasets=dict(source=a)).dataset()
 	assert typed_a.hashlabel == 'a'
-	assert list(typed_a.iterate(None)) == [('a', b'b', 'c')], typed_a
+	assert list(typed_a.iterate(None)) == [('A', None, None, None), ('a', b'b', 'c', 0)], typed_a
 
 	# Test hashing on a column not explicitly typed.
 	dw = job.datasetwriter(name='b', columns={'a': 'unicode', 'b': 'ascii', 'c': 'bytes', 'd': 'unicode'}, previous=a)
@@ -54,7 +55,7 @@ def synthesis(job):
 	assert b.hashlabel == None
 	typed_b = subjobs.build('dataset_type', options=dict(hashlabel='a', column2type={'b': 'ascii'}), datasets=dict(source=b)).dataset()
 	assert typed_b.hashlabel == 'a'
-	assert set(typed_b.iterate(None)) == {('a', 'b'), ('A', 'B')}, typed_b
+	assert set(typed_b.iterate(None)) == {('a', 'b'), ('A', None), ('A', 'B')}, typed_b
 
 	# Test renaming over the original hashlabel
 	dw = job.datasetwriter(name='c', columns={'a': 'unicode', 'b': 'ascii', 'c': 'bytes', 'd': 'unicode'}, hashlabel='a')
@@ -164,13 +165,11 @@ def test(src_ds, opts, expect_lines):
 		assert just_typed.hashlabel == rename(src_ds.hashlabel)
 	del opts.discard_untyped
 	rev_rename = {v: k for k, v in opts.get('rename', {}).items()}
-	typeaway = set(src_ds.columns) - set(rev_rename.get(n, n) for n in cols)
-	if typeaway:
-		# turn columns we don't want to see in the comparison into int32 so they get discarded on rehashing.
-		new_src_ds = subjobs.build('dataset_type', options=dict(defaults=dict.fromkeys(typeaway, '0'), column2type=dict.fromkeys(typeaway, 'int32_10'), hashlabel=''), datasets=dict(source=src_ds)).dataset()
-		assert set(new_src_ds.columns) == set(src_ds.columns) # only types differ
-		assert new_src_ds.lines == src_ds.lines
-		src_ds = new_src_ds
+	discard = set(src_ds.columns) - set(rev_rename.get(n, n) for n in cols)
+	if discard:
+		d = opts.get('rename', {})
+		d.update({k: None for k in discard})
+		opts.rename = d
 	for hashlabel in cols:
 		if opts.column2type[hashlabel] == 'json':
 			# not hashable

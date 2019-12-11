@@ -144,6 +144,11 @@ _c_conv_ascii_strict_template = r'''
 	}
 '''
 
+_c_null_blob_template = r'''
+	int32_t len = g.linelen;
+	const uint8_t *ptr = (uint8_t *)line;
+'''
+
 _c_conv_unicode_setup = r'''
 	PyObject *decoder = PyCodec_Decoder(fmt);
 	if (!decoder) {
@@ -701,6 +706,7 @@ convfuncs = {
 
 # These are not made available as valid values in column2type, but they
 # can be selected based on the :fmt specified in those values.
+# null_* is used when just copying a column with filtering.
 hidden_convfuncs = {
 	'unicode_utf8'       : ConvTuple(0, ['', _c_conv_unicode_specific_template % dict(strip=0, func='PyUnicode_DecodeUTF8'), _c_conv_unicode_cleanup], None),
 	'unicodestrip_utf8'  : ConvTuple(0, ['', _c_conv_unicode_specific_template % dict(strip=1, func='PyUnicode_DecodeUTF8'), _c_conv_unicode_cleanup], None),
@@ -708,6 +714,11 @@ hidden_convfuncs = {
 	'unicodestrip_latin1': ConvTuple(0, ['', _c_conv_unicode_specific_template % dict(strip=1, func='PyUnicode_DecodeLatin1'), _c_conv_unicode_cleanup], None),
 	'unicode_ascii'      : ConvTuple(0, ['', _c_conv_unicode_specific_template % dict(strip=0, func='PyUnicode_DecodeASCII'), _c_conv_unicode_cleanup], None),
 	'unicodestrip_ascii' : ConvTuple(0, ['', _c_conv_unicode_specific_template % dict(strip=1, func='PyUnicode_DecodeASCII'), _c_conv_unicode_cleanup], None),
+	'null_blob'          : ConvTuple(0, _c_null_blob_template, None),
+	'null_1'             : 1,
+	'null_4'             : 4,
+	'null_8'             : 8,
+	'null_number'        : 0,
 }
 
 # The actual type produced, when it is not the same as the key in convfuncs
@@ -774,7 +785,7 @@ typesizes = {typerename.get(key.split(':')[0], key.split(':')[0]): convfuncs[key
 # Verify that all types have working (well, findable) writers
 # and something approaching the right type of data.
 def _test():
-	from accelerator.gzwrite import typed_writer
+	from accelerator.gzwrite import typed_writer, _convfuncs
 	for key, data in iteritems(convfuncs):
 		key = key.split(":")[0]
 		typed_writer(typerename.get(key, key))
@@ -790,6 +801,11 @@ def _test():
 	for key, mm in iteritems(minmaxfuncs):
 		for v in mm:
 			assert isinstance(v, str), key
+	known = set(v for v in _convfuncs if ':' not in v)
+	copy_missing = known - set(copy_types)
+	copy_extra = set(copy_types) - known
+	assert not copy_missing, 'copy_types missing %r' % (copy_missing,)
+	assert not copy_extra, 'copy_types contains unexpected %r' % (copy_extra,)
 
 
 convert_template = r'''
@@ -1306,10 +1322,148 @@ err:
 }
 '''
 
+null_number_template = r'''
+%(proto)s
+{
+	PyGILState_STATE gstate = PyGILState_Ensure();
+	g g;
+	gzFile outfhs[slices];
+	memset(outfhs, 0, sizeof(outfhs));
+	int res = 1;
+	char *badmap = 0;
+	uint16_t *slicemap = 0;
+	int chosen_slice = 0;
+	int current_file = 0;
+	err1(g_init(&g, in_fns[current_file], offsets[current_file], 1));
+	for (int i = 0; i < slices; i++) {
+		outfhs[i] = gzopen(out_fns[i], gzip_mode);
+		err1(!outfhs[i]);
+	}
+	if (badmap_fd != -1) {
+		badmap = mmap(0, badmap_size, PROT_READ | PROT_WRITE, MAP_NOSYNC | MAP_SHARED, badmap_fd, 0);
+		err1(!badmap);
+	}
+	if (slicemap_fd != -1) {
+		slicemap = mmap(0, slicemap_size, PROT_READ, MAP_NOSYNC | MAP_SHARED, slicemap_fd, 0);
+		err1(!slicemap);
+	}
+	int64_t i = 0;
+	int64_t first_line;
+	int64_t max_count;
+more_infiles:
+	first_line = i;
+	max_count = max_counts[current_file];
+	if (max_count < 0) {
+		max_count = INT64_MAX;
+	} else {
+		max_count += first_line;
+	}
+	unsigned char buf[GZNUMBER_MAX_BYTES];
+	for (; i < max_count && !read_fixed(&g, buf, 1); i++) {
+		int z = buf[0];
+		if (z == 1) z = 8;
+		if (z) {
+			err1(read_fixed(&g, buf + 1, z));
+		}
+		z++;
+		if (slicemap) chosen_slice = slicemap[i];
+		if (skip_bad && badmap[i / 8] & (1 << (i %% 8))) {
+			bad_count[chosen_slice] += 1;
+			continue;
+		}
+		err1(gzwrite(outfhs[chosen_slice], buf, z) != z);
+	}
+	current_file++;
+	if (current_file < in_count) {
+		g_init(&g, in_fns[current_file], offsets[current_file], 0);
+		goto more_infiles;
+	}
+	res = g.error;
+err:
+	if (g_cleanup(&g)) res = 1;
+	for (int i = 0; i < slices; i++) {
+		if (outfhs[i] && gzclose(outfhs[i])) res = 1;
+	}
+	if (badmap) munmap(badmap, badmap_size);
+	if (slicemap) munmap(slicemap, slicemap_size);
+	PyGILState_Release(gstate);
+	return res;
+}
+'''
+
+null_template = r'''
+%(proto)s
+{
+	PyGILState_STATE gstate = PyGILState_Ensure();
+	g g;
+	gzFile outfhs[slices];
+	memset(outfhs, 0, sizeof(outfhs));
+	int res = 1;
+	char *badmap = 0;
+	uint16_t *slicemap = 0;
+	int chosen_slice = 0;
+	int current_file = 0;
+	err1(g_init(&g, in_fns[current_file], offsets[current_file], 1));
+	for (int i = 0; i < slices; i++) {
+		outfhs[i] = gzopen(out_fns[i], gzip_mode);
+		err1(!outfhs[i]);
+	}
+	if (badmap_fd != -1) {
+		badmap = mmap(0, badmap_size, PROT_READ | PROT_WRITE, MAP_NOSYNC | MAP_SHARED, badmap_fd, 0);
+		err1(!badmap);
+	}
+	if (slicemap_fd != -1) {
+		slicemap = mmap(0, slicemap_size, PROT_READ, MAP_NOSYNC | MAP_SHARED, slicemap_fd, 0);
+		err1(!slicemap);
+	}
+	int64_t i = 0;
+	int64_t first_line;
+	int64_t max_count;
+more_infiles:
+	first_line = i;
+	max_count = max_counts[current_file];
+	if (max_count < 0) {
+		max_count = INT64_MAX;
+	} else {
+		max_count += first_line;
+	}
+	unsigned char buf[%(size)d];
+	for (; i < max_count && !read_fixed(&g, buf, %(size)d); i++) {
+		if (slicemap) chosen_slice = slicemap[i];
+		if (skip_bad && badmap[i / 8] & (1 << (i %% 8))) {
+			bad_count[chosen_slice] += 1;
+			continue;
+		}
+		err1(gzwrite(outfhs[chosen_slice], buf, %(size)d) != %(size)d);
+	}
+	current_file++;
+	if (current_file < in_count) {
+		g_init(&g, in_fns[current_file], offsets[current_file], 0);
+		goto more_infiles;
+	}
+	res = g.error;
+err:
+	if (g_cleanup(&g)) res = 1;
+	for (int i = 0; i < slices; i++) {
+		if (outfhs[i] && gzclose(outfhs[i])) res = 1;
+	}
+	if (badmap) munmap(badmap, badmap_size);
+	if (slicemap) munmap(slicemap, slicemap_size);
+	PyGILState_Release(gstate);
+	return res;
+}
+'''
+
 for name, ct in sorted(list(convfuncs.items()) + list(hidden_convfuncs.items())):
-	if not ct.conv_code_str:
+	if isinstance(ct, int):
+		proto = proto_template % (name,)
+		if ct:
+			code = null_template % dict(proto=proto, size=ct,)
+		else:
+			code = null_number_template % dict(proto=proto,)
+	elif not ct.conv_code_str:
 		continue
-	if ct.size:
+	elif ct.size:
 		if ':' in name:
 			shortname = name.split(':', 1)[0]
 		else:
@@ -1328,6 +1482,10 @@ for name, ct in sorted(list(convfuncs.items()) + list(hidden_convfuncs.items()))
 		code = convert_blob_template % args
 	protos.append(proto + ';')
 	funcs.append(code)
+
+copy_types = {typerename.get(k.split(':')[0], k.split(':')[0]): 'null_%d' % (v.size,) if v.size else 'null_blob' for k, v in convfuncs.items()}
+copy_types['number'] = 'null_number'
+
 
 all_c_functions = r'''
 #include <zlib.h>
@@ -1508,6 +1666,27 @@ size_again:
 	res[size] = 0;
 	g->linelen = size;
 	return res;
+}
+
+static inline int read_fixed(g *g, unsigned char *res, int z)
+{
+	if (g->pos >= g->len) {
+		if (read_chunk(g, 0)) return 1;
+	}
+	int avail = g->len - g->pos;
+	if (avail < z) {
+		memcpy(res, g->buf + g->pos, avail);
+		res += avail;
+		z -= avail;
+		if (read_chunk(g, 0) || g->len < z) {
+			fprintf(stderr, "%s: Format error\n", g->filename);
+			g->error = 1;
+			return 1;
+		}
+	}
+	memcpy(res, g->buf + g->pos, z);
+	g->pos += z;
+	return 0;
 }
 
 void init(void)

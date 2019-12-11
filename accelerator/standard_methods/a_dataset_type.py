@@ -39,17 +39,18 @@ depend_extra = (dataset_type,)
 description = r'''
 Convert one or more columns in a dataset from bytes/ascii/unicode to any type.
 Also rehashes if you type the hashlabel, or specify a new hashlabel.
-'''
+You can also set hashlabel="" to not rehash (and get hashlabel=None).
 
-# Without filter_bad the method fails when a value fails to convert and
-# doesn't have a default. With filter_bad the value is filtered out
-# together with all other values on the same line.
-#
-# With filter_bad, when rehashing or when typing a chain a new dataset is
-# produced, so any columns not in column2type that are not of a bytes-like
-# type will be discarded. You can set discard_untyped to discard all
-# unspecified columns, or set it to False to get an error if any columns
-# were not preservable (except columns renamed over).
+Without filter_bad the method fails when a value fails to convert and
+doesn't have a default. With filter_bad the value is filtered out
+together with all other values on the same line.
+
+With filter_bad, when rehashing or when typing a chain a new dataset is
+produced. Any columns that to not have the same type over all the typed
+datasets will be discarded in this case. You can set discard_untyped to
+discard all untyped columns, or set it to False to get an error if any
+columns were not preservable (except columns renamed over).
+'''
 
 TYPENAME = OptionEnum(dataset_type.convfuncs.keys())
 
@@ -125,28 +126,22 @@ def prepare(job, slices):
 			missing = set(d.columns) - untyped_columns - set(columns) - orig_columns
 			if missing:
 				raise Exception('discard_untyped is False, but not all columns in %s exist in the whole chain (missing %r)' % (d, missing,))
-		cand2type = {}
 		unkeepable = set()
 		for colname in sorted(untyped_columns):
 			target_colname = options.rename.get(colname, colname)
-			if target_colname in cand2type:
+			if target_colname is None or target_colname in columns:
 				continue
 			ts = set(ds.columns[colname].type for ds in chain)
 			if len(ts) == 1:
 				t = ts.pop()
+				columns[target_colname] = t
+				column2type[target_colname] = dataset_type.copy_types[t]
 			else:
 				# We could be a bit more generous and use bytes for other
 				# workable combinations, or even unicode for {ascii, unicode}.
-				t = 'BAD'
-			if t in byteslike_types:
-				cand2type[target_colname] = t
-			else:
 				unkeepable.add(colname)
 		if options.discard_untyped is False:
-			assert not unkeepable, 'The following columns had unkeepable or varying types: %r' % (unkeepable,)
-		else:
-			columns.update(cand2type)
-			column2type.update((k, 'unicode:utf-8' if v == 'unicode' else v) for k, v in cand2type.items())
+			assert not unkeepable, 'The following columns have varying types: %r' % (unkeepable,)
 	if options.filter_bad or rehashing or options.discard_untyped or len(chain) > 1:
 		parent = None
 	else:
@@ -352,9 +347,15 @@ def one_column(vars, colname, coltype, out_fns, for_hasher=False):
 	minmax_fn = 'minmax%d' % (vars.sliceno,)
 
 	fmt = fmt_b = None
+	is_null_converter = False
 	if coltype in dataset_type.convfuncs:
 		shorttype = coltype
 		_, cfunc, pyfunc = dataset_type.convfuncs[coltype]
+	elif coltype.startswith('null_'):
+		shorttype = coltype
+		pyfunc = False
+		cfunc = True
+		is_null_converter = True
 	else:
 		shorttype, fmt = coltype.split(':', 1)
 		_, cfunc, pyfunc = dataset_type.convfuncs[shorttype + ':*']
@@ -381,7 +382,8 @@ def one_column(vars, colname, coltype, out_fns, for_hasher=False):
 	max_counts = []
 	for d in vars.chain:
 		assert colname in d.columns, '%s not in %s' % (colname, d,)
-		assert d.columns[colname].type in byteslike_types, '%s has bad type in %s' % (colname, d,)
+		if not is_null_converter:
+			assert d.columns[colname].type in byteslike_types, '%s has bad type in %s' % (colname, d,)
 		in_fns.append(d.column_filename(colname, vars.sliceno))
 		if d.columns[colname].offsets:
 			offsets.append(d.columns[colname].offsets[vars.sliceno])
@@ -420,10 +422,22 @@ def one_column(vars, colname, coltype, out_fns, for_hasher=False):
 		vars.res_bad_count[colname] = list(bad_count)
 		vars.res_default_count[colname] = sum(default_count)
 		coltype = coltype.split(':', 1)[0]
-		real_coltype = dataset_type.typerename.get(coltype, coltype)
-		with type2iter[real_coltype](minmax_fn) as it:
-			vars.res_minmax[colname] = list(it)
-		unlink(minmax_fn)
+		if is_null_converter:
+			real_coltype = vars.chain[0].columns[colname].backing_type
+			mins = []
+			maxs = []
+			for d in vars.chain:
+				col = d.columns[colname]
+				if col.min is not None:
+					mins.append(col.min)
+					maxs.append(col.max)
+			if mins:
+				vars.res_minmax[colname] = [min(mins), max(maxs)]
+		else:
+			real_coltype = dataset_type.typerename.get(coltype, coltype)
+			with type2iter[real_coltype](minmax_fn) as it:
+				vars.res_minmax[colname] = list(it)
+			unlink(minmax_fn)
 	else:
 		# python func
 		if for_hasher:
