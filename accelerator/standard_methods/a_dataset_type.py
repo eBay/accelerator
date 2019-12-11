@@ -148,7 +148,7 @@ def prepare(job, slices):
 		parent = datasets.source
 	if hashlabel and hashlabel not in columns:
 		if options.hashlabel:
-			raise Exception("Can't rehash on untyped column %r." % (hashlabel,))
+			raise Exception("Can't rehash on discarded column %r." % (hashlabel,))
 		hashlabel = None # it gets inherited from the parent if we're keeping it.
 		hashlabel_override = False
 	dws = []

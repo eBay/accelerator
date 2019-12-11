@@ -30,12 +30,14 @@ hashlabel is inherited or discarded as appropriate.
 '''
 
 from itertools import cycle
+from datetime import date, time, datetime
 
 from accelerator.compat import unicode
 from accelerator import subjobs
 from accelerator.extras import DotDict
+from accelerator.gzwrite import typed_writer
 
-def synthesis(job):
+def synthesis(job, slices):
 	# Test keeping untyped columns.
 	dw = job.datasetwriter(name='a', columns={'a': 'unicode', 'b': 'bytes', 'c': 'ascii', 'd': 'number'})
 	write = dw.get_split_write()
@@ -134,6 +136,72 @@ def synthesis(job):
 		assert hashed.lines == rehashed.lines
 		assert sum(hashed.lines) == 500
 		assert set(hashed.columns.keys()) == set(unhashed.columns.keys()) == set(rehashed.columns.keys())
+
+	# test rehashing on a column we don't type, over all types.
+	dw = job.datasetwriter(name='rehash all types', columns={
+		'2type'   : 'ascii',
+		'ascii'   : 'ascii',
+		'bits32'  : 'bits32',
+		'bits64'  : 'bits64',
+		'bool'    : 'bool',
+		'bytes'   : 'bytes',
+		'date'    : 'date',
+		'datetime': 'datetime',
+		'float32' : 'float32',
+		'float64' : 'float64',
+		'int32'   : 'int32',
+		'int64'   : 'int64',
+		'json'    : 'json',
+		'number'  : 'number',
+		'time'    : 'time',
+		'unicode' : 'unicode',
+	})
+	write = dw.get_split_write()
+	data = {
+		'42': ('ascii string', 100, 1000,  True, b'bytes string', date(2019, 12, 11), datetime(2019, 12, 11, 20, 7, 21), 1.5, 0.00000001, 99, -11, {"a": "b"}, 1e100, time(20, 7, 21), 'unicode string'),
+		None: (          None,   0,    0,  None,            None,               None,                              None, None,      None, None, None,     None,  None,            None,             None),
+		'18': ('ASCII STRING', 111, 1111, False, b'BYTES STRING', date(1868,  1,  3), datetime(1868,  1,  3, 13, 14, 5), 2.5, -0.0000001, 67, -99, [42, ".."], 5e100, time(13, 14, 5), 'UNICODE STRING'),
+	}
+	write('42', *data['42'])
+	write(None, *data[None])
+	write('18', *data['18'])
+	src_ds = dw.finish()
+	data['None'] = data.pop(None)
+	type2type = {
+		'ascii'   : 'unicode:ascii',
+		'bool'    : 'unicode:ascii',
+		'date'    : 'unicode:ascii',
+		'datetime': 'unicode:ascii',
+		'time'    : 'unicode:ascii',
+		'bits32'  : 'bits32_10',
+		'bits64'  : 'bits64_10',
+		'bytes'   : 'bytes',
+		'float32' : 'float32',
+		'float64' : 'float64',
+		'int32'   : 'int32_10',
+		'int64'   : 'int64_10',
+		'number'  : 'number',
+		'unicode' : 'unicode:ascii',
+	}
+	for hl, typeas in sorted(type2type.items()):
+		ds = subjobs.build('dataset_type', column2type={'2type': typeas}, hashlabel=hl, source=src_ds).dataset()
+		seen = set()
+		hl_hash = typed_writer(hl).hash
+		for sliceno in range(slices):
+			for line in ds.iterate(sliceno, None):
+				key = line[0] or None
+				if isinstance(key, float):
+					key = int(key)
+				if isinstance(key, bytes):
+					key = key.decode('ascii')
+				else:
+					key = unicode(key)
+				assert data.get(key) == line[1:], "%s (hl %s) didn't have the right data for line %r" % (ds, hl, line[0],)
+				hv = line[sorted(src_ds.columns).index(hl)]
+				assert hl_hash(hv) % slices == sliceno, "%s (hl %s) didn't hash %r correctly" % (ds, hl, hv,)
+				assert key not in seen, "%s (hl %s) repeated line %s" % (ds, hl, line[0],)
+				seen.add(key)
+		assert seen == {'42', 'None', '18'}, "%s didn't have all lines (%r)" % (ds, seen,)
 
 def test(src_ds, opts, expect_lines):
 	opts = DotDict(opts)
