@@ -1418,13 +1418,15 @@ MK_MINMAX_SET(Time    , unfmt_time((*(uint64_t *)cmp_value) >> 32, *(uint64_t *)
 		GzWrite *self = (GzWrite *)self_;                                        	\
 		char *name = 0;                                                          	\
 		const char *mode = 0;                                                    	\
+		PyObject *default_obj = 0;                                               	\
 		PyObject *hashfilter = 0;                                                	\
 		gzwrite_close_(self);                                                    	\
-		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|sOO", kwlist, Py_FileSystemDefaultEncoding, &name, &mode, &self->default_obj, &hashfilter)) return -1; \
+		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|sOO", kwlist, Py_FileSystemDefaultEncoding, &name, &mode, &default_obj, &hashfilter)) return -1; \
 		self->name = name;                                                       	\
-		if (self->default_obj) {                                                 	\
+		if (default_obj) {                                                       	\
 			T value;                                                         	\
-			Py_INCREF(self->default_obj);                                    	\
+			Py_INCREF(default_obj);                                          	\
+			self->default_obj = default_obj;                                 	\
 			if (withnone && self->default_obj == Py_None) {                  	\
 				memcpy(&value, &noneval_ ## T, sizeof(T));               	\
 			} else {                                                         	\
@@ -1670,12 +1672,14 @@ static int gzwrite_init_GzWriteNumber(PyObject *self_, PyObject *args, PyObject 
 	GzWrite *self = (GzWrite *)self_;
 	char *name = 0;
 	const char *mode = 0;
+	PyObject *default_obj = 0;
 	PyObject *hashfilter = 0;
 	gzwrite_close_(self);
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|sOO", kwlist, Py_FileSystemDefaultEncoding, &name, &mode, &self->default_obj, &hashfilter)) return -1;
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|sOO", kwlist, Py_FileSystemDefaultEncoding, &name, &mode, &default_obj, &hashfilter)) return -1;
 	self->name = name;
-	if (self->default_obj) {
-		Py_INCREF(self->default_obj);
+	if (default_obj) {
+		Py_INCREF(default_obj);
+		self->default_obj = default_obj;
 #if PY_MAJOR_VERSION < 3
 		if (PyInt_Check(self->default_obj)) {
 			PyObject *lobj = PyLong_FromLong(PyInt_AS_LONG(self->default_obj));
@@ -1819,22 +1823,22 @@ static int gzwrite_init_GzWriteParsedNumber(PyObject *self_, PyObject *args, PyO
 	static char *kwlist[] = {"name", "mode", "default", "hashfilter", 0};
 	PyObject *name = 0;
 	PyObject *mode = 0;
+	PyObject *default_obj_ = 0;
 	PyObject *default_obj = 0;
 	PyObject *hashfilter = 0;
 	PyObject *new_args = 0;
 	PyObject *new_kwds = 0;
 	int res = -1;
-	err1(!PyArg_ParseTupleAndKeywords(args, kwds, "O|OOO", kwlist, &name, &mode, &default_obj, &hashfilter));
-	if (default_obj) {
-		if (default_obj == Py_None || PyFloat_Check(default_obj)) {
+	err1(!PyArg_ParseTupleAndKeywords(args, kwds, "O|OOOO", kwlist, &name, &mode, &default_obj_, &hashfilter));
+	if (default_obj_) {
+		if (default_obj_ == Py_None || PyFloat_Check(default_obj_)) {
+			default_obj = default_obj_;
 			Py_INCREF(default_obj);
 		} else {
-			PyObject *lobj = PyNumber_Long(default_obj);
-			if (lobj) {
-				default_obj = lobj;
-			} else {
+			default_obj = PyNumber_Long(default_obj_);
+			if (!default_obj) {
 				PyErr_Clear();
-				default_obj = PyNumber_Float(default_obj);
+				default_obj = PyNumber_Float(default_obj_);
 			}
 			err1(!default_obj);
 		}
