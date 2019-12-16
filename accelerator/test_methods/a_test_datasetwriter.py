@@ -38,7 +38,7 @@ def prepare(job, slices):
 	dw_default.add("a", "number")
 	dw_default.add("b", "ascii")
 	DatasetWriter(name="named", columns={"c": "bool", "d": "date"})
-	dw_passed = job.datasetwriter(name="passed", columns={t: t for t in test_data.data})
+	dw_passed = job.datasetwriter(name="passed", columns=test_data.columns)
 	return dw_passed, 42
 
 def analysis(sliceno, prepare_res, job):
@@ -67,7 +67,7 @@ def synthesis(prepare_res, slices, job):
 	dw_synthesis_split.get_split_write_list()([2, "b"])
 	dw_synthesis_split.get_split_write_dict()({"a": 3, "b": "c"})
 	dw_synthesis_manual = job.datasetwriter(name="synthesis_manual", columns={"sliceno": "int32"})
-	dw_nonetest = job.datasetwriter(name="nonetest", columns={t: t for t in test_data.data})
+	dw_nonetest = job.datasetwriter(name="nonetest", columns=test_data.columns)
 	for sliceno in range(slices):
 		dw_synthesis_manual.set_slice(sliceno)
 		dw_synthesis_manual.write(sliceno)

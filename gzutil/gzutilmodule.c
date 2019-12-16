@@ -895,6 +895,7 @@ typedef struct gzwrite {
 	uint64_t spread_None;
 	unsigned int sliceno;
 	unsigned int slices;
+	int none_support;
 	int len;
 	char buf[Z];
 } GzWrite;
@@ -999,11 +1000,11 @@ static int gzwrite_init_GzWriteLines(PyObject *self_, PyObject *args, PyObject *
 	int write_bom = 0;
 	gzwrite_close_(self);
 	if (self_->ob_type == &GzWriteUnicodeLines_Type) {
-		static char *kwlist[] = {"name", "mode", "hashfilter", "write_bom", 0};
-		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|sOi", kwlist, Py_FileSystemDefaultEncoding, &name, &mode, &hashfilter, &write_bom)) return -1;
+		static char *kwlist[] = {"name", "mode", "hashfilter", "none_support", "write_bom", 0};
+		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|sOii", kwlist, Py_FileSystemDefaultEncoding, &name, &mode, &hashfilter, &self->none_support, &write_bom)) return -1;
 	} else {
-		static char *kwlist[] = {"name", "mode", "hashfilter", 0};
-		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|sO", kwlist, Py_FileSystemDefaultEncoding, &name, &mode, &hashfilter)) return -1;
+		static char *kwlist[] = {"name", "mode", "hashfilter", "none_support", 0};
+		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|sOi", kwlist, Py_FileSystemDefaultEncoding, &name, &mode, &hashfilter, &self->none_support)) return -1;
 	}
 	self->name = name;
 	err1(parse_hashfilter(hashfilter, &self->hashfilter, &self->sliceno, &self->slices, &self->spread_None));
@@ -1029,8 +1030,8 @@ static int gzwrite_init_GzWriteBlob(PyObject *self_, PyObject *args, PyObject *k
 	const char *mode = 0;
 	PyObject *hashfilter = 0;
 	gzwrite_close_(self);
-	static char *kwlist[] = {"name", "mode", "hashfilter", 0};
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|sO", kwlist, Py_FileSystemDefaultEncoding, &name, &mode, &hashfilter)) return -1;
+	static char *kwlist[] = {"name", "mode", "hashfilter", "none_support", 0};
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|sOi", kwlist, Py_FileSystemDefaultEncoding, &name, &mode, &hashfilter, &self->none_support)) return -1;
 	self->name = name;
 	err1(parse_hashfilter(hashfilter, &self->hashfilter, &self->sliceno, &self->slices, &self->spread_None));
 	err1(wrapped_gzopen(self, mode));
@@ -1095,6 +1096,10 @@ static PyObject *gzwrite_write_GzWrite(GzWrite *self, PyObject *obj)
 }
 
 #define WRITE_NONE_SLICE_CHECK do {                                                   	\
+	if (!self->none_support) {                                                    	\
+		PyErr_SetString(PyExc_ValueError, "Refusing to write None value without none_support=True"); \
+		return 0;                                                             	\
+	}                                                                             	\
 	if (self->spread_None) {                                                      	\
 		const unsigned int spread_slice = self->spread_None % self->slices;   	\
 		if (actually_write) self->spread_None++;                              	\
@@ -1414,20 +1419,24 @@ MK_MINMAX_SET(Time    , unfmt_time((*(uint64_t *)cmp_value) >> 32, *(uint64_t *)
 #define MKWRITER(tname, T, HT, conv, withnone, minmax_value, minmax_set, hash)           	\
 	static int gzwrite_init_ ## tname(PyObject *self_, PyObject *args, PyObject *kwds)	\
 	{                                                                                	\
-		static char *kwlist[] = {"name", "mode", "default", "hashfilter", 0};    	\
+		static char *kwlist[] = {"name", "mode", "default", "hashfilter", "none_support", 0}; \
 		GzWrite *self = (GzWrite *)self_;                                        	\
 		char *name = 0;                                                          	\
 		const char *mode = 0;                                                    	\
 		PyObject *default_obj = 0;                                               	\
 		PyObject *hashfilter = 0;                                                	\
 		gzwrite_close_(self);                                                    	\
-		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|sOO", kwlist, Py_FileSystemDefaultEncoding, &name, &mode, &default_obj, &hashfilter)) return -1; \
+		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|sOOi", kwlist, Py_FileSystemDefaultEncoding, &name, &mode, &default_obj, &hashfilter, &self->none_support)) return -1; \
+		if (!withnone && self->none_support) {                                   	\
+			PyErr_Format(PyExc_ValueError, "%s objects don't support None values", self_->ob_type->tp_name); \
+			return -1;                                                       	\
+		}                                                                        	\
 		self->name = name;                                                       	\
 		if (default_obj) {                                                       	\
 			T value;                                                         	\
 			Py_INCREF(default_obj);                                          	\
 			self->default_obj = default_obj;                                 	\
-			if (withnone && self->default_obj == Py_None) {                  	\
+			if (withnone && self->none_support && self->default_obj == Py_None) {	\
 				memcpy(&value, &noneval_ ## T, sizeof(T));               	\
 			} else {                                                         	\
 				value = conv(self->default_obj);                         	\
@@ -1668,14 +1677,14 @@ static int gzwrite_GzWriteNumber_serialize_Long(PyObject *obj, char *buf, const 
 
 static int gzwrite_init_GzWriteNumber(PyObject *self_, PyObject *args, PyObject *kwds)
 {
-	static char *kwlist[] = {"name", "mode", "default", "hashfilter", 0};
+	static char *kwlist[] = {"name", "mode", "default", "hashfilter", "none_support", 0};
 	GzWrite *self = (GzWrite *)self_;
 	char *name = 0;
 	const char *mode = 0;
 	PyObject *default_obj = 0;
 	PyObject *hashfilter = 0;
 	gzwrite_close_(self);
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|sOO", kwlist, Py_FileSystemDefaultEncoding, &name, &mode, &default_obj, &hashfilter)) return -1;
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|sOOi", kwlist, Py_FileSystemDefaultEncoding, &name, &mode, &default_obj, &hashfilter, &self->none_support)) return -1;
 	self->name = name;
 	if (default_obj) {
 		Py_INCREF(default_obj);
@@ -1687,7 +1696,7 @@ static int gzwrite_init_GzWriteNumber(PyObject *self_, PyObject *args, PyObject 
 			self->default_obj = lobj;
 		}
 #endif
-		if (self->default_obj != Py_None) {
+		if (self->default_obj != Py_None || !self->none_support) {
 			if (!PyLong_Check(self->default_obj) && !PyFloat_Check(self->default_obj)) {
 				PyErr_SetString(PyExc_ValueError, "Bad default value: Only integers/floats accepted");
 				goto err;
@@ -1820,16 +1829,17 @@ static PyObject *gzwrite_hash_GzWriteNumber(PyObject *dummy, PyObject *obj)
 
 static int gzwrite_init_GzWriteParsedNumber(PyObject *self_, PyObject *args, PyObject *kwds)
 {
-	static char *kwlist[] = {"name", "mode", "default", "hashfilter", 0};
+	static char *kwlist[] = {"name", "mode", "default", "hashfilter", "none_support", 0};
 	PyObject *name = 0;
 	PyObject *mode = 0;
 	PyObject *default_obj_ = 0;
 	PyObject *default_obj = 0;
 	PyObject *hashfilter = 0;
+	PyObject *none_support = 0;
 	PyObject *new_args = 0;
 	PyObject *new_kwds = 0;
 	int res = -1;
-	err1(!PyArg_ParseTupleAndKeywords(args, kwds, "O|OOOO", kwlist, &name, &mode, &default_obj_, &hashfilter));
+	err1(!PyArg_ParseTupleAndKeywords(args, kwds, "O|OOOO", kwlist, &name, &mode, &default_obj_, &hashfilter, &none_support));
 	if (default_obj_) {
 		if (default_obj_ == Py_None || PyFloat_Check(default_obj_)) {
 			default_obj = default_obj_;
@@ -1849,6 +1859,7 @@ static int gzwrite_init_GzWriteParsedNumber(PyObject *self_, PyObject *args, PyO
 	if (mode) err1(PyDict_SetItemString(new_kwds, "mode", mode));
 	if (default_obj) err1(PyDict_SetItemString(new_kwds, "default", default_obj));
 	if (hashfilter) err1(PyDict_SetItemString(new_kwds, "hashfilter", hashfilter));
+	if (none_support) err1(PyDict_SetItemString(new_kwds, "none_support", none_support));
 	res = gzwrite_init_GzWriteNumber(self_, new_args, new_kwds);
 err:
 	Py_XDECREF(new_kwds);
@@ -2158,7 +2169,7 @@ PyMODINIT_FUNC INITFUNC(void)
 	PyObject *c_hash = PyCapsule_New((void *)hash, "gzutil._C_hash", 0);
 	if (!c_hash) return INITERR;
 	PyModule_AddObject(m, "_C_hash", c_hash);
-	PyObject *version = Py_BuildValue("(iii)", 2, 10, 5);
+	PyObject *version = Py_BuildValue("(iii)", 2, 11, 0);
 	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;

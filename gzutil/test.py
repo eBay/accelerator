@@ -82,6 +82,7 @@ for name, data, bad_cnt, res_data in (
 	r_name = "Gz" + name[6:] if name.startswith("Parsed") else "Gz" + name
 	r_typ = getattr(gzutil, r_name)
 	w_typ = getattr(gzutil, "GzWrite" + name)
+	none_support = ("Bits" not in name)
 	# verify that failures in init are handled reasonably.
 	for typ in (r_typ, w_typ,):
 		try:
@@ -97,21 +98,26 @@ for name, data, bad_cnt, res_data in (
 		except Exception:
 			raise Exception("%r does not give TypeError for bad keyword argument" % (typ,))
 	# test that the right data fails to write
-	with w_typ(TMP_FN) as fh:
-		count = 0
-		for ix, value in enumerate(data):
-			try:
-				fh.write(value)
-				count += 1
-				assert ix >= bad_cnt, repr(value)
-			except (ValueError, TypeError, OverflowError):
-				assert ix < bad_cnt, repr(value)
-		assert fh.count == count, "%s: %d lines written, claims %d" % (name, count, fh.count,)
-		if not forstrings(name):
-			want_min = min(filter(lambda x: x is not None, res_data))
-			want_max = max(filter(lambda x: x is not None, res_data))
-			assert fh.min == want_min, "%s: claims min %r, not %r" % (name, fh.min, want_min,)
-			assert fh.max == want_max, "%s: claims max %r, not %r" % (name, fh.max, want_max,)
+	for test_none_support in (False, True):
+		if test_none_support and not none_support:
+			continue
+		with w_typ(TMP_FN, none_support=test_none_support) as fh:
+			count = 0
+			for ix, value in enumerate(data):
+				try:
+					fh.write(value)
+					count += 1
+					assert ix >= bad_cnt, repr(value)
+					if value is None and not test_none_support:
+						raise Exception("Allowed None without none_support")
+				except (ValueError, TypeError, OverflowError):
+					assert ix < bad_cnt or (value is None and not test_none_support), repr(value)
+			assert fh.count == count, "%s: %d lines written, claims %d" % (name, count, fh.count,)
+			if not forstrings(name):
+				want_min = min(filter(lambda x: x is not None, res_data))
+				want_max = max(filter(lambda x: x is not None, res_data))
+				assert fh.min == want_min, "%s: claims min %r, not %r" % (name, fh.min, want_min,)
+				assert fh.max == want_max, "%s: claims max %r, not %r" % (name, fh.max, want_max,)
 	# Okay, errors look good
 	with r_typ(TMP_FN) as fh:
 		res = list(fh)
@@ -122,7 +128,7 @@ for name, data, bad_cnt, res_data in (
 	for ix, default in enumerate(data):
 		# Verify that defaults are accepted where expected
 		try:
-			with w_typ(TMP_FN, default=default) as fh:
+			with w_typ(TMP_FN, default=default, none_support=none_support) as fh:
 				pass
 			assert ix >= bad_cnt, repr(default)
 		except AssertionError:
@@ -130,7 +136,7 @@ for name, data, bad_cnt, res_data in (
 		except Exception:
 			assert ix < bad_cnt, repr(default)
 		if ix >= bad_cnt:
-			with w_typ(TMP_FN, default=default) as fh:
+			with w_typ(TMP_FN, default=default, none_support=none_support) as fh:
 				count = 0
 				for value in data:
 					try:
@@ -150,7 +156,7 @@ for name, data, bad_cnt, res_data in (
 		sliced_res = []
 		total_count = 0
 		for sliceno in range(slices):
-			with w_typ(TMP_FN, hashfilter=(sliceno, slices, spread_None)) as fh:
+			with w_typ(TMP_FN, hashfilter=(sliceno, slices, spread_None), none_support=none_support) as fh:
 				count = 0
 				for ix, value in enumerate(data):
 					try:
@@ -187,7 +193,7 @@ for name, data, bad_cnt, res_data in (
 		assert len(res) == len(res_data), "%s (%d): %d lines written, should be %d" % (name, slices, len(res), len(res_data),)
 		assert set(res) == set(res_data), "%s (%d): Wrong data: %r != %r" % (name, slices, res, res_data,)
 		# verify reading back with hashfilter gives the same as writing with it
-		with w_typ(TMP_FN) as fh:
+		with w_typ(TMP_FN, none_support=none_support) as fh:
 			for value in data[bad_cnt:]:
 				fh.write(value)
 		for sliceno in range(slices):
@@ -199,7 +205,7 @@ for name, data, bad_cnt, res_data in (
 		slice_test(slices, True)
 		# and a simple check to verify that None actually gets spread too
 		if "Bits" not in name:
-			kw = dict(hashfilter=(slices - 1, slices, True))
+			kw = dict(hashfilter=(slices - 1, slices, True), none_support=none_support)
 			value = None
 			for _ in range(2):
 				# first lap verifies with normal writing,
@@ -223,7 +229,7 @@ for name, value in (
 		fh.write(value)
 	with getattr(gzutil, "Gz" + name)(TMP_FN) as fh:
 		assert list(fh) == [value, value], name + " fails with just empty strings"
-	with getattr(gzutil, "GzWrite" + name)(TMP_FN) as fh:
+	with getattr(gzutil, "GzWrite" + name)(TMP_FN, none_support=True) as fh:
 		fh.write(None)
 		fh.write(None)
 	with getattr(gzutil, "Gz" + name)(TMP_FN) as fh:

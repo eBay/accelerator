@@ -58,10 +58,10 @@ bonus_data = [
 	{"a column": "foo", "also a column": b"bar", "number": 42, "date": date(2019, 4, 10)},
 ]
 columns = {
-	"a column": "ascii",
-	"also a column": "bytes",
-	"number": "int32",
-	"date": "date",
+	"a column": ("ascii", True),
+	"also a column": ("bytes", True),
+	"number": ("int32", True),
+	"date": ("date", True),
 }
 
 def write(data, **kw):
@@ -78,7 +78,7 @@ def verify(slices, data, source, previous=None, **options):
 		options=options,
 	)
 	hl = options["hashlabel"]
-	h = typed_writer(columns[hl]).hash
+	h = typed_writer(columns[hl][0]).hash
 	ds = Dataset(jid)
 	good = {row[hl]: row for row in data}
 	names = list(data[0])

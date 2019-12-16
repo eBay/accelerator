@@ -93,6 +93,7 @@ def prepare(job, slices):
 			if v in rev_rename:
 				raise Exception('Both column %r and column %r rename to %r' % (rev_rename[v], k, v,))
 			rev_rename[v] = k
+	none_support = set()
 	for colname, coltype in column2type.items():
 		orig_colname = rev_rename.get(colname, colname)
 		for ds in chain:
@@ -102,6 +103,8 @@ def prepare(job, slices):
 				raise Exception("Dataset %s column %r is type %s, must be one of %r" % (ds, orig_colname, ds.columns[orig_colname].type, byteslike_types,))
 		coltype = coltype.split(':', 1)[0]
 		columns[colname] = dataset_type.typerename.get(coltype, coltype)
+		if options.defaults.get(colname, False) is None:
+			none_support.add(colname)
 	if options.hashlabel is None:
 		hashlabel_override = False
 		hashlabel = options.rename.get(d.hashlabel, d.hashlabel)
@@ -136,6 +139,8 @@ def prepare(job, slices):
 				t = ts.pop()
 				columns[target_colname] = t
 				column2type[target_colname] = dataset_type.copy_types[t]
+				if chain.none_support(colname):
+					none_support.add(colname)
 			else:
 				# We could be a bit more generous and use bytes for other
 				# workable combinations, or even unicode for {ascii, unicode}.
@@ -151,6 +156,8 @@ def prepare(job, slices):
 			raise Exception("Can't rehash on discarded column %r." % (hashlabel,))
 		hashlabel = None # it gets inherited from the parent if we're keeping it.
 		hashlabel_override = False
+	for colname in none_support:
+		columns[colname] = (columns[colname], True)
 	dws = []
 	if rehashing:
 		previous = datasets.previous

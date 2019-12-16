@@ -51,7 +51,7 @@ kwlist.update({
 iskeyword = frozenset(kwlist).__contains__
 
 # A dataset is defined by a pickled DotDict containing at least the following (all strings are unicode):
-#     version = (3, 0,),
+#     version = (3, 1,),
 #     filename = "filename" or None,
 #     hashlabel = "column name" or None,
 #     caption = "caption",
@@ -64,7 +64,7 @@ iskeyword = frozenset(kwlist).__contains__
 #
 # A DatasetColumn has these fields:
 #     type = "type", # something that exists in type2iter and doesn't start with _
-#     backing_type = "type", # something that exists in type2iter (v2 uses type for this)
+#     backing_type = "type", # something that exists in type2iter (v2 used type for this)
 #                              (as the support for v2 has been removed, backing_type will
 #                              always be the same as type. until something changes again.)
 #     name = "name", # a clean version of the column name, valid in the filesystem and as a python identifier.
@@ -73,6 +73,7 @@ iskeyword = frozenset(kwlist).__contains__
 #     min = minimum value in this dataset or None
 #     max = maximum value in this dataset or None
 #     offsets = (offset, per, slice) or None for non-merged slices.
+#     none_support = bool # not present in version 3.0, implicitly True there except for bits-types.
 #
 # Going from a DatasetColumn to a filename is like this for version 2 and 3 datasets:
 #     jid, path = dc.location.split('/', 1)
@@ -114,8 +115,13 @@ def _dsid(t):
 
 # If we want to add fields to later versions, using a versioned name will
 # allow still loading the old versions without messing with the constructor.
-_DatasetColumn_3_0 = namedtuple('_DatasetColumn_3_0', 'type backing_type name location min max offsets')
-DatasetColumn = _DatasetColumn_3_0
+_DatasetColumn_3_1 = namedtuple('_DatasetColumn_3_1', 'type backing_type name location min max offsets none_support')
+DatasetColumn = _DatasetColumn_3_1
+# It's probably usually best to generate the new type so the rest of the code needs no special handling.
+class _DatasetColumn_3_0:
+	def __new__(cls, type, backing_type, name, location, min, max, offsets):
+		none_support = not backing_type.startswith('bits')
+		return _DatasetColumn_3_1(type, backing_type, name, location, min, max, offsets, none_support)
 
 class _New_dataset_marker(unicode): pass
 _new_dataset_marker = _New_dataset_marker('new')
@@ -672,7 +678,7 @@ class Dataset(unicode):
 	@staticmethod
 	def new(columns, filenames, lines, minmax={}, filename=None, hashlabel=None, caption=None, previous=None, name='default'):
 		"""columns = {"colname": "type"}, lines = [n, ...] or {sliceno: n}"""
-		columns = {uni(k): uni(v) for k, v in columns.items()}
+		columns = {uni(k): (uni(v[0]), bool(v[1])) if isinstance(v, tuple) else uni(v) for k, v in columns.items()}
 		if hashlabel:
 			hashlabel = uni(hashlabel)
 			assert hashlabel in columns, hashlabel
@@ -698,7 +704,7 @@ class Dataset(unicode):
 		elif hashlabel:
 			assert self.hashlabel == hashlabel, 'Hashlabel mismatch %s != %s' % (self.hashlabel, hashlabel,)
 		assert self._linefixup(lines) == self.lines, "New columns don't have the same number of lines as parent columns"
-		columns = {uni(k): uni(v) for k, v in columns.items()}
+		columns = {uni(k): (uni(v[0]), bool(v[1])) if isinstance(v, tuple) else uni(v) for k, v in columns.items()}
 		self._append(columns, filenames, minmax, filename, caption, previous, column_filter, name)
 
 	def _minmax_merge(self, minmax):
@@ -740,7 +746,7 @@ class Dataset(unicode):
 			left_over = column_filter - set(filtered_columns)
 			assert not left_over, "Columns in filter not available in dataset: %r" % (left_over,)
 			self._data.columns = filtered_columns
-		for n, t in sorted(columns.items()):
+		for n, (t, none_support) in sorted(columns.items()):
 			if t not in type2iter:
 				raise DatasetUsageError('Unknown type %s on column %s' % (t, n,))
 			mm = minmax.get(n, (None, None,))
@@ -753,6 +759,7 @@ class Dataset(unicode):
 				min=mm[0],
 				max=mm[1],
 				offsets=None,
+				none_support=none_support,
 			)
 			self._maybe_merge(n)
 		self._update_caches()
@@ -848,6 +855,11 @@ class DatasetWriter(object):
 	If you set a column type to None that column is not inherited from the
 	parent dataset. (Only works as an init argument, not with dw.add.)
 	
+	If you want support for None values in a column you can pass
+	none_support=True to dw.add, or {colname: (coltype, True)} to the
+	constructor. If you pass a DatasetColumn (from ds.columns[name]) you
+	will inherit both type and None-support of that column.
+	
 	If you set hashlabel you can use dw.hashcheck(v) to check if v
 	belongs in this slice. You can also call enable_hash_discard
 	(in each slice, or after each set_slice), then the writer will
@@ -884,8 +896,8 @@ class DatasetWriter(object):
 	_split = _split_dict = _split_list = _allwriters_ = None
 
 	def __new__(cls, columns={}, filename=None, hashlabel=None, hashlabel_override=False, caption=None, previous=None, name='default', parent=None, meta_only=False, for_single_slice=None):
-		"""columns can be {'name': 'type'} or {'name': DatasetColumn}
-		to simplify basing your dataset on another."""
+		"""columns can be {'name': 'type'} or {'name': ('type', none_support)}.
+		It can also be {'name': DatasetColumn} to simplify basing your dataset on another."""
 		name = uni(name)
 		assert '/' not in name, name
 		assert '\n' not in name, name
@@ -931,12 +943,16 @@ class DatasetWriter(object):
 				if v is None:
 					continue
 				if isinstance(v, tuple):
-					v = v.type
-				obj.add(k, v)
+					if hasattr(v, 'type'):
+						obj.add(k, v.type, none_support=v.none_support)
+					else:
+						obj.add(k, v[0], none_support=v[1])
+				else:
+					obj.add(k, v)
 			_datasetwriters[name] = obj
 			return obj
 
-	def add(self, colname, coltype, default=_nodefault):
+	def add(self, colname, coltype, default=_nodefault, none_support=False):
 		from accelerator.g import running
 		assert running == self._running, "Add all columns in the same step as creation"
 		assert not self._started, "Add all columns before setting slice"
@@ -945,7 +961,9 @@ class DatasetWriter(object):
 		assert colname not in self.columns, colname
 		assert colname
 		typed_writer(coltype) # gives error for unknown types
-		self.columns[colname] = (coltype, default)
+		if none_support and coltype.startswith('bits'):
+			raise DatasetUsageError("%s columns can't have None support" % (coltype,))
+		self.columns[colname] = (coltype, default, none_support)
 		self._order.append(colname)
 		if colname in self._pcolumns:
 			self._clean_names[colname] = self._pcolumns[colname].name
@@ -986,9 +1004,9 @@ class DatasetWriter(object):
 		if self.meta_only:
 			return
 		writers = {}
-		for colname, (coltype, default) in self.columns.items():
+		for colname, (coltype, default, none_support) in self.columns.items():
 			wt = typed_writer(coltype)
-			kw = {} if default is _nodefault else {'default': default}
+			kw = {'none_support': none_support} if default is _nodefault else {'default': default, 'none_support': none_support}
 			fn = self.column_filename(colname, sliceno)
 			if filtered and colname == self.hashlabel:
 				from accelerator.g import slices
@@ -1158,7 +1176,7 @@ class DatasetWriter(object):
 		self.close()
 		assert len(self._lens) == slices, "Not all slices written, missing %r" % (set(range(slices)) - set(self._lens),)
 		args = dict(
-			columns={k: v[0].split(':')[-1] for k, v in self.columns.items()},
+			columns={k: (v[0].split(':')[-1], v[2]) for k, v in self.columns.items()},
 			filenames=self._clean_names,
 			lines=self._lens,
 			minmax=self._minmax,
@@ -1229,6 +1247,10 @@ class DatasetChain(_ListTypePreserver):
 	def with_column(self, column):
 		"""Chain without any datasets that don't contain column"""
 		return self.__class__(ds for ds in self if column in ds.columns)
+
+	def none_support(self, column):
+		"""If any dataset in the chain has None support for this column"""
+		return True in (ds.columns[column].none_support for ds in self if column in ds.columns)
 
 def range_check_function(bottom, top):
 	"""Returns a function that checks if bottom <= arg < top, allowing bottom and/or top to be None"""

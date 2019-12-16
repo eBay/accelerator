@@ -39,7 +39,7 @@ from accelerator.gzwrite import typed_writer
 
 def synthesis(job, slices):
 	# Test keeping untyped columns.
-	dw = job.datasetwriter(name='a', columns={'a': 'unicode', 'b': 'bytes', 'c': 'ascii', 'd': 'number'})
+	dw = job.datasetwriter(name='a', columns={'a': 'unicode', 'b': ('bytes', True), 'c': ('ascii', True), 'd': ('number', True)})
 	write = dw.get_split_write()
 	write('A', None, None, None)
 	write('a', b'b', 'c', 0)
@@ -47,7 +47,7 @@ def synthesis(job, slices):
 	assert a.hashlabel == None
 	typed_a = subjobs.build('dataset_type', options=dict(hashlabel='a', column2type={'a': 'ascii'}), datasets=dict(source=a)).dataset()
 	assert typed_a.hashlabel == 'a'
-	assert list(typed_a.iterate(None)) == [('A', None, None, None), ('a', b'b', 'c', 0)], typed_a
+	assert set(typed_a.iterate(None)) == {('A', None, None, None), ('a', b'b', 'c', 0)}, typed_a
 
 	# Test hashing on a column not explicitly typed.
 	dw = job.datasetwriter(name='b', columns={'a': 'unicode', 'b': 'ascii', 'c': 'bytes', 'd': 'unicode'}, previous=a)
@@ -139,22 +139,22 @@ def synthesis(job, slices):
 
 	# test rehashing on a column we don't type, over all types.
 	dw = job.datasetwriter(name='rehash all types', columns={
-		'2type'   : 'ascii',
-		'ascii'   : 'ascii',
-		'bits32'  : 'bits32',
-		'bits64'  : 'bits64',
-		'bool'    : 'bool',
-		'bytes'   : 'bytes',
-		'date'    : 'date',
-		'datetime': 'datetime',
-		'float32' : 'float32',
-		'float64' : 'float64',
-		'int32'   : 'int32',
-		'int64'   : 'int64',
-		'json'    : 'json',
-		'number'  : 'number',
-		'time'    : 'time',
-		'unicode' : 'unicode',
+		'2type'   : ('ascii', True),
+		'ascii'   : ('ascii', True),
+		'bits32'  : ('bits32', False),
+		'bits64'  : ('bits64', False),
+		'bool'    : ('bool', True),
+		'bytes'   : ('bytes', True),
+		'date'    : ('date', True),
+		'datetime': ('datetime', True),
+		'float32' : ('float32', True),
+		'float64' : ('float64', True),
+		'int32'   : ('int32', True),
+		'int64'   : ('int64', True),
+		'json'    : ('json', True),
+		'number'  : ('number', True),
+		'time'    : ('time', True),
+		'unicode' : ('unicode', True),
 	})
 	write = dw.get_split_write()
 	data = {

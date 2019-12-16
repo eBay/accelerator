@@ -22,7 +22,7 @@ from __future__ import division
 
 from accelerator import gzutil
 
-assert gzutil.version >= (2, 10, 0) and gzutil.version[0] == 2, gzutil.version
+assert gzutil.version >= (2, 11, 0) and gzutil.version[0] == 2, gzutil.version
 
 from accelerator.compat import PY3
 

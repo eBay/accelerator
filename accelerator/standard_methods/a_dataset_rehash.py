@@ -41,7 +41,8 @@ datasets = ('source', 'previous',)
 def prepare(params):
 	d = datasets.source
 	caption = options.caption % dict(caption=d.caption, hashlabel=options.hashlabel)
-	if len(d.chain(stop_ds={datasets.previous: 'source'}, length=options.length)) == 1:
+	chain = d.chain(stop_ds={datasets.previous: 'source'}, length=options.length)
+	if len(chain) == 1:
 		filename = d.filename
 	else:
 		filename = None
@@ -63,13 +64,15 @@ def prepare(params):
 		previous = (params.jobid, name)
 		dws.append(dw)
 	names = []
+	cols = {}
 	for n, c in d.columns.items():
 		# names has to be in the same order as the add calls
 		# so the iterator returns the same order the writer expects.
 		names.append(n)
+		cols[n] = (c.type, chain.none_support(n))
 		for dw in dws:
-			dw.add(n, c.type)
-	return dws, names, caption, filename
+			dw.add(n, c.type, none_support=cols[n][1])
+	return dws, names, caption, filename, cols
 
 def analysis(sliceno, prepare_res):
 	dws, names = prepare_res[:2]
@@ -87,14 +90,14 @@ def synthesis(prepare_res, params):
 	if not options.as_chain:
 		# If we don't want a chain we abuse our knowledge of dataset internals
 		# to avoid recompressing. Don't do this stuff yourself.
-		dws, names, caption, filename = prepare_res
+		dws, names, caption, filename, cols = prepare_res
 		merged_dw = DatasetWriter(
 			caption=caption,
 			hashlabel=options.hashlabel,
 			filename=filename,
 			previous=datasets.previous,
 			meta_only=True,
-			columns=datasets.source.columns,
+			columns=cols,
 		)
 		for sliceno in range(params.slices):
 			merged_dw.set_lines(sliceno, sum(dw._lens[sliceno] for dw in dws))

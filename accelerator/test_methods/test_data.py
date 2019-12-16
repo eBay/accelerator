@@ -61,6 +61,8 @@ value_cnt = first_value(value_cnt)
 
 not_none_capable = {"bits64", "bits32",}
 
+columns = {t: t if t in not_none_capable else (t, True) for t in data}
+
 def sort_data_for_slice(sliceno):
 	# numeric types use only (modified) v[0], other types cycle through their values.
 	# int64 goes down one every other line,

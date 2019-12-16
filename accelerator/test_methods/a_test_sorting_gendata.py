@@ -30,7 +30,7 @@ from . import test_data
 depend_extra = (test_data,)
 
 def prepare():
-	return DatasetWriter(columns={t: t for t in test_data.data})
+	return DatasetWriter(columns=test_data.columns)
 
 def analysis(sliceno, prepare_res):
 	dw = prepare_res
