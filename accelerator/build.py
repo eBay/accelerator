@@ -525,8 +525,10 @@ class Urd(object):
 					raise UrdError(msg)
 				print('%s, %d tries left' % (msg, tries_left,), file=sys.stderr)
 			except URLError:
-				print('Error contacting urd', file=sys.stderr)
-				raise UrdError('Error contacting urd')
+				tries_left -= 1
+				print('Error contacting urd (%d tries left)' % (tries_left,), file=sys.stderr)
+				if not tries_left:
+					raise UrdError('Error contacting urd')
 			time.sleep(4)
 
 	def _get(self, path, *a):
