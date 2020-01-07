@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2019 Anders Berkeman                         #
+# Modifications copyright (c) 2019-2020 Anders Berkeman                    #
 # Modifications copyright (c) 2019 Carl Drougge                            #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -64,7 +64,7 @@ def load_config(filename):
 	key = None
 	multivalued = {'workdirs', 'method packages', 'interpreters'}
 	required = {'slices', 'logfile', 'workdirs', 'method packages'}
-	known = {'target workdir', 'listen', 'urd', 'result directory', 'source directory', 'project directory'} | required | multivalued
+	known = {'target workdir', 'listen', 'urd', 'result directory', 'input directory', 'project directory'} | required | multivalued
 	cfg = {key: [] for key in multivalued}
 	cfg['listen'] = '.socket.dir/daemon', None
 
@@ -140,7 +140,7 @@ def load_config(filename):
 		rename = {
 			'target workdir': 'target_workdir',
 			'method packages': 'method_directories',
-			'source directory': 'source_directory',
+			'input directory': 'input_directory',
 			'result directory': 'result_directory',
 			'project directory': 'project_directory',
 		}

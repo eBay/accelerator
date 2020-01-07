@@ -136,7 +136,7 @@ def prepare(job, slices):
 		quote_char = 257
 	else:
 		quote_char = char2int("quotes", 257, "True/False/empty")
-	filename = os.path.join(job.source_directory, options.filename)
+	filename = os.path.join(job.input_directory, options.filename)
 	orig_filename = filename
 	assert 1 <= options.compression <= 9
 

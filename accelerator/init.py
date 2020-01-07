@@ -1,6 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2019 Carl Drougge                                          #
+# Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -70,7 +71,7 @@ method packages:
 urd: local # can also be URL/socket to your urd
 
 result directory: {prefix}/results
-source directory: {source}
+input directory: {input}
 logfile: {prefix}/daemon.log
 
 # If you want to run methods on different python interpreters you can
@@ -107,7 +108,7 @@ def main(argv):
 	parser.add_argument('--slices', default=None, type=int, help='Override slice count detection')
 	parser.add_argument('--name', default='dev', help='Name of method dir and workdir, default "dev"')
 	parser.add_argument('--prefix', default='${HOME}/accelerator', help='Put workdirs and daemon.log here, default "${HOME}/accelerator"')
-	parser.add_argument('--source', default='# /some/path where you want import methods to look.', help='source directory')
+	parser.add_argument('--input', default='# /some/path where you want import methods to look.', help='input directory')
 	parser.add_argument('--force', action='store_true', help='Go ahead even though directory is not empty, or workdir exists with incompatible slice count')
 	parser.add_argument('directory', default='.', help='project directory to create. default "."', metavar='DIR', nargs='?')
 	options = parser.parse_args(argv)
@@ -115,8 +116,8 @@ def main(argv):
 	assert options.name
 	if not options.prefix.startswith('${'):
 		options.prefix = realpath(options.prefix)
-	if not options.source.startswith('#'):
-		options.source = realpath(options.source)
+	if not options.input.startswith('#'):
+		options.input = realpath(options.input)
 	cfg_workdir = join(options.prefix, 'workdirs', options.name)
 	workdir = interpolate(cfg_workdir)
 	if not exists(workdir):
@@ -164,7 +165,7 @@ def main(argv):
 			prefix=options.prefix,
 			workdir=cfg_workdir,
 			slices=options.slices,
-			source=options.source,
+			input=options.input,
 			major=version_info.major,
 			minor=version_info.minor,
 			micro=version_info.micro,

@@ -2,6 +2,7 @@
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
 # Modifications copyright (c) 2019 Carl Drougge                            #
+# Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -92,7 +93,7 @@ def launch(workdir, setup, config, Methods, active_workdirs, slices, debug, daem
 		jobid=jobid,
 		result_directory=config.get('result_directory', ''),
 		common_directory=config.get('common_directory', ''),
-		source_directory=config.get('source_directory', ''),
+		input_directory=config.get('input_directory', ''),
 		workdirs=active_workdirs,
 		daemon_url=daemon_url,
 		subjob_cookie=subjob_cookie,

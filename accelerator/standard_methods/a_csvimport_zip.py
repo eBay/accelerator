@@ -1,6 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2019 Carl Drougge                                          #
+# Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -105,7 +106,7 @@ def prepare(job):
 	res = []
 	include_re = re.compile(options.include_re or r'.')
 	exclude_re = re.compile(options.exclude_re or r'^$')
-	with ZipFile(join(job.source_directory, options.filename), 'r') as z:
+	with ZipFile(join(job.input_directory, options.filename), 'r') as z:
 		for info in z.infolist():
 			fn = ffn = info.filename
 			if fn.endswith('/') or info.external_attr & 0x40000000:
@@ -133,7 +134,7 @@ def prepare(job):
 	return [x[:3] for x in res]
 
 def analysis(sliceno, slices, prepare_res, job):
-	with ZipFile(join(job.source_directory, options.filename), 'r') as z:
+	with ZipFile(join(job.input_directory, options.filename), 'r') as z:
 		for tmpfn, zfn, dsn in prepare_res[sliceno::slices]:
 			with z.open(zfn) as rfh:
 				with job.open(tmpfn, 'wb', temp=True) as wfh:

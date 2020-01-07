@@ -2,6 +2,7 @@
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
 # Modifications copyright (c) 2018-2019 Carl Drougge                       #
+# Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -201,7 +202,7 @@ def fmt_tb(skip_level):
 	return ''.join(msg)
 
 
-def execute_process(workdir, jobid, slices, result_directory, common_directory, source_directory, index=None, workdirs=None, daemon_url=None, subjob_cookie=None, parent_pid=0):
+def execute_process(workdir, jobid, slices, result_directory, common_directory, input_directory, index=None, workdirs=None, daemon_url=None, subjob_cookie=None, parent_pid=0):
 	WORKDIRS.update(workdirs)
 
 	g.job = jobid
@@ -217,7 +218,7 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 	method_ref = import_module(params.package+'.a_'+params.method)
 	g.sliceno = -1
 
-	g.job = CurrentJob(jobid, params, result_directory, source_directory)
+	g.job = CurrentJob(jobid, params, result_directory, input_directory)
 	g.slices = slices
 
 	g.options          = params.options
@@ -323,11 +324,11 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 	return None, (prof, saved_files, _record)
 
 
-def run(workdir, jobid, slices, result_directory, common_directory, source_directory, index=None, workdirs=None, daemon_url=None, subjob_cookie=None, parent_pid=0, prof_fd=-1):
+def run(workdir, jobid, slices, result_directory, common_directory, input_directory, index=None, workdirs=None, daemon_url=None, subjob_cookie=None, parent_pid=0, prof_fd=-1):
 	global g_allesgut, _prof_fd
 	_prof_fd = prof_fd
 	try:
-		data = execute_process(workdir, jobid, slices, result_directory, common_directory, source_directory, index=index, workdirs=workdirs, daemon_url=daemon_url, subjob_cookie=subjob_cookie, parent_pid=parent_pid)
+		data = execute_process(workdir, jobid, slices, result_directory, common_directory, input_directory, index=index, workdirs=workdirs, daemon_url=daemon_url, subjob_cookie=subjob_cookie, parent_pid=parent_pid)
 		g_allesgut = True
 	except Exception:
 		print_exc()

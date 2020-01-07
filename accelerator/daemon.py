@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2019 Anders Berkeman                         #
+# Modifications copyright (c) 2019-2020 Anders Berkeman                    #
 # Modifications copyright (c) 2018-2019 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -364,7 +364,7 @@ def main(argv, config):
 	XtdHandler.ctrl = ctrl
 	job_tracking[None].workdir = ctrl.target_workdir
 
-	for n in ("project_directory", "result_directory", "source_directory", "urd_listen"):
+	for n in ("project_directory", "result_directory", "input_directory", "urd_listen"):
 		if n == "urd_listen":
 			dispn = "urd"
 		else:
