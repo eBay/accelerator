@@ -89,13 +89,13 @@ def encode_setup(data, sort_keys=True, as_str=False):
 		elif isinstance(src, set):
 			return [copy(v) for v in _sorted_set(src)]
 		elif isinstance(src, datetime):
-		    return [src.year, src.month, src.day, src.hour, src.minute, src.second, src.microsecond]
+			return [src.year, src.month, src.day, src.hour, src.minute, src.second, src.microsecond]
 		elif isinstance(src, date):
-		    return [src.year, src.month, src.day]
+			return [src.year, src.month, src.day]
 		elif isinstance(src, time):
-		    return [1970, 1, 1, src.hour, src.minute, src.second, src.microsecond]
+			return [1970, 1, 1, src.hour, src.minute, src.second, src.microsecond]
 		elif isinstance(src, timedelta):
-		    return src.total_seconds()
+			return src.total_seconds()
 		else:
 			assert isinstance(src, (str, unicode, int, float, long, bool)) or src is None, type(src)
 			return src
