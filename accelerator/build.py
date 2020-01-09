@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2019 Anders Berkeman                         #
+# Modifications copyright (c) 2019-2020 Anders Berkeman                    #
 # Modifications copyright (c) 2018-2019 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -37,7 +37,7 @@ from accelerator.compat import urlencode, urlopen, Request, URLError, HTTPError
 from accelerator.compat import getarglist
 
 from accelerator import setupfile
-from accelerator.extras import json_encode, json_decode, DotDict, job_post,_ListTypePreserver
+from accelerator.extras import json_encode, json_decode, DotDict, _ListTypePreserver
 from accelerator.job import Job
 from accelerator.status import print_status_stacks
 from accelerator.error import JobError, DaemonError, UrdError, UrdPermissionError, UrdConflictError
@@ -352,20 +352,20 @@ class JobList(_ListTypePreserver):
 		return l[-1] if l else default
 
 	@property
-	def profile(self):
+	def exectime(self):
 		total = 0
 		seen = set()
 		per_method = defaultdict(int)
 		for jid in self:
 			if jid not in seen:
 				seen.add(jid)
-				t = jid.post.profile.total
+				t = jid.post.exectime.total
 				total += t
 				per_method[jid.method] += t
 		return total, per_method
 
-	def print_profile(self, verbose=True):
-		total, per_method = self.profile
+	def print_exectimes(self, verbose=True):
+		total, per_method = self.exectime
 		if verbose and per_method:
 			print("Time per method:")
 			tmpl = "   %%-%ds  %%s  (%%d%%%%)" % (max(len(method) for method in per_method),)
@@ -373,19 +373,6 @@ class JobList(_ListTypePreserver):
 			for method, t in sorted(per_method.items(), key=itemgetter(1), reverse=True):
 				print(tmpl % (method, fmttime(t), round(100 * t / total_time) if total_time else 0.0))
 		print("Total time", fmttime(total))
-
-def profile_jobs(jobs):
-	if isinstance(jobs, str):
-		jobs = [jobs]
-	total = 0
-	seen = set()
-	for j in jobs:
-		if isinstance(j, tuple):
-			j = j[1]
-		if j not in seen:
-			total += job_post(j).profile.total
-			seen.add(j)
-	return total
 
 
 class UrdResponse(dict):

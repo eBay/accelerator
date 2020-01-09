@@ -167,7 +167,7 @@ class Main:
 
 		t0 = time.time()
 		setup = update_setup(jobid, starttime=t0)
-		prof = setup.get('profile', DotDict())
+		prof = setup.get('exectime', DotDict())
 		new_prof, files, subjobs = dispatch.launch(W.path, setup, self.config, self.Methods, active_workdirs, slices, self.debug, self.daemon_url, subjob_cookie, parent_pid)
 		if self.debug:
 			delete_from = Temp.TEMP
@@ -183,7 +183,7 @@ class Main:
 		data = dict(
 			starttime=t0,
 			endtime=time.time(),
-			profile=prof,
+			exectime=prof,
 		)
 		update_setup(jobid, **data)
 		data['files'] = files
