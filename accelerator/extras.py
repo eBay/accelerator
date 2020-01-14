@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2019 Anders Berkeman                         #
+# Modifications copyright (c) 2019-2020 Anders Berkeman                    #
 # Modifications copyright (c) 2019 Carl Drougge                            #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -168,15 +168,6 @@ def debug_print_options(options, title=''):
 	for key, val in sorted(options.items()):
 		print("%s = %r" % (str(key).ljust(max_k), val))
 	print('-' * 53)
-
-def symlink(filename, destpath):
-	dest_fn = os.path.join(destpath, filename)
-	try:
-		os.remove(dest_fn + '_')
-	except OSError:
-		pass
-	os.symlink(os.path.abspath(filename), dest_fn + '_')
-	os.rename(dest_fn + '_', dest_fn)
 
 
 def stackup():
