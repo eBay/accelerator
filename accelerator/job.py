@@ -2,7 +2,7 @@
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
 # Modifications copyright (c) 2019 Carl Drougge                            #
-# Modifications copyright (c) 2019 Anders Berkeman                         #
+# Modifications copyright (c) 2019-2020 Anders Berkeman                    #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -198,6 +198,16 @@ class CurrentJob(Job):
 		fwm = FileWriteMove(self.filename(filename, sliceno), temp=temp)
 		fwm._open = _open
 		return fwm
+
+	def link_result(self, filename='result.pickle'):
+		"""Put a symlink to filename in result_directory"""
+		dest_fn = os.path.join(self.result_directory, filename)
+		try:
+			os.remove(dest_fn + '_')
+		except OSError:
+			pass
+		os.symlink(os.path.abspath(filename), dest_fn + '_')
+		os.rename(dest_fn + '_', dest_fn)
 
 
 class JobWithFile(namedtuple('JobWithFile', 'job filename sliced extra')):
