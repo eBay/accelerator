@@ -1,6 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2019 Carl Drougge                                          #
+# Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -191,6 +192,7 @@ def prepare(job, slices):
 	if options.allow_bad:
 		bad_dw = DatasetWriter(
 			name="bad",
+			filename=orig_filename,
 			columns=dict(lineno="int64", data="bytes"),
 			caption='bad lines from csvimport of ' + orig_filename,
 			meta_only=True,
@@ -201,6 +203,7 @@ def prepare(job, slices):
 	if options.comment or options.skip_lines:
 		skipped_dw = DatasetWriter(
 			name="skipped",
+			filename=orig_filename,
 			columns=dict(lineno="int64", data="bytes"),
 			caption='skipped lines from csvimport of ' + orig_filename,
 			meta_only=True,
