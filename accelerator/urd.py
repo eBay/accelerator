@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2018-2019 Carl Drougge                       #
+# Modifications copyright (c) 2018-2020 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -26,7 +26,7 @@ from collections import defaultdict
 from bottle import route, request, auth_basic, abort
 import bottle
 from threading import Lock
-import json
+import ujson
 import re
 from datetime import datetime
 import operator
@@ -188,8 +188,8 @@ class DB:
 		data = DotDict(timestamp=line[0],
 			user=user,
 			build=build,
-			deps=json.loads(line[2]),
-			joblist=json.loads(line[3]),
+			deps=ujson.loads(line[2]),
+			joblist=ujson.loads(line[3]),
 			flags=flags,
 			caption=line[5],
 		)
@@ -218,8 +218,8 @@ class DB:
 	def _serialise(self, action, data):
 		if action == 'add':
 			self._validate_data(data)
-			json_deps = json.dumps(data.deps)
-			json_joblist = json.dumps(data.joblist)
+			json_deps = ujson.dumps(data.deps, escape_forward_slashes=False)
+			json_joblist = ujson.dumps(data.joblist, escape_forward_slashes=False)
 			key = '%s/%s' % (data.user, data.build,)
 			flags = ','.join(data.flags)
 			for s in json_deps, json_joblist, data.caption, data.user, data.build, data.timestamp, flags:
@@ -435,7 +435,7 @@ def single(user, build, timestamp):
 @route('/add', method='POST')
 @auth_basic(auth)
 def add():
-	data = DotDict(json.load(request.body))
+	data = DotDict(ujson.load(request.body))
 	if data.user != request.auth[0]:
 		abort(401, "Error:  user does not match authentication!")
 	result = db.add(data)
@@ -481,7 +481,7 @@ def jsonify(callback):
 		res = callback(*a, **kw)
 		if isinstance(res, (bottle.BaseResponse, bottle.BottleException)):
 			return res
-		return json.dumps(res)
+		return ujson.dumps(res, escape_forward_slashes=False)
 	return func
 
 
