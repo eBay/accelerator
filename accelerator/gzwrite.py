@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2018-2019 Carl Drougge                       #
+# Modifications copyright (c) 2018-2020 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -72,7 +72,7 @@ class GzWriteJson(object):
 		self.count = 0
 	def write(self, o):
 		self.count += 1
-		self.fh.write(dumps(o, ensure_ascii=False))
+		self.fh.write(dumps(o, ensure_ascii=False, escape_forward_slashes=False))
 	def close(self):
 		self.fh.close()
 	def __enter__(self):
@@ -88,5 +88,5 @@ class GzWriteParsedJson(GzWriteJson):
 		if isinstance(o, str_types):
 			o = loads(o)
 		self.count += 1
-		self.fh.write(dumps(o, ensure_ascii=False))
+		self.fh.write(dumps(o, ensure_ascii=False, escape_forward_slashes=False))
 _convfuncs['parsed:json'] = GzWriteParsedJson
