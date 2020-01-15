@@ -4,7 +4,7 @@
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
 # Modifications copyright (c) 2019 Carl Drougge                            #
-# Modifications copyright (c) 2019 Anders Berkeman                         #
+# Modifications copyright (c) 2019-2020 Anders Berkeman                    #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -118,6 +118,9 @@ def main(argv):
 				printcolwise(data, template, lambda x: x, minrows=8, indent=8)
 			else:
 				print("    Parent:", quote(ds.parent))
+		print("    Method:", quote(ds.job.method))
+		if ds.filename:
+			print("    Filename:", quote(ds.filename))
 		if ds.previous:
 			print("    Previous:", quote(ds.previous))
 		if ds.hashlabel:
