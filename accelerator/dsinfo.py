@@ -29,7 +29,7 @@ from datetime import datetime, time, date
 
 from accelerator.compat import terminal_size
 from accelerator import dscmdhelper
-from accelerator.dataset import job_datasets
+from accelerator.dataset import job_datasets, Dataset
 from accelerator.error import NoSuchWhateverError
 
 #dscmdhelper.init()
@@ -81,7 +81,11 @@ def main(argv):
 
 	if args.list or args.chainedlist:
 		for n in args.dataset:
-			dsvec = job_datasets(n)
+			try:
+				n = Dataset(n).job
+				dsvec = job_datasets(n)
+			except Exception:
+				dsvec = None
 			if dsvec:
 				print('%s' % (n,))
 				v = []
