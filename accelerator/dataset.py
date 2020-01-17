@@ -1265,6 +1265,11 @@ class DatasetChain(_ListTypePreserver):
 		"""If any dataset in the chain has None support for this column"""
 		return True in (ds.columns[column].none_support for ds in self if column in ds.columns)
 
+	def iterate(self, sliceno, columns=None, range=None, sloppy_range=False, hashlabel=None, pre_callback=None, post_callback=None, filters=None, translators=None, status_reporting=True, rehash=False):
+		"""Iterate the datasets in this chain. See Dataset.iterate_list for usage"""
+		return Dataset.iterate_list(sliceno, columns, self, range=range, sloppy_range=sloppy_range, hashlabel=hashlabel, pre_callback=pre_callback, post_callback=post_callback, filters=filters, translators=translators, status_reporting=status_reporting, rehash=rehash)
+
+
 def range_check_function(bottom, top):
 	"""Returns a function that checks if bottom <= arg < top, allowing bottom and/or top to be None"""
 	import operator
