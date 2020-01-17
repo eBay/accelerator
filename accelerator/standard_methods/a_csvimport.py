@@ -50,7 +50,6 @@ from accelerator.dataset import DatasetWriter
 from accelerator.sourcedata import typed_reader
 from accelerator.compat import setproctitle, uni
 from accelerator import blob
-from accelerator.report import Report
 from . import csvimport
 
 depend_extra = (csvimport,)
@@ -286,32 +285,3 @@ def synthesis(prepare_res, analysis_res):
 		skipped_lines_per_slice=skipped_counts,
 	)
 	blob.save(res, 'import')
-	write_report(res, labels)
-
-def write_report(res, labels):
-	with Report() as r:
-		divider = (res.num_lines + res.num_broken_lines + res.num_skipped_lines) or 1
-		r.println("Number of rows read\n")
-		r.write("  slice           lines")
-		if res.num_broken_lines:
-			r.write("               broken")
-		if res.num_skipped_lines:
-			r.write("              skipped")
-		r.write("\n")
-		for sliceno, (good_cnt, bad_cnt, skipped_cnt) in enumerate(zip(res.lines_per_slice, res.broken_lines_per_slice, res.skipped_lines_per_slice)):
-			r.write("  %5d       %9d  (%6.2f%%)" % (sliceno, good_cnt, 100 * good_cnt / divider,))
-			if res.num_broken_lines:
-				r.write(" %9d  (%6.2f%%)" % (bad_cnt, 100 * bad_cnt / divider,))
-			if res.num_skipped_lines:
-				r.write(" %9d  (%6.2f%%)" % (skipped_cnt, 100 * skipped_cnt / divider,))
-			r.write("\n")
-		r.write("  total       %9d" % (res.num_lines,))
-		if res.num_broken_lines or res.num_skipped_lines:
-			r.write("  (%6.2f%%)" % (100 * res.num_lines / divider,))
-		if res.num_broken_lines:
-			r.write(" %9d  (%6.2f%%)" % (res.num_broken_lines, 100 * res.num_broken_lines / divider,))
-		if res.num_skipped_lines:
-			r.write(" %9d  (%6.2f%%)" % (res.num_skipped_lines, 100 * res.num_skipped_lines / divider,))
-		r.write("\n")
-		r.line()
-		r.println('Number of columns %5d' % len(labels,))
