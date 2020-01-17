@@ -3,7 +3,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2018-2019 Carl Drougge                       #
+# Modifications copyright (c) 2018-2020 Carl Drougge                       #
 # Modifications copyright (c) 2019 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -201,6 +201,7 @@ class Dataset(unicode):
 			obj._data = DotDict(_ds_load(obj))
 			assert obj._data.version[0] == 3 and obj._data.version[1] >= 0, "%s/%s: Unsupported dataset pickle version %r" % (jobid, name, obj._data.version,)
 			obj._data.columns = dict(obj._data.columns)
+		obj._cache = {}
 		return obj
 
 	# Look like a string after pickling
@@ -212,13 +213,25 @@ class Dataset(unicode):
 		"""{name: DatasetColumn}"""
 		return self._data.columns
 
+	def _cached(self, thing):
+		org_value = self._data[thing]
+		if not org_value:
+			return
+		if self._cache.get(thing, (None,))[0] != org_value:
+			if isinstance(org_value, tuple):
+				value = tuple(Dataset(v) for v in org_value)
+			else:
+				value = Dataset(org_value)
+			self._cache[thing] = (org_value, value)
+		return self._cache[thing][1]
+
 	@property
 	def previous(self):
-		return self._data.previous
+		return self._cached('previous')
 
 	@property
 	def parent(self):
-		return self._data.parent
+		return self._cached('parent')
 
 	@property
 	def filename(self):
