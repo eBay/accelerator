@@ -115,7 +115,7 @@ def main(argv):
 
 		print(quote("%s/%s" % (ds.job, ds.name,)))
 		if ds.parent:
-			if isinstance(ds.parent, list):
+			if isinstance(ds.parent, tuple):
 				print("    Parents:")
 				max_n = max(len(quote(x)) for x in ds.parent)
 				template = "{1:%d}" % (max_n,)
