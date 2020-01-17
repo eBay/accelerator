@@ -26,6 +26,7 @@ import argparse
 from math import ceil
 import locale
 from datetime import datetime, time, date
+from math import floor, log10
 
 from accelerator.compat import terminal_size
 from accelerator import dscmdhelper
@@ -34,6 +35,7 @@ from accelerator.error import NoSuchWhateverError
 
 #dscmdhelper.init()
 
+MINMAXWIDTH = 13 # minimum number of characters reserved for min/max values
 COLUMNS, LINES = terminal_size()
 
 def quote(x):
@@ -132,34 +134,41 @@ def main(argv):
 		if ds.hashlabel:
 			print("    Hashlabel:", quote(ds.hashlabel))
 
-		def prettyminmax(c):
+		def prettyminmax(minval, maxval):
 			if args.suppress_minmax:
 				return ''
-			s = '[%10s, %10s]'
-			if c.min is None:
+			s = '[%%%ds, %%%ds]' % (MINMAXWIDTH, MINMAXWIDTH)
+			if minval is None:
 				return ''
-			elif isinstance(c.min, float):
-				return s % (locale.format_string("% 10.6f", c.min), locale.format_string("% 10.6f", c.max))
-			elif isinstance(c.min, int):
-				return s % (c.min, c.max)
-			elif isinstance(c.min, (date, time, datetime)):
-				return s % (c.min, c.max)
+			elif isinstance(minval, float):
+				def intdigits(x):
+					return min(MINMAXWIDTH - 2, floor(log10(abs(x)) + 1)) if x else (MINMAXWIDTH - 2)//2
+				ints = max(intdigits(minval), intdigits(maxval))
+				format = "%% %d.%df" % (ints, MINMAXWIDTH - ints - 2)
+				return s % (locale.format_string(format, minval), locale.format_string(format, maxval))
+			elif isinstance(minval, int):
+				return s % (minval, maxval)
+			elif isinstance(minval, (date, time, datetime)):
+				return s % (minval, maxval)
 			else:
-				return s % (c.min, c.max)
+				return s % (minval, maxval)
 
 		if not args.suppress_columns:
 			print("    Columns:")
 			len_n, len_t = colwidth((quote(n), c.type) for n, c in ds.columns.items())
-			template = "{3} {0:%d} {4} {1:%d}  {2}" % (len_n, len_t,)
+			template = "{3} {0:%d}  {1:%d}  {2}" % (len_n, len_t,)
 			for n, c in sorted(ds.columns.items()):
 				if c.backing_type != c.type:
 					backing_type = c.backing_type
 				else:
 					backing_type = ""
-				if n == ds.hashlabel:
-					print(' ' * 8 + template.format(quote(n), c.type, backing_type, "\x1b[1m*", "\x1b[m"), prettyminmax(c))
+				if args.chainedslices:
+					chain = ds.chain()
+					minval, maxval = chain.min(n), chain.max(n)
 				else:
-					print(' ' * 8 + template.format(quote(n), c.type, backing_type, " ", ""), prettyminmax(c))
+					minval, maxval = c.min, c.max
+				hashdot = "\x1b[1m*\x1b[m" if n == ds.hashlabel else " "
+				print(' ' * 8 + template.format(quote(n), c.type, backing_type, hashdot), prettyminmax(minval, maxval))
 			print("    {0:n} columns".format(len(ds.columns)))
 		print("    {0:n} lines".format(sum(ds.lines)))
 
