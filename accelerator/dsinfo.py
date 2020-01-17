@@ -161,7 +161,7 @@ def main(argv):
 			print("    {0:n} columns".format(len(ds.columns)))
 		print("    {0:n} lines".format(sum(ds.lines)))
 
-		if ds.previous:
+		if ds.previous or args.chain:
 			chain = ds.chain()
 			print("    Chain length {0:n}, from {1} to {2}".format(len(chain), chain[0], chain[-1]))
 			if args.chain:
