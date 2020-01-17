@@ -142,7 +142,10 @@ def main(argv):
 				def intdigits(x):
 					return min(MINMAXWIDTH - 2, floor(log10(abs(x)) + 1)) if x else (MINMAXWIDTH - 2)//2
 				ints = max(intdigits(minval), intdigits(maxval))
-				format = "%% %d.%df" % (ints, MINMAXWIDTH - ints - 2)
+				if ints > 0:
+					format = "%% %d.%df" % (ints, MINMAXWIDTH - ints - 2)
+				else:
+					format = "%% %d.%df" % (0, -ints + 6) # six significant decimals
 				return s % (locale.format_string(format, minval), locale.format_string(format, maxval))
 			elif isinstance(minval, int):
 				return s % (minval, maxval)
