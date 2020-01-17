@@ -188,12 +188,22 @@ def prepare(job, slices):
 	if options.lineno_label:
 		dw.add(options.lineno_label, "int64")
 
+	def dsprevious(name):
+		if datasets.previous and datasets.previous.name == 'default':
+			from accelerator.error import NoSuchDatasetError
+			try:
+				return datasets.previous.job.dataset(name)
+			except NoSuchDatasetError:
+				return None
+		return None
+
 	if options.allow_bad:
 		bad_dw = DatasetWriter(
 			name="bad",
 			filename=orig_filename,
 			columns=dict(lineno="int64", data="bytes"),
 			caption='bad lines from csvimport of ' + orig_filename,
+			previous=dsprevious('bad'),
 			meta_only=True,
 		)
 	else:
@@ -205,6 +215,7 @@ def prepare(job, slices):
 			filename=orig_filename,
 			columns=dict(lineno="int64", data="bytes"),
 			caption='skipped lines from csvimport of ' + orig_filename,
+			previous=dsprevious('skipped'),
 			meta_only=True,
 		)
 	else:
