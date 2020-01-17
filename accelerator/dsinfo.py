@@ -33,8 +33,6 @@ from accelerator import dscmdhelper
 from accelerator.dataset import job_datasets, Dataset
 from accelerator.error import NoSuchWhateverError
 
-#dscmdhelper.init()
-
 MINMAXWIDTH = 13 # minimum number of characters reserved for min/max values
 COLUMNS, LINES = terminal_size()
 
