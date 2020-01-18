@@ -156,21 +156,17 @@ def main(argv):
 
 		if not args.suppress_columns:
 			print("    Columns:")
-			len_n, len_t = colwidth((quote(n), c.type) for n, c in ds.columns.items())
-			template = "{3} {0:%d}  {4} {1:%d}  {2}" % (len_n, len_t,)
+			name2typ = {n: c.type + '+None' if c.none_support else c.type for n, c in ds.columns.items()}
+			len_n, len_t = colwidth((quote(n), name2typ[n]) for n, c in ds.columns.items())
+			template = "{2} {0:%d}  {1:%d} " % (len_n, len_t,)
 			for n, c in sorted(ds.columns.items()):
-				if c.backing_type != c.type:
-					backing_type = c.backing_type
-				else:
-					backing_type = ""
 				if args.chainedslices or args.chain:
 					chain = ds.chain()
 					minval, maxval = chain.min(n), chain.max(n)
 				else:
 					minval, maxval = c.min, c.max
 				hashdot = "\x1b[1m*\x1b[m" if n == ds.hashlabel else " "
-				nonedot = "\x1b[1mN\x1b[m" if c.none_support else " "
-				print(' ' * 8 + template.format(quote(n), c.type, backing_type, hashdot, nonedot), prettyminmax(minval, maxval))
+				print(' ' * 8 + template.format(quote(n), name2typ[n], hashdot), prettyminmax(minval, maxval))
 			print("    {0:n} columns".format(len(ds.columns)))
 		print("    {0:n} lines".format(sum(ds.lines)))
 
