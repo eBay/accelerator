@@ -163,7 +163,7 @@ def main(argv):
 					backing_type = c.backing_type
 				else:
 					backing_type = ""
-				if args.chainedslices:
+				if args.chainedslices or args.chain:
 					chain = ds.chain()
 					minval, maxval = chain.min(n), chain.max(n)
 				else:
