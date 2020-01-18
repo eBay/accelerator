@@ -157,7 +157,7 @@ def main(argv):
 		if not args.suppress_columns:
 			print("    Columns:")
 			len_n, len_t = colwidth((quote(n), c.type) for n, c in ds.columns.items())
-			template = "{3} {0:%d}  {1:%d}  {2}" % (len_n, len_t,)
+			template = "{3} {0:%d}  {4} {1:%d}  {2}" % (len_n, len_t,)
 			for n, c in sorted(ds.columns.items()):
 				if c.backing_type != c.type:
 					backing_type = c.backing_type
@@ -169,7 +169,8 @@ def main(argv):
 				else:
 					minval, maxval = c.min, c.max
 				hashdot = "\x1b[1m*\x1b[m" if n == ds.hashlabel else " "
-				print(' ' * 8 + template.format(quote(n), c.type, backing_type, hashdot), prettyminmax(minval, maxval))
+				nonedot = "\x1b[1mN\x1b[m" if c.none_support else " "
+				print(' ' * 8 + template.format(quote(n), c.type, backing_type, hashdot, nonedot), prettyminmax(minval, maxval))
 			print("    {0:n} columns".format(len(ds.columns)))
 		print("    {0:n} lines".format(sum(ds.lines)))
 
