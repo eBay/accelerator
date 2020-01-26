@@ -1,6 +1,6 @@
 ############################################################################
 #                                                                          #
-# Copyright (c) 2019 Carl Drougge                                          #
+# Copyright (c) 2019-2020 Carl Drougge                                     #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -32,11 +32,10 @@ from accelerator.compat import setproctitle
 from accelerator import status
 
 
-def main(logfile):
+def main():
 	os.environ['BD_TERM_FD'] = str(os.dup(1))
 	a, b = os.pipe()
-	logdir, logfile = os.path.split(logfile)
-	run_reader({}, logfile, [a], [b], 'main iowrapper.reader', logdir, True)
+	run_reader({}, None, [a], [b], 'main iowrapper.reader', None, True)
 	os.dup2(b, 1)
 	os.dup2(b, 2)
 	os.close(a)
@@ -82,15 +81,12 @@ def reader(fd2pid, names, masters, slaves, process_name, basedir, is_main):
 	signal.signal(signal.SIGINT, signal.SIG_IGN)
 	setproctitle(process_name)
 	out_fd = int(os.environ['BD_TERM_FD'])
-	os.chdir(basedir)
 	for fd in slaves:
 		os.close(fd)
-	if is_main:
-		fd = os.open(names, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o666)
-		fd2fd = dict.fromkeys(masters, fd)
-	else:
+	fd2fd = {}
+	if not is_main:
+		os.chdir(basedir)
 		fd2name = dict(zip(masters, names))
-		fd2fd = {}
 		outputs = dict.fromkeys(masters, b'')
 		if len(fd2pid) == 2:
 			status_blacklist = set(fd2pid.values())
@@ -109,7 +105,7 @@ def reader(fd2pid, names, masters, slaves, process_name, basedir, is_main):
 	# errors generated here go to stderr, which is the real stderr
 	# in the main iowrapper (so it can block) and goes to the main
 	# iowrapper in the method iowrappers (so it can still block, but
-	# is unlikely to do so for long, and will end up in the log).
+	# is unlikely to do so for long).
 	with nonblocking(out_fd):
 		while masters:
 			if missed[0]:
@@ -132,7 +128,7 @@ def reader(fd2pid, names, masters, slaves, process_name, basedir, is_main):
 								continue
 						if fd not in fd2fd:
 							fd2fd[fd] = os.open(fd2name[fd], os.O_CREAT | os.O_WRONLY, 0o666)
-					os.write(fd2fd[fd], data)
+						os.write(fd2fd[fd], data)
 					try_print(data)
 					output_happened = True
 					if not is_main:

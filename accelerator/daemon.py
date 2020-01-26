@@ -2,7 +2,7 @@
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
 # Modifications copyright (c) 2019-2020 Anders Berkeman                    #
-# Modifications copyright (c) 2018-2019 Carl Drougge                       #
+# Modifications copyright (c) 2018-2020 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -313,7 +313,7 @@ def main(argv, config):
 	r1 = min(r1, r2, 1024)
 	resource.setrlimit(resource.RLIMIT_NOFILE, (r1, r2))
 
-	iowrapper.main(config.logfile)
+	iowrapper.main()
 
 	# setup statmsg sink and tell address using ENV
 	statmsg_rd, statmsg_wr = socket.socketpair(socket.AF_UNIX, socket.SOCK_DGRAM)
