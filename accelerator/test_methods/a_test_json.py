@@ -1,6 +1,6 @@
 ############################################################################
 #                                                                          #
-# Copyright (c) 2019 Carl Drougge                                          #
+# Copyright (c) 2019-2020 Carl Drougge                                     #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -76,6 +76,21 @@ def synthesis():
 		),
 		b'{"list": [1,2,3],"set": ["foo"],"tuple": ["a","b","c"]}',
 	)
+
+	unicode_want = u"bl\xe4"
+	if PY2:
+		unicode_want = unicode_want.encode("utf-8")
+	test(
+		"unicode.json",
+		u"bl\xe4",
+		unicode_want,
+		b'"bl\\u00e4"',
+	)
+
+	# Verify that utf-8 encoding also works for reading.
+	with open("utf-8.json", "wb") as fh:
+		fh.write(b'"bl\xc3\xa4"')
+	assert json_load("utf-8.json") == unicode_want
 
 	# This is supposed to work on PY2, but not PY3.
 	try:

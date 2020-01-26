@@ -2,7 +2,7 @@
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
 # Modifications copyright (c) 2019-2020 Anders Berkeman                    #
-# Modifications copyright (c) 2019 Carl Drougge                            #
+# Modifications copyright (c) 2019-2020 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -154,8 +154,12 @@ def json_decode(s, unicode_as_utf8bytes=PY2):
 
 def json_load(filename='result.json', jobid=None, sliceno=None, unicode_as_utf8bytes=PY2):
 	filename = _fn(filename, jobid, sliceno)
-	with open(filename, 'r') as fh:
-		data = fh.read()
+	if PY3:
+		with open(filename, 'r', encoding='utf-8') as fh:
+			data = fh.read()
+	else:
+		with open(filename, 'rb') as fh:
+			data = fh.read()
 	return json_decode(data, unicode_as_utf8bytes)
 
 
