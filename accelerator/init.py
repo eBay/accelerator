@@ -57,7 +57,7 @@ config_template = r"""# The configuration is a collection of key value pairs.
 
 slices: {slices}
 workdirs:
-	{name} {workdir}
+	{name} {prefix}/workdirs/{name}
 
 # Target workdir defaults to the first workdir, but you can override it.
 # (this is where jobs without a workdir override are built)
@@ -86,41 +86,36 @@ input directory: {input}
 
 
 def main(argv):
-	from os import mkdir, makedirs, listdir
+	from os import makedirs, listdir, chdir
 	from os.path import exists, join, realpath
 	from sys import version_info
 	from argparse import ArgumentParser
 	from accelerator.error import UserError
-	from accelerator.configfile import interpolate
 
 	parser = ArgumentParser(
 		prog=argv.pop(0),
 		description=r'''
 			Creates an accelerator project directory.
 			Defaults to the current directory.
-			Creates accelerator.conf and a method directory.
-			Also creates workdirs and result dir (in ~/accelerator by default).
+			Creates accelerator.conf, a method dir, a workdir and result dir.
 			Both the method directory and workdir will be named <NAME>,
 			"dev" by default.
 		''',
 	)
 	parser.add_argument('--slices', default=None, type=int, help='Override slice count detection')
 	parser.add_argument('--name', default='dev', help='Name of method dir and workdir, default "dev"')
-	parser.add_argument('--prefix', default='${HOME}/accelerator', help='Put workdirs here, default "${HOME}/accelerator"')
 	parser.add_argument('--input', default='# /some/path where you want import methods to look.', help='input directory')
 	parser.add_argument('--force', action='store_true', help='Go ahead even though directory is not empty, or workdir exists with incompatible slice count')
 	parser.add_argument('directory', default='.', help='project directory to create. default "."', metavar='DIR', nargs='?')
 	options = parser.parse_args(argv)
 
 	assert options.name
-	if not options.prefix.startswith('${'):
-		options.prefix = realpath(options.prefix)
+	assert '/' not in options.name
+	assert ' ' not in options.name
 	if not options.input.startswith('#'):
 		options.input = realpath(options.input)
-	cfg_workdir = join(options.prefix, 'workdirs', options.name)
-	workdir = interpolate(cfg_workdir)
-	if not exists(workdir):
-		makedirs(workdir)
+	prefix = realpath(options.directory)
+	workdir = join(prefix, 'workdirs', options.name)
 	slices_conf = join(workdir, '.slices')
 	try:
 		with open(slices_conf, 'r') as fh:
@@ -135,19 +130,20 @@ def main(argv):
 	if workdir_slices and workdir_slices != options.slices and not options.force:
 		raise UserError('Workdir %r has %d slices, refusing to continue with %d slices' % (workdir, workdir_slices, options.slices,))
 
+	if not options.force and exists(options.directory) and listdir(options.directory):
+		raise UserError('Directory %r is not empty.' % (options.directory,))
 	if not exists(options.directory):
 		makedirs(options.directory)
-	if not options.force and listdir(options.directory):
-		raise UserError('Directory %r is not empty.' % (options.directory,))
-	socket_dir = join(options.directory, '.socket.dir')
-	if not exists(socket_dir):
-		mkdir(socket_dir, 0o750)
-	urd_dir = join(options.directory, 'urd.db')
-	if not exists(urd_dir):
-		mkdir(urd_dir)
+	chdir(options.directory)
+	for dir_to_make in ('.socket.dir', 'urd.db',):
+		if not exists(dir_to_make):
+			makedirs(dir_to_make, 0o750)
+	for dir_to_make in (workdir, 'results',):
+		if not exists(dir_to_make):
+			makedirs(dir_to_make)
 	with open(slices_conf, 'w') as fh:
 		fh.write('%d\n' % (options.slices,))
-	method_dir = join(options.directory, options.name)
+	method_dir = options.name
 	if not exists(method_dir):
 		makedirs(method_dir)
 	with open(join(method_dir, '__init__.py'), 'w') as fh:
@@ -158,11 +154,10 @@ def main(argv):
 		fh.write(a_example)
 	with open(join(method_dir, 'build.py'), 'w') as fh:
 		fh.write(build_script)
-	with open(join(options.directory, 'accelerator.conf'), 'w') as fh:
+	with open('accelerator.conf', 'w') as fh:
 		fh.write(config_template.format(
 			name=options.name,
-			prefix=options.prefix,
-			workdir=cfg_workdir,
+			prefix=prefix,
 			slices=options.slices,
 			input=options.input,
 			major=version_info.major,
