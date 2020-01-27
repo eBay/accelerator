@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2018-2019 Carl Drougge                       #
+# Modifications copyright (c) 2018-2020 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -164,7 +164,7 @@ _c_conv_unicode_setup = r'''
 	if (tst_bytes) {
 		PyTuple_SET_ITEM(dec_args, 0, tst_bytes);
 		PyTuple_SET_ITEM(dec_args, 1, dec_errors);
-		PyObject *tst_res = PyEval_CallObject(decoder, dec_args);
+		PyObject *tst_res = PyObject_CallObject(decoder, dec_args);
 		if (tst_res) {
 			if (PyTuple_Check(tst_res)) {
 				if (PyUnicode_Check(PyTuple_GetItem(tst_res, 0))) {
@@ -194,7 +194,7 @@ _c_conv_unicode_template = r'''
 	PyObject *tmp_prev = PyTuple_GET_ITEM(dec_args, 0);
 	PyTuple_SET_ITEM(dec_args, 0, tmp_bytes);
 	Py_DECREF(tmp_prev);
-	PyObject *tmp_res = PyEval_CallObject(decoder, dec_args);
+	PyObject *tmp_res = PyObject_CallObject(decoder, dec_args);
 	if (tmp_res) {
 #if PY_MAJOR_VERSION < 3
 		PyObject *tmp_utf8bytes = PyUnicode_AsUTF8String(PyTuple_GET_ITEM(tmp_res, 0));
