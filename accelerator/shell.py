@@ -1,6 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2019-2020 Carl Drougge                                     #
+# Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -120,32 +121,32 @@ def setup(config_fn=None, debug_cmd=False):
 def cmd_dsgrep(argv):
 	from accelerator.dsgrep import main
 	return main(argv)
-cmd_dsgrep.help = '''Search for a pattern in one or more datasets'''
+cmd_dsgrep.help = '''search for a pattern in one or more datasets'''
 
 def cmd_dsinfo(argv):
 	from accelerator.dsinfo import main
 	return main(argv)
-cmd_dsinfo.help = '''Display information about datasets'''
+cmd_dsinfo.help = '''display information about datasets'''
 
 def cmd_run(argv):
 	from accelerator.build import main
 	return main(argv, cfg)
-cmd_run.help = '''Run a build script'''
+cmd_run.help = '''run a build script'''
 
 def cmd_daemon(argv):
 	from accelerator.daemon import main
 	main(argv, cfg)
-cmd_daemon.help = '''Run the main daemon'''
+cmd_daemon.help = '''run the main daemon'''
 
 def cmd_init(argv):
 	from accelerator.init import main
 	main(argv)
-cmd_init.help = '''Create a project directory'''
+cmd_init.help = '''create a project directory'''
 
 def cmd_urd(argv):
 	from accelerator.urd import main
 	main(argv, cfg)
-cmd_urd.help = '''Run the urd daemon'''
+cmd_urd.help = '''run the urd daemon'''
 
 def cmd_curl(argv):
 	prog = argv.pop(0)
@@ -155,12 +156,12 @@ def cmd_curl(argv):
 		which = 'urd'
 	if '--help' in argv or '-h' in argv or not argv:
 		from os import environ
-		print('Usage: %s [daemon|urd] [curl options] path' % (prog,))
-		print('%s daemon talks to the daemon, %s urd talks to urd (default).' % (prog, prog,))
+		print('usage: %s [daemon|urd] [curl options] path' % (prog,))
+		print('%s daemon talks to the daemon, %s urd talks to urd (default)' % (prog, prog,))
 		print()
-		print('Examples:')
-		print('%s %s/example/latest' % (prog, environ['USER'],))
-		print('%s daemon status' % (prog,))
+		print('examples:')
+		print('  %s %s/example/latest' % (prog, environ['USER'],))
+		print('  %s daemon status' % (prog,))
 		return
 	url_end = argv.pop()
 	socket_opts = []

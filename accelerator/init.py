@@ -102,10 +102,10 @@ def main(argv):
 			"dev" by default.
 		''',
 	)
-	parser.add_argument('--slices', default=None, type=int, help='Override slice count detection')
-	parser.add_argument('--name', default='dev', help='Name of method dir and workdir, default "dev"')
+	parser.add_argument('--slices', default=None, type=int, help='override slice count detection')
+	parser.add_argument('--name', default='dev', help='name of method dir and workdir, default "dev"')
 	parser.add_argument('--input', default='# /some/path where you want import methods to look.', help='input directory')
-	parser.add_argument('--force', action='store_true', help='Go ahead even though directory is not empty, or workdir exists with incompatible slice count')
+	parser.add_argument('--force', action='store_true', help='go ahead even though directory is not empty, or workdir exists with incompatible slice count')
 	parser.add_argument('directory', default='.', help='project directory to create. default "."', metavar='DIR', nargs='?')
 	options = parser.parse_args(argv)
 
