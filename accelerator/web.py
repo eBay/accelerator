@@ -3,7 +3,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2019 Carl Drougge                            #
+# Modifications copyright (c) 2019-2020 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -25,10 +25,12 @@ if PY3:
 	from socketserver import ThreadingMixIn, ForkingMixIn
 	from http.server import HTTPServer, BaseHTTPRequestHandler
 	from socketserver import UnixStreamServer
+	from urllib.parse import parse_qs
 else:
 	from SocketServer import ThreadingMixIn, ForkingMixIn
 	from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 	from SocketServer import UnixStreamServer
+	from urlparse import parse_qs
 
 import cgi
 from traceback import print_exc
@@ -92,7 +94,7 @@ class BaseWebHandler(BaseHTTPRequestHandler):
 		path = self.path.split("?")
 		cgi_args = {}
 		if len(path) == 2:
-			cgi_args = cgi.parse_qs(path[1], keep_blank_values=True)
+			cgi_args = parse_qs(path[1], keep_blank_values=True)
 		elif len(path) != 1:
 			return self._bad_request()
 		self._do_req2(path[0], cgi_args)
