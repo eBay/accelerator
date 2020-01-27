@@ -48,7 +48,7 @@ def main(argv):
 	pat_b = re.compile(args.pattern.encode('utf-8'), re.IGNORECASE if args.ignorecase else 0)
 	datasets = [name2ds(args.dataset)]
 	columns = []
-	
+
 	for ds_or_col in args.columns:
 		if columns:
 			columns.append(ds_or_col)
@@ -57,11 +57,11 @@ def main(argv):
 				datasets.append(name2ds(ds_or_col))
 			except Exception:
 				columns.append(ds_or_col)
-	
+
 	if not datasets:
 		parser.print_help(file=sys.stderr)
 		return 1
-	
+
 	def grep(lines):
 		chk_b = pat_b.search
 		chk_s = pat_s.search
@@ -84,7 +84,7 @@ def main(argv):
 				# This will be atomic if the line is not too long
 				# (at least up to PIPE_BUF bytes, should be at least 512).
 				write(1, b'\t'.join(map(fmt, items)) + b'\n')
-	
+
 	def one_slice(sliceno):
 		try:
 			for ds in datasets:
@@ -100,7 +100,7 @@ def main(argv):
 				return
 			else:
 				raise
-	
+
 	try:
 		children = []
 		want_slices = set(args.slice) if args.slice else range(g.slices)
