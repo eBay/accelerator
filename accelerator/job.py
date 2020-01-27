@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2019 Carl Drougge                            #
+# Modifications copyright (c) 2019-2020 Carl Drougge                       #
 # Modifications copyright (c) 2019-2020 Anders Berkeman                    #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -24,7 +24,7 @@ import re
 from collections import namedtuple
 from functools import wraps
 
-from accelerator.compat import unicode, PY2, PY3, open
+from accelerator.compat import unicode, PY2, PY3, open, iteritems
 from accelerator.error import NoSuchJobError, NoSuchWorkdirError
 
 
@@ -152,6 +152,22 @@ class Job(unicode):
 				with open(fn, 'rt', encoding='utf-8', errors='backslashreplace') as fh:
 					res.append(fh.read())
 		return ''.join(res)
+
+	def chain(self, length=-1, reverse=False, stop_job=None):
+		"""Like Dataset.chain but for jobs."""
+		if isinstance(stop_job, dict):
+			assert len(stop_job) == 1, "Only pass a single stop_job={job: name}"
+			stop_job, stop_name = next(iteritems(stop_job))
+			if stop_job:
+				stop_job = Job(stop_job).params.jobs.get(stop_name)
+		chain = []
+		current = self
+		while length != len(chain) and current and current != stop_job:
+			chain.append(current)
+			current = current.params.jobs.get('previous')
+		if not reverse:
+			chain.reverse()
+		return chain
 
 	# Look like a string after pickling
 	def __reduce__(self):
