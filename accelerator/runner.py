@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2018-2019 Carl Drougge                       #
+# Modifications copyright (c) 2018-2020 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -358,6 +358,15 @@ def new_runners(config, used_versions):
 if __name__ == "__main__":
 	# sys.path needs to contain the project dir, but not the accelerator dir
 	sys.path[0] = sys.argv[2]
+
+	# As of python 3.8 the default start_method is 'spawn' on macOS.
+	# This doesn't work for us. 'fork' is fairly unsafe on macOS,
+	# but it's better than not working at all. See
+	# https://bugs.python.org/issue33725
+	# for more information.
+	import multiprocessing
+	if hasattr(multiprocessing, 'set_start_method'):
+		multiprocessing.set_start_method('fork')
 
 	from accelerator.autoflush import AutoFlush
 	from accelerator.compat import pickle

@@ -1,6 +1,6 @@
 ############################################################################
 #                                                                          #
-# Copyright (c) 2019 Carl Drougge                                          #
+# Copyright (c) 2019-2020 Carl Drougge                                     #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -216,6 +216,15 @@ class HelpFixArgumentParser(ArgumentParser):
 		ArgumentParser.error(self, message)
 
 def main():
+	# As of python 3.8 the default start_method is 'spawn' on macOS.
+	# This doesn't work for us. 'fork' is fairly unsafe on macOS,
+	# but it's better than not working at all. See
+	# https://bugs.python.org/issue33725
+	# for more information.
+	import multiprocessing
+	if hasattr(multiprocessing, 'set_start_method'):
+		multiprocessing.set_start_method('fork')
+
 	from accelerator.autoflush import AutoFlush
 	argv = sys.argv[1:]
 	sys.stdout = AutoFlush(sys.stdout)
