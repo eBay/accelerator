@@ -1,6 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
+# Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -19,4 +20,4 @@
 # launch.py puts data here for reference from methods.
 # you will get errors if you try to put anything more directly in this file.
 
-running = 'daemon'
+running = 'server'

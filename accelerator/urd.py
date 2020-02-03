@@ -2,6 +2,7 @@
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
 # Modifications copyright (c) 2018-2020 Carl Drougge                       #
+# Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -515,7 +516,7 @@ def main(argv, cfg):
 		kw['host'], kw['port'] = listen
 	else:
 		from accelerator.unixhttp import WSGIUnixServer, WSGIUnixRequestHandler
-		from accelerator.daemon import check_socket
+		from accelerator.server import check_socket
 		if listen == 'local':
 			listen = '.socket.dir/urd'
 		check_socket(listen)

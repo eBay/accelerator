@@ -1,6 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2019 Carl Drougge                                          #
+# Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -28,8 +29,8 @@ class UserError(AcceleratorError):
 	"""Raised when the user (of a shell command) did something wrong"""
 	pass
 
-class DaemonError(AcceleratorError):
-	"""Error return from a daemon call (not a method failing)"""
+class ServerError(AcceleratorError):
+	"""Error return from a server call (not a method failing)"""
 	pass
 
 class UrdError(AcceleratorError):

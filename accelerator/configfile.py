@@ -66,7 +66,7 @@ def load_config(filename):
 	required = {'slices', 'workdirs', 'method packages'}
 	known = {'target workdir', 'listen', 'urd', 'result directory', 'input directory', 'project directory'} | required | multivalued
 	cfg = {key: [] for key in multivalued}
-	cfg['listen'] = '.socket.dir/daemon', None
+	cfg['listen'] = '.socket.dir/server', None
 
 	class _E(Exception):
 		pass

@@ -40,8 +40,8 @@ from accelerator import setupfile
 from accelerator.extras import json_encode, json_decode, DotDict, _ListTypePreserver
 from accelerator.job import Job
 from accelerator.status import print_status_stacks
-from accelerator.error import JobError, DaemonError, UrdError, UrdPermissionError, UrdConflictError
-from accelerator import unixhttp; unixhttp # for unixhttp:// URLs, as used to talk to the daemon
+from accelerator.error import JobError, ServerError, UrdError, UrdPermissionError, UrdConflictError
+from accelerator import unixhttp; unixhttp # for unixhttp:// URLs, as used to talk to the server
 
 
 class Automata:
@@ -97,7 +97,7 @@ class Automata:
 					return self._url_get(*path, nest=nest + 1, **kw)
 				else:
 					print('Giving up.', file=sys.stderr)
-					raise DaemonError('Daemon says 503: %s' % (resp,))
+					raise ServerError('Server says 503: %s' % (resp,))
 		finally:
 			req.close()
 		if PY3:
@@ -220,7 +220,7 @@ class Automata:
 		postdata = urlencode({'json': setupfile.encode_setup(json)})
 		res = self._url_json('submit', data=postdata)
 		if 'error' in res:
-			raise DaemonError('Submit failed: ' + res.error)
+			raise ServerError('Submit failed: ' + res.error)
 		if 'why_build' not in res:
 			if not self.subjob_cookie:
 				self._printlist(res.jobs)
@@ -470,7 +470,7 @@ class Urd(object):
 		return path
 
 	def _call(self, url, data=None, fmt=_urd_typeify):
-		assert self._url, "No urd configured for this daemon"
+		assert self._url, "No urd configured for this server"
 		url = url.replace(' ', '%20')
 		if data is not None:
 			req = Request(url, json_encode(data), self._headers)
@@ -774,11 +774,11 @@ def main(argv, cfg):
 	try:
 		run_automata(options, cfg)
 		return 0
-	except (JobError, DaemonError):
+	except (JobError, ServerError):
 		# If it's a JobError we don't care about the local traceback,
 		# we want to see the job traceback, and maybe know what line
 		# we built the job on.
-		# If it's a DaemonError we just want the line and message.
+		# If it's a ServerError we just want the line and message.
 		print_minimal_traceback()
 	return 1
 

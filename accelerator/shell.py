@@ -133,10 +133,10 @@ def cmd_run(argv):
 	return main(argv, cfg)
 cmd_run.help = '''run a build script'''
 
-def cmd_daemon(argv):
-	from accelerator.daemon import main
+def cmd_server(argv):
+	from accelerator.server import main
 	main(argv, cfg)
-cmd_daemon.help = '''run the main server'''
+cmd_server.help = '''run the main server'''
 
 def cmd_init(argv):
 	from accelerator.init import main
@@ -167,7 +167,7 @@ def cmd_curl(argv):
 	socket_opts = []
 	if which == 'urd':
 		url_start = cfg.urd
-	else: # daemon
+	else: # server
 		url_start = cfg.url
 	if url_start.startswith('unixhttp://'):
 		from accelerator.compat import unquote_plus
@@ -195,7 +195,7 @@ COMMANDS = dict(
 	dsgrep=cmd_dsgrep,
 	dsinfo=cmd_dsinfo,
 	run=cmd_run,
-	server=cmd_daemon,
+	server=cmd_server,
 	init=cmd_init,
 	urd=cmd_urd,
 	curl=cmd_curl,

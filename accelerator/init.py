@@ -77,7 +77,7 @@ input directory: {input}
 # specify names for other interpreters here, and put that name after
 # the method in methods.conf.
 # You automatically get four names for the interpreter that started
-# the daemon: DEFAULT, {major}, {major}.{minor} and {major}.{minor}.{micro} (adjusted to the actual
+# the server: DEFAULT, {major}, {major}.{minor} and {major}.{minor}.{micro} (adjusted to the actual
 # version used). You can override these here, except DEFAULT.
 # interpreters:
 # 	2.7 /path/to/python2.7

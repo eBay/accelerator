@@ -2,6 +2,7 @@
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
 # Modifications copyright (c) 2018-2020 Carl Drougge                       #
+# Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -17,7 +18,7 @@
 #                                                                          #
 ############################################################################
 
-# This runs once per python version the daemon supports methods for.
+# This runs once per python version the server supports methods for.
 # On reload, it is killed and started again.
 # When launching a method, it forks and calls the method (without any exec).
 # Also contains the function that starts these (new_runners) and the dict
@@ -255,7 +256,7 @@ class Runner(object):
 		self._thread.daemon = True
 		self._thread.start()
 
-	# runs on it's own thread (in the daemon), one per Runner object
+	# runs on it's own thread (in the server), one per Runner object
 	def _receiver(self):
 		from accelerator.compat import QueueFull, pickle, itervalues
 		while True:
@@ -415,7 +416,7 @@ if __name__ == "__main__":
 			).start()
 		elif op == b'w':
 			# It would be nice to be able to just ignore children
-			# (set SIGCHLD to SIG_IGN), but the daemon might want to
+			# (set SIGCHLD to SIG_IGN), but the server might want to
 			# killpg the child, so we need it to stick around.
 			os.waitpid(data, 0)
 			respond(cookie, None)

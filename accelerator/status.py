@@ -2,6 +2,7 @@
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
 # Modifications copyright (c) 2018-2019 Carl Drougge                       #
+# Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -75,7 +76,7 @@ _cookie = 0
 
 @contextmanager
 def status(msg):
-	if g.running == 'daemon':
+	if g.running == 'server':
 		yield lambda _: None
 		return
 	global _cookie

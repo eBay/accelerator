@@ -6,18 +6,18 @@ Processes
 =========
 
 There are a few different processes involved in a running system:
-main daemon
+main server
 	python version specific runner (runner.py)
 		when running a job this forks to create the actual job processes
 	maybe more runners (one per py\d line in the conf)
 	short lived worker pools when loading metadata about jobs.
-automata (asks the daemon to run jobs)
+runner (asks the server to run jobs)
 
-Communication between the automata and the daemon is over http (by default
+Communication between the runner and the server is over http (by default
 over a unix socket). You can find the code in automata_common.py and
-daemon.py.
+server.py.
 
-Communication between the daemon and the runners is over anonymous sockets
+Communication between the server and the runners is over anonymous sockets
 (from socketpair()), each packet is a length prefix followed by pickled
 data. All the communications code is in runner.py.
 
@@ -37,8 +37,8 @@ setup.json
 ==========
 
 The job parameters are all in setup.json in the job dir, which contains
-mostly a normalized version of the same things the automata sends to the
-daemon to dispatch the job. The valid contents are specified by the
+mostly a normalized version of the same things the runner sends to the
+server to dispatch the job. The valid contents are specified by the
 {options, datasets, jobids} variables in the method source. There is also
 some meta info about the method.
 
@@ -57,10 +57,10 @@ code (in control.py, database.py, dependency.py, deptree.py, methods.py,
 workspace.py) is much harder to follow than there is any reason for.
 database.Database.match_exact is called from dependency.initialise_jobs
 which is called from control.initialise_jobs which is called from the
-submit portion of daemon.py.
+submit portion of server.py.
 
 The data about method versions and compatibility comes from the runners,
-the setup.json files are loaded directly by the daemon (using a worker
+the setup.json files are loaded directly by the server (using a worker
 pool).
 
 
@@ -84,8 +84,8 @@ List of files
 =============
 
 Runnable files
-	daemon.py
-		Main daemon
+	server.py
+		Main server
 	automatarunner.py
 		Runs your automata scripts
 	dsgrep.py

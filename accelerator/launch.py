@@ -202,7 +202,7 @@ def fmt_tb(skip_level):
 	return ''.join(msg)
 
 
-def execute_process(workdir, jobid, slices, result_directory, common_directory, input_directory, index=None, workdirs=None, daemon_url=None, subjob_cookie=None, parent_pid=0):
+def execute_process(workdir, jobid, slices, result_directory, common_directory, input_directory, index=None, workdirs=None, server_url=None, subjob_cookie=None, parent_pid=0):
 	WORKDIRS.update(workdirs)
 
 	g.job = jobid
@@ -229,7 +229,7 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 	method_ref.datasets= params.datasets
 	method_ref.jobs    = params.jobs
 
-	g.daemon_url       = daemon_url
+	g.server_url       = server_url
 	g.running          = 'launch'
 	status._start('%s %s' % (jobid, params.method,), parent_pid)
 
@@ -324,11 +324,11 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 	return None, (prof, saved_files, _record)
 
 
-def run(workdir, jobid, slices, result_directory, common_directory, input_directory, index=None, workdirs=None, daemon_url=None, subjob_cookie=None, parent_pid=0, prof_fd=-1):
+def run(workdir, jobid, slices, result_directory, common_directory, input_directory, index=None, workdirs=None, server_url=None, subjob_cookie=None, parent_pid=0, prof_fd=-1):
 	global g_allesgut, _prof_fd
 	_prof_fd = prof_fd
 	try:
-		data = execute_process(workdir, jobid, slices, result_directory, common_directory, input_directory, index=index, workdirs=workdirs, daemon_url=daemon_url, subjob_cookie=subjob_cookie, parent_pid=parent_pid)
+		data = execute_process(workdir, jobid, slices, result_directory, common_directory, input_directory, index=index, workdirs=workdirs, server_url=server_url, subjob_cookie=subjob_cookie, parent_pid=parent_pid)
 		g_allesgut = True
 	except Exception:
 		print_exc()

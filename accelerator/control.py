@@ -41,9 +41,9 @@ METHODS_CONFIGFILENAME = 'methods.conf'
 
 
 class Main:
-	""" This is the main controller behind the daemon. """
+	""" This is the main controller behind the server. """
 
-	def __init__(self, config, options, daemon_url):
+	def __init__(self, config, options, server_url):
 		"""
 		Setup objects:
 
@@ -54,7 +54,7 @@ class Main:
 		"""
 		self.config = config
 		self.debug = options.debug
-		self.daemon_url = daemon_url
+		self.server_url = server_url
 		self._update_methods()
 		self.target_workdir = self.config['target_workdir']
 		self.workspaces = {}
@@ -168,7 +168,7 @@ class Main:
 		t0 = time.time()
 		setup = update_setup(jobid, starttime=t0)
 		prof = setup.get('exectime', DotDict())
-		new_prof, files, subjobs = dispatch.launch(W.path, setup, self.config, self.Methods, active_workdirs, slices, self.debug, self.daemon_url, subjob_cookie, parent_pid)
+		new_prof, files, subjobs = dispatch.launch(W.path, setup, self.config, self.Methods, active_workdirs, slices, self.debug, self.server_url, subjob_cookie, parent_pid)
 		if self.debug:
 			delete_from = Temp.TEMP
 		else:

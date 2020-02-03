@@ -2,6 +2,7 @@
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
 # Modifications copyright (c) 2018-2019 Carl Drougge                       #
+# Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -90,14 +91,14 @@ class Methods(object):
 
 # Collect information on methods
 class SubMethods(Methods):
-	def __init__(self, package_list, configfilename, daemon_config):
+	def __init__(self, package_list, configfilename, server_config):
 		super(SubMethods, self).__init__(package_list, configfilename)
 		t0 = time()
 		per_runner = defaultdict(list)
 		for key, val in iteritems(self.db):
 			package = val['package']
 			per_runner[val['version']].append((package, key))
-		self.runners = new_runners(daemon_config, set(per_runner))
+		self.runners = new_runners(server_config, set(per_runner))
 		warnings = []
 		failed = []
 		self.hash = {}

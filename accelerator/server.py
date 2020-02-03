@@ -75,7 +75,7 @@ class XtdHandler(BaseWebHandler):
 		return json_encode(body)
 
 	def handle_req(self, path, args):
-		if self.DEBUG:  print("@daemon.py:  Handle_req, path = \"%s\", args = %s" %( path, args ), file=sys.stderr)
+		if self.DEBUG:  print("@server.py:  Handle_req, path = \"%s\", args = %s" %( path, args ), file=sys.stderr)
 		try:
 			self._handle_req( path, args )
 		except Exception:
@@ -154,7 +154,7 @@ class XtdHandler(BaseWebHandler):
 					still_locked = True
 					respond_after = True
 					try:
-						if self.DEBUG:  print('@daemon.py:  Got the lock!', file=sys.stderr)
+						if self.DEBUG:  print('@server.py:  Got the lock!', file=sys.stderr)
 						workdir = setup.get('workdir', data.workdir)
 						jobidv, job_res = self.ctrl.initialise_jobs(setup, workdir)
 						job_res['done'] = False
@@ -238,7 +238,7 @@ class XtdHandler(BaseWebHandler):
 					if respond_after:
 						job_res['done'] = True
 						self.do_response(200, "text/json", job_res)
-					if self.DEBUG:  print("@daemon.py:  Process releases lock!", file=sys.stderr) # note: has already done http response
+					if self.DEBUG:  print("@server.py:  Process releases lock!", file=sys.stderr) # note: has already done http response
 				else:
 					self.do_response(503, 'text/plain', 'Busy doing work for you...\n')
 			else:
@@ -253,7 +253,7 @@ def exitfunction(*a):
 		signal.signal(signal.SIGTERM, signal.SIG_IGN)
 		signal.signal(signal.SIGINT, signal.SIG_IGN)
 	print()
-	print('The daemon deathening! %d %s' % (os.getpid(), children,))
+	print('The deathening! %d %s' % (os.getpid(), children,))
 	print()
 	for child in children:
 		os.killpg(child, signal.SIGKILL)

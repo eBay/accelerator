@@ -2,6 +2,7 @@
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
 # Modifications copyright (c) 2019 Carl Drougge                            #
+# Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -19,7 +20,7 @@
 
 from accelerator import g
 from accelerator.build import Automata, JobList
-from accelerator.error import DaemonError, JobError
+from accelerator.error import ServerError, JobError
 from accelerator.status import status
 from accelerator.compat import getarglist
 
@@ -31,12 +32,12 @@ jobs = JobList()
 
 def build(method, options={}, datasets={}, jobs={}, name=None, caption=None, **kw):
 	"""Just like urd.build, but for making subjobs"""
-	
+
 	global _a, _bad_kws
 	assert g.running != 'analysis', "Analysis is not allowed to make subjobs"
 	assert g.subjob_cookie, "Can't build subjobs: out of cookies"
 	if not _a:
-		_a = Automata(g.daemon_url, subjob_cookie=g.subjob_cookie)
+		_a = Automata(g.server_url, subjob_cookie=g.subjob_cookie)
 		_a.update_method_info()
 		_a.record[None] = _a.jobs = globals()['jobs']
 		_bad_kws = set(getarglist(_a.call_method))
@@ -54,8 +55,8 @@ def build(method, options={}, datasets={}, jobs={}, name=None, caption=None, **k
 				jid = run()
 		else:
 			jid = run()
-	except DaemonError as e:
-		raise DaemonError(e.args[0])
+	except ServerError as e:
+		raise ServerError(e.args[0])
 	except JobError as e:
 		raise JobError(e.jobid, e.method, e.status)
 	for d in _a.job_retur.jobs.values():

@@ -2,6 +2,7 @@
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
 # Modifications copyright (c) 2018-2019 Carl Drougge                       #
+# Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -79,7 +80,7 @@ class WorkSpace:
 		for jid in bad:
 			self.known_jobids.discard(jid)
 			self.valid_jobids.discard(jid)
-		# @@TODO: Fix races for remote daemons:
+		# @@TODO: Fix races for remote servers:
 		# Anything which was bad last time but had recently been touched needs to be rechecked:
 		#     new = list(cand - (self.known_jobids - self.recent_bad_jobids))
 		#     cutoff = time() - 64 # hopefully avoid races if we're on a network filsystem

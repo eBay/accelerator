@@ -1,6 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2019 Carl Drougge                                          #
+# Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -92,7 +93,7 @@ def synthesis(params):
 # The code is here so it's not repeated.
 
 def sub_part(sliceno, opts):
-	a = Automata(g.daemon_url, verbose=True)
+	a = Automata(g.server_url, verbose=True)
 	pid = os.getpid()
 	def verify(want):
 		timeout = 0
@@ -105,7 +106,7 @@ def sub_part(sliceno, opts):
 					got = line[2]
 					if got == want:
 						return
-			# it might not have reached the daemon yet
+			# it might not have reached the server yet
 			timeout += 0.01
 		# we've given it 3 seconds, it's not going to happen.
 		raise Exception("Wanted to see tail output of %r, but saw %r" % (want, got,))
