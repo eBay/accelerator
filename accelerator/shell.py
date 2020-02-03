@@ -136,7 +136,7 @@ cmd_run.help = '''run a build script'''
 def cmd_daemon(argv):
 	from accelerator.daemon import main
 	main(argv, cfg)
-cmd_daemon.help = '''run the main daemon'''
+cmd_daemon.help = '''run the main server'''
 
 def cmd_init(argv):
 	from accelerator.init import main
@@ -146,22 +146,22 @@ cmd_init.help = '''create a project directory'''
 def cmd_urd(argv):
 	from accelerator.urd import main
 	main(argv, cfg)
-cmd_urd.help = '''run the urd daemon'''
+cmd_urd.help = '''run the urd server'''
 
 def cmd_curl(argv):
 	prog = argv.pop(0)
-	if argv and argv[0] in ('daemon', 'urd',):
+	if argv and argv[0] in ('server', 'urd',):
 		which = argv.pop(0)
 	else:
 		which = 'urd'
 	if '--help' in argv or '-h' in argv or not argv:
 		from os import environ
-		print('usage: %s [daemon|urd] [curl options] path' % (prog,))
-		print('%s daemon talks to the daemon, %s urd talks to urd (default)' % (prog, prog,))
+		print('usage: %s [server|urd] [curl options] path' % (prog,))
+		print('%s server talks to the server, %s urd talks to urd (default)' % (prog, prog,))
 		print()
 		print('examples:')
 		print('  %s %s/example/latest' % (prog, environ['USER'],))
-		print('  %s daemon status' % (prog,))
+		print('  %s server status' % (prog,))
 		return
 	url_end = argv.pop()
 	socket_opts = []
@@ -187,7 +187,7 @@ def cmd_curl(argv):
 	except Exception:
 		pass
 	print(output)
-cmd_curl.help = '''http request (with curl) to urd or the daemon'''
+cmd_curl.help = '''http request (with curl) to urd or the server'''
 
 DEBUG_COMMANDS = {'dsgrep', 'dsinfo',}
 
@@ -195,7 +195,7 @@ COMMANDS = dict(
 	dsgrep=cmd_dsgrep,
 	dsinfo=cmd_dsinfo,
 	run=cmd_run,
-	daemon=cmd_daemon,
+	server=cmd_daemon,
 	init=cmd_init,
 	urd=cmd_urd,
 	curl=cmd_curl,
