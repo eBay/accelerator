@@ -1,6 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2019-2020 Carl Drougge                                     #
+# Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -119,7 +120,7 @@ def synthesis(job, slices):
 		assert hashed.hashlabel == hl
 		unhashed = subjobs.build('dataset_type', options=dict(column2type=column2type), datasets=dict(source=src_ds)).dataset()
 		assert unhashed.hashlabel == None
-		rehashed = subjobs.build('dataset_rehash', options=dict(hashlabel=hl), datasets=dict(source=unhashed)).dataset()
+		rehashed = subjobs.build('dataset_hashpart', options=dict(hashlabel=hl), datasets=dict(source=unhashed)).dataset()
 		assert rehashed.hashlabel == hl
 		assert hashed.lines == rehashed.lines
 		assert sum(hashed.lines) == 1000
@@ -130,7 +131,7 @@ def synthesis(job, slices):
 		assert hashed.hashlabel == hl
 		unhashed = subjobs.build('dataset_type', options=dict(column2type=column2type, filter_bad=True), datasets=dict(source=src_ds)).dataset()
 		assert unhashed.hashlabel == None
-		rehashed = subjobs.build('dataset_rehash', options=dict(hashlabel=hl), datasets=dict(source=unhashed)).dataset()
+		rehashed = subjobs.build('dataset_hashpart', options=dict(hashlabel=hl), datasets=dict(source=unhashed)).dataset()
 		assert rehashed.hashlabel == hl
 		del column2type['half']
 		assert hashed.lines == rehashed.lines
@@ -248,7 +249,7 @@ def test(src_ds, opts, expect_lines):
 		assert hashed_by_type.hashlabel == hashlabel, hashed_by_type
 		assert set(hashed_by_type.columns) == cols, hashed_by_type
 		assert sum(hashed_by_type.lines) == expect_lines, hashed_by_type
-		hashed_after = subjobs.build('dataset_rehash', options=dict(hashlabel=hashlabel), datasets=dict(source=just_typed)).dataset()
+		hashed_after = subjobs.build('dataset_hashpart', options=dict(hashlabel=hashlabel), datasets=dict(source=just_typed)).dataset()
 		assert hashed_after.hashlabel == hashlabel, hashed_after
 		assert set(hashed_after.columns) == cols, hashed_after
 		assert sum(hashed_after.lines) == expect_lines, hashed_after

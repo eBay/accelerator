@@ -1,6 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2019 Carl Drougge                                          #
+# Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -21,7 +22,7 @@ from __future__ import division
 from __future__ import unicode_literals
 
 description = r'''
-Verify the dataset_rehash method with various options.
+Verify the dataset_hashpart method with various options.
 '''
 
 from datetime import date
@@ -73,7 +74,7 @@ def write(data, **kw):
 
 def verify(slices, data, source, previous=None, **options):
 	jid = subjobs.build(
-		"dataset_rehash",
+		"dataset_hashpart",
 		datasets=dict(source=source, previous=previous),
 		options=options,
 	)

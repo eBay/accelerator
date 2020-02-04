@@ -4,7 +4,7 @@
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
 # Modifications copyright (c) 2018-2020 Carl Drougge                       #
-# Modifications copyright (c) 2019 Anders Berkeman                         #
+# Modifications copyright (c) 2019-2020 Anders Berkeman                    #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -435,7 +435,7 @@ class Dataset(unicode):
 		get an error if the a dataset does not use the specified hashlabel.
 		If you specify rehash=True such datasets will be rehashed during
 		iteration. You should usually build a new rehashed dataset (using
-		the dataset_rehash method), but this is available for when it makes
+		the dataset_hashpart method), but this is available for when it makes
 		sense.
 
 		range limits which rows you see. Specify {colname: (start, stop)} and
