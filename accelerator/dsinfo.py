@@ -30,8 +30,9 @@ from math import floor, log10
 
 from accelerator.compat import terminal_size
 from accelerator import dscmdhelper
-from accelerator.dataset import job_datasets, Dataset
+from accelerator.dataset import Dataset
 from accelerator.error import NoSuchWhateverError
+from accelerator.job import Job
 
 MINMAXWIDTH = 13 # minimum number of characters reserved for min/max values
 COLUMNS, LINES = terminal_size()
@@ -84,8 +85,10 @@ def main(argv):
 	if args.list or args.chainedlist:
 		for n in args.dataset:
 			try:
-				n = Dataset(n).job
-				dsvec = job_datasets(n)
+				if '/' in n:
+					dsvec = Dataset(n).job.datasets
+				else:
+					dsvec = Job(n).datasets
 			except Exception:
 				dsvec = None
 			if dsvec:
