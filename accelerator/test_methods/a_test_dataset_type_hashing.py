@@ -1,6 +1,6 @@
 ############################################################################
 #                                                                          #
-# Copyright (c) 2019 Carl Drougge                                          #
+# Copyright (c) 2019-2020 Carl Drougge                                     #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -224,13 +224,13 @@ def test(src_ds, opts, expect_lines):
 			msg += ' (hashed on <untyped column>)'
 	print(msg)
 	just_typed = subjobs.build('dataset_type', options=opts, datasets=dict(source=src_ds)).dataset()
-	assert just_typed.hashlabel == expect_hl
-	assert set(just_typed.columns) == cols
-	assert sum(just_typed.lines) == expect_lines
+	assert just_typed.hashlabel == expect_hl, just_typed
+	assert set(just_typed.columns) == cols, just_typed
+	assert sum(just_typed.lines) == expect_lines, just_typed
 	if rename(src_ds.hashlabel) not in opts.column2type or opts.get('hashlabel') == '':
-		assert just_typed.hashlabel is None
+		assert just_typed.hashlabel is None, just_typed
 	else:
-		assert just_typed.hashlabel == rename(src_ds.hashlabel)
+		assert just_typed.hashlabel == rename(src_ds.hashlabel), just_typed
 	del opts.discard_untyped
 	rev_rename = {v: k for k, v in opts.get('rename', {}).items()}
 	discard = set(src_ds.columns) - set(rev_rename.get(n, n) for n in cols)
@@ -245,13 +245,13 @@ def test(src_ds, opts, expect_lines):
 		opts['hashlabel'] = hashlabel
 		print('%s rehashed on %s' % (msg, opts.column2type[hashlabel],))
 		hashed_by_type = subjobs.build('dataset_type', options=opts, datasets=dict(source=src_ds)).dataset()
-		assert hashed_by_type.hashlabel == hashlabel
-		assert set(hashed_by_type.columns) == cols
-		assert sum(hashed_by_type.lines) == expect_lines
+		assert hashed_by_type.hashlabel == hashlabel, hashed_by_type
+		assert set(hashed_by_type.columns) == cols, hashed_by_type
+		assert sum(hashed_by_type.lines) == expect_lines, hashed_by_type
 		hashed_after = subjobs.build('dataset_rehash', options=dict(hashlabel=hashlabel), datasets=dict(source=just_typed)).dataset()
-		assert hashed_after.hashlabel == hashlabel
-		assert set(hashed_after.columns) == cols
-		assert sum(hashed_after.lines) == expect_lines
+		assert hashed_after.hashlabel == hashlabel, hashed_after
+		assert set(hashed_after.columns) == cols, hashed_after
+		assert sum(hashed_after.lines) == expect_lines, hashed_after
 		if src_ds.hashlabel:
 			# if src_ds has a hashlabel then just_typed will actually already be hashed, so hashed_after
 			# will have been hashed twice and therefore have a different order than hashed_by_type.
