@@ -103,6 +103,10 @@ class Job(unicode):
 		assert 'r' in mode, "Don't write to other jobs"
 		return open(self.filename(filename, sliceno), mode, encoding=encoding, errors=errors)
 
+	def files(self, pattern=''):
+		from fnmatch import filter
+		return set(filter(self.post.files, pattern))
+
 	def withfile(self, filename, sliced=False, extra=None):
 		return JobWithFile(self, filename, sliced, extra)
 
