@@ -3,6 +3,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2019 Carl Drougge                                          #
+# Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -57,7 +58,7 @@ setup(
 
 	entry_points={
 		'console_scripts': [
-			'bd = accelerator.shell:main',
+			'ax = accelerator.shell:main',
 		],
 	},
 
