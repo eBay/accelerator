@@ -1,6 +1,6 @@
 ############################################################################
 #                                                                          #
-# Copyright (c) 2019 Carl Drougge                                          #
+# Copyright (c) 2019-2020 Carl Drougge                                     #
 # Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -146,9 +146,10 @@ def synthesis(prepare_res):
 	previous = datasets.previous
 	for fn, info, dsn in lst:
 		opts.filename = fn
-		jid = subjobs.build('csvimport', options=opts, datasets=dict(previous=previous), caption="Import of %s from %s" % (info.filename, options.filename,))
-		previous = Dataset(jid).link_to_here(dsn)
+		show_fn = '%s:%s' % (options.filename, info.filename,)
+		jid = subjobs.build('csvimport', options=opts, datasets=dict(previous=previous), caption='Import of ' + show_fn)
+		previous = Dataset(jid).link_to_here(dsn, filename=show_fn)
 		if options.chaining == 'off':
 			previous = None
 	if (len(lst) == 1 or options.chaining != 'off') and dsn != 'default':
-		Dataset(jid).link_to_here('default')
+		Dataset(jid).link_to_here('default', filename=show_fn)
