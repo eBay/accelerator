@@ -282,7 +282,7 @@ class Dataset(unicode):
 		d.name = uni(name)
 		d._save()
 		_datasets_written.append(d.name)
-		return d
+		return Dataset(d.job, d.name)
 
 	def merge(self, other, name='default', previous=None, allow_unrelated=False):
 		"""Merge this and other dataset. Columns from other take priority.
