@@ -253,13 +253,14 @@ class Dataset(unicode):
 	def shape(self):
 		return (len(self.columns), sum(self.lines),)
 
-	def link_to_here(self, name='default', column_filter=None, override_previous=_no_override):
+	def link_to_here(self, name='default', column_filter=None, override_previous=_no_override, filename=None):
 		"""Use this to expose a subjob as a dataset in your job:
 		Dataset(subjid).link_to_here()
 		will allow access to the subjob dataset under your jid.
 		Specify column_filter as an iterable of columns to include
 		if you don't want all of them.
 		Use override_previous to rechain (or unchain) the dataset.
+		You can change the filename too, or clear it by setting ''.
 		"""
 		d = Dataset(self)
 		if column_filter:
@@ -278,6 +279,8 @@ class Dataset(unicode):
 			d._data.previous = override_previous
 			d._update_caches()
 		d._data.parent = '%s/%s' % (d.job, d.name,)
+		if filename is not None:
+			d._data.filename = filename or None
 		d.job = job
 		d.name = uni(name)
 		d._save()
