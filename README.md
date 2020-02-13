@@ -1,36 +1,31 @@
-Use and Purpose
-===============
+The Accelerator is a tool for fast and reproducible processing of large amounts of data.
+Extensive documentation is available here:
 
-The Accelerator is a tool for fast and reproducible data processing of large amounts of data.  Extensive documentation is available here:
+[Reference Manual](https://berkeman.github.io/pdf/acc_manual.pdf)  
+[Home Page](https://exax.org/)  
+[PyPI](https://pypi.org/project/accelerator/)  
 
-[Reference Manual](https://berkeman.github.io/pdf/acc_manual.pdf) \
-[Home Page](https://exax.org)
+`pip install accelerator`  
+After installation try "`ax --help`".
 
 
-
-Build and Runtime Environment
-=============================
+Supported Environments
+----------------------
 
 The Accelerator projects has been built, tested, and runs on:
  - Ubuntu 16.04, 18.04
- - Debian 8, 9
- - FreeBSD 11.1, 11.2
+ - Debian 9, 10
+ - FreeBSD 11.3, 12.1
 
-but is in no way limited to these systems or versions.
-
-
-
-Installation
-============
-
-Here is how to [install the Accelerator](https://exax.org/installation/).
-
+but is not limited to these systems or versions.
 
 
 License
 =======
 
-Copyright 2017-2018 eBay Inc.
+Copyright 2017-2018 eBay Inc.  
+Modifications copyright (c) 2018-2019 Carl Drougge  
+Modifications copyright (c) 2019 Anders Berkeman  
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
