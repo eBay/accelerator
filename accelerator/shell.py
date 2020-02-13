@@ -183,6 +183,7 @@ def cmd_curl(argv):
 	import json
 	output, _ = Popen(argv, stdout=PIPE).communicate()
 	try:
+		output = output.decode('utf-8')
 		output = json.dumps(json.loads(output), indent=4)
 	except Exception:
 		pass
