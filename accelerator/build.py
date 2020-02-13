@@ -2,7 +2,7 @@
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
 # Modifications copyright (c) 2019-2020 Anders Berkeman                    #
-# Modifications copyright (c) 2018-2019 Carl Drougge                       #
+# Modifications copyright (c) 2018-2020 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -84,25 +84,44 @@ class Automata:
 		pass
 
 	def _url_get(self, *path, **kw):
-		nest = kw.pop('nest', 0)
 		url = self.url + os.path.join('/', *path)
-		req = urlopen(url, **kw)
-		try:
-			resp = req.read()
-			if req.getcode() == 503:
-				print('503:', resp, file=sys.stderr)
-				if nest < 3:
-					print('Retrying (%d/3).' % (nest + 1,), file=sys.stderr)
-					time.sleep(nest / 5 + 0.1)
-					return self._url_get(*path, nest=nest + 1, **kw)
+		for attempt in (1, 2, 3, 4, 5):
+			resp = None
+			try:
+				req = urlopen(url, **kw)
+				try:
+					resp = req.read()
+					if PY3:
+						resp = resp.decode('utf-8')
+					code = req.getcode()
+					if code == 503:
+						# It seems inconsistent if we get HTTPError or not for these.
+						raise HTTPError(url, code, '', {}, None)
+					return resp
+				finally:
+					try:
+						req.close()
+					except Exception:
+						pass
+			except HTTPError as e:
+				if e.code != 503:
+					return resp
+				msg = 'Server says %d: %s' % (e.code, resp,)
+			except URLError:
+				# Don't say anything the first times, because the output
+				# tests get messed up if this happens during them.
+				if attempt < 3:
+					msg = None
 				else:
-					print('Giving up.', file=sys.stderr)
-					raise ServerError('Server says 503: %s' % (resp,))
-		finally:
-			req.close()
-		if PY3:
-			resp = resp.decode('utf-8')
-		return resp
+					msg = 'Error contacting server'
+			if msg:
+				print(msg, file=sys.stderr)
+			if attempt < 5:
+				time.sleep(attempt / 15)
+				if msg:
+					print('Retrying (%d/4).' % (attempt,), file=sys.stderr)
+		print('Giving up.', file=sys.stderr)
+		raise ServerError(msg)
 
 	def _url_json(self, *path, **kw):
 		return json_decode(self._url_get(*path, **kw))
