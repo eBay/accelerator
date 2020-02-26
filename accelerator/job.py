@@ -65,6 +65,7 @@ class Job(unicode):
 	.open to open a file (like standard open)
 	.dataset to get a named Dataset.
 	.output to get what the job printed.
+	.link_result to put a link in result_directory that points to a file in this job.
 
 	Decays to a (unicode) string when pickled.
 	"""
@@ -156,6 +157,21 @@ class Job(unicode):
 				with open(fn, 'rt', encoding='utf-8', errors='backslashreplace') as fh:
 					res.append(fh.read())
 		return ''.join(res)
+
+	def link_result(self, filename='result.pickle', linkname=None):
+		"""Put a symlink to filename in result_directory"""
+		from accelerator.shell import cfg
+		if linkname is None:
+			linkname = filename
+		result_directory = cfg['result_directory']
+		"""Put a symlink to filename in result_directory"""
+		dest_fn = os.path.join(result_directory, linkname)
+		try:
+			os.remove(dest_fn + '_')
+		except OSError:
+			pass
+		os.symlink(os.path.join(self.path, filename), dest_fn + '_')
+		os.rename(dest_fn + '_', dest_fn)
 
 	def chain(self, length=-1, reverse=False, stop_job=None):
 		"""Like Dataset.chain but for jobs."""
