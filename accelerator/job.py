@@ -172,7 +172,9 @@ class Job(unicode):
 			os.remove(dest_fn + '_')
 		except OSError:
 			pass
-		os.symlink(os.path.join(self.path, filename), dest_fn + '_')
+		source_fn = os.path.join(self.path, filename)
+		assert os.path.exists(source_fn), "Filename \"%s\" does not exist in jobdir \"%s\"!" % (filename, self.path)
+		os.symlink(source_fn, dest_fn + '_')
 		os.rename(dest_fn + '_', dest_fn)
 
 	def chain(self, length=-1, reverse=False, stop_job=None):
