@@ -68,13 +68,17 @@ def load_config(filename):
 	cfg = {key: [] for key in multivalued}
 	cfg['listen'] = '.socket.dir/server', None
 
+	def fixpath(fn):
+		# convert relative path to absolute wrt location of config file
+		return os.path.join(os.path.dirname(filename), fn)
+
 	class _E(Exception):
 		pass
 	def parse_pair(thing, val):
 		a = val.split()
-		if len(a) != 2 or not a[1].startswith('/'):
-			raise _E("Invalid %s specification %r (expected 'name /path')" % (thing, val,))
-		return a
+		if len(a) != 2:
+			raise _E("Invalid %s specification %r (expected 'name path')" % (thing, val,))
+		return a[0], fixpath(a[1])
 	def check_interpreter(val):
 		if val[0] == 'DEFAULT':
 			raise _E("Don't override DEFAULT interpreter")
@@ -93,6 +97,8 @@ def load_config(filename):
 		'interpreters': partial(parse_pair, 'interpreter'),
 		'listen': resolve_listen,
 		'urd': resolve_listen,
+		'input directory': fixpath,
+		'result directory': fixpath,
 	}
 	checkers = dict(
 		interpreter=check_interpreter,
