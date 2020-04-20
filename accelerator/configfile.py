@@ -87,13 +87,13 @@ def load_config(filename):
 		if path in (v[1] for v in cfg['workdirs']):
 			raise _E('Workdir path %r re-used' % (path,))
 
-	parsers = dict(
-		slices=int,
-		workdirs=partial(parse_pair, 'workdir'),
-		interpreters=partial(parse_pair, 'interpreter'),
-		listen=resolve_listen,
-		urd=resolve_listen,
-	)
+	parsers = {
+		'slices': int,
+		'workdirs': partial(parse_pair, 'workdir'),
+		'interpreters': partial(parse_pair, 'interpreter'),
+		'listen': resolve_listen,
+		'urd': resolve_listen,
+	}
 	checkers = dict(
 		interpreter=check_interpreter,
 		workdirs=check_workdirs,
