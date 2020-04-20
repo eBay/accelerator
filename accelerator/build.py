@@ -41,6 +41,7 @@ from accelerator.extras import json_encode, json_decode, DotDict, _ListTypePrese
 from accelerator.job import Job
 from accelerator.status import print_status_stacks
 from accelerator.error import JobError, ServerError, UrdError, UrdPermissionError, UrdConflictError
+from accelerator import g
 from accelerator import unixhttp; unixhttp # for unixhttp:// URLs, as used to talk to the server
 
 
@@ -732,6 +733,7 @@ def find_automata(a, package, script):
 	raise Exception('No build script "%s" found in {%s}' % (script, ', '.join(package)))
 
 def run_automata(options, cfg):
+	g.running = 'build'
 	a = Automata(cfg.url, verbose=options.verbose, flags=options.flags.split(','), infoprints=True, print_full_jobpath=options.fullpath)
 
 	if options.abort:

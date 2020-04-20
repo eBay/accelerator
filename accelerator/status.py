@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2018-2019 Carl Drougge                       #
+# Modifications copyright (c) 2018-2020 Carl Drougge                       #
 # Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -76,7 +76,7 @@ _cookie = 0
 
 @contextmanager
 def status(msg):
-	if g.running == 'server':
+	if g.running in ('server', 'build',):
 		yield lambda _: None
 		return
 	global _cookie

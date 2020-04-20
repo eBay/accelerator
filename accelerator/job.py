@@ -159,12 +159,14 @@ class Job(unicode):
 		return ''.join(res)
 
 	def link_result(self, filename='result.pickle', linkname=None):
-		"""Put a symlink to filename in result_directory"""
+		"""Put a symlink to filename in result_directory
+		Only use this in a build script."""
+		from accelerator.g import running
+		assert running == 'build', "Only link_result from a build script"
 		from accelerator.shell import cfg
 		if linkname is None:
 			linkname = filename
 		result_directory = cfg['result_directory']
-		"""Put a symlink to filename in result_directory"""
 		dest_fn = os.path.join(result_directory, linkname)
 		try:
 			os.remove(dest_fn + '_')
