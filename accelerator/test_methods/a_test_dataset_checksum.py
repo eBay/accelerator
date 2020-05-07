@@ -1,6 +1,6 @@
 ############################################################################
 #                                                                          #
-# Copyright (c) 2019 Carl Drougge                                          #
+# Copyright (c) 2019-2020 Carl Drougge                                     #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -29,18 +29,22 @@ from accelerator import subjobs
 from accelerator import blob
 
 test_data = [
-	(b"a", 0.42, 18, [1, 2, 3], u"a"),
-	(b"b", 0.18, 42, "1, 2, 3", u"b"),
-	(b"c", 1.23, 0, {1: 2, 3: 4}, u"c"),
+	("a", b"A", b"0", 0.42, 18, [1, 2, 3], u"a", u"A"),
+	("b", b"B", b"1", 0.18, 42, "1, 2, 3", u"b", u"B"),
+	# And one with difficult values.
+	("c", b"\xe4", None, float('NaN'), -1, {1: 2, "3": 4, "foo": "bar", "bar": "|"}, u"\xe4", None),
 ]
 
 def prepare():
 	columns = dict(
+		ascii="ascii",
 		bytes="bytes",
+		bytes_none=("bytes", True),
 		float="float64",
 		int="int64",
 		json="json",
 		unicode="unicode",
+		unicode_none=("unicode", True),
 	)
 	a = DatasetWriter(name="a", columns=columns)
 	b = DatasetWriter(name="b", columns=columns, previous=a)
