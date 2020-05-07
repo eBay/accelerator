@@ -27,15 +27,16 @@ from collections import defaultdict
 from bottle import route, request, auth_basic, abort
 import bottle
 from threading import Lock
-import ujson
+import json
 import re
 from datetime import datetime
 import operator
 from argparse import ArgumentParser
 import os.path
+from io import TextIOWrapper
 
 from accelerator.compat import iteritems, itervalues, unicode
-from accelerator.extras import DotDict
+from accelerator.extras import DotDict, PY3
 
 LOGFILEVERSION = '3'
 
@@ -189,8 +190,8 @@ class DB:
 		data = DotDict(timestamp=line[0],
 			user=user,
 			build=build,
-			deps=ujson.loads(line[2]),
-			joblist=ujson.loads(line[3]),
+			deps=json.loads(line[2]),
+			joblist=json.loads(line[3]),
 			flags=flags,
 			caption=line[5],
 		)
@@ -219,8 +220,8 @@ class DB:
 	def _serialise(self, action, data):
 		if action == 'add':
 			self._validate_data(data)
-			json_deps = ujson.dumps(data.deps, escape_forward_slashes=False)
-			json_joblist = ujson.dumps(data.joblist, escape_forward_slashes=False)
+			json_deps = json.dumps(data.deps)
+			json_joblist = json.dumps(data.joblist)
 			key = '%s/%s' % (data.user, data.build,)
 			flags = ','.join(data.flags)
 			for s in json_deps, json_joblist, data.caption, data.user, data.build, data.timestamp, flags:
@@ -436,7 +437,10 @@ def single(user, build, timestamp):
 @route('/add', method='POST')
 @auth_basic(auth)
 def add():
-	data = DotDict(ujson.load(request.body))
+	body = request.body
+	if PY3:
+		body = TextIOWrapper(body, encoding='utf-8')
+	data = DotDict(json.load(body))
 	if data.user != request.auth[0]:
 		abort(401, "Error:  user does not match authentication!")
 	result = db.add(data)
@@ -482,7 +486,7 @@ def jsonify(callback):
 		res = callback(*a, **kw)
 		if isinstance(res, (bottle.BaseResponse, bottle.BottleException)):
 			return res
-		return ujson.dumps(res, escape_forward_slashes=False)
+		return json.dumps(res)
 	return func
 
 

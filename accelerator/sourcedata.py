@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2018-2019 Carl Drougge                       #
+# Modifications copyright (c) 2018-2020 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -43,15 +43,16 @@ type2iter = {
 	'unicode' : gzutil.GzUnicode,
 }
 
-from ujson import loads
+from json import JSONDecoder
 class GzJson(object):
 	def __init__(self, *a, **kw):
 		if PY3:
 			self.fh = gzutil.GzUnicode(*a, **kw)
 		else:
 			self.fh = gzutil.GzBytes(*a, **kw)
+		self.decode = JSONDecoder().decode
 	def __next__(self):
-		return loads(next(self.fh))
+		return self.decode(next(self.fh))
 	next = __next__
 	def close(self):
 		self.fh.close()

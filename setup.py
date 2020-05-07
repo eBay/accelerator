@@ -110,7 +110,6 @@ setup(
 	},
 
 	install_requires=[
-		'ujson>=1.35',
 		'setproctitle>=1.1.8', # not actually required
 		'bottle>=0.12.7',
 	],

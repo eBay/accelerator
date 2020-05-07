@@ -60,19 +60,21 @@ def typed_reader(typename):
 		raise ValueError("Unknown reader for type %s" % (typename,))
 	return type2iter[typename]
 
-from ujson import dumps, loads
+from json import JSONEncoder, loads
 class GzWriteJson(object):
 	min = max = None
 	def __init__(self, *a, **kw):
 		assert 'default' not in kw, "default not supported for Json, sorry"
 		if PY3:
 			self.fh = gzutil.GzWriteUnicode(*a, **kw)
+			self.encode = JSONEncoder(ensure_ascii=False, separators=(',', ':')).encode
 		else:
 			self.fh = gzutil.GzWriteBytes(*a, **kw)
+			self.encode = JSONEncoder(ensure_ascii=True, separators=(',', ':')).encode
 		self.count = 0
 	def write(self, o):
 		self.count += 1
-		self.fh.write(dumps(o, ensure_ascii=False, escape_forward_slashes=False))
+		self.fh.write(self.encode(o))
 	def close(self):
 		self.fh.close()
 	def __enter__(self):
@@ -88,5 +90,5 @@ class GzWriteParsedJson(GzWriteJson):
 		if isinstance(o, str_types):
 			o = loads(o)
 		self.count += 1
-		self.fh.write(dumps(o, ensure_ascii=False, escape_forward_slashes=False))
+		self.fh.write(self.encode(o))
 _convfuncs['parsed:json'] = GzWriteParsedJson

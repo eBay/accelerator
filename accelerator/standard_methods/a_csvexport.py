@@ -23,7 +23,7 @@ from __future__ import absolute_import
 from shutil import copyfileobj
 from os import unlink
 from contextlib import contextmanager
-from ujson import dumps
+from json import JSONEncoder
 
 from accelerator.compat import PY3, PY2, izip, imap
 
@@ -92,6 +92,11 @@ def csvexport(sliceno, filename, labelsonfirstline):
 		raise Exception("Filename should end with .gz for compressed or .csv for uncompressed")
 	iters = []
 	first = True
+	dumps = JSONEncoder(
+		sort_keys=True,
+		ensure_ascii=True,
+		check_circular=False,
+	).encode
 	for label in options.labels:
 		it = d.iterate_list(sliceno, label, datasets.source, status_reporting=first)
 		first = False
