@@ -39,6 +39,7 @@ datasets. (So one GB per 20M lines or so.)
 from hashlib import md5
 from itertools import chain
 from json import JSONEncoder
+from heapq import merge
 
 from accelerator.extras import DotDict
 from accelerator.compat import PY2
@@ -108,12 +109,15 @@ def analysis(sliceno, prepare_res):
 			m.update(item)
 			m.update(b'\0') # Some separator is better than nothing.
 		res.append(m.digest())
+	if options.sort:
+		res.sort()
 	return res
 
 def synthesis(prepare_res, analysis_res):
-	all = chain.from_iterable(analysis_res)
 	if options.sort:
-		all = sorted(all)
+		all = merge(*analysis_res)
+	else:
+		all = chain.from_iterable(analysis_res)
 	res = md5(b''.join(all)).hexdigest()
 	print("%s: %s" % (datasets.source, res,))
 	return DotDict(sum=int(res, 16), sort=options.sort, columns=prepare_res, source=datasets.source)
