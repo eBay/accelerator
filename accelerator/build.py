@@ -810,8 +810,8 @@ def print_minimal_traceback():
 		# stupid python2
 		build_fn = build_fn[:-1]
 	blacklist_fns = {build_fn}
-	last_interesting = None
 	_, e, tb = sys.exc_info()
+	last_interesting = tb
 	while tb is not None:
 		code = tb.tb_frame.f_code
 		if code.co_filename not in blacklist_fns:
