@@ -30,29 +30,27 @@ slice at a time.
 
 datasets = ('source', 'previous',)
 
-def synthesis(job):
+def prepare(job):
 	d = datasets.source
-	dw = job.datasetwriter(
+	return job.datasetwriter(
 		columns=d.columns,
 		caption=d.caption,
 		filename=d.filename,
 		previous=datasets.previous,
 	)
 
-	per_slice = iter(d.lines)
-	to_go = 0
-	sliceno = -1
-	for values in d.iterate('roundrobin'):
-		while not to_go:
-			sliceno += 1
-			dw.set_slice(sliceno)
-			to_go = next(per_slice)
-		dw.write_list(values)
-		to_go -= 1
+def analysis(sliceno, prepare_res):
+	write = prepare_res.write_list
+	d = datasets.source
+	it = d.iterate('roundrobin')
+	# Skip until the lines that belong in this slice
+	for _ in range(sum(d.lines[:sliceno])):
+		next(it)
+	# write the lines belonging here
+	for _ in range(d.lines[sliceno]):
+		write(next(it))
 
-	# The writer will complain if not all slices were written, so we
-	# have to set_slice any trailing empty slices.
-	for _ in per_slice:
-		sliceno += 1
-		dw.set_slice(sliceno)
-	assert d.lines == dw.finish().lines, "Did not get the expected line counts"
+def synthesis(prepare_res):
+	want = datasets.source.lines
+	got = prepare_res.finish().lines
+	assert want == got, "Did not get the expected line counts"
