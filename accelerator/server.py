@@ -281,7 +281,10 @@ def check_socket(fn):
 		pass
 	try:
 		s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-		s.connect(fn)
+		try:
+			s.connect(fn)
+		finally:
+			s.close()
 	except socket.error:
 		try:
 			assert S_ISSOCK(os.lstat(fn).st_mode), fn + " exists as non-socket"
@@ -321,6 +324,8 @@ def main(argv, config):
 	def buf_up(fh, opt):
 		sock = socket.fromfd(fh.fileno(), socket.AF_UNIX, socket.SOCK_DGRAM)
 		sock.setsockopt(socket.SOL_SOCKET, opt, 256 * 1024)
+		# does not close fh, because fromfd dups the fd (but not the underlying socket)
+		sock.close()
 	buf_up(statmsg_wr, socket.SO_SNDBUF)
 	buf_up(statmsg_rd, socket.SO_RCVBUF)
 
