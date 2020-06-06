@@ -367,9 +367,11 @@ class JobList(_ListTypePreserver):
 		"""Matching elements returned as new Joblist."""
 		return self.__class__(e for e in self if e.method == method)
 
-	def get(self, method, default=None):
-		l = self.find(method)
-		return l[-1] if l else default
+	def get(self, item, default=None):
+		try:
+			return self[item]
+		except IndexError:
+			return default
 
 	@property
 	def exectime(self):
