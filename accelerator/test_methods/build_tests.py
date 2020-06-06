@@ -172,6 +172,7 @@ def main(urd):
 	print("Test dataset roundrobin iteration")
 	urd.build("test_dataset_roundrobin")
 	urd.build("test_dataset_unroundrobin")
+	urd.build("test_dataset_unroundrobin_trigger")
 
 	print()
 	print("Test dataset_checksum")
