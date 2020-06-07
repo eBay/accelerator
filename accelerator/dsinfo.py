@@ -152,7 +152,15 @@ def main(argv):
 					format = "%% .%de" % (MINMAXWIDTH - 7,)
 				else:
 					format = "%% .%df" % (MINMAXWIDTH - 3,)
-				return s % (locale.format_string(format, minval), locale.format_string(format, maxval))
+				def format_or_int(v):
+					try:
+						i = int(v)
+						if v == i:
+							return i
+					except OverflowError:
+						pass
+					return locale.format_string(format, v)
+				return s % (format_or_int(minval), format_or_int(maxval))
 			elif isinstance(minval, int):
 				return s % (minval, maxval)
 			elif isinstance(minval, (date, time, datetime)):
