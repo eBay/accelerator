@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2018-2019 Carl Drougge                       #
+# Modifications copyright (c) 2018-2020 Carl Drougge                       #
 # Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -103,6 +103,7 @@ class SubMethods(Methods):
 		failed = []
 		self.hash = {}
 		self.params = {}
+		self.descriptions = {}
 		self.typing = {}
 		for version, data in iteritems(per_runner):
 			runner = self.runners.get(version)
@@ -110,11 +111,12 @@ class SubMethods(Methods):
 				msg = '%%s.%%s (unconfigured interpreter %s)' % (version)
 				failed.extend(msg % t for t in sorted(data))
 				continue
-			w, f, h, p = runner.load_methods(package_list, data)
+			w, f, h, p, d = runner.load_methods(package_list, data)
 			warnings.extend(w)
 			failed.extend(f)
 			self.hash.update(h)
 			self.params.update(p)
+			self.descriptions.update(d)
 		for key, params in iteritems(self.params):
 			self.typing[key] = options2typing(key, params.options)
 			params.defaults = params2defaults(params)

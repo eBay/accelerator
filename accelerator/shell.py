@@ -190,7 +190,12 @@ def cmd_curl(argv):
 	print(output)
 cmd_curl.help = '''http request (with curl) to urd or the server'''
 
-DEBUG_COMMANDS = {'dsgrep', 'dsinfo',}
+def cmd_method(argv):
+	from accelerator.cmd_method import main
+	main(argv, cfg)
+cmd_method.help = '''information about methods'''
+
+DEBUG_COMMANDS = {'dsgrep', 'dsinfo', 'curl', 'method',}
 
 COMMANDS = dict(
 	dsgrep=cmd_dsgrep,
@@ -200,6 +205,7 @@ COMMANDS = dict(
 	init=cmd_init,
 	urd=cmd_urd,
 	curl=cmd_curl,
+	method=cmd_method,
 )
 
 class HelpFixArgumentParser(ArgumentParser):

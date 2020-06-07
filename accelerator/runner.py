@@ -73,6 +73,7 @@ def load_methods(all_packages, data):
 	res_failed = []
 	res_hashes = {}
 	res_params = {}
+	res_descriptions = {}
 	def tar_add(name, data):
 		assert name.startswith(dep_prefix)
 		info = tarfile.TarInfo()
@@ -130,6 +131,7 @@ def load_methods(all_packages, data):
 			res_params[key] = params = DotDict()
 			for name, default in (('options', {},), ('datasets', (),), ('jobs', (),),):
 				params[name] = getattr(mod, name, default)
+			res_descriptions[key] = getattr(mod, 'description', '').strip()
 			equivalent_hashes = getattr(mod, 'equivalent_hashes', ())
 			if equivalent_hashes:
 				assert isinstance(equivalent_hashes, dict), 'Read the docs about equivalent_hashes'
@@ -155,7 +157,7 @@ def load_methods(all_packages, data):
 			print_exc()
 			res_failed.append(modname)
 			continue
-	return res_warnings, res_failed, res_hashes, res_params
+	return res_warnings, res_failed, res_hashes, res_params, res_descriptions
 
 def launch_start(data):
 	from accelerator.launch import run
