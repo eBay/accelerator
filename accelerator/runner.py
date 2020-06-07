@@ -129,9 +129,76 @@ def load_methods(all_packages, data):
 				res_warnings.append('%s.a_%s should probably depend_extra on %s' % (package, key, dep_names[dep],))
 			res_hashes[key] = ("%040x" % (hash ^ hash_extra,),)
 			res_params[key] = params = DotDict()
+			# It would have been nice to be able to use ast.get_source_segment
+			def find_source(name):
+				bname = name.encode('ascii')
+				try:
+					start = src.find(b'\n' + bname + b' ')
+					if start == -1:
+						start = src.index(b'\n' + bname + b'=')
+					def find_end(startchar, endchar):
+						pos = src.index(startchar, start)
+						nest = 0
+						in_comment = False
+						for pos, c in enumerate(src[pos:], pos):
+							if in_comment:
+								if c == b'\n'[0]:
+									in_comment = False
+							elif c == b'#'[0]:
+								in_comment = True
+							elif c == startchar:
+								nest += 1
+							elif c == endchar:
+								nest -= 1
+								if nest == 0:
+									return pos
+					end = None
+					for c in src[start:]:
+						if c == b'{'[0]:
+							end = find_end(b'{'[0], b'}'[0])
+							break
+						elif c == b'('[0]:
+							end = find_end(b'('[0], b')'[0])
+							break
+						elif c == b'['[0]:
+							end = find_end(b'['[0], b']'[0])
+							break
+					if not end:
+						print('Failed to figure out where %s is in %s' % (name, key,))
+						end = start
+					return slice(start, end)
+				except Exception:
+					return slice(0, 0)
+			res_descriptions[key] = {'text': getattr(mod, 'description', '').strip()}
 			for name, default in (('options', {},), ('datasets', (),), ('jobs', (),),):
-				params[name] = getattr(mod, name, default)
-			res_descriptions[key] = getattr(mod, 'description', '').strip()
+				params[name] = d = getattr(mod, name, default)
+				if d:
+					items = {v[0] if isinstance(v, list) else v for v in params[name]}
+					if isinstance(d, dict):
+						res_descriptions[key][name] = items = {v: [repr(d[v])] for v in items}
+					else:
+						res_descriptions[key][name] = items = {v: [] for v in items}
+					src_part = src[find_source(name)].decode('utf-8', 'backslashreplace')
+					item = None
+					for line in src_part.split('\n'):
+						line = line.strip()
+						if not line:
+							continue
+						itempart = line
+						if line.startswith('['):
+							itempart = line.split(']')[0][1:]
+						if itempart.startswith("'"):
+							item = itempart[1:itempart.index("'", 1)]
+						elif itempart.startswith('"'):
+							item = itempart[1:itempart.index('"', 1)]
+						elif not line.startswith('#'):
+							item = line.split()[0].split('=')[0]
+							if item.startswith('[') and item.endswith(']'):
+								item = item[1:-1]
+						if '#' in line:
+							value = line.split('#', 1)[1].strip()
+							if value and item in items:
+								items[item].append(value)
 			equivalent_hashes = getattr(mod, 'equivalent_hashes', ())
 			if equivalent_hashes:
 				assert isinstance(equivalent_hashes, dict), 'Read the docs about equivalent_hashes'

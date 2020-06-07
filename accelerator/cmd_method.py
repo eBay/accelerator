@@ -33,13 +33,14 @@ def main(argv, cfg):
 	if PY3:
 		resp = resp.decode('utf-8')
 	methods = json_decode(resp)
+	columns = terminal_size().columns
 	if argv:
 		for name in argv:
 			if name in methods:
 				data = methods[name]
 				print('%s.%s:' % (data.package, name,))
-				if data.description:
-					for line in data.description.split('\n'):
+				if data.description.text:
+					for line in data.description.text.split('\n'):
 						if line:
 							print(' ', line)
 						else:
@@ -48,11 +49,30 @@ def main(argv, cfg):
 				if data.version != 'DEFAULT':
 					print('Runs on', data.version)
 					print()
-				for k in ('datasets', 'jobs', 'options'):
-					if data[k]:
+				for k in ('datasets', 'jobs',):
+					if data.description.get(k):
 						print('%s:' % (k,))
-						for v in data[k]:
-							print(' ', v)
+						for k, v in data.description[k].items():
+							if v:
+								print('  %s # %s' % (k, v[0],))
+								prefix = ' ' * (len(k) + 3) + '#'
+								for cmt in v[1:]:
+									print(prefix, cmt)
+							else:
+								print(' ', k)
+				if data.description.get('options'):
+					print('options:')
+					for k, v in data.description.options.items():
+						if len(v) > 1:
+							single_line = '  %s = %s # %s' % (k, v[0], v[1],)
+							if len(single_line) > columns or len(v) > 2:
+								for cmt in v[1:]:
+									print('  #', cmt)
+								print('  %s = %s' % (k, v[0],))
+							else:
+								print(single_line)
+						else:
+							print('  %s = %s' % (k, v[0],))
 			else:
 				print('Method %r not found' % (name,))
 	else:
@@ -60,12 +80,11 @@ def main(argv, cfg):
 		for name, data in sorted(methods.items()):
 			by_package[data.package].append(name)
 		by_package.pop('accelerator.test_methods', None)
-		columns = terminal_size().columns
 		for package, names in sorted(by_package.items()):
 			print('%s:' % (package,))
 			for name in names:
 				max_len = columns - 4 - len(name)
-				description = methods[name].description.split('\n')[0]
+				description = methods[name].description.text.split('\n')[0]
 				if description and max_len > 10:
 					if len(description) > max_len:
 						max_len -= 4
