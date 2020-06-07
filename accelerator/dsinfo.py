@@ -147,8 +147,10 @@ def main(argv):
 				ints = max(intdigits(minval), intdigits(maxval))
 				if ints > 0:
 					format = "%% %d.%df" % (ints, MINMAXWIDTH - ints - 2)
+				elif ints < -4:
+					format = "%% .%de" % (MINMAXWIDTH - 7,)
 				else:
-					format = "%% %d.%df" % (0, -ints + 6) # six significant decimals
+					format = "%% .%df" % (MINMAXWIDTH - 3,)
 				return s % (locale.format_string(format, minval), locale.format_string(format, maxval))
 			elif isinstance(minval, int):
 				return s % (minval, maxval)
