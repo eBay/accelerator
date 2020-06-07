@@ -23,10 +23,9 @@
 from __future__ import division, print_function
 
 import argparse
-from math import ceil
 import locale
 from datetime import datetime, time, date
-from math import floor, log10
+from math import ceil, floor, log10, isinf, isnan
 
 from accelerator.compat import terminal_size
 from accelerator import dscmdhelper
@@ -143,6 +142,8 @@ def main(argv):
 				return ''
 			elif isinstance(minval, float):
 				def intdigits(x):
+					if isinf(x) or isnan(x):
+						return 3
 					return min(MINMAXWIDTH - 2, floor(log10(abs(x)) + 1)) if x else (MINMAXWIDTH - 2)//2
 				ints = max(intdigits(minval), intdigits(maxval))
 				if ints > 0:
