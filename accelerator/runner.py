@@ -174,12 +174,17 @@ def load_methods(all_packages, data):
 				'text': getattr(mod, 'description', '').strip(),
 				'interpreter': sys.executable,
 			}
+			def fmtopt(v):
+				if isinstance(v, type):
+					return v.__name__
+				else:
+					return repr(v)
 			for name, default in (('options', {},), ('datasets', (),), ('jobs', (),),):
 				params[name] = d = getattr(mod, name, default)
 				if d:
 					items = {v[0] if isinstance(v, list) else v for v in params[name]}
 					if isinstance(d, dict):
-						res_descriptions[key][name] = items = {v: [repr(d[v])] for v in items}
+						res_descriptions[key][name] = items = {v: [fmtopt(d[v])] for v in items}
 					else:
 						res_descriptions[key][name] = items = {v: [] for v in items}
 					src_part = src[find_source(name)].decode('utf-8', 'backslashreplace')
