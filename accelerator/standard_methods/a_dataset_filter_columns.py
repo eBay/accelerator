@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2018-2019 Carl Drougge                       #
+# Modifications copyright (c) 2018-2020 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -19,7 +19,7 @@
 
 from __future__ import absolute_import
 
-description = r"""Make only some columns from a dataset visible"""
+description = r"""Make only some columns from a dataset visible."""
 
 from accelerator.extras import RequiredOption
 

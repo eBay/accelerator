@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2018-2019 Carl Drougge                       #
+# Modifications copyright (c) 2018-2020 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -20,6 +20,8 @@
 from __future__ import division
 from __future__ import absolute_import
 
+description = r'''Dataset (or chain) to CSV file.'''
+
 from shutil import copyfileobj
 from os import unlink
 from contextlib import contextmanager
@@ -34,7 +36,7 @@ from accelerator.gzutil import GzWriteUnicodeLines, GzWriteBytesLines
 
 options = dict(
 	filename          = OptionString, # .csv or .gz
-	separator         = ',',
+	separator         = ',', # Single iso-8859-1 character
 	labelsonfirstline = True,
 	chain_source      = False, # everything in source is replaced by datasetchain(self, stop=from previous)
 	quote_fields      = '', # can be ' or "

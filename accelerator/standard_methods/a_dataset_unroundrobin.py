@@ -20,8 +20,7 @@ from __future__ import division
 from __future__ import absolute_import
 
 description = r'''
-Orders a dataset so new_ds.iterate(None) gives the same order as
-old_ds.iterate('roundrobin').
+new_ds.iterate(None) gives the same order as old_ds.iterate('roundrobin').
 
 This is useful to get the original file order from csvimport, one
 slice at a time.
