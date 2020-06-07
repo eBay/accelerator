@@ -169,7 +169,10 @@ def load_methods(all_packages, data):
 					return slice(start, end)
 				except Exception:
 					return slice(0, 0)
-			res_descriptions[key] = {'text': getattr(mod, 'description', '').strip()}
+			res_descriptions[key] = {
+				'text': getattr(mod, 'description', '').strip(),
+				'interpreter': sys.executable,
+			}
 			for name, default in (('options', {},), ('datasets', (),), ('jobs', (),),):
 				params[name] = d = getattr(mod, name, default)
 				if d:

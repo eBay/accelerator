@@ -46,8 +46,8 @@ def main(argv, cfg):
 						else:
 							print()
 					print()
-				if data.version != 'DEFAULT':
-					print('Runs on', data.version)
+				if cfg.get('interpreters'):
+					print('Runs on <%s> %s' % (data.version, data.description.interpreter,))
 					print()
 				for k in ('datasets', 'jobs',):
 					if data.description.get(k):
