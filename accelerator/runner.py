@@ -41,6 +41,7 @@ import io
 import tarfile
 import resource
 import gc
+import re
 from threading import Thread, Lock
 
 archives = {}
@@ -183,8 +184,11 @@ def load_methods(all_packages, data):
 						res_descriptions[key][name] = items = {v: [] for v in items}
 					src_part = src[find_source(name)].decode('utf-8', 'backslashreplace')
 					item = None
-					for line in src_part.split('\n'):
-						line = line.strip()
+					spill = []
+					prev_item = None
+					item_indent = 0
+					for orig_line in src_part.split('\n'):
+						line = orig_line.strip()
 						if not line:
 							continue
 						itempart = line
@@ -198,10 +202,23 @@ def load_methods(all_packages, data):
 							item = line.split()[0].split('=')[0]
 							if item.startswith('[') and item.endswith(']'):
 								item = item[1:-1]
+						if item != prev_item:
+							if spill and item in items:
+								items[item].extend(spill)
+							prev_item = item
+							item_indent = len(re.match(r'^\s*', orig_line).group(0).expandtabs())
+							spill = []
 						if '#' in line:
-							value = line.split('#', 1)[1].strip()
-							if value and item in items:
-								items[item].append(value)
+							indent, value = orig_line.split('#', 1)
+							value = value.strip()
+							if value:
+								indent = len(indent.expandtabs())
+								if item in items and indent > item_indent:
+									items[item].append(value)
+								else:
+									spill.append(value)
+					if spill and item in items:
+						items[item].extend(spill)
 			equivalent_hashes = getattr(mod, 'equivalent_hashes', ())
 			if equivalent_hashes:
 				assert isinstance(equivalent_hashes, dict), 'Read the docs about equivalent_hashes'

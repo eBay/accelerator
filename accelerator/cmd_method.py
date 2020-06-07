@@ -52,27 +52,37 @@ def main(argv, cfg):
 				for k in ('datasets', 'jobs',):
 					if data.description.get(k):
 						print('%s:' % (k,))
+						klen = max(len(k) for k in data.description[k])
+						template = '  %%-%ds # %%s' % (klen,)
 						for k, v in data.description[k].items():
 							if v:
-								print('  %s # %s' % (k, v[0],))
-								prefix = ' ' * (len(k) + 3) + '#'
+								print(template % (k, v[0],))
 								for cmt in v[1:]:
-									print(prefix, cmt)
+									print(template % ('', cmt,))
 							else:
 								print(' ', k)
 				if data.description.get('options'):
 					print('options:')
+					klen = max(len(k) for k in data.description.options)
+					vlens = [len(v[0]) for v in data.description.options.values() if len(v) > 1]
+					vlen = max(vlens or [0])
+					firstlen = klen + vlen + 5
+					template = '  %%-%ds = %%s' % (klen,)
+					template_cmt = '%%-%ds  # %%s' % (firstlen,)
 					for k, v in data.description.options.items():
+						first = template % (k, v[0],)
 						if len(v) > 1:
-							single_line = '  %s = %s # %s' % (k, v[0], v[1],)
-							if len(single_line) > columns or len(v) > 2:
+							afterlen = max(len(cmt) for cmt in v[1:]) + firstlen + 4
+							if afterlen <= columns:
+								print(template_cmt % (first, v[1],))
+								for cmt in v[2:]:
+									print(template_cmt % ('', cmt,))
+							else:
 								for cmt in v[1:]:
 									print('  #', cmt)
-								print('  %s = %s' % (k, v[0],))
-							else:
-								print(single_line)
+								print(first)
 						else:
-							print('  %s = %s' % (k, v[0],))
+							print(first)
 			else:
 				print('Method %r not found' % (name,))
 	else:
