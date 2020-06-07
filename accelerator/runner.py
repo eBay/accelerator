@@ -219,6 +219,11 @@ def load_methods(all_packages, data):
 									spill.append(value)
 					if spill and item in items:
 						items[item].extend(spill)
+			for name in ('datasets', 'jobs',):
+				d = res_descriptions[key].get(name)
+				for item in getattr(mod, name, ()):
+					if isinstance(item, list):
+						d['[%s]' % (item[0],)] = d.pop(item[0])
 			equivalent_hashes = getattr(mod, 'equivalent_hashes', ())
 			if equivalent_hashes:
 				assert isinstance(equivalent_hashes, dict), 'Read the docs about equivalent_hashes'
