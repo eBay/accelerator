@@ -694,7 +694,7 @@ class Dataset(unicode):
 	@staticmethod
 	def new(columns, filenames, lines, minmax={}, filename=None, hashlabel=None, caption=None, previous=None, name='default'):
 		"""columns = {"colname": "type"}, lines = [n, ...] or {sliceno: n}"""
-		columns = {uni(k): (uni(v[0]), bool(v[1])) if isinstance(v, tuple) else uni(v) for k, v in columns.items()}
+		columns = {uni(k): (uni(v[0]), bool(v[1])) if isinstance(v, tuple) else (uni(v), False) for k, v in columns.items()}
 		if hashlabel:
 			hashlabel = uni(hashlabel)
 			assert hashlabel in columns, hashlabel
@@ -720,7 +720,7 @@ class Dataset(unicode):
 		elif hashlabel:
 			assert self.hashlabel == hashlabel, 'Hashlabel mismatch %s != %s' % (self.hashlabel, hashlabel,)
 		assert self._linefixup(lines) == self.lines, "New columns don't have the same number of lines as parent columns"
-		columns = {uni(k): (uni(v[0]), bool(v[1])) if isinstance(v, tuple) else uni(v) for k, v in columns.items()}
+		columns = {uni(k): (uni(v[0]), bool(v[1])) if isinstance(v, tuple) else (uni(v), False) for k, v in columns.items()}
 		self._append(columns, filenames, minmax, filename, caption, previous, column_filter, name)
 
 	def _minmax_merge(self, minmax):
