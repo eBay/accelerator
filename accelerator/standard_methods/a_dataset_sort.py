@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2018-2019 Carl Drougge                       #
+# Modifications copyright (c) 2018-2020 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -123,15 +123,19 @@ def prepare(params):
 			selector = sorted(range(min(params.slices, total)), key=sort_idx.__getitem__)
 			for sliceno in selector[:extra]:
 				per_slice[sliceno] += 1
-		# change per_slice to be the actual sort indexes
-		start = 0
-		for ix, num in enumerate(per_slice):
-			end = start + num
-			per_slice[ix] = sort_idx[start:end]
-			start = end
-		assert sum(len(part) for part in per_slice) == total # all rows used
-		assert len(set(len(part) for part in per_slice)) < 3 # only 1 or 2 lengths possible
-		sort_idx = per_slice
+		# Switch to tracking what line the slices end at
+		slice_end = []
+		end = 0
+		for cnt in per_slice:
+			end += cnt
+			slice_end.append(end)
+		# and now switch sort_idx to be per slice
+		sort_idx = [
+			sort_idx[start:end]
+			for start, end in zip([0] + slice_end, slice_end)
+		]
+		assert sum(len(part) for part in sort_idx) == total # all rows used
+		assert len(set(len(part) for part in sort_idx)) < 3 # only 1 or 2 lengths possible
 	else:
 		sort_idx = None
 	if options.sort_across_slices:
