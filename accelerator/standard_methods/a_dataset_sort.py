@@ -27,6 +27,13 @@ You'll have to type the sort column(s) approprietly.
 
 None and NaN values will sort the same as the smallest/largest
 value possible in a comparable type.
+
+sort_across_slices will sort all lines and then split them over slices
+(default is to only sort within slices).
+
+If you sort_across_slices you can also specify trigger_column to delay
+the slice switches to the next line where the value in that column
+changes.
 '''
 
 from functools import partial
@@ -45,6 +52,7 @@ options = {
 	'sort_columns'           : [OptionString],
 	'sort_order'             : OrderEnum.ascending,
 	'sort_across_slices'     : False, # normally only sort within slices
+	'trigger_column'         : str,   # only switch slice where this column changes
 }
 
 datasets = ('source', 'previous',)
@@ -102,16 +110,28 @@ def sort(columniter):
 				# Special case to not make tuples when there is only one column.
 				columns = columns[0]
 			lst = list(columniter(columns))
+		if options.trigger_column:
+			if len(options.sort_columns) == 1:
+				sort_extra = lst
+			else:
+				with status('Creating trigger list'):
+					ix = options.sort_columns.index(options.trigger_column)
+					sort_extra = [el[ix] for el in lst]
+		else:
+			sort_extra = None
 		reverse = (options.sort_order == 'descending')
 		with status('Creating sort list'):
-			return sorted(range(len(lst)), key=lst.__getitem__, reverse=reverse)
+			return sorted(range(len(lst)), key=lst.__getitem__, reverse=reverse), sort_extra
 
 def prepare(params):
+	if options.trigger_column:
+		assert options.sort_across_slices, 'trigger_column is meaningless without sort_across_slices'
+		assert options.trigger_column in options.sort_columns, 'can only trigger on a column that is sorted on'
 	d = datasets.source
 	ds_list = d.chain(stop_ds={datasets.previous: 'source'})
 	if options.sort_across_slices:
 		columniter = partial(Dataset.iterate_list, None, datasets=ds_list)
-		sort_idx = sort(columniter)
+		sort_idx, sort_extra = sort(columniter)
 		total = len(sort_idx)
 		per_slice = [total // params.slices] * params.slices
 		extra = total % params.slices
@@ -129,13 +149,29 @@ def prepare(params):
 		for cnt in per_slice:
 			end += cnt
 			slice_end.append(end)
+		if options.trigger_column:
+			# extra definitely changed value last to simplify loop
+			sort_extra.append(object())
+			sort_idx.append(-1)
+			# move slice_end counts around to only switch when trigger_column changes
+			def fixup(cnt):
+				if cnt == 0:
+					return 0
+				trigger_v = sort_extra[sort_idx[cnt - 1]]
+				while trigger_v == sort_extra[sort_idx[cnt]]:
+					cnt += 1
+				return cnt
+			with status('Adjusting for trigger_column'):
+				for sliceno, cnt in enumerate(slice_end[:-1]):
+					slice_end[sliceno] = fixup(cnt)
 		# and now switch sort_idx to be per slice
 		sort_idx = [
 			sort_idx[start:end]
 			for start, end in zip([0] + slice_end, slice_end)
 		]
 		assert sum(len(part) for part in sort_idx) == total # all rows used
-		assert len(set(len(part) for part in sort_idx)) < 3 # only 1 or 2 lengths possible
+		if not options.trigger_column:
+			assert len(set(len(part) for part in sort_idx)) < 3 # only 1 or 2 lengths possible
 	else:
 		sort_idx = None
 	if options.sort_across_slices:
@@ -162,7 +198,7 @@ def analysis(sliceno, params, prepare_res):
 		sort_idx = sort_idx[sliceno]
 	else:
 		columniter = partial(Dataset.iterate_list, sliceno, datasets=ds_list)
-		sort_idx = sort(columniter)
+		sort_idx, _ = sort(columniter)
 	for ix, column in enumerate(datasets.source.columns, 1):
 		colstat = '%r (%d/%d)' % (column, ix, len(datasets.source.columns),)
 		with status('Reading ' + colstat):
