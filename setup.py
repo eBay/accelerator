@@ -111,14 +111,14 @@ setup(
 
 	install_requires=[
 		'setproctitle>=1.1.8', # not actually required
-		'bottle>=0.12.7',
+		'bottle>=0.12.7, <0.13',
 	],
 	python_requires=">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, <4",
 
 	ext_modules=[gzutilmodule, dataset_typemodule, csvimportmodule],
 
 	package_data={
-		'': ['*.txt', 'methods.conf'],
+		'': ['*.txt', 'methods.conf', 'board/*.tpl'],
 	},
 
 	author="Carl Drougge",

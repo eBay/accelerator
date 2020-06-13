@@ -155,6 +155,7 @@ def load_config(filename):
 			res.target_workdir = res.workdirs[0][0]
 		if 'project_directory' not in res:
 			res.project_directory = os.path.dirname(filename)
+		res.project_directory = os.path.normpath(res.project_directory)
 		res.workdirs = dict(res.workdirs)
 		if res.target_workdir not in res.workdirs:
 			raise _E('target workdir %r not in defined workdirs %r' % (res.target_workdir, set(res.workdirs),))

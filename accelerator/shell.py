@@ -195,6 +195,11 @@ def cmd_method(argv):
 	main(argv, cfg)
 cmd_method.help = '''information about methods'''
 
+def cmd_board(argv):
+	from accelerator.board import main
+	main(argv, cfg)
+cmd_board.help = '''runs a webserver for displaying results'''
+
 DEBUG_COMMANDS = {'dsgrep', 'dsinfo', 'curl', 'method',}
 
 COMMANDS = dict(
@@ -206,6 +211,7 @@ COMMANDS = dict(
 	urd=cmd_urd,
 	curl=cmd_curl,
 	method=cmd_method,
+	board=cmd_board,
 )
 
 class HelpFixArgumentParser(ArgumentParser):
