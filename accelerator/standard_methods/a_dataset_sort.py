@@ -40,7 +40,7 @@ from functools import partial
 import datetime
 from math import isnan
 
-from accelerator.compat import PY2, izip
+from accelerator.compat import izip
 
 from accelerator.extras import OptionEnum, OptionString
 from accelerator.dataset import Dataset, DatasetWriter
@@ -57,12 +57,6 @@ options = {
 
 datasets = ('source', 'previous',)
 
-
-# These types don't need/can't use any special handling of None-values.
-nononehandling_types = ('json', 'bits64', 'bits32',)
-if PY2:
-	# These types sort None before everything else on py2.
-	nononehandling_types += ('bytes', 'ascii', 'unicode', 'int64', 'int32', 'bool',)
 
 def filter_unsortable(column, it):
 	coltype = datasets.source.columns[column].type
@@ -89,14 +83,21 @@ def filter_unsortable(column, it):
 def sort(columniter):
 	with status('Determining sort order'):
 		info = datasets.source.columns
-		if sum(info[column].type not in nononehandling_types for column in options.sort_columns):
+		special_handling = set()
+		for column in options.sort_columns:
+			if info[column].type.startswith('float') or info[column].type == 'number':
+				# for NaN
+				special_handling.add(column)
+			if info[column].none_support:
+				special_handling.add(column)
+		if special_handling:
 			# At least one sort column can have unsortable values
 			first = True
 			iters = []
 			for column in options.sort_columns:
 				it = columniter(column, status_reporting=first)
 				first = False
-				if info[column].type not in nononehandling_types:
+				if column in special_handling:
 					it = filter_unsortable(column, it)
 				iters.append(it)
 			if len(iters) == 1:
