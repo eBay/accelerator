@@ -154,16 +154,27 @@ def prepare(params):
 			sort_extra.append(object())
 			sort_idx.append(-1)
 			# move slice_end counts around to only switch when trigger_column changes
-			def fixup(cnt):
-				if cnt == 0:
-					return 0
+			def fixup_fwd(cnt):
 				trigger_v = sort_extra[sort_idx[cnt - 1]]
 				while trigger_v == sort_extra[sort_idx[cnt]]:
 					cnt += 1
 				return cnt
+			def fixup_bck(cnt, min_cnt):
+				trigger_v = sort_extra[sort_idx[cnt - 1]]
+				while cnt > min_cnt and trigger_v == sort_extra[sort_idx[cnt]]:
+					cnt -= 1
+				return cnt
 			with status('Adjusting for trigger_column'):
+				prev = 0
 				for sliceno, cnt in enumerate(slice_end[:-1]):
-					slice_end[sliceno] = fixup(cnt)
+					if cnt:
+						cnt = max(cnt, prev)
+						choosen = fwd = fixup_fwd(cnt)
+						bck = fixup_bck(cnt, prev)
+						# This could be smarter
+						if (cnt - bck) <= (fwd < cnt):
+							choosen = bck
+						prev = slice_end[sliceno] = choosen
 		# and now switch sort_idx to be per slice
 		sort_idx = [
 			sort_idx[start:end]
