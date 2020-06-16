@@ -433,6 +433,9 @@ def one_column(vars, colname, coltype, out_fns, for_hasher=False):
 			real_coltype = vars.chain[0].columns[colname].backing_type
 			mins = []
 			maxs = []
+			# Some lines may have been filtered out, so these minmax values
+			# could be wrong. There's no easy/cheap way to fix that though,
+			# and they will never be wrong in the bad direction.
 			for d in vars.chain:
 				col = d.columns[colname]
 				if col.min is not None:
