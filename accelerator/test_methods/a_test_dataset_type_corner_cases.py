@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 ############################################################################
 #                                                                          #
-# Copyright (c) 2019 Carl Drougge                                          #
+# Copyright (c) 2019-2020 Carl Drougge                                     #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -328,12 +328,62 @@ def test_filter_bad_across_types():
 		add_want(data[6])
 		want.sort() # adding them out of order, int32_10 sorts correctly.
 
+def test_column_discarding():
+	dw = DatasetWriter(name='column discarding')
+	dw.add('a', 'bytes')
+	dw.add('b', 'bytes')
+	dw.add('c', 'bytes')
+	w = dw.get_split_write()
+	w(b'a', b'b', b'c')
+	source = dw.finish()
+
+	# Discard b because it's not typed
+	ac_implicit = subjobs.build(
+		'dataset_type',
+		source=source,
+		column2type=dict(a='ascii', c='ascii'),
+		discard_untyped=True,
+	).dataset()
+	assert sorted(ac_implicit.columns) == ['a', 'c'], '%s: %r' % (ac_implicit, sorted(ac_implicit.columns),)
+	assert list(ac_implicit.iterate(None)) == [('a', 'c',)], ac_implicit
+
+	# Discard b explicitly
+	ac_explicit = subjobs.build(
+		'dataset_type',
+		source=source,
+		column2type=dict(a='ascii', c='ascii'),
+		rename=dict(b=None),
+	).dataset()
+	assert sorted(ac_explicit.columns) == ['a', 'c'], '%s: %r' % (ac_explicit, sorted(ac_explicit.columns),)
+	assert list(ac_explicit.iterate(None)) == [('a', 'c',)], ac_explicit
+
+	# Discard c by overwriting it with b. Keep untyped b.
+	ac_bASc = subjobs.build(
+		'dataset_type',
+		source=source,
+		column2type=dict(a='ascii', c='ascii'),
+		rename=dict(b='c'),
+	).dataset()
+	assert sorted(ac_bASc.columns) == ['a', 'b', 'c'], '%s: %r' % (ac_bASc, sorted(ac_bASc.columns),)
+	assert list(ac_bASc.iterate(None)) == [('a', b'b', 'b',)], ac_bASc
+
+	# Discard c by overwriting it with b. Also type b as a different type.
+	abc_bASc = subjobs.build(
+		'dataset_type',
+		source=source,
+		column2type=dict(a='ascii', b='strbool', c='ascii'),
+		rename=dict(b='c'),
+	).dataset()
+	assert sorted(abc_bASc.columns) == ['a', 'b', 'c'], '%s: %r' % (abc_bASc, sorted(abc_bASc.columns),)
+	assert list(abc_bASc.iterate(None)) == [('a', True, 'b',)], abc_bASc
+
 def synthesis():
 	test_bytes()
 	test_ascii()
 	test_unicode()
 	test_numbers()
 	test_datetimes()
+	test_column_discarding()
 
 	verify('json', ['json'],
 		[b'null', b'[42, {"a": "b"}]', b'\r  {  "foo":\r"bar" \r   }\t ', b'nope'],
