@@ -5,6 +5,7 @@
 	<h2>setup</h2>
 	<div class="box">
 		{{ params.package }}.{{ params.method }}<br>
+		<a href="/job/{{ job }}/method.tar.gz/">Source</a>
 		% if params.options:
 			<h3>options</h3>
 			<div class="box">

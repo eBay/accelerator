@@ -19,6 +19,7 @@
 import bottle
 import json
 import os
+import tarfile
 
 from accelerator.job import Job
 from accelerator.dataset import Dataset
@@ -61,12 +62,29 @@ def main(argv, cfg):
 	def file(name):
 		return bottle.static_file(name, root=cfg.result_directory)
 
+	@bottle.get('/job/<jobid>/method.tar.gz/')
+	@bottle.get('/job/<jobid>/method.tar.gz/<name:path>')
+	def job_method(jobid, name=None):
+		job = Job(jobid)
+		with tarfile.open(job.filename('method.tar.gz'), 'r:gz') as tar:
+			if name:
+				info = tar.getmember(name)
+			else:
+				members = [info for info in tar.getmembers() if info.isfile()]
+				if len(members) == 1 and not name:
+					info = members[0]
+				else:
+					return bottle.template('job_method_list', members=members, job=job)
+			bottle.response.content_type = 'text/plain; charset=UTF-8'
+			return tar.extractfile(info).read()
+
 	@bottle.get('/job/<jobid>/<name:path>')
 	def job_file(jobid, name):
 		job = Job(jobid)
 		return bottle.static_file(name, root=job.path)
 
 	@bottle.get('/job/<jobid>')
+	@bottle.get('/job/<jobid>/')
 	@bottle.view('job')
 	def job(jobid):
 		job = Job(jobid)
@@ -87,7 +105,7 @@ def main(argv, cfg):
 	@bottle.get('/dataset/<dsid:path>')
 	@bottle.view('dataset')
 	def dataset(dsid):
-		return dict(ds=Dataset(dsid))
+		return dict(ds=Dataset(dsid.rstrip('/')))
 
 	bottle.TEMPLATE_PATH = [os.path.join(os.path.dirname(__file__), 'board')]
 	bottle.run(port=port, reloader=True)
