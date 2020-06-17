@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2018-2019 Carl Drougge                       #
+# Modifications copyright (c) 2018-2020 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -19,6 +19,7 @@
 
 from __future__ import division
 from __future__ import absolute_import
+from __future__ import print_function
 
 from resource import getpagesize
 from os import unlink
@@ -199,7 +200,7 @@ def prepare(job, slices):
 			previous=datasets.previous,
 			meta_only=True,
 		)
-	return dw, dws, lines, chain, column2type
+	return dw, dws, lines, chain, column2type, rev_rename
 
 
 def map_init(vars, name, z='badmap_size'):
@@ -229,7 +230,7 @@ def analysis(sliceno, slices, prepare_res):
 				break
 		else:
 			raise Exception("Failed to enable numeric_comma, please install at least one of the following locales: " + " ".join(try_locales))
-	dw, dws, lines, chain, column2type = prepare_res
+	dw, dws, lines, chain, column2type, rev_rename = prepare_res
 	if dws:
 		dw = dws[sliceno]
 		rehashing = True
@@ -254,7 +255,7 @@ def analysis(sliceno, slices, prepare_res):
 		chain=chain,
 		lines=lines,
 		column2type=column2type,
-		rev_rename={v: k for k, v in options.rename.items() if k in datasets.source.columns and v in column2type},
+		rev_rename=rev_rename,
 	)
 	if options.filter_bad:
 		vars.badmap_fd = map_init(vars, 'badmap%d' % (sliceno,))
@@ -519,7 +520,7 @@ def one_column(vars, colname, coltype, out_fns, for_hasher=False):
 	return real_coltype
 
 def synthesis(slices, analysis_res, prepare_res):
-	dw, dws, lines, _, _ = prepare_res
+	dw, dws, lines, _, column2type, rev_rename = prepare_res
 	analysis_res = list(analysis_res)
 	if options.filter_bad:
 		bad_line_count_per_slice = [sum(data[1]) for data in analysis_res]
@@ -598,3 +599,10 @@ def synthesis(slices, analysis_res, prepare_res):
 			dw.set_lines(sliceno, count)
 		for sliceno, data in enumerate(analysis_res):
 			dw.set_minmax(sliceno, data[3])
+	used = {rev_rename.get(colname, colname) for colname in column2type}
+	discarded = set(datasets.source.columns) - used
+	if discarded:
+		print('Discarded columns:')
+		template = '    %%-%ds  %%s' % (max(len(colname) for colname in discarded),)
+		for colname in discarded:
+			print(template % (colname, datasets.source.columns[colname].type,))
