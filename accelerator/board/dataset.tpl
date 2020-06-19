@@ -79,7 +79,11 @@
 						let tr = tbody.rows[line];
 						if (!tr) tr = add_line();
 						tr.cells[col].className = '';
-						tr.cells[col].textContent = res[line];
+						let content = res[line];
+						if (typeof content === 'object') {
+							content = JSON.stringify(content);
+						}
+						tr.cells[col].textContent = content;
 					}
 					td.dataset.lines = res.length;
 					enableLoad();

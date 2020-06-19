@@ -110,7 +110,13 @@ def main(argv, cfg):
 		if q.column:
 			lines = int(q.lines or 10)
 			it = ds.iterate(None, q.column)
-			res = list(itertools.islice(it, lines))
+			it = itertools.islice(it, lines)
+			t = ds.columns[q.column].type
+			if t in ('datetime', 'date', 'time',):
+				it = map(str, it)
+			elif t == 'bytes':
+				it = map(repr, it)
+			res = list(it)
 			bottle.response.content_type = 'application/json; charset=UTF-8'
 			return json.dumps(res)
 		else:
