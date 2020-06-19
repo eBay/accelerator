@@ -105,7 +105,7 @@ def main(argv, cfg):
 	@bottle.get('/dataset/<dsid:path>')
 	@bottle.view('dataset')
 	def dataset(dsid):
-		return dict(ds=Dataset(dsid.rstrip('/')))
+		return dict(ds=Dataset(dsid.rstrip('/')), max_lines=25)
 
 	bottle.TEMPLATE_PATH = [os.path.join(os.path.dirname(__file__), 'board')]
 	bottle.run(port=port, reloader=True)

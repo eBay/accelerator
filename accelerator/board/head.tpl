@@ -75,17 +75,17 @@
 		th {
 			text-align: left;
 		}
-		#columns {
+		.ds-table {
 			margin-left: 1.5em;
 			border: 1px solid var(--border0);
 		}
-		#columns td, #columns th {
+		.ds-table td, .ds-table th {
 			padding: 2px 0.5em;
 		}
-		#columns td ~ td { /* Not leftmost one */
+		.ds-table td ~ td { /* Not leftmost one */
 			border-left: 1px solid var(--border1);
 		}
-		#columns tr:nth-child(even) {
+		.ds-table tr:nth-child(even) {
 			background: var(--bg0dark);
 		}
 

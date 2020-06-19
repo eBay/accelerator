@@ -3,7 +3,7 @@
 		<td>
 			{{ k }}
 		</td><td>
-			% include('a_maybe', v=v, prefix=prefix)
+			% include('a_maybe', v=v, prefix=get('prefix'))
 		</td>
 	</tr>
 % end

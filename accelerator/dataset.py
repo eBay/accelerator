@@ -454,11 +454,10 @@ class Dataset(unicode):
 		and you will get warnings about incorrect ending order of statuses.)
 		"""
 
-		from accelerator.g import slices
-
 		if isinstance(datasets, str_types + (Dataset, dict)):
 			datasets = [datasets]
 		datasets = [ds if isinstance(ds, Dataset) else Dataset(ds) for ds in datasets]
+		slices = len(datasets[0].lines)
 		if not columns:
 			columns = datasets[0].columns
 		if isinstance(columns, str_types):
