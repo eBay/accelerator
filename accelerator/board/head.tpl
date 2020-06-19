@@ -28,6 +28,13 @@
 			background: red;
 		}
 
+		#workdirs {
+			float: right;
+			margin-bottom: 1em;
+		}
+		#workdirs td {
+			padding-right: 1em;
+		}
 		.textfile {
 			width: 100%;
 			max-height: var(--max-height);
@@ -37,6 +44,7 @@
 			border-top: 2px solid #aad;
 			padding-top: 10px;
 			margin-bottom: 22px;
+			clear: both;
 		}
 		.clickme {
 			text-align: center;

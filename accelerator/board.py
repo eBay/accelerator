@@ -21,9 +21,16 @@ import json
 import os
 import tarfile
 import itertools
+import operator
 
 from accelerator.job import Job
 from accelerator.dataset import Dataset
+
+def get_job(jobid):
+	if jobid.endswith('-LATEST'):
+		base = jobid.rsplit('-', 1)[0]
+		jobid = os.readlink(Job(base + '-0').path[:-2] + '-LATEST')
+	return Job(jobid)
 
 def main(argv, cfg):
 	prog = argv.pop(0)
@@ -37,7 +44,10 @@ def main(argv, cfg):
 	@bottle.get('/')
 	@bottle.view('main')
 	def main_page():
-		return dict(project=os.path.split(cfg.project_directory)[1])
+		return dict(
+			project=os.path.split(cfg.project_directory)[1],
+			workdirs=cfg.workdirs,
+		)
 
 	@bottle.get('/results')
 	def results():
@@ -66,7 +76,7 @@ def main(argv, cfg):
 	@bottle.get('/job/<jobid>/method.tar.gz/')
 	@bottle.get('/job/<jobid>/method.tar.gz/<name:path>')
 	def job_method(jobid, name=None):
-		job = Job(jobid)
+		job = get_job(jobid)
 		with tarfile.open(job.filename('method.tar.gz'), 'r:gz') as tar:
 			if name:
 				info = tar.getmember(name)
@@ -81,14 +91,14 @@ def main(argv, cfg):
 
 	@bottle.get('/job/<jobid>/<name:path>')
 	def job_file(jobid, name):
-		job = Job(jobid)
+		job = get_job(jobid)
 		return bottle.static_file(name, root=job.path)
 
 	@bottle.get('/job/<jobid>')
 	@bottle.get('/job/<jobid>/')
 	@bottle.view('job')
 	def job(jobid):
-		job = Job(jobid)
+		job = get_job(jobid)
 		try:
 			prefix = job.path + '/'
 			files = [fn[len(prefix):] for fn in job.files() if fn.startswith(prefix)]
@@ -121,6 +131,21 @@ def main(argv, cfg):
 			return json.dumps(res)
 		else:
 			return bottle.template('dataset', ds=ds)
+
+	@bottle.get('/workdir/<name>')
+	@bottle.view('workdir')
+	def workdir(name):
+		path = cfg.workdirs[name]
+		prefix = name + '-'
+		jobs = []
+		for jid in os.listdir(path):
+			if jid.startswith(prefix):
+				try:
+					jobs.append(Job(jid))
+				except Exception:
+					pass
+		jobs.sort(key=operator.attrgetter('number'))
+		return dict(name=name, jobs=jobs)
 
 	bottle.TEMPLATE_PATH = [os.path.join(os.path.dirname(__file__), 'board')]
 	bottle.run(port=port, reloader=True)

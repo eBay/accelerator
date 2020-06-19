@@ -1,5 +1,13 @@
 % include('head', title='')
 <body>
+	<table id="workdirs">
+		% for workdir in sorted(workdirs):
+			<tr>
+				<td><a href="/workdir/{{ workdir }}">{{ workdir }}</a></td>
+				<td><a href="/job/{{ workdir }}-LATEST">latest</a></td>
+			</tr>
+		% end
+	</table>
 	<h1 id="header">ax board: {{ project }}</h1>
 	<div id="waiting" class="spinner"></div>
 <script language="javascript">
@@ -20,12 +28,12 @@
 			const items = Object.entries(res);
 			const waitingEl = document.getElementById('waiting');
 			if (items.length) {
-				waitingEl.style.visibility = 'hidden';
+				waitingEl.style.display = 'none';
 			} else {
-				waitingEl.style.visibility = 'visible';
+				waitingEl.style.display = 'block';
 			}
 			items.sort((a, b) => b[1].ts - a[1].ts);
-			let prev = document.getElementById('header');
+			let prev = waitingEl;
 			for (const [name, data] of items) {
 				let resultEl = existing[name];
 				if (resultEl) {
