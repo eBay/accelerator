@@ -6,6 +6,7 @@
 			--bg0: #fffff9;
 			--bg1: #fafff9;
 			--bg2: #fffbf9;
+			--not-loaded: #dcb;
 			--bg0dark: #f8f4f1;
 			--fg0: #222;
 			--border0: #ecece8;
@@ -58,6 +59,9 @@
 		img.full {
 			max-height: inherit;
 		}
+		form {
+			display: inline;
+		}
 
 		.box {
 			background: var(--bg1);
@@ -88,6 +92,12 @@
 		.ds-table tr:nth-child(even) {
 			background: var(--bg0dark);
 		}
+		input[type="number"] {
+			width: 8em;
+		}
+		td.not-loaded {
+			background: var(--not-loaded);
+		}
 
 		.spinner {
 			margin: 5px auto;
@@ -100,6 +110,10 @@
 		}
 		@keyframes spinner {
 			50% { transform: rotate(360deg); }
+		}
+		td .spinner {
+			position: absolute;
+			margin: 0;
 		}
 	</style>
 </head>

@@ -20,6 +20,7 @@ import bottle
 import json
 import os
 import tarfile
+import itertools
 
 from accelerator.job import Job
 from accelerator.dataset import Dataset
@@ -103,9 +104,17 @@ def main(argv, cfg):
 		)
 
 	@bottle.get('/dataset/<dsid:path>')
-	@bottle.view('dataset')
 	def dataset(dsid):
-		return dict(ds=Dataset(dsid.rstrip('/')), max_lines=25)
+		ds = Dataset(dsid.rstrip('/'))
+		q = bottle.request.query
+		if q.column:
+			lines = int(q.lines or 10)
+			it = ds.iterate(None, q.column)
+			res = list(itertools.islice(it, lines))
+			bottle.response.content_type = 'application/json; charset=UTF-8'
+			return json.dumps(res)
+		else:
+			return bottle.template('dataset', ds=ds)
 
 	bottle.TEMPLATE_PATH = [os.path.join(os.path.dirname(__file__), 'board')]
 	bottle.run(port=port, reloader=True)
