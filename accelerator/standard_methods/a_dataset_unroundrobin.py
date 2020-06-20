@@ -62,15 +62,12 @@ def analysis(sliceno, prepare_res):
 	if to_copy == 0:
 		# bail out empty slices right away
 		return
-	it = d.iterate('roundrobin')
 	to_skip = sum(d.lines[:sliceno])
 	if to_skip:
-		# Skip until the lines that belong in this slice
-		for _ in range(to_skip):
-			v = next(it)
+		it = d.iterate('roundrobin', slice=to_skip - bool(options.trigger_column))
 		if options.trigger_column:
+			trigger_v = next(it)[ix]
 			# keep skipping until trigger value changes
-			trigger_v = v[ix]
 			for v in it:
 				to_copy -= 1
 				if v[ix] != trigger_v:
@@ -78,6 +75,8 @@ def analysis(sliceno, prepare_res):
 					break
 				if to_copy == 0:
 					return # no lines left for this slice
+	else:
+		it = d.iterate('roundrobin')
 	# write the lines belonging here
 	# (zip so we don't have to count down to_copy manually)
 	for _, v in izip(range(to_copy), it):
