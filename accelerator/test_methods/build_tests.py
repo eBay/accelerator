@@ -170,8 +170,9 @@ def main(urd):
 	urd.build("test_hashlabel")
 
 	print()
-	print("Test dataset roundrobin iteration")
+	print("Test dataset roundrobin iteration and slicing")
 	urd.build("test_dataset_roundrobin")
+	urd.build("test_dataset_slice")
 	urd.build("test_dataset_unroundrobin")
 	urd.build("test_dataset_unroundrobin_trigger")
 
