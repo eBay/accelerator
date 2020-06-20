@@ -27,13 +27,14 @@ from __future__ import unicode_literals
 import os
 from keyword import kwlist
 from collections import namedtuple, Counter
-from itertools import compress
+from itertools import compress, islice
 from functools import partial
 from contextlib import contextmanager
 from operator import itemgetter
 
-from accelerator.compat import unicode, uni, ifilter, imap, iteritems, str_types
+from accelerator.compat import unicode, uni, ifilter, imap, iteritems
 from accelerator.compat import builtins, open, getarglist, izip, izip_longest
+from accelerator.compat import str_types, int_types
 
 from accelerator import blob
 from accelerator.extras import DotDict, job_params, _ListTypePreserver
@@ -388,17 +389,17 @@ class Dataset(unicode):
 			chain.reverse()
 		return chain
 
-	def iterate_chain(self, sliceno, columns=None, length=-1, range=None, sloppy_range=False, reverse=False, hashlabel=None, stop_ds=None, pre_callback=None, post_callback=None, filters=None, translators=None, status_reporting=True, rehash=False):
+	def iterate_chain(self, sliceno, columns=None, length=-1, range=None, sloppy_range=False, reverse=False, hashlabel=None, stop_ds=None, pre_callback=None, post_callback=None, filters=None, translators=None, status_reporting=True, rehash=False, slice=None):
 		"""Iterate a list of datasets. See .chain and .iterate_list for details."""
 		chain = self.chain(length, reverse, stop_ds)
-		return self.iterate_list(sliceno, columns, chain, range=range, sloppy_range=sloppy_range, hashlabel=hashlabel, pre_callback=pre_callback, post_callback=post_callback, filters=filters, translators=translators, status_reporting=status_reporting, rehash=rehash)
+		return self.iterate_list(sliceno, columns, chain, range=range, sloppy_range=sloppy_range, hashlabel=hashlabel, pre_callback=pre_callback, post_callback=post_callback, filters=filters, translators=translators, status_reporting=status_reporting, rehash=rehash, slice=slice)
 
-	def iterate(self, sliceno, columns=None, hashlabel=None, filters=None, translators=None, status_reporting=True, rehash=False):
+	def iterate(self, sliceno, columns=None, hashlabel=None, filters=None, translators=None, status_reporting=True, rehash=False, slice=None):
 		"""Iterate just this dataset. See .iterate_list for details."""
-		return self.iterate_list(sliceno, columns, [self], hashlabel=hashlabel, filters=filters, translators=translators, status_reporting=status_reporting, rehash=rehash)
+		return self.iterate_list(sliceno, columns, [self], hashlabel=hashlabel, filters=filters, translators=translators, status_reporting=status_reporting, rehash=rehash, slice=slice)
 
 	@staticmethod
-	def iterate_list(sliceno, columns, datasets, range=None, sloppy_range=False, hashlabel=None, pre_callback=None, post_callback=None, filters=None, translators=None, status_reporting=True, rehash=False):
+	def iterate_list(sliceno, columns, datasets, range=None, sloppy_range=False, hashlabel=None, pre_callback=None, post_callback=None, filters=None, translators=None, status_reporting=True, rehash=False, slice=None):
 		"""Iterator over the specified columns from datasets
 		(iterable of dataset-specifiers, or single dataset-specifier).
 		callbacks are called before and after each dataset is iterated.
@@ -452,6 +453,16 @@ class Dataset(unicode):
 		If you manually zip a bunch of iterators, only one should do status
 		reporting. (Otherwise it looks like you have nested iteration in ^T,
 		and you will get warnings about incorrect ending order of statuses.)
+
+		slice takes a slice object defining which lines you want returned.
+		Negative offsets are allowed. Both negative and positive offsets
+		outside the range of the specified datasets give an error.
+		This is equivalent to islice(iterate_list(...), start, stop, step)
+		except it's faster, allows negative offsets and errors on too big
+		offsets.
+		For convenience you can also pass slice=<some int> which is equivalent
+		to slice(<some int>, None). Note that this is not the same as
+		slice(<some int>), but more useful here.
 		"""
 
 		if isinstance(datasets, str_types + (Dataset, dict)):
@@ -473,9 +484,58 @@ class Dataset(unicode):
 			range_k, (range_bottom, range_top,) = next(iteritems(range))
 			if range_bottom is None and range_top is None:
 				range = None
+		if slice:
+			if isinstance(slice, int_types):
+				slice = builtins.slice(slice, None, 1)
+			slice = builtins.slice(slice.start or 0, slice.stop, slice.step or 1)
+			assert slice.step > 0, "only positive slice steps are supported"
+			if slice.start < 0 or (slice.stop or 0) < 0:
+				msg = "slice with negative index is not supported with "
+				assert not range, msg + "range"
+				assert not rehash, msg + "rehash"
+				assert not filters, msg + "filters"
+			if isinstance(sliceno, int_types):
+				total_lines = sum(d.lines[sliceno] for d in datasets)
+			else:
+				total_lines = sum(sum(d.lines) for d in datasets)
+			if slice.start < 0:
+				assert -slice.start <= total_lines, "Wanted last %d lines, but only %d lines available" % (-slice.start, total_lines,)
+				slice = builtins.slice(total_lines + slice.start, slice.stop, slice.step)
+			if (slice.stop or 0) < 0:
+				assert -slice.stop <= total_lines, "Wanted to stop %d lines before end, but only %d lines available" % (-slice.stop, total_lines,)
+				slice = builtins.slice(slice.start, total_lines + slice.stop, slice.step)
+			assert slice.start <= total_lines, "Wanted to skip %d lines, but only %d lines available" % (slice.start, total_lines,)
+			assert (slice.stop or 0) <= total_lines, "Wanted to stop after %d lines, but only %d lines available" % (slice.stop, total_lines,)
+			if slice.start == total_lines:
+				return iter(())
+			if slice.stop is not None:
+				assert slice.stop >= slice.start, "Wanted %r, but start is bigger than stop" % (slice,)
+				if slice.start == slice.stop:
+					return iter(())
+			def adj_slice(lines):
+				stop = slice.stop
+				if stop is not None:
+					stop -= lines
+				return builtins.slice(slice.start - lines, stop, slice.step)
+			slice_skipping = True
+			slice_first = True
+			if slice.start == 0 and slice.stop is None and slice.step == 1:
+				slice = None
+		if not slice:
+			slice_skipping = False
+			slice_first = False
 		for d in datasets:
-			if sum(d.lines) == 0:
+			if isinstance(sliceno, int_types):
+				lines_here = d.lines[sliceno]
+			else:
+				lines_here = sum(d.lines)
+			if lines_here == 0:
 				continue
+			if slice_skipping and slice.start >= lines_here:
+				slice = adj_slice(lines_here)
+				continue
+			else:
+				slice_skipping = False
 			if range:
 				c = d.columns[range_k]
 				if range_top is not None and c.min >= range_top:
@@ -489,11 +549,19 @@ class Dataset(unicode):
 			else:
 				rehash_on = False
 			if sliceno is None:
-				for ix in builtins.range(slices):
+				if slice_first:
+					for first_slice in builtins.range(slices):
+						if slice.start < d.lines[first_slice]:
+							break
+						slice = adj_slice(d.lines[first_slice])
+				else:
+					first_slice = 0
+				for ix in builtins.range(first_slice, slices):
 					# Ignore rehashing - order is generally not guaranteed with sliceno=None
 					to_iter.append((d, ix, False,))
 			else:
 				to_iter.append((d, sliceno, rehash_on,))
+			slice_first = False
 		filter_func = Dataset._resolve_filters(columns, filters, want_tuple)
 		translation_func, translators = Dataset._resolve_translators(columns, translators)
 		if sloppy_range:
@@ -529,9 +597,12 @@ class Dataset(unicode):
 					for ix, (d, sliceno, rehash) in enumerate(to_iter, 1):
 						update(ix, d, sliceno, rehash)
 						yield rr_inner(d, rehash)
-			return chain.from_iterable(rr_outer())
+			res = chain.from_iterable(rr_outer())
 		else:
-			return chain.from_iterable(Dataset._iterate_datasets(to_iter, **kw))
+			res = chain.from_iterable(Dataset._iterate_datasets(to_iter, **kw))
+		if slice and (slice.start or slice.stop or slice.step > 1):
+			res = islice(res, slice.start, slice.stop, slice.step)
+		return res
 
 	@staticmethod
 	def _resolve_filters(columns, filters, want_tuple):
@@ -1267,9 +1338,9 @@ class DatasetChain(_ListTypePreserver):
 		"""If any dataset in the chain has None support for this column"""
 		return True in (ds.columns[column].none_support for ds in self if column in ds.columns)
 
-	def iterate(self, sliceno, columns=None, range=None, sloppy_range=False, hashlabel=None, pre_callback=None, post_callback=None, filters=None, translators=None, status_reporting=True, rehash=False):
+	def iterate(self, sliceno, columns=None, range=None, sloppy_range=False, hashlabel=None, pre_callback=None, post_callback=None, filters=None, translators=None, status_reporting=True, rehash=False, slice=None):
 		"""Iterate the datasets in this chain. See Dataset.iterate_list for usage"""
-		return Dataset.iterate_list(sliceno, columns, self, range=range, sloppy_range=sloppy_range, hashlabel=hashlabel, pre_callback=pre_callback, post_callback=post_callback, filters=filters, translators=translators, status_reporting=status_reporting, rehash=rehash)
+		return Dataset.iterate_list(sliceno, columns, self, range=range, sloppy_range=sloppy_range, hashlabel=hashlabel, pre_callback=pre_callback, post_callback=post_callback, filters=filters, translators=translators, status_reporting=status_reporting, rehash=rehash, slice=slice)
 
 
 def range_check_function(bottom, top):
