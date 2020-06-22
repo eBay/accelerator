@@ -117,8 +117,13 @@ def csvexport(sliceno, filename, labelsonfirstline):
 			it = imap(enc, it)
 		elif t == 'bytes' and PY3:
 			it = imap(lambda s: s.decode('utf-8', errors='backslashreplace'), it)
-		elif t in ('float32', 'float64', 'number'):
+		elif t in ('float32', 'float64',):
 			it = imap(repr, it)
+		elif t == 'number':
+			if PY2:
+				it = imap(lambda n: str(n) if isinstance(n, long) else repr(n), it)
+			else:
+				it = imap(repr, it)
 		elif t == 'json':
 			it = imap(dumps, it)
 		elif t not in ('unicode', 'ascii', 'bytes'):
