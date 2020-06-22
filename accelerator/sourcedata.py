@@ -64,6 +64,24 @@ class GzJson(object):
 		self.close()
 type2iter['json'] = GzJson
 
+from pickle import loads
+class GzPickle(object):
+	def __init__(self, *a, **kw):
+		assert PY3, "Pickle columns require python 3, sorry"
+		self.fh = gzutil.GzBytes(*a, **kw)
+	def __next__(self):
+		return loads(next(self.fh))
+	next = __next__
+	def close(self):
+		self.fh.close()
+	def __iter__(self):
+		return self
+	def __enter__(self):
+		return self
+	def __exit__(self, type, value, traceback):
+		self.close()
+type2iter['pickle'] = GzPickle
+
 def typed_reader(typename):
 	if typename not in type2iter:
 		raise ValueError("Unknown reader for type %s" % (typename,))

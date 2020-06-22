@@ -71,10 +71,11 @@ class GzWriteJson(object):
 		else:
 			self.fh = gzutil.GzWriteBytes(*a, **kw)
 			self.encode = JSONEncoder(ensure_ascii=True, separators=(',', ':')).encode
-		self.count = 0
 	def write(self, o):
-		self.count += 1
 		self.fh.write(self.encode(o))
+	@property
+	def count(self):
+		return self.fh.count
 	def close(self):
 		self.fh.close()
 	def __enter__(self):
@@ -89,6 +90,25 @@ class GzWriteParsedJson(GzWriteJson):
 	def write(self, o):
 		if isinstance(o, str_types):
 			o = loads(o)
-		self.count += 1
 		self.fh.write(self.encode(o))
 _convfuncs['parsed:json'] = GzWriteParsedJson
+
+from pickle import dumps
+class GzWritePickle(object):
+	min = max = None
+	def __init__(self, *a, **kw):
+		assert PY3, "Pickle columns require python 3, sorry"
+		assert 'default' not in kw, "default not supported for Pickle, sorry"
+		self.fh = gzutil.GzWriteBytes(*a, **kw)
+	def write(self, o):
+		self.fh.write(dumps(o, 4))
+	@property
+	def count(self):
+		return self.fh.count
+	def close(self):
+		self.fh.close()
+	def __enter__(self):
+		return self
+	def __exit__(self, type, value, traceback):
+		self.close()
+_convfuncs['pickle'] = GzWritePickle

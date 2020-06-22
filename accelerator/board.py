@@ -124,7 +124,7 @@ def main(argv, cfg):
 			t = ds.columns[q.column].type
 			if t in ('datetime', 'date', 'time',):
 				it = map(str, it)
-			elif t == 'bytes':
+			elif t in ('bytes', 'pickle',):
 				it = map(repr, it)
 			res = list(it)
 			bottle.response.content_type = 'application/json; charset=UTF-8'
