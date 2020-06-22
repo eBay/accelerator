@@ -13,17 +13,21 @@
 	</table>
 	<h2>columns:</h2>
 	<table id="columns" class="ds-table">
-	<tr><th>name</th><th>type</th><th>min</th><th>max</th></tr>
-	% for name, col in sorted(ds.columns.items()):
-		<tr>
-			<td>{{ name }}</td>
-			<td>{{ col.type }}</td>
-			% if col.min is not None:
-				<td>{{ col.min }}</td>
-				<td>{{ col.max }}</td>
-			% end
-		</tr>
-	% end
+	<thead>
+		<tr><th>name</th><th>type</th><th>min</th><th>max</th></tr>
+	</thead>
+	<tbody>
+		% for name, col in sorted(ds.columns.items()):
+			<tr>
+				<td>{{ name }}</td>
+				<td>{{ col.type }}</td>
+				% if col.min is not None:
+					<td>{{ col.min }}</td>
+					<td>{{ col.max }}</td>
+				% end
+			</tr>
+		% end
+	</tbody>
 	</table>
 	% cols, lines = ds.shape
 	{{ cols }} columns<br>
@@ -108,7 +112,9 @@
 		<thead>
 			<tr>
 			% for ix, name in enumerate(sorted(ds.columns)):
-				<th><input type="checkbox" id="wantCol{{ ix }}" checked>{{ name }}</th>
+				<th><label>
+					<input type="checkbox" id="wantCol{{ ix }}" checked> {{ name }}
+				</label></th>
 			% end
 			</tr>
 		</thead>

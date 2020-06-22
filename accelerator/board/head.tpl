@@ -94,10 +94,10 @@
 		.ds-table td, .ds-table th {
 			padding: 2px 0.5em;
 		}
-		.ds-table td ~ td { /* Not leftmost one */
+		.ds-table td ~ td, .ds-table th ~ th { /* Not leftmost one */
 			border-left: 1px solid var(--border1);
 		}
-		.ds-table tr:nth-child(even) {
+		.ds-table tbody tr:nth-child(odd) {
 			background: var(--bg0dark);
 		}
 		input[type="number"] {
