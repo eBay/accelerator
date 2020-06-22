@@ -133,6 +133,10 @@ def main(urd):
 	urd.build("test_csvimport_separators")
 
 	print()
+	print("Testing csvexport with all column types")
+	urd.build("test_csvexport_all_coltypes")
+
+	print()
 	print("Testing subjobs and dataset typing")
 	urd.build("test_subjobs_type", typed=ds, untyped=reimp_csv)
 	urd.build("test_subjobs_nesting")
