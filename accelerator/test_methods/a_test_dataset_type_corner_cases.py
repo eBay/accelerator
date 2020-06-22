@@ -284,27 +284,37 @@ def test_filter_bad_across_types():
 	# and be filtered by other lines. And that several filtering values
 	# is not a problem (line 11).
 	data = [
-		(True,  b'first',    b'1.1', '1',  '"a"',   '001', b'ett',),
-		(True,  b'second',   b'2.2', '2',  '"b"',   '02',  b'tv\xc3\xa5',),
-		(True,  b'third',    b'3.3', '3',  '["c"]', '3.0', b'tre',),
-		(False, b'fourth',   b'4.4', '4',  '"d"',   '4.4', b'fyra',),       # number:int bad
-		(False, b'fifth',    b'5.5', '-',  '"e"',   '5',   b'fem',),        # int32_10 bad
-		(False, b'sixth',    b'6.b', '6',  '"f"',   '6',   b'sex',),        # float64 bad
+		[True,  b'first',    b'1.1', '1',  '"a"',   '001', b'ett',],
+		[True,  b'second',   b'2.2', '2',  '"b"',   '02',  b'tv\xc3\xa5',],
+		[True,  b'third',    b'3.3', '3',  '["c"]', '3.0', b'tre',],
+		[False, b'fourth',   b'4.4', '4',  '"d"',   '4.4', b'fyra',],       # number:int bad
+		[False, b'fifth',    b'5.5', '-',  '"e"',   '5',   b'fem',],        # int32_10 bad
+		[False, b'sixth',    b'6.b', '6',  '"f"',   '6',   b'sex',],        # float64 bad
 		[False, b'seventh',  b'7.7', '7',  '{"g"}', '7',   b'sju',],        # json bad
-		(False, b'eigth',    b'8.8', '8',  '"h"',   '8',   b'\xa5\xc3tta',),# unicode:utf-8 bad
-		(True,  b'ninth',    b'9.9', '9',  '"i"',   '9',   b'nio',),
-		(True,  b'tenth',    b'10',  '10', '"j"',   '10',  b'tio',),
-		(False, b'eleventh', b'11a', '1-', '"k",',  '1,',  b'elva',),       # float64, int32_10 and number:int bad
-		(True,  b'twelfth',  b'12',  '12', '"l"',   '12',  b'tolv',),
+		[False, b'eigth',    b'8.8', '8',  '"h"',   '8',   b'\xa5\xc3tta',],# unicode:utf-8 bad
+		[True,  b'ninth',    b'9.9', '9',  '"i"',   '9',   b'nio',],
+		[True,  b'tenth',    b'10',  '10', '"j"',   '10',  b'tio',],
+		[False, b'eleventh', b'11a', '1-', '"k",',  '1,',  b'elva',],       # float64, int32_10 and number:int bad
+		[True,  b'twelfth',  b'12',  '12', '"l"',   '12',  b'tolv',],
 	]
 	dw = DatasetWriter(name="filter bad across types", columns=columns)
+	cols_to_check = ['int32_10', 'bytes', 'json', 'unicode:utf-8']
+	if PY3:
+		# z so it sorts last.
+		dw.add('zpickle', 'pickle')
+		cols_to_check.append('zpickle')
+		for ix in range(len(data)):
+			data[ix].append({ix})
 	dw.set_slice(0)
 	want = []
-	def add_want(v):
+	def add_want(ix):
+		v = data[ix]
 		want.append((int(v[3]), v[1], json.loads(v[4]), v[6].decode('utf-8'),))
-	for v in data:
+		if PY3:
+			want[-1] = want[-1] + (v[7],)
+	for ix, v in enumerate(data):
 		if v[0]:
-			add_want(v)
+			add_want(ix)
 		dw.write(*v[1:])
 	for sliceno in range(1, g.slices):
 		dw.set_slice(sliceno)
@@ -318,14 +328,14 @@ def test_filter_bad_across_types():
 			options=dict(column2type={t: t for t in columns}, filter_bad=True, defaults=defaults),
 		)
 		typed_ds = Dataset(jid)
-		got = list(typed_ds.iterate(0, ['int32_10', 'bytes', 'json', 'unicode:utf-8']))
+		got = list(typed_ds.iterate(0, cols_to_check))
 		assert got == want, "Exptected %r, got %r from %s (from %r%s)" % (want, got, typed_ds, source_ds, ' with defaults' if defaults else '')
 		# make more lines "ok" for the second lap
 		defaults = {'number:int': '0', 'float64': '0', 'json': '"replacement"'}
-		add_want(data[3])
-		add_want(data[5])
+		add_want(3)
+		add_want(5)
 		data[6][4] = '"replacement"'
-		add_want(data[6])
+		add_want(6)
 		want.sort() # adding them out of order, int32_10 sorts correctly.
 
 def test_column_discarding():
