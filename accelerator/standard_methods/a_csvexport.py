@@ -70,6 +70,11 @@ if PY3:
 else:
 	enc = lambda s: s.encode('utf-8')
 
+def nonefix_u(s):
+	return u'None' if s is None else s
+def nonefix_b(s):
+	return b'None' if s is None else s
+
 def csvexport(sliceno, filename, labelsonfirstline):
 	assert len(options.separator) == 1
 	assert options.quote_fields in ('', "'", '"',)
@@ -103,6 +108,11 @@ def csvexport(sliceno, filename, labelsonfirstline):
 		it = d.iterate_list(sliceno, label, datasets.source, status_reporting=first)
 		first = False
 		t = d.columns[label].type
+		if d.columns[label].none_support:
+			if t == 'bytes' or (PY2 and t == 'ascii'):
+				it = imap(nonefix_b, it)
+			elif t in ('ascii', 'unicode',):
+				it = imap(nonefix_u, it)
 		if t == 'unicode' and PY2:
 			it = imap(enc, it)
 		elif t == 'bytes' and PY3:

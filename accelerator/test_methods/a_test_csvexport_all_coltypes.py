@@ -52,13 +52,14 @@ def synthesis(job):
 	}
 	check = {n for n in _convfuncs if not n.startswith('parsed:')}
 	assert todo == check, 'Missing/extra column types: %r %r' % (check - todo, todo - check,)
+	no_none = {'bits32', 'bits64', 'json'}
 	for name in sorted(todo):
 		if PY2 and name == 'pickle':
 			# pickle columns are not supported on python 2.
 			t = 'ascii'
 		else:
 			t = name
-		dw.add(name, t)
+		dw.add(name, t, none_support=name not in no_none)
 	write = dw.get_split_write()
 	write(
 		'a', 0xffffffff, 0xfedcba9876543210, True, b'hello',
@@ -75,6 +76,13 @@ def synthesis(job):
 		float('inf'), float('nan'), 0, 0,
 		[False, None], 42.18,
 		'...' if PY2 else d, time(13, 14, 5), 'bl\xe4',
+	)
+	write(
+		None, 72, 64, None, None,
+		None, None,
+		None, None, None, None,
+		None, None,
+		None, None, None,
 	)
 	ds = dw.finish()
 	sep = '\x1e'
@@ -98,4 +106,11 @@ def synthesis(job):
 			'inf', 'nan', '0', '0',
 			'[false, null]', '42.18',
 			'...' if PY2 else "{'recursion': {...}}", '13:14:05', 'bl\xe4',
+		)
+		expect(
+			'None', '72', '64', 'None', 'None',
+			'None', 'None',
+			'None', 'None', 'None', 'None',
+			'null', 'None',
+			'None', 'None', 'None',
 		)
