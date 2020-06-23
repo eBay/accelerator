@@ -43,8 +43,8 @@
 						prev = resultEl;
 						continue;
 					}
-				}
-				if (!resultEl) {
+					while (resultEl.lastChild) resultEl.lastChild.remove();
+				} else {
 					resultEl = document.createElement('DIV');
 				};
 				const txt = text => resultEl.appendChild(document.createTextNode(text));
