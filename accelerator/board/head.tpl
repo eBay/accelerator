@@ -3,6 +3,7 @@
 	<title>ax board{{ title and ' - ' + title }}</title>
 	<style>
 		:root {
+			color-scheme: light dark;
 			--bg0: #fffef7;
 			--bg1: #f9fff6;
 			--bg2: #fff8f3;
@@ -19,6 +20,26 @@
 		a:link { color: #11F; }
 		a:visited { color: #529; }
 		a:active { color: #C16; }
+
+		@media (prefers-color-scheme: dark) {
+			:root {
+				--bg0: #302a12;
+				--bg1: #032;
+				--bg2: #301;
+				--not-loaded: #654;
+				--bg0dark: #113;
+				--bg-click: #854;
+				--fg0: #eec;
+				--checkmark: #9eb;
+				--border0: #552;
+				--border1: #774;
+				--border2: #549;
+			}
+			a:link { color: #6cf; }
+			a:visited { color: #caf; }
+			a:active { color: #f9b; }
+		}
+
 		body {
 			background: var(--bg0);
 			color: var(--fg0);
