@@ -3,9 +3,9 @@
 	<title>ax board{{ title and ' - ' + title }}</title>
 	<style>
 		:root {
-			--bg0: #fffff9;
-			--bg1: #fafff9;
-			--bg2: #fffbf9;
+			--bg0: #fffef7;
+			--bg1: #f9fff6;
+			--bg2: #fff8f3;
 			--not-loaded: #dcb;
 			--bg0dark: #f8f4f1;
 			--bg-click: #fbb;
@@ -15,7 +15,6 @@
 			--border2: #aad;
 			--max-height: 300px;
 		}
-
 		a:link { color: #11F; }
 		a:visited { color: #529; }
 		a:active { color: #C16; }
@@ -23,6 +22,17 @@
 			background: var(--bg0);
 			color: var(--fg0);
 		}
+		input {
+			background: var(--bg1);
+			color: var(--fg0);
+			border-color: var(--border1);
+			border-radius: 5px;
+			padding: 3px 1em;
+		}
+		input:focus {
+			background: var(--bg2);
+		}
+
 		a[href="/"] {
 			float: right;
 		}
