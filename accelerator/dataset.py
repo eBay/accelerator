@@ -329,6 +329,7 @@ class Dataset(unicode):
 		new_ds._data.caption = None
 		new_ds._update_caches()
 		new_ds._save()
+		_datasets_written.append(name)
 		return job.dataset(name) # new_ds has the wrong string value, so we must make a new instance here.
 
 	def _column_iterator(self, sliceno, col, _type=None, **kw):
