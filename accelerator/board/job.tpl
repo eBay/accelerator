@@ -31,6 +31,16 @@
 			</ul>
 		</div>
 	% end
+	% if subjobs:
+		<h2>subjobs</h2>
+		<div class="box">
+			<ul>
+				% for j in subjobs:
+					<li><a href="/job/{{ j }}">{{ j }}</a> {{ j.method }}</li>
+				% end
+			</ul>
+		</div>
+	% end
 	% if files:
 		<h2>files</h2>
 		<div class="box">

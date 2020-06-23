@@ -105,11 +105,13 @@ def main(argv, cfg):
 		except OSError:
 			# This happens for jobs that didn't finish.
 			files = []
+		subjobs = [Job(jobid) for jobid in job.post.subjobs]
 		return dict(
 			job=job,
 			output=os.path.exists(job.filename('OUTPUT')),
 			datasets=job.datasets,
 			params=job.params,
+			subjobs=subjobs,
 			files=files,
 		)
 
