@@ -8,9 +8,11 @@
 			--bg2: #fffbf9;
 			--not-loaded: #dcb;
 			--bg0dark: #f8f4f1;
+			--bg-click: #fbb;
 			--fg0: #222;
 			--border0: #ecece8;
 			--border1: #ccb;
+			--border2: #aad;
 			--max-height: 300px;
 		}
 
@@ -43,7 +45,7 @@
 			padding-left: 1em;
 		}
 		.result {
-			border-top: 2px solid #aad;
+			border-top: 2px solid var(--border2);
 			padding-top: 10px;
 			margin-bottom: 22px;
 			clear: both;
@@ -52,7 +54,7 @@
 			text-align: center;
 			font-size: 120%;
 			padding: 15px;
-			background: #fbb;
+			background: var(--bg-click);
 		}
 		video, embed {
 			display: block;
@@ -75,7 +77,7 @@
 
 		.box {
 			background: var(--bg1);
-			box-shadow: 0 0 3px 4px #ccb inset;
+			box-shadow: 0 0 3px 4px var(--border1) inset;
 			padding: 1em;
 			padding-left: 1em;
 		}
