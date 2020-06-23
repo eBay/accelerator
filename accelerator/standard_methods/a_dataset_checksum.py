@@ -82,6 +82,7 @@ def prepare():
 	# optimisation. (Which changes the hash, but not how good it is.)
 	# Special casing json is needed because the iteration order of
 	# dicts is not fixed (depending on python version).
+	# Same with pickle, but worse (many picklable values will break this).
 	for n in columns:
 		col = datasets.source.columns[n]
 		if col.type == 'bytes' or (col.type == 'ascii' and PY2):
@@ -95,6 +96,9 @@ def prepare():
 				translators[n] = bytesstr
 		elif col.type == 'json':
 			translators[n] = sortdicts
+		elif col.type == 'pickle':
+			translators[n] = sortdicts
+			print('WARNING: Column %s is pickle, may not work' % (n,))
 		else:
 			translators[n] = bytesrepr
 	return columns, translators
