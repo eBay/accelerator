@@ -10,6 +10,7 @@
 			--bg0dark: #f8f4f1;
 			--bg-click: #fbb;
 			--fg0: #222;
+			--checkmark: #193;
 			--border0: #ecece8;
 			--border1: #ccb;
 			--border2: #aad;
@@ -23,6 +24,8 @@
 			color: var(--fg0);
 		}
 		input {
+			-webkit-appearance: none;
+			appearance: none;
 			background: var(--bg1);
 			color: var(--fg0);
 			border-color: var(--border1);
@@ -31,6 +34,26 @@
 		}
 		input:focus {
 			background: var(--bg2);
+		}
+		input[type="checkbox"] {
+			position: relative;
+			padding: 0;
+			width: 1.2em;
+			height: 1.2em;
+			vertical-align: -0.22em;
+			border: 1px solid var(--border2);
+			color: var(--checkmark);
+		}
+		input[type="checkbox"]::before {
+			content: "✔";
+			position: absolute;
+			top: -0.1em;
+			left: 0.05em;
+			font-size: 1.15em;
+			visibility: hidden;
+		}
+		input[type="checkbox"]:checked::before {
+			visibility: visible;
 		}
 
 		a[href="/"] {
