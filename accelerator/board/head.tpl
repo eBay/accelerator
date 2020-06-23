@@ -36,9 +36,11 @@
 			padding-right: 1em;
 		}
 		.textfile {
-			width: 100%;
 			max-height: var(--max-height);
 			overflow: auto;
+			background: var(--bg1);
+			border: 2px solid var(--border1);
+			padding-left: 1em;
 		}
 		.result {
 			border-top: 2px solid #aad;

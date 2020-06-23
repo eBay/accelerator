@@ -137,7 +137,11 @@
 				throw new Error('error response');
 			})
 			.then(res => {
-				pre.innerText = res;
+				if (ext === 'html') {
+					fileEl.innerHTML = res;
+				} else {
+					pre.innerText = res;
+				}
 				spinner.remove();
 			})
 			.catch(error => {
