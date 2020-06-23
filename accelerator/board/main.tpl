@@ -39,6 +39,7 @@
 				if (resultEl) {
 					delete existing[name];
 					if (resultEl.dataset.ts == data.ts) {
+						update_date(resultEl);
 						prev = resultEl;
 						continue;
 					}
@@ -64,8 +65,12 @@
 				a(name, data.jobid, name);
 				txt(' from ');
 				a(data.jobid, data.jobid);
-				const date = new Date(data.ts * 1000);
-				txt(' (' + fmtdate_ago(date) + ')');
+				txt(' (');
+				const dateEl = document.createElement('SPAN');
+				dateEl.className = 'date';
+				resultEl.appendChild(dateEl)
+				txt(')');
+				update_date(resultEl);
 				resultEl.appendChild(sizewrap(name, data));
 				prev.after(resultEl);
 				prev = resultEl;
@@ -156,6 +161,10 @@
 		}
 		container.appendChild(fileEl);
 		return container;
+	};
+	const update_date = function(el) {
+		const date = new Date(el.dataset.ts * 1000);
+		el.querySelector('.date').innerText = fmtdate_ago(date);
 	};
 	const fmtdate = function(date) {
 		if (!date) date = new Date();
