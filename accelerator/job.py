@@ -239,6 +239,16 @@ class CurrentJob(Job):
 		fwm._open = _open
 		return fwm
 
+	def register_file(self, filename):
+		"""Record a file produced by this job. Normally you would use
+		job.open to have this happen automatically, but if the file was
+		produced in a way where that is not practical you can use this
+		to register it."""
+		filename = self.filename(filename)
+		assert os.path.exists(filename)
+		from accelerator.extras import saved_files
+		saved_files[filename] = 0
+
 class JobWithFile(namedtuple('JobWithFile', 'job filename sliced extra')):
 	def __new__(cls, job, filename, sliced=False, extra=None):
 		assert not filename.startswith('/'), "Specify relative filenames to JobWithFile"

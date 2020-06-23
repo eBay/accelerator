@@ -145,20 +145,21 @@ def csvexport(sliceno, filename, labelsonfirstline):
 			for data in it:
 				write(sep.join(data))
 
-def analysis(sliceno):
+def analysis(sliceno, job):
 	if options.sliced:
 		csvexport(sliceno, options.filename % (sliceno,), options.labelsonfirstline)
+		job.register_file(options.filename % (sliceno,))
 	else:
 		labelsonfirstline = (sliceno == 0 and options.labelsonfirstline)
 		filename = '%d.gz' if options.filename.lower().endswith('.gz') else '%d.csv'
 		csvexport(sliceno, filename % (sliceno,), labelsonfirstline)
 
-def synthesis(params):
+def synthesis(job, slices):
 	if not options.sliced:
 		filename = '%d.gz' if options.filename.lower().endswith('.gz') else '%d.csv'
-		with open(options.filename, "wb") as outfh:
-			for sliceno in range(params.slices):
-				with status("Assembling %s (%d/%d)" % (options.filename, sliceno, params.slices)):
+		with job.open(options.filename, "wb") as outfh:
+			for sliceno in range(slices):
+				with status("Assembling %s (%d/%d)" % (options.filename, sliceno, slices)):
 					with open(filename % sliceno, "rb") as infh:
 						copyfileobj(infh, outfh)
 					unlink(filename % sliceno)

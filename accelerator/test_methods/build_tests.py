@@ -119,6 +119,7 @@ def main(urd):
 	csv = urd.build("csvexport", filename=csvname, separator="\t", source=ds)
 	csv_uncompressed = urd.build("csvexport", filename=csvname_uncompressed, separator="\t", source=ds)
 	csv_quoted = urd.build("csvexport", filename=csvname, quote_fields='"', source=ds)
+	urd.build("csvexport", filename='slice%d.csv', sliced=True, source=ds) # unused
 	reimp_csv = urd.build("csvimport", filename=csv.filename(csvname), separator="\t")
 	reimp_csv_uncompressed = urd.build("csvimport", filename=csv_uncompressed.filename(csvname_uncompressed), separator="\t")
 	reimp_csv_quoted = urd.build("csvimport", filename=csv_quoted.filename(csvname), quotes=True)
