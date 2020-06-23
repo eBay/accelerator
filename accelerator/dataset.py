@@ -892,8 +892,8 @@ class Dataset(unicode):
 	def _save(self):
 		if not os.path.exists(self.name):
 			os.mkdir(self.name)
-		blob.save(self._data, self._name('pickle'), temp=False)
-		with open(self._name('txt'), 'w', encoding='utf-8') as fh:
+		blob.save(self._data, self._name('pickle'), temp=False, _hidden=True)
+		with self.job.open(self._name('txt'), 'w', encoding='utf-8') as fh:
 			nl = False
 			if self.hashlabel:
 				fh.write('hashlabel %s\n' % (self.hashlabel,))

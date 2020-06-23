@@ -79,11 +79,11 @@ def job_params(jobid=None, default_empty=False):
 def job_post(jobid):
 	return json_load('post.json', jobid)
 
-def pickle_save(variable, filename='result.pickle', sliceno=None, temp=None):
+def pickle_save(variable, filename='result.pickle', sliceno=None, temp=None, _hidden=False):
 	filename = _fn(filename, None, sliceno)
 	if temp == Temp.DEBUG and temp is not True and '--debug' not in sys.argv:
 		return
-	with FileWriteMove(filename, temp) as fh:
+	with FileWriteMove(filename, temp, _hidden=_hidden) as fh:
 		# use protocol version 2 so python2 can read the pickles too.
 		pickle.dump(variable, fh, 2)
 
@@ -202,7 +202,7 @@ class FileWriteMove(object):
 
 	The temp-level of the file is recorded in saved_files.
 	"""
-	def __init__(self, filename, temp=None):
+	def __init__(self, filename, temp=None, _hidden=False):
 		from accelerator.g import running
 		self.filename = filename
 		self.tmp_filename = '%s.%dtmp' % (filename, os.getpid(),)
@@ -216,6 +216,7 @@ class FileWriteMove(object):
 		if temp in (Temp.DEBUGTEMP, Temp.TEMP,):
 			if running != 'analysis':
 				print('WARNING: Only analysis should make temp files (%s line %d).' % stackup(), file=sys.stderr)
+		self._hidden = _hidden
 
 	def __enter__(self):
 		self._status = status('Saving ' + self.filename)
@@ -229,7 +230,8 @@ class FileWriteMove(object):
 		self.close()
 		if e_type is None:
 			os.rename(self.tmp_filename, self.filename)
-			saved_files[self.filename] = self.temp
+			if not self._hidden:
+				saved_files[self.filename] = self.temp
 		else:
 			try:
 				os.unlink(self.tmp_filename)
