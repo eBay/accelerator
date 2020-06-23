@@ -202,3 +202,5 @@ def main(urd):
 	urd.build("test_json")
 	urd.build("test_jobwithfile")
 	urd.build("test_jobchain")
+	summary = urd.build("test_summary", joblist=urd.joblist)
+	summary.link_result('summary.html')
