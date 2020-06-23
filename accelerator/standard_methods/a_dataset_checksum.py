@@ -124,4 +124,4 @@ def synthesis(prepare_res, analysis_res):
 		all = chain.from_iterable(analysis_res)
 	res = md5(b''.join(all)).hexdigest()
 	print("%s: %s" % (datasets.source, res,))
-	return DotDict(sum=int(res, 16), sort=options.sort, columns=prepare_res, source=datasets.source)
+	return DotDict(sum=int(res, 16), sort=options.sort, columns=prepare_res[0], source=datasets.source)
