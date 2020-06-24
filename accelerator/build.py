@@ -465,7 +465,7 @@ def _tsfix(ts):
 		return '%s+%d' % (ts, integer,)
 
 class Urd(object):
-	def __init__(self, a, info, user, password, horizon=None):
+	def __init__(self, a, info, user, password, horizon=None, default_workdir=None):
 		self._a = a
 		if info.urd:
 			assert '://' in str(info.urd), 'Bad urd URL: %s' % (info.urd,)
@@ -477,6 +477,7 @@ class Urd(object):
 		self.horizon = horizon
 		self.joblist = a.jobs
 		self.workdir = None
+		self.default_workdir = default_workdir
 		auth = '%s:%s' % (user, password,)
 		if PY3:
 			auth = b64encode(auth.encode('utf-8')).decode('ascii')
@@ -640,7 +641,7 @@ class Urd(object):
 		self.workdir = workdir
 
 	def build(self, method, options={}, datasets={}, jobs={}, name=None, caption=None, why_build=False, workdir=None, **kw):
-		return self._a.call_method(method, options=options, datasets=datasets, jobs=jobs, record_as=name, caption=caption, why_build=why_build, workdir=workdir or self.workdir, **kw)
+		return self._a.call_method(method, options=options, datasets=datasets, jobs=jobs, record_as=name, caption=caption, why_build=why_build, workdir=workdir or self.workdir or self.default_workdir, **kw)
 
 	def build_chained(self, method, options={}, datasets={}, jobs={}, name=None, caption=None, why_build=False, workdir=None, **kw):
 		assert 'previous' not in set(datasets) | set(jobs) | set(kw), "Don't specify previous to build_chained"
@@ -759,7 +760,7 @@ def run_automata(options, cfg):
 	else:
 		user, password = os.environ['USER'], ''
 	info = a.info()
-	urd = Urd(a, info, user, password, options.horizon)
+	urd = Urd(a, info, user, password, options.horizon, options.workdir)
 	if options.quick:
 		a.update_method_info()
 	else:
@@ -777,7 +778,8 @@ def main(argv, cfg):
 	parser.add_argument('-f', '--flags',    default='',          help="comma separated list of flags", )
 	parser.add_argument('-A', '--abort',    action='store_true', help="abort (fail) currently running job(s)", )
 	parser.add_argument('-q', '--quick',    action='store_true', help="skip method updates and checking workdirs for new jobs", )
-	parser.add_argument('-w', '--just_wait',action='store_true', help="just wait for running job, don't run any build script", )
+	parser.add_argument('-w', '--workdir',  default=None,        help="build in this workdir\nset_workdir() and workdir= override this.", )
+	parser.add_argument('-W', '--just_wait',action='store_true', help="just wait for running job, don't run any build script", )
 	parser.add_argument('-F', '--fullpath', action='store_true', help="print full path to jobdirs")
 	parser.add_argument('--verbose',        default='status',    help="verbosity style {no, status, dots, log}")
 	parser.add_argument('--quiet',          action='store_true', help="same as --verbose=no")
