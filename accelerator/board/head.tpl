@@ -84,6 +84,13 @@
 			background: red;
 		}
 
+		#waiting {
+			position: fixed;
+			left: 0;
+			top: 5em;
+			width: 100%;
+			z-index: 1;
+		}
 		#workdirs {
 			float: right;
 			margin-bottom: 1em;

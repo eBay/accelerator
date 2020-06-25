@@ -9,12 +9,13 @@
 		% end
 	</table>
 	<h1 id="header">ax board: {{ project }}</h1>
-	<div id="waiting" class="spinner"></div>
+	<div id="waiting"><div class="spinner"></div></div>
 <script language="javascript">
 (function () {
 	const imageExts = new Set(['jpg', 'jpeg', 'gif', 'png', 'apng', 'svg', 'bmp', 'webp']);
 	const videoExts = new Set(['mp4', 'mov', 'mpg', 'mpeg', 'mkv', 'avi', 'webm']);
-	const update = function () {
+	const waitingEl = document.getElementById('waiting');
+	const update = function (try_num) {
 		fetch('/results')
 		.then(res => {
 			if (res.ok) return res.json();
@@ -26,7 +27,6 @@
 				existing[el.dataset.name] = el;
 			};
 			const items = Object.entries(res);
-			const waitingEl = document.getElementById('waiting');
 			if (items.length) {
 				waitingEl.style.display = 'none';
 			} else {
@@ -82,9 +82,15 @@
 		})
 		.catch(error => {
 			console.log(error);
-			document.body.className = 'error';
-			const header = document.getElementById('header');
-			header.innerText = 'ERROR - updates stopped at ' + fmtdate();
+			if (try_num === 4) {
+				document.body.className = 'error';
+				waitingEl.style.display = 'none';
+				const header = document.getElementById('header');
+				header.innerText = 'ERROR - updates stopped at ' + fmtdate();
+			} else {
+				waitingEl.style.display = 'block';
+				setTimeout(() => update((try_num || 0) + 1), 1500);
+			}
 		});
 	};
 	const sizewrap = function (name, data) {
