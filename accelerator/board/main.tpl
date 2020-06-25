@@ -104,9 +104,17 @@
 			event.target.className = 'full';
 		}
 	};
+	const name2ext = function (name) {
+		const parts = name.split('.');
+		let ext = parts.pop().toLowerCase();
+		if (ext === 'gz' && parts.length > 1) {
+			ext = parts.pop().toLowerCase();
+		}
+		return ext;
+	}
 	const load = function (name, data) {
 		const fileUrl = '/results/' + encodeURIComponent(name) + '?ts=' + data.ts;
-		const ext = name.split('.').pop().toLowerCase();
+		const ext = name2ext(name);
 		const container = document.createElement('DIV');
 		const spinner = document.createElement('DIV');
 		spinner.className = 'spinner';
