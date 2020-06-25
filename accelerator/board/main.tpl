@@ -12,8 +12,8 @@
 	<div id="waiting" class="spinner"></div>
 <script language="javascript">
 (function () {
-	const imageExts = new Set(['jpg', 'jpeg', 'gif', 'png']);
-	const videoExts = new Set(['mp4', 'mov', 'mpg', 'mpeg', 'mkv', 'avi']);
+	const imageExts = new Set(['jpg', 'jpeg', 'gif', 'png', 'apng', 'svg', 'bmp', 'webp']);
+	const videoExts = new Set(['mp4', 'mov', 'mpg', 'mpeg', 'mkv', 'avi', 'webm']);
 	const update = function () {
 		fetch('/results')
 		.then(res => {
