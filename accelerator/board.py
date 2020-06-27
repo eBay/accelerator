@@ -92,7 +92,11 @@ def main(argv, cfg):
 	@bottle.get('/job/<jobid>/<name:path>')
 	def job_file(jobid, name):
 		job = get_job(jobid)
-		return bottle.static_file(name, root=job.path)
+		res = bottle.static_file(name, root=job.path)
+		if not res.content_type and res.status_code < 400:
+			# bottle default is text/html, which is probably wrong.
+			res.content_type = 'text/plain'
+		return res
 
 	@bottle.get('/job/<jobid>')
 	@bottle.get('/job/<jobid>/')
