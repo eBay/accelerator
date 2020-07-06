@@ -146,6 +146,9 @@ def reader(fd2pid, names, masters, slaves, process_name, basedir, is_main):
 							if pid in status_blacklist:
 								# don't do it for prepare as synthesis has the same PID.
 								status_blacklist.remove(pid)
+								# but clear the output if needed.
+								if outputs[fd]:
+									status._clear_output(pid)
 							else:
 								status._end(pid=pid)
 						except Exception:

@@ -111,6 +111,9 @@ def _end(pid=None):
 def _output(pid, msg):
 	_send('output', '%f\0%s' % (time(), msg,), pid=pid)
 
+def _clear_output(pid):
+	_send('output', '', pid=pid)
+
 
 def status_stacks_export():
 	res = []
@@ -188,9 +191,12 @@ def statmsg_sink(sock):
 					else:
 						stack[ix] = (msg, stack[ix][1], cookie)
 				elif typ == 'output':
-					t, msg = msg.split('\0', 1)
-					t = float(t)
-					status_all[pid].output = (msg, t,)
+					if msg:
+						t, msg = msg.split('\0', 1)
+						t = float(t)
+						status_all[pid].output = (msg, t,)
+					else:
+						status_all[pid].output = None
 				elif typ == 'start':
 					parent_pid, is_analysis, msg, t = msg.split('\0', 3)
 					parent_pid = int(parent_pid)
