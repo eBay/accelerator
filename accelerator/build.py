@@ -33,16 +33,16 @@ from importlib import import_module
 from argparse import ArgumentParser, RawTextHelpFormatter
 
 from accelerator.compat import unicode, str_types, PY3
-from accelerator.compat import urlencode, urlopen, Request, URLError, HTTPError
+from accelerator.compat import urlencode
 from accelerator.compat import getarglist
 
 from accelerator import setupfile
-from accelerator.extras import json_encode, json_decode, DotDict, _ListTypePreserver
+from accelerator.extras import json_encode, DotDict, _ListTypePreserver
 from accelerator.job import Job
 from accelerator.status import print_status_stacks
-from accelerator.error import JobError, ServerError, UrdError, UrdPermissionError, UrdConflictError
+from accelerator.error import JobError, ServerError, UrdPermissionError
 from accelerator import g
-from accelerator import unixhttp; unixhttp # for unixhttp:// URLs, as used to talk to the server
+from accelerator.unixhttp import call
 
 
 class Automata:
@@ -84,48 +84,9 @@ class Automata:
 		# this is run on bigdata response
 		pass
 
-	def _url_get(self, *path, **kw):
-		url = self.url + os.path.join('/', *path)
-		for attempt in (1, 2, 3, 4, 5):
-			resp = None
-			try:
-				req = urlopen(url, **kw)
-				try:
-					resp = req.read()
-					if PY3:
-						resp = resp.decode('utf-8')
-					code = req.getcode()
-					if code == 503:
-						# It seems inconsistent if we get HTTPError or not for these.
-						raise HTTPError(url, code, '', {}, None)
-					return resp
-				finally:
-					try:
-						req.close()
-					except Exception:
-						pass
-			except HTTPError as e:
-				if e.code != 503:
-					return resp
-				msg = 'Server says %d: %s' % (e.code, resp,)
-			except URLError:
-				# Don't say anything the first times, because the output
-				# tests get messed up if this happens during them.
-				if attempt < 3:
-					msg = None
-				else:
-					msg = 'Error contacting server'
-			if msg:
-				print(msg, file=sys.stderr)
-			if attempt < 5:
-				time.sleep(attempt / 15)
-				if msg:
-					print('Retrying (%d/4).' % (attempt,), file=sys.stderr)
-		print('Giving up.', file=sys.stderr)
-		raise ServerError(msg)
-
 	def _url_json(self, *path, **kw):
-		return json_decode(self._url_get(*path, **kw))
+		url = self.url + os.path.join('/', *path)
+		return call(url, **kw)
 
 	def abort(self):
 		return self._url_json('abort')
@@ -271,7 +232,7 @@ class Automata:
 		return self._url_json('methods')
 
 	def update_methods(self):
-		resp = self._url_get('update_methods')
+		resp = self._url_json('update_methods')
 		self.update_method_info()
 		return resp
 
@@ -495,51 +456,7 @@ class Urd(object):
 	def _call(self, url, data=None, fmt=_urd_typeify):
 		assert self._url, "No urd configured for this server"
 		url = url.replace(' ', '%20')
-		if data is not None:
-			req = Request(url, json_encode(data), self._headers)
-		else:
-			req = Request(url)
-		tries_left = 3
-		while True:
-			try:
-				r = urlopen(req)
-				try:
-					code = r.getcode()
-					if code == 401:
-						raise UrdPermissionError()
-					if code == 409:
-						raise UrdConflictError()
-					d = r.read()
-					if PY3:
-						d = d.decode('utf-8')
-					return fmt(d)
-				finally:
-					try:
-						r.close()
-					except Exception:
-						pass
-			except HTTPError as e:
-				# It seems inconsistent if we get HTTPError or not for 4xx codes.
-				if e.code == 401:
-					raise UrdPermissionError()
-				if e.code == 409:
-					raise UrdConflictError()
-				tries_left -= 1
-				if not tries_left:
-					raise UrdError('Error %d from urd' % (e.code,))
-				print('Error %d from urd, %d tries left' % (e.code, tries_left,), file=sys.stderr)
-			except ValueError as e:
-				tries_left -= 1
-				msg = 'Bad data from urd, %s: %s' % (type(e).__name__, e,)
-				if not tries_left:
-					raise UrdError(msg)
-				print('%s, %d tries left' % (msg, tries_left,), file=sys.stderr)
-			except URLError:
-				tries_left -= 1
-				print('Error contacting urd (%d tries left)' % (tries_left,), file=sys.stderr)
-				if not tries_left:
-					raise UrdError('Error contacting urd')
-			time.sleep(4)
+		return call(url, data=data, fmt=fmt, headers=self._headers, server_name='urd')
 
 	def _get(self, path, *a):
 		assert self._current, "Can't record dependency with nothing running"

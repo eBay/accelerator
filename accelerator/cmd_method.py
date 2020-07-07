@@ -16,9 +16,8 @@
 #                                                                          #
 ############################################################################
 
-from accelerator.compat import urlopen, PY3, terminal_size
-from accelerator import unixhttp; unixhttp
-from accelerator.extras import json_decode
+from accelerator.compat import terminal_size
+from accelerator.unixhttp import call
 from collections import defaultdict
 
 def main(argv, cfg):
@@ -28,11 +27,7 @@ def main(argv, cfg):
 		print('gives description and options for method,')
 		print('or lists methods with no method specified.')
 		return
-	req = urlopen(cfg.url + '/methods')
-	resp = req.read()
-	if PY3:
-		resp = resp.decode('utf-8')
-	methods = json_decode(resp)
+	methods = call(cfg.url + '/methods')
 	columns = terminal_size().columns
 	if argv:
 		for name in argv:
