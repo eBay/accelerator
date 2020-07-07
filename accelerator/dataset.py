@@ -298,6 +298,14 @@ class Dataset(unicode):
 		from accelerator.g import job
 		new_ds = Dataset(self)
 		other = Dataset(other)
+		assert name
+		name = uni(name)
+		assert '/' not in name, name
+		assert '\n' not in name, name
+		if previous:
+			previous = Dataset(previous)
+		else:
+			previous = None
 		if self == other:
 			raise DatasetUsageError("Can't merge with myself (%s)" % (other,))
 		if self.lines != other.lines:
