@@ -12,7 +12,7 @@ After installation try "`ax --help`".
 Supported Environments
 ----------------------
 
-The Accelerator projects has been built, tested, and runs on:
+The Accelerator project has been built, tested, and runs on:
  - Ubuntu 16.04, 18.04
  - Debian 9, 10
  - FreeBSD 11.3, 12.1
