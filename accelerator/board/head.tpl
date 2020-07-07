@@ -84,6 +84,9 @@
 			background: red;
 		}
 
+		#header {
+			float: left;
+		}
 		#waiting {
 			position: fixed;
 			left: 0;
@@ -91,9 +94,20 @@
 			width: 100%;
 			z-index: 1;
 		}
-		#workdirs {
+		#status {
+			background: var(--bg1);
+			border: 2px solid var(--border1);
+			padding: 2px 0.5em;
+			margin-right: 1em;
+		}
+		#bonus-info {
 			float: right;
 			margin-bottom: 1em;
+		}
+		#workdirs {
+			margin-left: auto;
+			margin-right: 0;
+			text-align: right;
 		}
 		#workdirs td {
 			padding-right: 1em;
@@ -170,6 +184,20 @@
 		}
 		td.not-loaded {
 			background: var(--not-loaded);
+		}
+
+		#status-stacks td {
+			padding: 1px 0.5em;
+		}
+		.output {
+			background: var(--bg1);
+			border: 2px solid var(--border1);
+			margin-left: 4em;
+			padding: 4px;
+		}
+		.output pre {
+			font-family: monospace;
+			margin-left: 2em;
 		}
 
 		.spinner {

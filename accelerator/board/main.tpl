@@ -1,13 +1,18 @@
 % include('head', title='')
 <body>
-	<table id="workdirs">
-		% for workdir in sorted(workdirs):
-			<tr>
-				<td><a href="/workdir/{{ workdir }}">{{ workdir }}</a></td>
-				<td><a href="/job/{{ workdir }}-LATEST">latest</a></td>
-			</tr>
-		% end
-	</table>
+	<div id="bonus-info">
+		<table id="workdirs">
+			% for workdir in sorted(workdirs):
+				<tr>
+					<td><a target="_blank" href="/workdir/{{ workdir }}">{{ workdir }}</a></td>
+					<td><a target="_blank" href="/job/{{ workdir }}-LATEST">latest</a></td>
+				</tr>
+			% end
+		</table>
+		<div id="status">
+			<a target="_blank" href="/status">status</a>: <span></span>
+		</div>
+	</div>
 	<h1 id="header">ax board: {{ project }}</h1>
 	<div id="waiting"><div class="spinner"></div></div>
 <script language="javascript">
@@ -15,6 +20,24 @@
 	const imageExts = new Set(['jpg', 'jpeg', 'gif', 'png', 'apng', 'svg', 'bmp', 'webp']);
 	const videoExts = new Set(['mp4', 'mov', 'mpg', 'mpeg', 'mkv', 'avi', 'webm']);
 	const waitingEl = document.getElementById('waiting');
+	const statusEl = document.querySelector('#status span');
+	const status = function () {
+		if (document.body.className === 'error') return;
+		fetch('/status?short')
+		.then(res => {
+			if (res.ok) return res.text();
+			throw new Error('error response');
+		})
+		.then(res => {
+			statusEl.innerText = res;
+			setTimeout(status, 1500);
+		})
+		.catch(error => {
+			console.log(error);
+			statusEl.innerText = '???';
+			setTimeout(status, 1500);
+		});
+	};
 	const update = function (try_num) {
 		fetch('/results')
 		.then(res => {
@@ -198,6 +221,7 @@
 		}
 	};
 	update();
+	status();
 })();
 </script>
 </body>

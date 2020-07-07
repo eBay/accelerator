@@ -22,9 +22,12 @@ import os
 import tarfile
 import itertools
 import operator
+import time
 
 from accelerator.job import Job
 from accelerator.dataset import Dataset
+from accelerator.unixhttp import call
+from accelerator.build import fmttime
 
 def get_job(jobid):
 	if jobid.endswith('-LATEST'):
@@ -72,6 +75,19 @@ def main(argv, cfg):
 	@bottle.get('/results/<name>')
 	def file(name):
 		return bottle.static_file(name, root=cfg.result_directory)
+
+	@bottle.get('/status')
+	def status():
+		url = cfg.url + '/status/full'
+		status = call(url)
+		if 'short' in bottle.request.query:
+			if status.idle:
+				return 'idle'
+			else:
+				t, msg, _ = status.current
+				return '%s (%s)' % (msg, fmttime(time.time() - t, short=True),)
+		else:
+			return bottle.template('status', **status)
 
 	@bottle.get('/job/<jobid>/method.tar.gz/')
 	@bottle.get('/job/<jobid>/method.tar.gz/<name:path>')
