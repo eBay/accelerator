@@ -200,7 +200,7 @@ def cmd_board(argv):
 	main(argv, cfg)
 cmd_board.help = '''runs a webserver for displaying results'''
 
-DEBUG_COMMANDS = {'dsgrep', 'dsinfo', 'curl', 'method',}
+DEBUG_COMMANDS = {'dsgrep', 'dsinfo',}
 
 COMMANDS = dict(
 	dsgrep=cmd_dsgrep,
