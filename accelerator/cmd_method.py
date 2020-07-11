@@ -16,6 +16,10 @@
 #                                                                          #
 ############################################################################
 
+from __future__ import print_function
+from __future__ import division
+from __future__ import unicode_literals
+
 from accelerator.compat import terminal_size
 from accelerator.unixhttp import call
 from collections import defaultdict
