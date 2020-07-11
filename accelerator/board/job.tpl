@@ -1,4 +1,5 @@
 % include('head', title=job)
+% from datetime import datetime
 <body>
 	<a href="/">main</a>
 	<h1>{{ job }}</h1>
@@ -6,6 +7,23 @@
 	<div class="box">
 		{{ params.package }}.{{ params.method }}<br>
 		<a href="/job/{{ job }}/method.tar.gz/">Source</a>
+		<div class="box" id="other-params">
+			% blacklist = {
+			%     'package', 'method', 'options', 'datasets', 'jobs', 'params',
+			%     'starttime', 'endtime', 'exectime', '_typing',
+			% }
+			<table>
+				<tr><td>starttime</td><td>=</td><td>{{ datetime.fromtimestamp(params['starttime']) }}</td></tr>
+				<tr><td>endtime</td><td>=</td><td>{{ datetime.fromtimestamp(params['endtime']) }}</td></tr>
+				% exectime = params['exectime']
+				% for k in sorted(exectime):
+					<tr><td>exectime.{{ k }}</td><td>=</td><td>{{ repr(exectime[k]) }}</td></tr>
+				% end
+				% for k in sorted(set(params) - blacklist):
+					<tr><td>{{ k }}</td><td>=</td><td>{{ repr(params[k]) }}</td></tr>
+				% end
+			</table>
+		</div>
 		% if params.options:
 			<h3>options</h3>
 			<div class="box">

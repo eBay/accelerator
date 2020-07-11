@@ -162,6 +162,12 @@
 		#output pre, .box table {
 			padding-left: 2em;
 		}
+		#other-params {
+			margin-top: 1em;
+		}
+		#other-params table {
+			padding-left: 0;
+		}
 
 		th {
 			text-align: left;
