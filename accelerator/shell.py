@@ -122,11 +122,13 @@ def cmd_dsgrep(argv):
 	from accelerator.dsgrep import main
 	return main(argv)
 cmd_dsgrep.help = '''search for a pattern in one or more datasets'''
+cmd_dsgrep.is_debug = True
 
 def cmd_dsinfo(argv):
 	from accelerator.dsinfo import main
 	return main(argv)
 cmd_dsinfo.help = '''display information about datasets'''
+cmd_dsinfo.is_debug = True
 
 def cmd_run(argv):
 	from accelerator.build import main
@@ -200,8 +202,6 @@ def cmd_board(argv):
 	main(argv, cfg)
 cmd_board.help = '''runs a webserver for displaying results'''
 
-DEBUG_COMMANDS = {'dsgrep', 'dsinfo',}
-
 COMMANDS = dict(
 	dsgrep=cmd_dsgrep,
 	dsinfo=cmd_dsinfo,
@@ -268,9 +268,10 @@ def main():
 		config_fn = args.config
 		if args.command == 'init':
 			config_fn = False
-		setup(config_fn, debug_cmd=args.command in DEBUG_COMMANDS)
+		cmd = COMMANDS[args.command]
+		setup(config_fn, debug_cmd=getattr(cmd, 'is_debug', False))
 		argv.insert(0, '%s %s' % (basename(sys.argv[0]), args.command,))
-		return COMMANDS[args.command](argv)
+		return cmd(argv)
 	except UserError as e:
 		print(e, file=sys.stderr)
 		return 1
