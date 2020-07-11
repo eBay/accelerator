@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2018-2019 Carl Drougge                       #
+# Modifications copyright (c) 2018-2020 Carl Drougge                       #
 # Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -33,7 +33,7 @@ import json
 import ctypes
 
 from accelerator.job import CurrentJob, WORKDIRS
-from accelerator.compat import pickle, iteritems, setproctitle, QueueEmpty, getarglist, open
+from accelerator.compat import pickle, iteritems, setproctitle, QueueEmpty, getarglist
 from accelerator.extras import job_params, ResultIterMagic
 from accelerator.build import JobError
 from accelerator import g
