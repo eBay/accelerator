@@ -197,6 +197,12 @@ def cmd_method(argv):
 	main(argv, cfg)
 cmd_method.help = '''information about methods'''
 
+def cmd_job(argv):
+	from accelerator.cmd_job import main
+	main(argv, cfg)
+cmd_job.help = '''information about a job'''
+cmd_job.is_debug = True
+
 def cmd_board(argv):
 	from accelerator.board import main
 	main(argv, cfg)
@@ -212,6 +218,7 @@ COMMANDS = dict(
 	curl=cmd_curl,
 	method=cmd_method,
 	board=cmd_board,
+	job=cmd_job,
 )
 
 class HelpFixArgumentParser(ArgumentParser):
