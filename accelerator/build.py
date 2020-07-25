@@ -186,7 +186,7 @@ class Automata:
 		path = ['status']
 		if self.verbose:
 			path.append('full')
-		path.append('?subjob_cookie=%s&timeout=%d' % (self.subjob_cookie or '', timeout,))
+		path.append('?subjob_cookie=%s&timeout=%s' % (self.subjob_cookie or '', timeout,))
 		resp = self._url_json(*path)
 		if 'last_error' in resp and not ignore_errors:
 			print("\nFailed to build jobs:", file=sys.stderr)
