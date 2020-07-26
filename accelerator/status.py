@@ -61,7 +61,7 @@ class Children(set):
 			set.add(self, pid)
 	def remove(self, pid):
 		with status_stacks_lock:
-			d = status_all.get(pid)
+			d = status_all.pop(pid, None)
 			if d and d.parent_pid in status_all:
 				p = status_all[d.parent_pid]
 				if pid in p.children:
@@ -217,7 +217,7 @@ def statmsg_sink(sock):
 					status_all[pid] = d
 					del d
 				elif typ == 'end':
-					d = status_all.get(pid)
+					d = status_all.pop(pid, None)
 					if d:
 						if d.parent_pid in status_all:
 							p = status_all[d.parent_pid]
