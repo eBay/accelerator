@@ -58,10 +58,15 @@ def c_fflush():
 	clib.fflush(None)
 
 
+def writeall(fd, data):
+	while data:
+		data = data[os.write(fd, data):]
+
+
 def call_analysis(analysis_func, sliceno_, q, preserve_result, parent_pid, output_fds, **kw):
 	try:
 		# tell iowrapper our PID, so our output goes to the right status stack.
-		os.write(output_fds[sliceno_], pack("=Q", os.getpid()))
+		writeall(output_fds[sliceno_], pack("=Q", os.getpid()))
 		# use our iowrapper fd instead of stdout/stderr
 		os.dup2(output_fds[sliceno_], 1)
 		os.dup2(output_fds[sliceno_], 2)
@@ -165,7 +170,7 @@ def fork_analysis(slices, analysis_func, kw, preserve_result, output_fds):
 			continue
 		if s_tb:
 			data = [{'analysis(%d)' % (s_no,): s_tb}, None]
-			os.write(_prof_fd, json.dumps(data).encode('utf-8'))
+			writeall(_prof_fd, json.dumps(data).encode('utf-8'))
 			exitfunction()
 		per_slice.append((s_no, s_t))
 		temp_files.update(s_temp_files)
@@ -333,7 +338,7 @@ def run(workdir, jobid, slices, result_directory, common_directory, input_direct
 	except Exception:
 		print_exc()
 		data = [{g.running: fmt_tb(2)}, None]
-	os.write(prof_fd, json.dumps(data).encode('utf-8'))
+	writeall(prof_fd, json.dumps(data).encode('utf-8'))
 
 
 def exitfunction():
