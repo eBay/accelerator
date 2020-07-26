@@ -41,12 +41,12 @@ from time import time, sleep
 from traceback import print_exc
 from threading import Lock
 from weakref import WeakValueDictionary
+import socket
 import os
 
 from accelerator.compat import str_types, iteritems
 
 from accelerator import g
-from accelerator.status_messaging import _send
 
 
 status_tree = {}
@@ -235,3 +235,22 @@ def statmsg_endwait(pid, timeout):
 			if not d:
 				return
 		sleep(timeout / 10)
+
+
+_send_sock = None
+
+def _send(typ, message, pid=None):
+	global _send_sock
+	if not _send_sock:
+		fd = int(os.getenv('BD_STATUS_FD'))
+		_send_sock = socket.fromfd(fd, socket.AF_UNIX, socket.SOCK_DGRAM)
+	if len(message) > 1400:
+		message = message[:300] + '\n....\n' + message[-1100:]
+	msg = ('%s\0%d\0%s' % (typ, pid or os.getpid(), message,)).encode('utf-8')
+	for ix in range(5):
+		try:
+			_send_sock.send(msg)
+			return
+		except socket.error as e:
+			print('Failed to send statmsg (type %s, try %d): %s' % (typ, ix, e))
+			sleep(0.1 + ix)
