@@ -1,6 +1,6 @@
 ############################################################################
 #                                                                          #
-# Copyright (c) 2019 Carl Drougge                                          #
+# Copyright (c) 2019-2020 Carl Drougge                                     #
 # Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -62,7 +62,7 @@ def test(params, p=False, a=False, s=False):
 			data = opts[part[0]]
 		chked.add(part)
 		with open(d +  part, 'r') as fh:
-			got = fh.read()
+			got = fh.read().replace('\r\n', '\n')
 		want = prefix + '\n' + data + '\n'
 		assert got == prefix + '\n' + data + '\n', "%s produced %r in %s, expected %r" % (jid, got, part, want,)
 		assert output == got, 'job.output disagrees with manual file reading for %s in %s. %r != %r' % (part, jid, output, got,)
@@ -103,7 +103,7 @@ def sub_part(sliceno, opts):
 			for line in status_stacks:
 				if line[0] == pid and line[1] < 0:
 					# this is our tail
-					got = line[2]
+					got = line[2].replace('\r\n', '\n')
 					if got == want:
 						return
 			# it might not have reached the server yet

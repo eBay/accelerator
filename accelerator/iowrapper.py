@@ -25,7 +25,7 @@ from select import select
 from multiprocessing import Process
 from time import sleep
 import signal
-from struct import unpack
+from pty import openpty
 
 from accelerator.workarounds import nonblocking
 from accelerator.compat import setproctitle
@@ -34,7 +34,7 @@ from accelerator import status
 
 def main():
 	os.environ['BD_TERM_FD'] = str(os.dup(1))
-	a, b = os.pipe()
+	a, b = openpty()
 	run_reader({}, None, [a], [b], 'main iowrapper.reader', None, True)
 	os.dup2(b, 1)
 	os.dup2(b, 2)
@@ -48,7 +48,7 @@ def setup(slices, include_prepare, include_analysis):
 	masters = []
 	slaves = []
 	def mk(name):
-		a, b = os.pipe()
+		a, b = openpty()
 		masters.append(a)
 		slaves.append(b)
 		names.append(name)
@@ -122,8 +122,8 @@ def reader(fd2pid, names, masters, slaves, process_name, basedir, is_main):
 				if data:
 					if not is_main:
 						if fd not in fd2pid:
-							fd2pid[fd] = unpack("=Q", data[:8])[0]
-							data = data[8:]
+							fd2pid[fd] = int(data[:16], 16)
+							data = data[16:]
 							if not data:
 								continue
 						if fd not in fd2fd:

@@ -25,7 +25,6 @@ import os
 import signal
 import sys
 from collections import defaultdict
-from struct import pack
 from importlib import import_module
 from traceback import print_exc, format_tb, format_exception_only
 from time import time, sleep
@@ -66,7 +65,9 @@ def writeall(fd, data):
 def call_analysis(analysis_func, sliceno_, q, preserve_result, parent_pid, output_fds, **kw):
 	try:
 		# tell iowrapper our PID, so our output goes to the right status stack.
-		writeall(output_fds[sliceno_], pack("=Q", os.getpid()))
+		# (the pty is not quite a transparent transport ('\n' transforms into
+		# '\r\n'), so we use a fairly human readable encoding.)
+		writeall(output_fds[sliceno_], b'%16x' % (os.getpid(),))
 		# use our iowrapper fd instead of stdout/stderr
 		os.dup2(output_fds[sliceno_], 1)
 		os.dup2(output_fds[sliceno_], 2)
