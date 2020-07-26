@@ -256,7 +256,10 @@ def exitfunction(*a):
 	print('The deathening! %d %s' % (os.getpid(), children,))
 	print()
 	for child in children:
-		os.killpg(child, signal.SIGKILL)
+		try:
+			os.killpg(child, signal.SIGKILL)
+		except Exception:
+			pass
 	time.sleep(0.16) # give iowrapper a chance to output our last words
 	os.killpg(os.getpgid(0), signal.SIGKILL)
 	os._exit(1) # we really should be dead already
