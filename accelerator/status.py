@@ -63,11 +63,8 @@ class Children(set):
 		with status_stacks_lock:
 			d = status_all.pop(pid, None)
 			if d and d.parent_pid in status_all:
-				p = status_all[d.parent_pid]
-				if pid in p.children:
-					del p.children[pid]
-			if pid in status_tree:
-				del status_tree[pid]
+				status_all[d.parent_pid].children.pop(pid, None)
+			status_tree.pop(pid, None)
 			set.remove(self, pid)
 children = Children()
 
@@ -220,13 +217,9 @@ def statmsg_sink(sock):
 					d = status_all.pop(pid, None)
 					if d:
 						if d.parent_pid in status_all:
-							p = status_all[d.parent_pid]
-							if pid in p.children:
-								del p.children[pid]
-							del p
+							status_all[d.parent_pid].children.pop(pid, None)
 						del d
-					if pid in  status_tree:
-						del status_tree[pid]
+					status_tree.pop(pid, None)
 				else:
 					print('UNKNOWN MESSAGE: %r' % (data,))
 		except Exception:
