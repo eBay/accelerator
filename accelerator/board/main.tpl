@@ -85,7 +85,7 @@
 				resultEl.className = 'result';
 				resultEl.dataset.name = name;
 				resultEl.dataset.ts = data.ts;
-				a(name, data.jobid, name);
+				a(name, data.jobid, data.name);
 				txt(' from ');
 				a(data.jobid, data.jobid);
 				txt(' (');

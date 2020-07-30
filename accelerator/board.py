@@ -60,9 +60,10 @@ def main(argv, cfg):
 				continue
 			ffn = os.path.join(cfg.result_directory, fn)
 			try:
-				jobid = os.readlink(ffn).split('/')[-2]
+				jobid, name = os.readlink(ffn).split('/')[-2:]
 				res[fn] = dict(
 					jobid=jobid,
+					name=name,
 					ts=os.lstat(ffn).st_mtime,
 					size=os.stat(ffn).st_size,
 				)
