@@ -729,7 +729,7 @@ class Dataset(unicode):
 						if unsliced_pre_callback:
 							skip_ds = d
 						continue
-					except SkipJob:
+					except SkipDataset:
 						skip_ds = d
 						continue
 					except StopIteration:
@@ -1368,13 +1368,13 @@ def range_check_function(bottom, top):
 			return v >= bottom and v < top
 		return range_f
 
-class SkipJob(Exception):
-	"""Raise this in pre_callback to skip iterating the coming job
+class SkipDataset(Exception):
+	"""Raise this in pre_callback to skip iterating the coming dataset
 	(or the remaining slices of it)"""
 
 class SkipSlice(Exception):
 	"""Raise this in pre_callback to skip iterating the coming slice
-	(if your callback doesn't want sliceno, this is the same as SkipJob)"""
+	(if your callback doesn't want sliceno, this is the same as SkipDataset)"""
 
 def job_datasets(job):
 	"""All datasets in a job"""

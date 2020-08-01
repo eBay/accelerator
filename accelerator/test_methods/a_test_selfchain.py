@@ -1,6 +1,6 @@
 ############################################################################
 #                                                                          #
-# Copyright (c) 2019 Carl Drougge                                          #
+# Copyright (c) 2019-2020 Carl Drougge                                     #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -23,10 +23,10 @@ from __future__ import unicode_literals
 description = r'''
 Tests creating several chained datasets in one job.
 Exercises DatasetWriter.finish and the chaining logic
-including callbacks with SkipJob.
+including callbacks with SkipDataset.
 '''
 
-from accelerator.dataset import DatasetWriter, SkipJob
+from accelerator.dataset import DatasetWriter, SkipDataset
 from accelerator.extras import DotDict
 
 def prepare(params):
@@ -69,7 +69,7 @@ def test_partial_chains(ds):
 	part2 = list(ds.e.iterate_chain(None, length=3))
 	def only_f_and_g_cb(d):
 		if d[-2:] not in ("/f", "/g"):
-			raise SkipJob
+			raise SkipDataset
 	seen = []
 	def record_cb(d):
 		seen.append(d)
