@@ -26,6 +26,7 @@ from multiprocessing import Process
 from time import sleep
 import signal
 from pty import openpty
+import errno
 
 from accelerator.workarounds import nonblocking
 from accelerator.compat import setproctitle
@@ -118,7 +119,16 @@ def reader(fd2pid, names, masters, slaves, process_name, basedir, is_main):
 			else:
 				ready, _, _ = select(masters, [], [])
 			for fd in ready:
-				data = os.read(fd, 65536)
+				try:
+					data = os.read(fd, 65536)
+				except OSError as e:
+					# On Linux a pty will return
+					# OSError: [Errno 5] Input/output error
+					# instead of b'' for EOF. Don't know why.
+					# Let's try to be a little restrictive in what we catch.
+					if e.errno != errno.EIO:
+						raise
+					data = b''
 				if data:
 					if not is_main:
 						if fd not in fd2pid:
