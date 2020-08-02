@@ -215,15 +215,14 @@ class Automata:
 				make_msg = 'MAKE'
 			else:
 				make_msg = item.make or 'link'
-			print('        -  %44s' % method.ljust(44), end=' ')
-			print(' %s' % (make_msg,), end=' ')
 			if self.print_full_jobpath:
-				print(' %s' % Job(item.link).path, end=' ')
+				link_msg = Job(item.link).path
 			else:
-				print(' %s' % item.link, end=' ')
+				link_msg = item.link
+			msg = '   - %-35s %-5s %s' % (method, make_msg, link_msg,)
 			if item.make != True and 'total_time' in item:
-				print(' %s' % fmttime(item.total_time), end=' ')
-			print()
+				msg = msg + ' ' + fmttime(item.total_time).rjust(78 - len(msg))
+			print(msg)
 
 	def method_info(self, method):
 		return self._url_json('method_info', method)
