@@ -1071,7 +1071,10 @@ class DatasetWriter(object):
 		self._set_slice(sliceno)
 
 	def _set_slice(self, sliceno):
+		from accelerator.g import slices
 		assert self._started < 2, "Don't use both set_slice and a split writer"
+		assert isinstance(sliceno, int_types)
+		assert 0 <= sliceno < slices
 		self.close()
 		self.sliceno = sliceno
 		writers = self._mkwriters(sliceno)
