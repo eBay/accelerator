@@ -1,6 +1,6 @@
 ############################################################################
 #                                                                          #
-# Copyright (c) 2019 Carl Drougge                                          #
+# Copyright (c) 2019-2020 Carl Drougge                                     #
 # Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -45,11 +45,9 @@ from threading import Thread
 import struct
 import locale
 
-from accelerator.extras import OptionString, DotDict
-from accelerator.dataset import DatasetWriter
+from accelerator import OptionString, DotDict
 from accelerator.sourcedata import typed_reader
 from accelerator.compat import setproctitle, uni
-from accelerator import blob
 from . import csvimport
 
 depend_extra = (csvimport,)
@@ -178,7 +176,7 @@ def prepare(job, slices):
 	assert '' not in labels, "Empty label for column %d" % (labels.index(''),)
 	assert len(labels) == len(set(labels)), "Duplicate labels: %r" % (labels,)
 
-	dw = DatasetWriter(
+	dw = job.datasetwriter(
 		columns={n: 'bytes' for n in labels if n not in options.discard},
 		filename=orig_filename,
 		caption='csvimport of ' + orig_filename,
@@ -198,7 +196,7 @@ def prepare(job, slices):
 		return None
 
 	if options.allow_bad:
-		bad_dw = DatasetWriter(
+		bad_dw = job.datasetwriter(
 			name="bad",
 			filename=orig_filename,
 			columns=dict(lineno="int64", data="bytes"),
@@ -210,7 +208,7 @@ def prepare(job, slices):
 		bad_dw = None
 
 	if options.comment or options.skip_lines:
-		skipped_dw = DatasetWriter(
+		skipped_dw = job.datasetwriter(
 			name="skipped",
 			filename=orig_filename,
 			columns=dict(lineno="int64", data="bytes"),
@@ -287,7 +285,7 @@ def synthesis(prepare_res, analysis_res):
 		good_counts.append(good_count)
 		bad_counts.append(bad_count)
 		skipped_counts.append(skipped_count)
-	res = DotDict(
+	return DotDict(
 		num_lines=sum(good_counts),
 		lines_per_slice=good_counts,
 		num_broken_lines=sum(bad_counts),
@@ -295,4 +293,3 @@ def synthesis(prepare_res, analysis_res):
 		num_skipped_lines=sum(skipped_counts),
 		skipped_lines_per_slice=skipped_counts,
 	)
-	blob.save(res, 'import')
