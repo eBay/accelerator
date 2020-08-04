@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2018-2019 Carl Drougge                       #
+# Modifications copyright (c) 2018-2020 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -26,8 +26,7 @@ Rewrite a dataset (or chain to previous) with new hashlabel.
 
 from shutil import copyfileobj
 
-from accelerator.extras import OptionString
-from accelerator.dataset import DatasetWriter
+from accelerator import OptionString
 
 options = {
 	'hashlabel'                 : OptionString,
@@ -38,7 +37,7 @@ options = {
 
 datasets = ('source', 'previous',)
 
-def prepare(params):
+def prepare(job, slices):
 	d = datasets.source
 	caption = options.caption % dict(caption=d.caption, hashlabel=options.hashlabel)
 	chain = d.chain(stop_ds={datasets.previous: 'source'}, length=options.length)
@@ -48,12 +47,12 @@ def prepare(params):
 		filename = None
 	dws = []
 	previous = datasets.previous
-	for sliceno in range(params.slices):
-		if options.as_chain and sliceno == params.slices - 1:
+	for sliceno in range(slices):
+		if options.as_chain and sliceno == slices - 1:
 			name = "default"
 		else:
 			name = str(sliceno)
-		dw = DatasetWriter(
+		dw = job.datasetwriter(
 			caption="%s (slice %d)" % (caption, sliceno),
 			hashlabel=options.hashlabel,
 			filename=filename,
@@ -61,7 +60,7 @@ def prepare(params):
 			name=name,
 			for_single_slice=sliceno,
 		)
-		previous = (params.jobid, name)
+		previous = dw
 		dws.append(dw)
 	names = []
 	cols = {}
@@ -86,12 +85,12 @@ def analysis(sliceno, prepare_res):
 	for values in it:
 		write(values)
 
-def synthesis(prepare_res, params):
+def synthesis(prepare_res, job, slices):
 	if not options.as_chain:
 		# If we don't want a chain we abuse our knowledge of dataset internals
 		# to avoid recompressing. Don't do this stuff yourself.
 		dws, names, caption, filename, cols = prepare_res
-		merged_dw = DatasetWriter(
+		merged_dw = job.datasetwriter(
 			caption=caption,
 			hashlabel=options.hashlabel,
 			filename=filename,
@@ -99,7 +98,7 @@ def synthesis(prepare_res, params):
 			meta_only=True,
 			columns=cols,
 		)
-		for sliceno in range(params.slices):
+		for sliceno in range(slices):
 			merged_dw.set_lines(sliceno, sum(dw._lens[sliceno] for dw in dws))
 			for dwno, dw in enumerate(dws):
 				merged_dw.set_minmax((sliceno, dwno), dw._minmax[sliceno])
