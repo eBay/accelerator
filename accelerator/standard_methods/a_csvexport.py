@@ -28,11 +28,9 @@ from contextlib import contextmanager
 from json import JSONEncoder
 
 from accelerator.compat import PY3, PY2, izip, imap
-
-from accelerator.extras import OptionString, job_params
-from accelerator.statmsg import status
-
 from accelerator.gzutil import GzWriteUnicodeLines, GzWriteBytesLines
+from accelerator import OptionString, status
+
 
 options = dict(
 	filename          = OptionString, # .csv or .gz
@@ -83,7 +81,7 @@ def csvexport(sliceno, filename, labelsonfirstline):
 		options.labels = sorted(d.columns)
 	if options.chain_source:
 		if jobs.previous:
-			prev_source = job_params(jobs.previous).datasets.source
+			prev_source = jobs.previous.params.datasets.source
 			assert len(datasets.source) == len(prev_source)
 		else:
 			prev_source = [None] * len(datasets.source)
