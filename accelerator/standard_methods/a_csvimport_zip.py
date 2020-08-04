@@ -68,9 +68,7 @@ import re
 from accelerator.compat import uni
 
 from . import a_csvimport
-from accelerator.extras import DotDict, OptionEnum
-from accelerator import subjobs
-from accelerator.dataset import Dataset
+from accelerator import DotDict, OptionEnum, build
 
 depend_extra = (a_csvimport,)
 
@@ -147,9 +145,9 @@ def synthesis(prepare_res):
 	for fn, info, dsn in lst:
 		opts.filename = fn
 		show_fn = '%s:%s' % (options.filename, info.filename,)
-		jid = subjobs.build('csvimport', options=opts, datasets=dict(previous=previous), caption='Import of ' + show_fn)
-		previous = Dataset(jid).link_to_here(dsn, filename=show_fn)
+		ds = build('csvimport', options=opts, previous=previous, caption='Import of ' + show_fn).dataset()
+		previous = ds.link_to_here(dsn, filename=show_fn)
 		if options.chaining == 'off':
 			previous = None
 	if (len(lst) == 1 or options.chaining != 'off') and dsn != 'default':
-		Dataset(jid).link_to_here('default', filename=show_fn)
+		ds.link_to_here('default', filename=show_fn)
