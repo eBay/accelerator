@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2018-2019 Carl Drougge                       #
+# Modifications copyright (c) 2018-2020 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -31,9 +31,7 @@ options.chain_length defaults to -1.
 Sort does not sort across datasets.
 '''
 
-from accelerator.subjobs import build
-from accelerator.extras import DotDict
-from accelerator import blob
+from accelerator import DotDict, build
 
 options = dict(
 	chain_length = -1,
@@ -47,8 +45,7 @@ def synthesis():
 	sum = 0
 	jobs = datasets.source.chain(length=options.chain_length, stop_ds=datasets.stop)
 	for src in jobs:
-		jid = build('dataset_checksum', options=dict(columns=options.columns, sort=options.sort), datasets=dict(source=src))
-		data = blob.load(jobid=jid)
+		data = build('dataset_checksum', columns=options.columns, sort=options.sort, source=src).load()
 		sum ^= data.sum
 	print("Total: %016x" % (sum,))
 	return DotDict(sum=sum, columns=data.columns, sort=options.sort, sources=jobs)
