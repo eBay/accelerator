@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2019 Carl Drougge                            #
+# Modifications copyright (c) 2019-2020 Carl Drougge                       #
 # Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -21,7 +21,7 @@
 from accelerator import g
 from accelerator.build import Automata, JobList
 from accelerator.error import ServerError, JobError
-from accelerator.status import status
+from accelerator.statmsg import status
 from accelerator.compat import getarglist
 
 _a = None

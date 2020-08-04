@@ -30,7 +30,7 @@ import errno
 
 from accelerator.workarounds import nonblocking
 from accelerator.compat import setproctitle
-from accelerator import status
+from accelerator import statmsg
 
 
 def main():
@@ -143,7 +143,7 @@ def reader(fd2pid, names, masters, slaves, process_name, basedir, is_main):
 					output_happened = True
 					if not is_main:
 						outputs[fd] = (outputs[fd] + data[-MAX_OUTPUT:])[-MAX_OUTPUT:]
-						status._output(fd2pid[fd], outputs[fd].decode('utf-8', 'replace'))
+						statmsg._output(fd2pid[fd], outputs[fd].decode('utf-8', 'replace'))
 				else:
 					if fd in fd2fd:
 						os.close(fd2fd[fd])
@@ -158,9 +158,9 @@ def reader(fd2pid, names, masters, slaves, process_name, basedir, is_main):
 								status_blacklist.remove(pid)
 								# but clear the output if needed.
 								if outputs[fd]:
-									status._clear_output(pid)
+									statmsg._clear_output(pid)
 							else:
-								status._end(pid=pid)
+								statmsg._end(pid=pid)
 						except Exception:
 							# Failure can happen here if the method exits
 							# before analysis (fd2pid not fully populated).

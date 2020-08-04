@@ -39,7 +39,7 @@ from accelerator.compat import getarglist
 from accelerator import setupfile
 from accelerator.extras import json_encode, DotDict, _ListTypePreserver
 from accelerator.job import Job
-from accelerator.status import print_status_stacks
+from accelerator.statmsg import print_status_stacks
 from accelerator.error import JobError, ServerError, UrdPermissionError
 from accelerator import g
 from accelerator.unixhttp import call

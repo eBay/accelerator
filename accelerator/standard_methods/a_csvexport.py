@@ -30,7 +30,7 @@ from json import JSONEncoder
 from accelerator.compat import PY3, PY2, izip, imap
 
 from accelerator.extras import OptionString, job_params
-from accelerator.status import status
+from accelerator.statmsg import status
 
 from accelerator.gzutil import GzWriteUnicodeLines, GzWriteBytesLines
 

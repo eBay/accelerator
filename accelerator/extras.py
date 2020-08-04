@@ -32,7 +32,7 @@ from accelerator.compat import PY2, PY3, pickle, izip, iteritems, first_value
 from accelerator.compat import num_types, uni, unicode, str_types
 
 from accelerator.job import Job, JobWithFile
-from accelerator.status import status
+from accelerator.statmsg import status
 
 def _fn(filename, jobid, sliceno):
 	if filename.startswith('/'):

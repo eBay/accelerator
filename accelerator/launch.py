@@ -37,7 +37,7 @@ from accelerator.extras import job_params, ResultIterMagic
 from accelerator.build import JobError
 from accelerator import g
 from accelerator import blob
-from accelerator import status
+from accelerator import statmsg
 from accelerator import dataset
 from accelerator import iowrapper
 
@@ -74,7 +74,7 @@ def call_analysis(analysis_func, sliceno_, q, preserve_result, parent_pid, outpu
 		for fd in output_fds:
 			os.close(fd)
 		slicename = 'analysis(%d)' % (sliceno_,)
-		status._start(slicename, parent_pid, 't')
+		statmsg._start(slicename, parent_pid, 't')
 		setproctitle(slicename)
 		os.close(_prof_fd)
 		kw['sliceno'] = g.sliceno = sliceno_
@@ -237,7 +237,7 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 
 	g.server_url       = server_url
 	g.running          = 'launch'
-	status._start('%s %s' % (jobid, params.method,), parent_pid)
+	statmsg._start('%s %s' % (jobid, params.method,), parent_pid)
 
 	def dummy():
 		pass
@@ -280,11 +280,11 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 		g.running = 'prepare'
 		g.subjob_cookie = subjob_cookie
 		setproctitle(g.running)
-		with status.status(g.running):
+		with statmsg.status(g.running):
 			g.prepare_res = method_ref.prepare(**args_for(method_ref.prepare))
 			to_finish = [dw.name for dw in dataset._datasetwriters.values() if dw._started]
 			if to_finish:
-				with status.status("Finishing datasets"):
+				with statmsg.status("Finishing datasets"):
 					for name in sorted(to_finish, key=dw_sortnum):
 						dataset._datasetwriters[name].finish()
 		c_fflush()
@@ -299,7 +299,7 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 		t = time()
 		g.running = 'analysis'
 		g.subjob_cookie = None # subjobs are not allowed from analysis
-		with status.status('Waiting for all slices to finish analysis') as update:
+		with statmsg.status('Waiting for all slices to finish analysis') as update:
 			g.update_top_status = update
 			prof['per_slice'], files, g.analysis_res = fork_analysis(slices, analysis_func, args_for(analysis_func), synthesis_needs_analysis, slaves)
 			del g.update_top_status
@@ -309,12 +309,12 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 	g.running = 'synthesis'
 	g.subjob_cookie = subjob_cookie
 	setproctitle(g.running)
-	with status.status(g.running):
+	with statmsg.status(g.running):
 		synthesis_res = synthesis_func(**args_for(synthesis_func))
 		if synthesis_res is not None:
 			blob.save(synthesis_res, temp=False)
 		if dataset._datasetwriters:
-			with status.status("Finishing datasets"):
+			with statmsg.status("Finishing datasets"):
 				for name in sorted(dataset._datasetwriters, key=dw_sortnum):
 					dataset._datasetwriters[name].finish()
 	if dataset._datasets_written:

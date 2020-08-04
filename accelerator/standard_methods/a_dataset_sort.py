@@ -44,7 +44,7 @@ from accelerator.compat import izip
 
 from accelerator.extras import OptionEnum, OptionString
 from accelerator.dataset import Dataset, DatasetWriter
-from accelerator.status import status
+from accelerator.statmsg import status
 
 OrderEnum = OptionEnum('ascending descending')
 

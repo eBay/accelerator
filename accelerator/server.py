@@ -43,7 +43,7 @@ from accelerator import autoflush
 from accelerator import control
 from accelerator.extras import json_encode, json_decode, DotDict
 from accelerator.build import JobError
-from accelerator.status import statmsg_sink, children, print_status_stacks, status_stacks_export
+from accelerator.statmsg import statmsg_sink, children, print_status_stacks, status_stacks_export
 from accelerator import iowrapper
 
 

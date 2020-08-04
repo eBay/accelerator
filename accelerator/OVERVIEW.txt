@@ -116,7 +116,7 @@ Other
 		support functions for automatarunner/subjobs
 	extras.py
 		dumping ground for a lot of useful utility functions
-	status.py
+	statmsg.py
 		sending and recieving of status-tree messages (the ^T stuff)
 	subjobs.py
 		running jobs from within other jobs

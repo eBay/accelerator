@@ -662,7 +662,7 @@ class Dataset(unicode):
 		if not status_reporting:
 			yield lambda *_: None
 			return
-		from accelerator.status import status
+		from accelerator.statmsg import status
 		def fmt_dsname(d, sliceno, rehash):
 			if rehash:
 				return d + ':REHASH'
