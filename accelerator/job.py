@@ -102,6 +102,8 @@ class Job(unicode):
 
 	def open(self, filename, mode='r', sliceno=None, encoding=None, errors=None):
 		assert 'r' in mode, "Don't write to other jobs"
+		if 'b' not in mode and encoding is None:
+			encoding = 'utf-8'
 		return open(self.filename(filename, sliceno), mode, encoding=encoding, errors=errors)
 
 	def files(self, pattern='*'):
@@ -229,6 +231,8 @@ class CurrentJob(Job):
 		"""
 		if 'r' in mode:
 			return Job.open(self, filename, mode, sliceno, encoding, errors)
+		if 'b' not in mode and encoding is None:
+			encoding = 'utf-8'
 		if PY3 and 'x' not in mode:
 			mode = mode.replace('w', 'x')
 		def _open(fn, _mode):
