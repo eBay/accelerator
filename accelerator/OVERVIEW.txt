@@ -116,6 +116,8 @@ Other
 		support functions for automatarunner/subjobs
 	extras.py
 		dumping ground for a lot of useful utility functions
+	job.py
+		Job, CurrentJob, JobWithFile
 	statmsg.py
 		sending and recieving of status-tree messages (the ^T stuff)
 	subjobs.py
@@ -130,14 +132,12 @@ Not so interesting files
 		py2/py3 compat
 	configfile.py
 	dscmdhelper.py
+	error.py
 	g.py
 	gzwrite.py
 	init.py
-	jobid.py
-	report.py
 	safe_pool.py
 	setupfile.py
-	status_messaging.py
 	unixhttp.py
 	web.py
 	workarounds.py
