@@ -26,7 +26,7 @@ import signal
 import sys
 from collections import defaultdict
 from importlib import import_module
-from traceback import print_exc, format_tb, format_exception_only
+from traceback import format_tb, format_exception_only
 from time import time, sleep
 import json
 import ctypes
@@ -125,8 +125,9 @@ def call_analysis(analysis_func, sliceno_, q, preserve_result, parent_pid, outpu
 		q.put((sliceno_, time(), saved_files, dw_lens, dw_minmax, None,))
 	except:
 		c_fflush()
-		q.put((sliceno_, time(), {}, {}, {}, fmt_tb(1),))
-		print_exc()
+		msg = fmt_tb(1)
+		print(msg)
+		q.put((sliceno_, time(), {}, {}, {}, msg,))
 		sleep(5) # give launcher time to report error (and kill us)
 		exitfunction()
 
@@ -204,6 +205,13 @@ def fmt_tb(skip_level):
 		tb = tb[:-5] # the five innermost are in build.py and of no interest.
 	msg.append("Traceback (most recent call last):\n")
 	msg.extend(tb)
+	from accelerator.statmsg import _exc_status
+	if len(_exc_status[1]) > 1:
+		msg.append("Status when the exception occurred:\n")
+		for ix, txt in enumerate(_exc_status[1], 1):
+			msg.append("  " * ix)
+			msg.append(txt)
+			msg.append("\n")
 	msg.extend(format_exception_only(e_type, e))
 	return ''.join(msg)
 
@@ -337,8 +345,9 @@ def run(workdir, jobid, slices, result_directory, common_directory, input_direct
 		data = execute_process(workdir, jobid, slices, result_directory, common_directory, input_directory, index=index, workdirs=workdirs, server_url=server_url, subjob_cookie=subjob_cookie, parent_pid=parent_pid)
 		g_allesgut = True
 	except Exception:
-		print_exc()
-		data = [{g.running: fmt_tb(2)}, None]
+		msg = fmt_tb(2)
+		print(msg)
+		data = [{g.running: msg}, None]
 	writeall(prof_fd, json.dumps(data).encode('utf-8'))
 
 

@@ -37,6 +37,7 @@ from __future__ import print_function
 from __future__ import division
 
 from contextlib import contextmanager
+from functools import partial
 from time import time, sleep
 from traceback import print_exc
 from threading import Lock
@@ -71,6 +72,9 @@ children = Children()
 
 _cookie = 0
 
+_local_status = []
+_exc_status = (None, ())
+
 @contextmanager
 def status(msg):
 	if g.running in ('server', 'build',):
@@ -83,14 +87,23 @@ def status(msg):
 	typ = 'push'
 	# capture the PID here, because update might be called in a different process
 	pid = os.getpid()
+	update_local = _local_status.append
 	def update(msg):
 		assert msg and isinstance(msg, str_types) and '\0' not in msg
+		update_local(msg)
 		_send(typ, '\0'.join((msg, t, cookie)), pid=pid)
 	update(msg)
+	update_local = partial(_local_status.__setitem__, len(_local_status) - 1)
 	typ = 'update'
 	try:
 		yield update
+	except Exception as e:
+		global _exc_status
+		if _exc_status[0] != e:
+			_exc_status = (e, list(_local_status))
+		raise
 	finally:
+		_local_status.pop()
 		_send('pop', cookie)
 
 # Same interface as status, but without the actual reporting
