@@ -3,6 +3,9 @@
 <body>
 	<a href="/">main</a>
 	<h1>{{ job }}</h1>
+	% if aborted:
+		<div class="warning">WARNING: Job didn't finish, information may be incomplete.</div>
+	% end
 	<h2>setup</h2>
 	<div class="box">
 		<a href="/method/{{ params.method }}">{{ params.package }}.{{ params.method }}</a><br>
@@ -14,10 +17,12 @@
 			% }
 			<table>
 				<tr><td>starttime</td><td>=</td><td>{{ datetime.fromtimestamp(params['starttime']) }}</td></tr>
-				<tr><td>endtime</td><td>=</td><td>{{ datetime.fromtimestamp(params['endtime']) }}</td></tr>
-				% exectime = params['exectime']
-				% for k in sorted(exectime):
-					<tr><td>exectime.{{ k }}</td><td>=</td><td>{{ repr(exectime[k]) }}</td></tr>
+				% if not aborted:
+					<tr><td>endtime</td><td>=</td><td>{{ datetime.fromtimestamp(params['endtime']) }}</td></tr>
+					% exectime = params['exectime']
+					% for k in sorted(exectime):
+						<tr><td>exectime.{{ k }}</td><td>=</td><td>{{ repr(exectime[k]) }}</td></tr>
+					% end
 				% end
 				% for k in sorted(set(params) - blacklist):
 					<tr><td>{{ k }}</td><td>=</td><td>{{ repr(params[k]) }}</td></tr>

@@ -7,6 +7,7 @@
 			--bg0: #fffef7;
 			--bg1: #f9fff6;
 			--bg2: #fff8f3;
+			--bgwarn: #fd7;
 			--not-loaded: #dcb;
 			--bg0dark: #f8f4f1;
 			--bg-click: #fbb;
@@ -26,6 +27,7 @@
 				--bg0: #302a12;
 				--bg1: #032;
 				--bg2: #301;
+				--bgwarn: #c71;
 				--not-loaded: #654;
 				--bg0dark: #113;
 				--bg-click: #854;
@@ -82,6 +84,11 @@
 		}
 		.error {
 			background: red;
+		}
+		.warning {
+			background: var(--bgwarn);
+			font-weight: bold;
+			padding: 3px;
 		}
 
 		#header {

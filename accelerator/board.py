@@ -122,14 +122,21 @@ def main(argv, cfg):
 	def job(jobid):
 		job = get_job(jobid)
 		try:
+			post = job.post
+		except IOError as e:
+			post = None
+		if post:
+			aborted = False
 			prefix = job.path + '/'
 			files = [fn[len(prefix):] for fn in job.files() if fn.startswith(prefix)]
-		except OSError:
-			# This happens for jobs that didn't finish.
-			files = []
-		subjobs = [Job(jobid) for jobid in job.post.subjobs]
+			subjobs = [Job(jobid) for jobid in post.subjobs]
+		else:
+			aborted = True
+			files = None
+			subjobs = None
 		return dict(
 			job=job,
+			aborted=aborted,
 			output=os.path.exists(job.filename('OUTPUT')),
 			datasets=job.datasets,
 			params=job.params,
