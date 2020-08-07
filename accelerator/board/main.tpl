@@ -9,6 +9,9 @@
 				</tr>
 			% end
 		</table>
+		<div id="methods">
+			<a target="_blank" href="/methods">methods</a>
+		</div>
 		<div id="status">
 			<a target="_blank" href="/status">status</a>: <span></span>
 		</div>

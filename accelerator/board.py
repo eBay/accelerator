@@ -21,6 +21,7 @@ import json
 import os
 import tarfile
 import itertools
+import collections
 import operator
 import time
 
@@ -169,6 +170,24 @@ def main(argv, cfg):
 					pass
 		jobs.sort(key=operator.attrgetter('number'))
 		return dict(name=name, jobs=jobs)
+
+	@bottle.get('/methods')
+	@bottle.view('methods')
+	def methods():
+		methods = call(cfg.url + '/methods')
+		by_package = collections.defaultdict(list)
+		for name, data in sorted(methods.items()):
+			by_package[data.package].append(name)
+		by_package.pop('accelerator.test_methods', None)
+		return dict(methods=methods, by_package=by_package)
+
+	@bottle.get('/method/<name>')
+	@bottle.view('method')
+	def method(name):
+		methods = call(cfg.url + '/methods')
+		if name not in methods:
+			return bottle.HTTPError(404, 'Method %s not found' % (name,))
+		return dict(name=name, data=methods[name], cfg=cfg)
 
 	bottle.TEMPLATE_PATH = [os.path.join(os.path.dirname(__file__), 'board')]
 	bottle.run(port=port, reloader=True)

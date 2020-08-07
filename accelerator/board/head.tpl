@@ -104,6 +104,12 @@
 			float: right;
 			margin-bottom: 1em;
 		}
+		#methods {
+			border-top: 2px solid var(--border1);
+			display: table;
+			margin: 0 1em 0 auto;
+			padding: 3px 0 5px 0;
+		}
 		#workdirs {
 			margin-left: auto;
 			margin-right: 0;
@@ -190,6 +196,24 @@
 		}
 		td.not-loaded {
 			background: var(--not-loaded);
+		}
+
+		.method-table {
+			border-collapse: collapse;
+			border-top: 1px solid var(--border1);
+		}
+		.method-table tbody td {
+			vertical-align: top;
+			padding: 3px 0.3em;
+		}
+		.method-table tbody td:last-child {
+			width: 100%;
+		}
+		.method-table tbody tr:nth-child(odd) {
+			background: var(--bg0dark);
+		}
+		.method-table tbody tr {
+			border-bottom: 1px solid var(--border1);
 		}
 
 		#status-stacks td {

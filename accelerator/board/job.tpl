@@ -5,7 +5,7 @@
 	<h1>{{ job }}</h1>
 	<h2>setup</h2>
 	<div class="box">
-		{{ params.package }}.{{ params.method }}<br>
+		<a href="/method/{{ params.method }}">{{ params.package }}.{{ params.method }}</a><br>
 		<a href="/job/{{ job }}/method.tar.gz/">Source</a>
 		<div class="box" id="other-params">
 			% blacklist = {
