@@ -69,7 +69,7 @@ def path_prefix(paths):
 
 def load_methods(all_packages, data):
 	from accelerator.compat import str_types, iteritems
-	from accelerator.extras import DotDict
+	from accelerator.extras import DotDict, OptionEnum, OptionEnumValue
 	res_warnings = []
 	res_failed = []
 	res_hashes = {}
@@ -177,6 +177,14 @@ def load_methods(all_packages, data):
 			def fmtopt(v):
 				if isinstance(v, type):
 					return v.__name__
+				elif isinstance(v, dict):
+					return '{%s}' % (', '.join('%s: %s' % (fmtopt(k), fmtopt(v)) for k, v in v.items()),)
+				elif isinstance(v, list):
+					return '[%s]' % (', '.join(fmtopt(v) for v in v),)
+				elif isinstance(v, OptionEnum):
+					return '{%s}' % (', '.join(sorted(map(str, v._valid))),)
+				elif isinstance(v, OptionEnumValue):
+					return '%r {%s}' % (v, ', '.join(sorted(map(str, v._valid))),)
 				else:
 					return repr(v)
 			for name, default in (('options', {},), ('datasets', (),), ('jobs', (),),):
