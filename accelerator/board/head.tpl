@@ -105,7 +105,9 @@
 			background: var(--bg1);
 			border: 2px solid var(--border1);
 			padding: 2px 0.5em;
-			margin-right: 1em;
+			float: left;
+			clear: left;
+			min-width: 60%;
 		}
 		#bonus-info {
 			float: right;

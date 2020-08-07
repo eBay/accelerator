@@ -12,11 +12,11 @@
 		<div id="methods">
 			<a target="_blank" href="/methods">methods</a>
 		</div>
-		<div id="status">
-			<a target="_blank" href="/status">status</a>: <span></span>
-		</div>
 	</div>
 	<h1 id="header">ax board: {{ project }}</h1>
+	<div id="status">
+		<a target="_blank" href="/status">status</a>: <span></span>
+	</div>
 	<div id="waiting"><div class="spinner"></div></div>
 <script language="javascript">
 (function () {
