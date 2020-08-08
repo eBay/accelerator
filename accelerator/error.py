@@ -1,6 +1,6 @@
 ############################################################################
 #                                                                          #
-# Copyright (c) 2019 Carl Drougge                                          #
+# Copyright (c) 2019-2020 Carl Drougge                                     #
 # Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -77,5 +77,5 @@ class JobError(AcceleratorError):
 		res = ["%s (%s):" % (self.jobid, self.method,)]
 		for component, msg in self.status.items():
 			res.append("  %s:" % (component,))
-			res.append("   %s" % (msg.replace("\n", "\n    "),))
+			res.append("    %s" % (msg.replace("\n", "\n    "),))
 		return "\n".join(res)
