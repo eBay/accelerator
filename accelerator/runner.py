@@ -70,6 +70,7 @@ def path_prefix(paths):
 def load_methods(all_packages, data):
 	from accelerator.compat import str_types, iteritems
 	from accelerator.extras import DotDict, OptionEnum, OptionEnumValue
+	from accelerator.extras import RequiredOption
 	res_warnings = []
 	res_failed = []
 	res_hashes = {}
@@ -185,6 +186,8 @@ def load_methods(all_packages, data):
 					return '{%s}' % (', '.join(sorted(map(str, v._valid))),)
 				elif isinstance(v, OptionEnumValue):
 					return '%r {%s}' % (v, ', '.join(sorted(map(str, v._valid))),)
+				elif isinstance(v, RequiredOption):
+					return 'RequiredOption(%s%s)' % (fmtopt(v.value), ', none_ok=True' if v.none_ok else '',)
 				else:
 					return repr(v)
 			for name, default in (('options', {},), ('datasets', (),), ('jobs', (),),):
