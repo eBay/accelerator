@@ -466,20 +466,19 @@ class OptionEnum(object):
 	def __reduce__(self):
 		return OptionEnum, (self._values, None in self._valid)
 
-def _OptionStringUnpickle():
-	return OptionString
-_OptionStringUnpickle.__safe_for_unpickling__ = True
-class OptionString(str):
+class _OptionString(str):
 	"""Marker value to specify in options{} for requiring a non-empty string.
 	You can use plain OptionString, or you can use OptionString('example'),
 	without making 'example' the default.
 	"""
 	def __call__(self, example):
-		return self
-	# Be the same object after unpickling
-	def __reduce__(self):
-		return _OptionStringUnpickle, ()
-OptionString = OptionString('<OptionString>')
+		return _OptionString(example)
+	def __repr__(self):
+		if self:
+			return 'OptionString(%r)' % (str(self),)
+		else:
+			return 'OptionString'
+OptionString = _OptionString('')
 
 class RequiredOption(object):
 	"""Specify that this option is mandatory (that the caller must specify a value).

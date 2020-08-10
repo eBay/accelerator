@@ -30,7 +30,7 @@ from importlib import import_module
 from accelerator.compat import iteritems, itervalues, first_value
 from accelerator.compat import NoneType, unicode, long
 
-from accelerator.extras import DotDict, OptionString, OptionEnum, OptionDefault, RequiredOption
+from accelerator.extras import DotDict, _OptionString, OptionEnum, OptionDefault, RequiredOption
 from accelerator.runner import new_runners
 from accelerator.setupfile import _sorted_set
 
@@ -210,7 +210,7 @@ def params2defaults(params):
 def options2required(options):
 	res = set()
 	def chk(key, value):
-		if value is OptionString or isinstance(value, RequiredOption):
+		if isinstance(value, (_OptionString, RequiredOption)):
 			res.add(key)
 		elif isinstance(value, OptionEnum):
 			if None not in value._valid:

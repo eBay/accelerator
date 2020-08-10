@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2019 Carl Drougge                            #
+# Modifications copyright (c) 2019-2020 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -25,7 +25,7 @@ from datetime import datetime, date, time, timedelta
 
 from accelerator.compat import iteritems, itervalues, first_value, str_types, int_types, num_types, unicode
 
-from accelerator.extras import OptionEnum, OptionEnumValue, OptionString, OptionDefault, RequiredOption, typing_conv
+from accelerator.extras import OptionEnum, OptionEnumValue, _OptionString, OptionDefault, RequiredOption, typing_conv
 from accelerator.job import JobWithFile
 
 class OptionException(Exception):
@@ -130,7 +130,7 @@ class DepTree:
 						raise OptionException('Option %s on method %s requires a non-None value (%r)' % (k, method, default_v.value,))
 					default_v = default_v.value
 				if default_v is None or v is None:
-					if default_v is OptionString:
+					if isinstance(default_v, _OptionString):
 						raise OptionException('Option %s on method %s requires a non-empty string value' % (k, method,))
 					if hasattr(default_v, '_valid') and v not in default_v._valid:
 						raise OptionException('Option %s on method %s requires a value in %s' % (k, method, default_v._valid,))
@@ -167,7 +167,7 @@ class DepTree:
 							raise OptionException('%r not a permitted value for option %s on method %s (%s)' % (v, k, method, default_v._valid))
 					return v or None
 				if isinstance(default_v, str_types + num_types) and isinstance(v, str_types + num_types):
-					if default_v is OptionString:
+					if isinstance(default_v, _OptionString):
 						v = str(v)
 						if not v:
 							raise OptionException('Option %s on method %s requires a non-empty string value' % (k, method,))
