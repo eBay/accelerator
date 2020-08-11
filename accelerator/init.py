@@ -38,7 +38,7 @@ def synthesis(analysis_res):
 
 
 build_script = r"""def main(urd):
-	urd.build('example', options=dict(message='Hello world!'))
+	urd.build('example', message='Hello world!')
 """
 
 
