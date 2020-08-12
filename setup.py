@@ -27,6 +27,7 @@ from datetime import datetime
 from subprocess import check_output, check_call, CalledProcessError
 from io import open
 import re
+import sys
 
 def dirty():
 	for extra in ([], ['--cached'],):
@@ -70,30 +71,41 @@ else:
 			commit = check_output(['git', 'rev-parse', 'HEAD']).strip()[:10].decode('ascii')
 			version = "%s.dev1+%s%s" % (version, commit, dirty(),)
 
-gzutilmodule = Extension(
-	"accelerator.gzutil",
-	sources=["gzutil/siphash24.c", "gzutil/gzutilmodule.c"],
-	libraries=["z"],
-	extra_compile_args=['-std=c99', '-O3'],
-)
+def mk_file(fn, contents):
+	if exists(fn):
+		with open(fn, 'rb') as fh:
+			old_contents = fh.read().decode('utf-8')
+	else:
+		old_contents = None
+	if contents != old_contents:
+		with open(fn, 'wb') as fh:
+			fh.write(contents.encode('utf-8'))
+	return fn
+
+def mk_ext(name, *sources):
+	if sys.version_info[0] == 2:
+		init_prefix = 'init'
+	else:
+		init_prefix = 'PyInit_'
+	version_script = mk_file('version.' + name, '''{
+		global: %s%s;
+		local: *;
+	}; ''' % (init_prefix, name.split('.')[-1],))
+	return Extension(
+		name,
+		sources=list(sources),
+		libraries=['z'],
+		extra_compile_args=['-std=c99', '-O3'],
+		extra_link_args=['-Wl,--version-script=' + version_script],
+		depends=[version_script],
+	)
+
+gzutilmodule = mk_ext('accelerator.gzutil', 'gzutil/siphash24.c', 'gzutil/gzutilmodule.c')
 
 def method_mod(name):
 	code = import_module('accelerator.standard_methods.' + name).c_module_code
 	fn = 'accelerator/standard_methods/_generated_' + name + '.c'
-	if exists(fn):
-		with open(fn, 'r') as fh:
-			old_code = fh.read()
-	else:
-		old_code = None
-	if code != old_code:
-		with open(fn, 'w') as fh:
-			fh.write(code)
-	return Extension(
-		'accelerator.standard_methods._' + name,
-		sources=[fn],
-		libraries=['z'],
-		extra_compile_args=['-std=c99', '-O3'],
-	)
+	return mk_ext('accelerator.standard_methods._' + name, mk_file(fn, code))
 
 dataset_typemodule = method_mod('dataset_type')
 csvimportmodule = method_mod('csvimport')
