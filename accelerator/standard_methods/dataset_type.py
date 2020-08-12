@@ -1187,7 +1187,7 @@ err:
 }
 '''
 
-proto_template = 'int convert_column_%s(const char **in_fns, int in_count, const char **out_fns, const char *gzip_mode, const char *minmax_fn, const char *default_value, uint32_t default_len, int default_value_is_None, const char *fmt, const char *fmt_b, int record_bad, int skip_bad, int badmap_fd, size_t badmap_size, int slices, int slicemap_fd, size_t slicemap_size, uint64_t *bad_count, uint64_t *default_count, off_t *offsets, int64_t *max_counts)'
+proto_template = 'static int convert_column_%s(const char **in_fns, int in_count, const char **out_fns, const char *gzip_mode, const char *minmax_fn, const char *default_value, uint32_t default_len, int default_value_is_None, const char *fmt, const char *fmt_b, int record_bad, int skip_bad, int badmap_fd, size_t badmap_size, int slices, int slicemap_fd, size_t slicemap_size, uint64_t *bad_count, uint64_t *default_count, off_t *offsets, int64_t *max_counts)'
 
 protos = []
 funcs = [noneval_data]
@@ -1559,7 +1559,7 @@ static int g_cleanup(g *g)
 	return 0;
 }
 
-int numeric_comma(const char *localename)
+static int numeric_comma(const char *localename)
 {
 	decimal_separator = ',';
 	if (setlocale(LC_NUMERIC, localename)) {
@@ -1691,7 +1691,7 @@ static inline int read_fixed(g *g, unsigned char *res, int z)
 	return 0;
 }
 
-void init(void)
+static void init(void)
 {
 	PyGILState_STATE gstate = PyGILState_Ensure();
 	PyDateTime_IMPORT;
@@ -1854,7 +1854,7 @@ c_module_code, c_module_hash = c_backend_support.make_source('dataset_type', all
 def init():
 	_test()
 	extra_protos = [
-		'int numeric_comma(const char *localename);',
-		'void init(void);',
+		'static int numeric_comma(const char *localename);',
+		'static void init(void);',
 	]
 	return c_backend_support.init('dataset_type', c_module_hash, protos, extra_protos, all_c_functions)

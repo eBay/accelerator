@@ -1,6 +1,6 @@
 ############################################################################
 #                                                                          #
-# Copyright (c) 2019 Carl Drougge                                          #
+# Copyright (c) 2019-2020 Carl Drougge                                     #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -108,7 +108,7 @@ def make_source(name, functions, protos, extra_functions, extra_method_defs, wra
 	code.append(extra_functions)
 	method_defs = []
 	for p in protos:
-		funcname = p[4:].split('(')[0]
+		funcname = p[11:].split('(')[0]
 		code.append(wrapper_template % (funcname, funcname,))
 		method_defs.append(_method_def_template % (funcname, funcname,))
 	method_defs.extend(extra_method_defs)
