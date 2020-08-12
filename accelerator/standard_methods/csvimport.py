@@ -1,6 +1,6 @@
 ############################################################################
 #                                                                          #
-# Copyright (c) 2019 Carl Drougge                                          #
+# Copyright (c) 2019-2020 Carl Drougge                                     #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -161,7 +161,7 @@ err:
 // smallest int32
 #define LABELS_DONE_MARKER -2147483648
 
-int reader(const char *fn, const int slices, uint64_t skip_lines, const int outfds[], int labels_fd, int status_fd, const int comment_char, const int lf_char)
+static int reader(const char *fn, const int slices, uint64_t skip_lines, const int outfds[], int labels_fd, int status_fd, const int comment_char, const int lf_char)
 {
 	int res = 1;
 	int sliceno = 0;
@@ -341,7 +341,7 @@ static inline int bufread(const int fd, readbuf *buf, const uint32_t len, int *r
 	return 0;
 }
 
-int import_slice(const int fd, const int sliceno, const int slices, int field_count, const char *out_fns[], const char *gzip_mode, const int separator, uint64_t *r_num, const int quote_char, const int lf_char, const int allow_bad)
+static int import_slice(const int fd, const int sliceno, const int slices, int field_count, const char *out_fns[], const char *gzip_mode, const int separator, uint64_t *r_num, const int quote_char, const int lf_char, const int allow_bad)
 {
 	int res = 1;
 	uint64_t num = 0;
@@ -527,7 +527,7 @@ bad_line:
 }
 
 // This is easier than using a type of known signedness above.
-int char2int(const char c)
+static int char2int(const char c)
 {
 	return c;
 }
@@ -654,8 +654,8 @@ c_module_code, c_module_hash = c_backend_support.make_source('csvimport', all_c_
 
 def init():
 	protos = [
-		'int reader(const char *fn, const int slices, uint64_t skip_lines, const int outfds[], int labels_fd, int status_fd, const int comment_char, const int lf_char);',
-		'int import_slice(const int fd, const int sliceno, const int slices, const int field_count, const char *out_fns[], const char *gzip_mode, const int separator, uint64_t *r_num, const int quote_char, const int lf_char, const int allow_bad);',
-		'int char2int(const char c);',
+		'static int reader(const char *fn, const int slices, uint64_t skip_lines, const int outfds[], int labels_fd, int status_fd, const int comment_char, const int lf_char);',
+		'static int import_slice(const int fd, const int sliceno, const int slices, const int field_count, const char *out_fns[], const char *gzip_mode, const int separator, uint64_t *r_num, const int quote_char, const int lf_char, const int allow_bad);',
+		'static int char2int(const char c);',
 	]
 	return c_backend_support.init('csvimport', c_module_hash, [], protos, all_c_functions)
