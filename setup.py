@@ -91,13 +91,18 @@ def mk_ext(name, *sources):
 		global: %s%s;
 		local: *;
 	}; ''' % (init_prefix, name.split('.')[-1],))
+	zlib = os.environ.get('ACCELERATOR_BUILD_STATIC_ZLIB')
+	if zlib:
+		kw = dict(extra_objects=[zlib])
+	else:
+		kw = dict(libraries=['z'])
 	return Extension(
 		name,
 		sources=list(sources),
-		libraries=['z'],
 		extra_compile_args=['-std=c99', '-O3'],
 		extra_link_args=['-Wl,--version-script=' + version_script],
 		depends=[version_script],
+		**kw
 	)
 
 gzutilmodule = mk_ext('accelerator.gzutil', 'gzutil/siphash24.c', 'gzutil/gzutilmodule.c')
