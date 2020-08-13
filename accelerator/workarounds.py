@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2019 Carl Drougge                            #
+# Modifications copyright (c) 2019-2020 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -54,7 +54,13 @@ class SignalWrapper(object):
 				all_sigs = False
 		if all_sigs and skip_input_if_possible:
 			return
-		self.tc_original = termios.tcgetattr(0)
+		try:
+			self.tc_original = termios.tcgetattr(0)
+		except Exception:
+			# If this fails we can't use terminal input.
+			# Probably because we don't have a terminal, but the
+			# reason doesn't really matter, ignore it regardless.
+			return
 		tc_changed = list(self.tc_original)
 		tc_changed[3] &= ~(termios.ICANON | termios.IEXTEN)
 		self.use_input = True
