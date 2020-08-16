@@ -88,7 +88,7 @@ def load_methods(all_packages, data):
 	for package, key in data:
 		modname = '%s.a_%s' % (package, key)
 		try:
-			mod, filename, prefix = get_mod(modname)
+			mod, mod_filename, prefix = get_mod(modname)
 			depend_extra = []
 			for dep in getattr(mod, 'depend_extra', ()):
 				dep = mod2filename(dep)
@@ -99,14 +99,14 @@ def load_methods(all_packages, data):
 					depend_extra.append(dep)
 				else:
 					raise Exception('Bad depend_extra in %s.a_%s: %r' % (package, key, dep,))
-			dep_prefix = os.path.commonprefix(depend_extra + [filename])
+			dep_prefix = os.path.commonprefix(depend_extra + [mod_filename])
 			# commonprefix works per character (and commonpath is v3.5+)
 			dep_prefix = dep_prefix.rsplit('/', 1)[0] + '/'
-			with open(filename, 'rb') as fh:
+			with open(mod_filename, 'rb') as fh:
 				src = fh.read()
 			tar_fh = io.BytesIO()
 			tar_o = tarfile.open(mode='w:gz', fileobj=tar_fh, compresslevel=1)
-			tar_add(filename, src)
+			tar_add(mod_filename, src)
 			h = hashlib.sha1(src)
 			hash = int(h.hexdigest(), 16)
 			likely_deps = set()
@@ -253,7 +253,11 @@ def load_methods(all_packages, data):
 				assert isinstance(v, tuple), 'Read the docs about equivalent_hashes'
 				for v in v:
 					assert isinstance(v, str), 'Read the docs about equivalent_hashes'
-				start = src.index(b'equivalent_hashes')
+				if src.startswith(b'equivalent_hashes '):
+					start = 0
+				else:
+					start = src.index(b'\nequivalent_hashes ') + 1
+					assert start > 0, 'Failed to find equivalent_hashes in ' + mod_filename
 				end   = src.index(b'}', start)
 				h = hashlib.sha1(src[:start])
 				h.update(src[end:])
