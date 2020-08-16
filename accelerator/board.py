@@ -197,4 +197,4 @@ def main(argv, cfg):
 		return dict(name=name, data=methods[name], cfg=cfg)
 
 	bottle.TEMPLATE_PATH = [os.path.join(os.path.dirname(__file__), 'board')]
-	bottle.run(port=port, reloader=True)
+	bottle.run(port=port, reloader=True, server='waitress')

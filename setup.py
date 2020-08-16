@@ -129,6 +129,7 @@ setup(
 	install_requires=[
 		'setproctitle>=1.1.8', # not actually required
 		'bottle>=0.12.7, <0.13',
+		'waitress>=1.0',
 	],
 	python_requires=">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, <4",
 
