@@ -138,6 +138,9 @@ def prepare(job, slices):
 	orig_filename = filename
 	assert 1 <= options.compression <= 9
 
+	# To get a more useful error if the file doesn't exist or similar
+	open(filename, 'rb').close()
+
 	fds = [os.pipe() for _ in range(slices)]
 	read_fds = [t[0] for t in fds]
 	write_fds = [t[1] for t in fds]
