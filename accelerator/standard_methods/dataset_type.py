@@ -156,15 +156,12 @@ _c_conv_unicode_setup = r'''
 		PyErr_Format(PyExc_ValueError, "No decoder for '%s'.\n", fmt);
 		goto err;
 	}
-	PyObject *dec_args = PyTuple_New(2);
-	err1(!dec_args);
 	PyObject *dec_errors = PyUnicode_FromString(fmt_b);
 	err1(!dec_errors);
 	PyObject *tst_bytes = PyBytes_FromStringAndSize("a", 1);
 	if (tst_bytes) {
-		PyTuple_SET_ITEM(dec_args, 0, tst_bytes);
-		PyTuple_SET_ITEM(dec_args, 1, dec_errors);
-		PyObject *tst_res = PyObject_CallObject(decoder, dec_args);
+		PyObject *tst_res = PyObject_CallFunctionObjArgs(decoder, tst_bytes, dec_errors, 0);
+		Py_DECREF(tst_bytes);
 		if (tst_res) {
 			if (PyTuple_Check(tst_res)) {
 				if (!PyUnicode_Check(PyTuple_GetItem(tst_res, 0))) {
@@ -188,10 +185,8 @@ _c_conv_unicode_template = r'''
 	const uint8_t *ptr = 0;
 	PyObject *tmp_bytes = PyBytes_FromStringAndSize(line, len);
 	err1(!tmp_bytes);
-	PyObject *tmp_prev = PyTuple_GET_ITEM(dec_args, 0);
-	PyTuple_SET_ITEM(dec_args, 0, tmp_bytes);
-	Py_DECREF(tmp_prev);
-	PyObject *tmp_res = PyObject_CallObject(decoder, dec_args);
+	PyObject *tmp_res = PyObject_CallFunctionObjArgs(decoder, tmp_bytes, dec_errors, 0);
+	Py_DECREF(tmp_bytes);
 	if (tmp_res) {
 #if PY_MAJOR_VERSION < 3
 		PyObject *tmp_utf8bytes = PyUnicode_AsUTF8String(PyTuple_GET_ITEM(tmp_res, 0));
