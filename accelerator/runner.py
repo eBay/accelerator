@@ -249,10 +249,11 @@ def load_methods(all_packages, data):
 				assert isinstance(equivalent_hashes, dict), 'Read the docs about equivalent_hashes'
 				assert len(equivalent_hashes) == 1, 'Read the docs about equivalent_hashes'
 				k, v = next(iteritems(equivalent_hashes))
-				assert isinstance(k, str), 'Read the docs about equivalent_hashes'
+				assert isinstance(k, str_types), 'Read the docs about equivalent_hashes'
 				assert isinstance(v, tuple), 'Read the docs about equivalent_hashes'
 				for v in v:
-					assert isinstance(v, str), 'Read the docs about equivalent_hashes'
+					assert isinstance(v, str_types), 'Read the docs about equivalent_hashes'
+					assert len(v) == 40, 'Read the docs about equivalent_hashes'
 				if src.startswith(b'equivalent_hashes '):
 					start = 0
 				else:
