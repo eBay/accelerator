@@ -147,7 +147,7 @@ def init(name, hash, protos, extra_protos, functions):
 		# so I guess we'll just assume that ssize_t is the same as off_t.
 		ffi.cdef('typedef ssize_t off_t;')
 		ffi.cdef(''.join(protos + extra_protos))
-		backend = ffi.verify(functions, libraries=['z'], extra_compile_args=['-std=c99'])
+		backend = ffi.verify(functions, libraries=['z'], extra_compile_args=['-std=c99', '-DCFFI_ATE_MY_GIL'])
 
 	# make any unicode args bytes, for C calls.
 	def bytesargs(*a):

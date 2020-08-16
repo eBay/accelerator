@@ -803,7 +803,9 @@ def _test():
 convert_template = r'''
 %(proto)s
 {
+#ifdef CFFI_ATE_MY_GIL
 	PyGILState_STATE gstate = PyGILState_Ensure();
+#endif
 	g g;
 	gzFile outfhs[slices];
 	memset(outfhs, 0, sizeof(outfhs));
@@ -900,7 +902,12 @@ err:
 	}
 	if (badmap) munmap(badmap, badmap_size);
 	if (slicemap) munmap(slicemap, slicemap_size);
+#ifdef CFFI_ATE_MY_GIL
+	if (PyErr_Occurred()) {
+		PyErr_PrintEx(0);
+	}
 	PyGILState_Release(gstate);
+#endif
 	return res;
 }
 '''
@@ -1022,7 +1029,9 @@ err:
 	int chosen_slice = 0;
 	int current_file = 0;
 	const int allow_float = !fmt;
+#ifdef CFFI_ATE_MY_GIL
 	PyGILState_STATE gstate = PyGILState_Ensure();
+#endif
 	err1(g_init(&g, in_fns[current_file], offsets[current_file], 1));
 	for (int i = 0; i < slices; i++) {
 		outfhs[i] = gzopen(out_fns[i], gzip_mode);
@@ -1167,7 +1176,12 @@ more_infiles:
 err:
 	Py_XDECREF(o_col_min);
 	Py_XDECREF(o_col_max);
+#ifdef CFFI_ATE_MY_GIL
+	if (PyErr_Occurred()) {
+		PyErr_PrintEx(0);
+	}
 	PyGILState_Release(gstate);
+#endif
 	if (g_cleanup(&g)) res = 1;
 	for (int i = 0; i < slices; i++) {
 		if (outfhs[i] && gzclose(outfhs[i])) res = 1;
@@ -1191,7 +1205,9 @@ funcs.append(code)
 convert_blob_template = r'''
 %(proto)s
 {
+#ifdef CFFI_ATE_MY_GIL
 	PyGILState_STATE gstate = PyGILState_Ensure();
+#endif
 	g g;
 	gzFile outfhs[slices];
 	memset(outfhs, 0, sizeof(outfhs));
@@ -1309,7 +1325,12 @@ err:
 	}
 	if (badmap) munmap(badmap, badmap_size);
 	if (slicemap) munmap(slicemap, slicemap_size);
+#ifdef CFFI_ATE_MY_GIL
+	if (PyErr_Occurred()) {
+		PyErr_PrintEx(0);
+	}
 	PyGILState_Release(gstate);
+#endif
 	return res;
 }
 '''
@@ -1317,7 +1338,9 @@ err:
 null_number_template = r'''
 %(proto)s
 {
+#ifdef CFFI_ATE_MY_GIL
 	PyGILState_STATE gstate = PyGILState_Ensure();
+#endif
 	g g;
 	gzFile outfhs[slices];
 	memset(outfhs, 0, sizeof(outfhs));
@@ -1378,7 +1401,12 @@ err:
 	}
 	if (badmap) munmap(badmap, badmap_size);
 	if (slicemap) munmap(slicemap, slicemap_size);
+#ifdef CFFI_ATE_MY_GIL
+	if (PyErr_Occurred()) {
+		PyErr_PrintEx(0);
+	}
 	PyGILState_Release(gstate);
+#endif
 	return res;
 }
 '''
@@ -1386,7 +1414,9 @@ err:
 null_template = r'''
 %(proto)s
 {
+#ifdef CFFI_ATE_MY_GIL
 	PyGILState_STATE gstate = PyGILState_Ensure();
+#endif
 	g g;
 	gzFile outfhs[slices];
 	memset(outfhs, 0, sizeof(outfhs));
@@ -1441,7 +1471,12 @@ err:
 	}
 	if (badmap) munmap(badmap, badmap_size);
 	if (slicemap) munmap(slicemap, slicemap_size);
+#ifdef CFFI_ATE_MY_GIL
+	if (PyErr_Occurred()) {
+		PyErr_PrintEx(0);
+	}
 	PyGILState_Release(gstate);
+#endif
 	return res;
 }
 '''
@@ -1685,9 +1720,13 @@ static inline int read_fixed(g *g, unsigned char *res, int z)
 
 static void init(void)
 {
+#ifdef CFFI_ATE_MY_GIL
 	PyGILState_STATE gstate = PyGILState_Ensure();
 	PyDateTime_IMPORT;
 	PyGILState_Release(gstate);
+#else
+	PyDateTime_IMPORT;
+#endif
 	// strptime parses %s in whatever timezone is set, so set UTC.
 	if (setenv("TZ", "UTC", 1)) exit(1);
 	tzset();
