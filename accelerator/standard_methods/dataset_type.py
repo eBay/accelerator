@@ -153,10 +153,9 @@ _c_null_blob_template = r'''
 _c_conv_unicode_setup = r'''
 	PyObject *decoder = PyCodec_Decoder(fmt);
 	if (!decoder) {
-		printf("No decoder for '%s'.\n", fmt);
+		PyErr_Format(PyExc_ValueError, "No decoder for '%s'.\n", fmt);
 		goto err;
 	}
-	int good = 0;
 	PyObject *dec_args = PyTuple_New(2);
 	err1(!dec_args);
 	PyObject *dec_errors = PyUnicode_FromString(fmt_b);
@@ -168,17 +167,14 @@ _c_conv_unicode_setup = r'''
 		PyObject *tst_res = PyObject_CallObject(decoder, dec_args);
 		if (tst_res) {
 			if (PyTuple_Check(tst_res)) {
-				if (PyUnicode_Check(PyTuple_GetItem(tst_res, 0))) {
-					good = 1;
-				} else {
-					printf("Decoder for '%s' does not produce unicode.\n", fmt);
+				if (!PyUnicode_Check(PyTuple_GetItem(tst_res, 0))) {
+					PyErr_Format(PyExc_ValueError, "Decoder for '%s' does not produce unicode.\n", fmt);
 				}
 			}
 			Py_DECREF(tst_res);
 		}
 	}
-	PyErr_Clear();
-	err1(!good);
+	err1(PyErr_Occurred());
 '''
 _c_conv_unicode_template = r'''
 	int32_t len = g.linelen;
@@ -882,7 +878,7 @@ more_infiles:
 				continue;
 			}
 			if (!default_value) {
-				fprintf(stderr, "\n    Failed to convert \"%%s\" from %%s line %%lld\n\n", line, g.filename, (long long)i - first_line + 1);
+				PyErr_Format(PyExc_ValueError, "Failed to convert \"%%s\" from %%s line %%lld", line, g.filename, (long long)i - first_line + 1);
 				goto err;
 			}
 			ptr = defbuf;
@@ -1080,7 +1076,7 @@ more_infiles:
 				continue;
 			}
 			if (!deflen) {
-				fprintf(stderr, "\n    Failed to convert \"%%s\" from %%s line %%lld\n\n", line, g.filename, (long long)i - first_line + 1);
+				PyErr_Format(PyExc_ValueError, "Failed to convert \"%%s\" from %%s line %%lld", line, g.filename, (long long)i - first_line + 1);
 				goto err;
 			}
 			ptr = defbuf;
@@ -1290,7 +1286,7 @@ more_infiles:
 				continue;
 			}
 			if (!default_value) {
-				fprintf(stderr, "\n    Failed to convert \"%%s\" from %%s line %%lld\n\n", line, g.filename, (long long)i - first_line + 1);
+				PyErr_Format(PyExc_ValueError, "Failed to convert \"%%s\" from %%s line %%lld", line, g.filename, (long long)i - first_line + 1);
 				goto err;
 			}
 			ptr = (const uint8_t *)default_value;
@@ -1512,6 +1508,7 @@ all_c_functions = r'''
 #endif
 
 #define err1(v) if (v) goto err
+#define err2(v, msg) if (v) { err = msg; goto err; }
 #define Z (128 * 1024)
 
 typedef struct {
@@ -1603,7 +1600,7 @@ size_again:
 		if (offset < 4) {
 			memmove(g->buf, g->buf + g->pos, offset);
 			if (read_chunk(g, offset) || g->len < 4) {
-				fprintf(stderr, "%s: Format error\n", g->filename);
+				PyErr_Format(PyExc_IOError, "%s: Format error\n", g->filename);
 				g->error = 1;
 				return 0;
 			}
@@ -1619,7 +1616,7 @@ size_again:
 			g->linelen = 0;
 			return NoneMarker;
 		} else if (size < 255 || size > 0x7fffffff) {
-			fprintf(stderr, "%s: Format error\n", g->filename);
+			PyErr_Format(PyExc_IOError, "%s: Format error\n", g->filename);
 			g->error = 1;
 			return 0;
 		}
@@ -1636,7 +1633,7 @@ size_again:
 		const int fill_len = size - avail;
 		const int read_len = gzread(g->fh, g->largetmp + avail, fill_len);
 		if (read_len != fill_len) {
-			fprintf(stderr, "%s: Format error\n", g->filename);
+			PyErr_Format(PyExc_IOError, "%s: Format error\n", g->filename);
 			g->error = 1;
 			return 0;
 		}
@@ -1648,13 +1645,13 @@ size_again:
 	if (avail < size) {
 		memmove(g->buf, g->buf + g->pos, avail);
 		if (read_chunk(g, avail)) {
-			fprintf(stderr, "%s: Format error\n", g->filename);
+			PyErr_Format(PyExc_IOError, "%s: Format error\n", g->filename);
 			g->error = 1;
 			return 0;
 		}
 		avail = g->len;
 		if (avail < size) {
-			fprintf(stderr, "%s: Format error\n", g->filename);
+			PyErr_Format(PyExc_IOError, "%s: Format error\n", g->filename);
 			g->error = 1;
 			return 0;
 		}
@@ -1681,7 +1678,7 @@ static inline int read_fixed(g *g, unsigned char *res, int z)
 		res += avail;
 		z -= avail;
 		if (read_chunk(g, 0) || g->len < z) {
-			fprintf(stderr, "%s: Format error\n", g->filename);
+			PyErr_Format(PyExc_IOError, "%s: Format error\n", g->filename);
 			g->error = 1;
 			return 1;
 		}
@@ -1723,7 +1720,8 @@ static PyObject *py_numeric_comma(PyObject *dummy, PyObject *o_localename)
 c_module_wrapper_template = r'''
 static PyObject *py_%s(PyObject *self, PyObject *args)
 {
-	PyObject *res = 0;
+	int good = 0;
+	const char *err = 0;
 	PyObject *o_in_fns;
 	int in_count;
 	const char **in_fns = 0;
@@ -1782,17 +1780,17 @@ static PyObject *py_%s(PyObject *self, PyObject *args)
 	if (str_or_0(o_default_value, &default_value)) return 0;
 	if (str_or_0(o_fmt, &fmt)) return 0;
 	if (str_or_0(o_fmt_b, &fmt_b)) return 0;
-	if (!PyList_Check(o_bad_count)) Py_RETURN_TRUE;
-	if (PyList_Size(o_bad_count) != slices) Py_RETURN_TRUE;
-	if (!PyList_Check(o_default_count)) Py_RETURN_TRUE;
-	if (PyList_Size(o_default_count) != slices) Py_RETURN_TRUE;
-
-	if (!PyList_Check(o_in_fns)) Py_RETURN_TRUE;
-	if (!PyList_Check(o_offsets)) Py_RETURN_TRUE;
-	if (!PyList_Check(o_max_counts)) Py_RETURN_TRUE;
-	if (PyList_Size(o_in_fns) != in_count) Py_RETURN_TRUE;
-	if (PyList_Size(o_offsets) != in_count) Py_RETURN_TRUE;
-	if (PyList_Size(o_max_counts) != in_count) Py_RETURN_TRUE;
+#define LISTCHK(name, cnt) \
+	err2(!PyList_Check(o_ ## name) || PyList_Size(o_ ## name) != cnt, \
+		#name " must be list with " #cnt " elements" \
+	);
+	LISTCHK(bad_count, slices);
+	LISTCHK(default_count, slices);
+	LISTCHK(in_fns, in_count);
+	LISTCHK(offsets, in_count);
+	LISTCHK(max_counts, in_count);
+	LISTCHK(out_fns, slices);
+#undef LISTCHK
 	in_fns = malloc(in_count * sizeof(*in_fns));
 	err1(!in_fns);
 	offsets = malloc(in_count * sizeof(*offsets));
@@ -1808,10 +1806,7 @@ static PyObject *py_%s(PyObject *self, PyObject *args)
 		err1(PyErr_Occurred());
 	}
 
-	if (!PyList_Check(o_out_fns)) Py_RETURN_TRUE;
-	int out_fns_len = PyList_Size(o_out_fns);
-	if (out_fns_len != slices) Py_RETURN_TRUE;
-	out_fns = malloc(out_fns_len * sizeof(*out_fns));
+	out_fns = malloc(slices * sizeof(*out_fns));
 	err1(!out_fns);
 	default_count = malloc(slices * 8);
 	err1(!default_count);
@@ -1823,15 +1818,12 @@ static PyObject *py_%s(PyObject *self, PyObject *args)
 		default_count[i] = bad_count[i] = 0;
 	}
 
-	if (%s(in_fns, in_count, out_fns, gzip_mode, minmax_fn, default_value, default_len, default_value_is_None, fmt, fmt_b, record_bad, skip_bad, badmap_fd, badmap_size, slices, slicemap_fd, slicemap_size, bad_count, default_count, offsets, max_counts)) {
-		res = Py_True;
-		goto err;
-	}
+	err1(%s(in_fns, in_count, out_fns, gzip_mode, minmax_fn, default_value, default_len, default_value_is_None, fmt, fmt_b, record_bad, skip_bad, badmap_fd, badmap_size, slices, slicemap_fd, slicemap_size, bad_count, default_count, offsets, max_counts));
 	for (int i = 0; i < slices; i++) {
 		err1(PyList_SetItem(o_default_count, i, PyLong_FromUnsignedLongLong(default_count[i])));
 		err1(PyList_SetItem(o_bad_count, i, PyLong_FromUnsignedLongLong(bad_count[i])));
 	}
-	res = Py_False;
+	good = 1;
 err:
 	if (bad_count) free(bad_count);
 	if (default_count) free(default_count);
@@ -1839,8 +1831,14 @@ err:
 	if (max_counts) free(max_counts);
 	if (offsets) free(offsets);
 	if (in_fns) free(in_fns);
-	if (res) Py_INCREF(res);
-	return res;
+	if (good) Py_RETURN_NONE;
+	if (err) {
+		PyErr_SetString(PyExc_ValueError, err);
+	} else if (!PyErr_Occurred()) {
+		PyErr_SetString(PyExc_ValueError, "internal error");
+		return 0;
+	}
+	return 0;
 }
 '''
 
