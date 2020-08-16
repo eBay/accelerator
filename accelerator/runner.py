@@ -250,10 +250,12 @@ def load_methods(all_packages, data):
 				assert len(equivalent_hashes) == 1, 'Read the docs about equivalent_hashes'
 				k, v = next(iteritems(equivalent_hashes))
 				assert isinstance(k, str_types), 'Read the docs about equivalent_hashes'
+				if isinstance(v, str_types):
+					v = (v,)
 				assert isinstance(v, tuple), 'Read the docs about equivalent_hashes'
-				for v in v:
-					assert isinstance(v, str_types), 'Read the docs about equivalent_hashes'
-					assert len(v) == 40, 'Read the docs about equivalent_hashes'
+				for vv in v:
+					assert isinstance(vv, str_types), 'Read the docs about equivalent_hashes'
+					assert len(vv) == 40, 'Read the docs about equivalent_hashes'
 				if src.startswith(b'equivalent_hashes '):
 					start = 0
 				else:
@@ -263,8 +265,8 @@ def load_methods(all_packages, data):
 				h = hashlib.sha1(src[:start])
 				h.update(src[end:])
 				verifier = "%040x" % (int(h.hexdigest(), 16) ^ hash_extra,)
-				if verifier in equivalent_hashes:
-					res_hashes[key] += equivalent_hashes[verifier]
+				if verifier == k:
+					res_hashes[key] += v
 				else:
 					res_warnings.append('%s.a_%s has equivalent_hashes, but missing verifier %s' % (package, key, verifier,))
 			tar_o.close()
