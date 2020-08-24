@@ -1008,7 +1008,7 @@ class DatasetWriter(object):
 			obj._running = running
 			obj.filename = uni(filename)
 			obj.hashlabel = uni(hashlabel)
-			obj.hashlabel_override = hashlabel_override,
+			obj.hashlabel_override = hashlabel_override
 			obj.caption = uni(caption)
 			obj.previous = _dsid(previous)
 			obj.name = uni(name)
