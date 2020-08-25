@@ -40,7 +40,7 @@ from accelerator import blob
 from accelerator.extras import DotDict, job_params, _ListTypePreserver
 from accelerator.job import Job
 from accelerator.gzwrite import typed_writer
-from accelerator.error import NoSuchDatasetError, DatasetUsageError
+from accelerator.error import NoSuchDatasetError, DatasetUsageError, DatasetError
 
 kwlist = set(kwlist)
 # Add some keywords that are not in all versions
@@ -160,17 +160,21 @@ class Dataset(unicode):
 		if isinstance(jobid, (tuple, list)):
 			jobid = _dsid(jobid)
 		elif isinstance(jobid, dict):
-			assert not name, "Don't pass both a separate name and jobid as {job: dataset}"
-			assert len(jobid) == 1, "Only pass a single {job: dataset}"
+			if name:
+				raise DatasetUsageError("Don't pass both a separate name and jobid as {job: dataset}")
+			if len(jobid) != 1:
+				raise DatasetUsageError("Only pass a single {job: dataset}")
 			jobid, dsname = next(iteritems(jobid))
 			if not jobid:
 				return None
 			jobid = job_params(jobid, default_empty=True).datasets.get(dsname)
 			if not jobid:
 				return None
-		assert jobid, "If you really meant to use yourself as a dataset, pass your jobid explicitly."
+		if not jobid:
+			raise DatasetUsageError("If you really meant to use yourself as a dataset, pass your jobid explicitly.")
 		if '/' in jobid:
-			assert not name, "Don't pass both a separate name and jobid as jid/name"
+			if name:
+				raise DatasetUsageError("Don't pass both a separate name and jobid as jid/name")
 			jobid, name = jobid.split('/', 1)
 		name = uni(name or 'default')
 		assert '/' not in name
@@ -200,7 +204,8 @@ class Dataset(unicode):
 		else:
 			obj.job = Job(jobid)
 			obj._data = DotDict(_ds_load(obj))
-			assert obj._data.version[0] == 3 and obj._data.version[1] >= 0, "%s/%s: Unsupported dataset pickle version %r" % (jobid, name, obj._data.version,)
+			if obj._data.version[0] != 3:
+				raise DatasetError("%s/%s: Unsupported dataset pickle version %r" % (jobid, name, obj._data.version,))
 			obj._data.columns = dict(obj._data.columns)
 		obj._cache = {}
 		return obj
@@ -268,8 +273,10 @@ class Dataset(unicode):
 			column_filter = set(column_filter)
 			filtered_columns = {k: v for k, v in d._data.columns.items() if k in column_filter}
 			left_over = column_filter - set(filtered_columns)
-			assert not left_over, "Columns in filter not available in dataset: %r" % (left_over,)
-			assert filtered_columns, "Filter produced no desired columns."
+			if left_over:
+				raise DatasetUsageError("Columns in filter not available in dataset: %r" % (left_over,))
+			if not filtered_columns:
+				raise DatasetUsageError("Filter produced no desired columns.")
 			d._data.columns = filtered_columns
 		from accelerator.g import job
 		if override_previous is not _no_override:
@@ -365,7 +372,8 @@ class Dataset(unicode):
 				res.append(self._column_iterator(sliceno, col))
 			else:
 				not_found.append(col)
-		assert not not_found, 'Columns %r not found in %s/%s' % (not_found, self.job, self.name)
+		if not_found:
+			raise DatasetError("Columns %r not found in %s/%s" % (not_found, self.job, self.name,))
 		return res
 
 	def _hashfilter(self, sliceno, hashlabel, it):
@@ -489,7 +497,8 @@ class Dataset(unicode):
 			want_tuple = True
 		to_iter = []
 		if range:
-			assert len(range) == 1, "Specify exactly one range column."
+			if len(range) != 1:
+				raise DatasetUsageError("Specify exactly one range column.")
 			range_k, (range_bottom, range_top,) = next(iteritems(range))
 			if range_bottom is None and range_top is None:
 				range = None
@@ -497,28 +506,34 @@ class Dataset(unicode):
 			if isinstance(slice, int_types):
 				slice = builtins.slice(slice, None, 1)
 			slice = builtins.slice(slice.start or 0, slice.stop, slice.step or 1)
-			assert slice.step > 0, "only positive slice steps are supported"
+			if slice.step <= 0:
+				raise DatasetUsageError("only positive slice steps are supported")
 			if slice.start < 0 or (slice.stop or 0) < 0:
 				msg = "slice with negative index is not supported with "
-				assert not range, msg + "range"
-				assert not rehash, msg + "rehash"
-				assert not filters, msg + "filters"
+				if range: raise DatasetUsageError(msg + "range")
+				if rehash: raise DatasetUsageError(msg + "rehash")
+				if filters: raise DatasetUsageError(msg + "filters")
 			if isinstance(sliceno, int_types):
 				total_lines = sum(d.lines[sliceno] for d in datasets)
 			else:
 				total_lines = sum(sum(d.lines) for d in datasets)
 			if slice.start < 0:
-				assert -slice.start <= total_lines, "Wanted last %d lines, but only %d lines available" % (-slice.start, total_lines,)
+				if -slice.start > total_lines:
+					raise DatasetUsageError("Wanted last %d lines, but only %d lines available" % (-slice.start, total_lines,))
 				slice = builtins.slice(total_lines + slice.start, slice.stop, slice.step)
 			if (slice.stop or 0) < 0:
-				assert -slice.stop <= total_lines, "Wanted to stop %d lines before end, but only %d lines available" % (-slice.stop, total_lines,)
+				if -slice.stop > total_lines:
+					raise DatasetUsageError("Wanted to stop %d lines before end, but only %d lines available" % (-slice.stop, total_lines,))
 				slice = builtins.slice(slice.start, total_lines + slice.stop, slice.step)
-			assert slice.start <= total_lines, "Wanted to skip %d lines, but only %d lines available" % (slice.start, total_lines,)
-			assert (slice.stop or 0) <= total_lines, "Wanted to stop after %d lines, but only %d lines available" % (slice.stop, total_lines,)
+			if slice.start > total_lines:
+				raise DatasetUsageError("Wanted to skip %d lines, but only %d lines available" % (slice.start, total_lines,))
+			if (slice.stop or 0) > total_lines:
+				raise DatasetUsageError("Wanted to stop after %d lines, but only %d lines available" % (slice.stop, total_lines,))
 			if slice.start == total_lines:
 				return iter(())
 			if slice.stop is not None:
-				assert slice.stop >= slice.start, "Wanted %r, but start is bigger than stop" % (slice,)
+				if slice.stop < slice.start:
+					raise DatasetUsageError("Wanted %r, but start is bigger than stop" % (slice,))
 				if slice.start == slice.stop:
 					return iter(())
 			def adj_slice(lines):
@@ -552,8 +567,10 @@ class Dataset(unicode):
 				if range_bottom is not None and c.max < range_bottom:
 					continue
 			if hashlabel and d.hashlabel != hashlabel:
-				assert rehash, "%s has hashlabel %s, not %s" % (d, d.hashlabel, hashlabel,)
-				assert hashlabel in d.columns, "Can't rehash %s on non-existant column %s" % (d, hashlabel,)
+				if not rehash:
+					raise DatasetUsageError("%s has hashlabel %s, not %s" % (d, d.hashlabel, hashlabel,))
+				if hashlabel not in d.columns:
+					raise DatasetUsageError("Can't rehash %s on non-existant column %s" % (d, hashlabel,))
 				rehash_on = hashlabel
 			else:
 				rehash_on = False
@@ -776,7 +793,8 @@ class Dataset(unicode):
 		columns = {uni(k): (uni(v[0]), bool(v[1])) if isinstance(v, tuple) else (uni(v), False) for k, v in columns.items()}
 		if hashlabel:
 			hashlabel = uni(hashlabel)
-			assert hashlabel in columns, hashlabel
+			if hashlabel not in columns:
+				raise DatasetUsageError("Hashlabel (%s) does not exist" % (hashlabel,))
 		res = Dataset(_new_dataset_marker, name)
 		res._data.lines = list(Dataset._linefixup(lines))
 		res._data.hashlabel = hashlabel
@@ -787,18 +805,21 @@ class Dataset(unicode):
 	def _linefixup(lines):
 		from accelerator.g import slices
 		if isinstance(lines, dict):
-			assert set(lines) == set(range(slices)), "Lines must be specified for all slices"
+			if set(lines) != set(range(slices)):
+				raise DatasetUsageError("Lines must be specified for all slices")
 			lines = [c for _, c in sorted(lines.items())]
-		assert len(lines) == slices, "Lines must be specified for all slices"
+		if len(lines) != slices:
+			raise DatasetUsageError("Lines must be specified for all slices")
 		return lines
 
 	def append(self, columns, filenames, lines, minmax={}, filename=None, hashlabel=None, hashlabel_override=False, caption=None, previous=None, column_filter=None, name='default'):
 		hashlabel = uni(hashlabel)
 		if hashlabel_override:
 			self._data.hashlabel = hashlabel
-		elif hashlabel:
-			assert self.hashlabel == hashlabel, 'Hashlabel mismatch %s != %s' % (self.hashlabel, hashlabel,)
-		assert self._linefixup(lines) == self.lines, "New columns don't have the same number of lines as parent columns"
+		elif hashlabel and self.hashlabel != hashlabel:
+			raise DatasetUsageError("Hashlabel mismatch %s != %s" % (self.hashlabel, hashlabel,))
+		if self._linefixup(lines) != self.lines:
+			raise DatasetUsageError("New columns don't have the same number of lines as parent columns")
 		columns = {uni(k): (uni(v[0]), bool(v[1])) if isinstance(v, tuple) else (uni(v), False) for k, v in columns.items()}
 		self._append(columns, filenames, minmax, filename, caption, previous, column_filter, name)
 
@@ -824,7 +845,8 @@ class Dataset(unicode):
 		from accelerator.g import job
 		name = uni(name)
 		filenames = {uni(k): uni(v) for k, v in filenames.items()}
-		assert set(columns) == set(filenames), "columns and filenames don't have the same keys"
+		if set(columns) != set(filenames):
+			raise DatasetUsageError("columns and filenames don't have the same keys")
 		if self.job and (self.job != job or self.name != name):
 			self._data.parent = '%s/%s' % (self.job, self.name,)
 		self.job = job
@@ -839,7 +861,8 @@ class Dataset(unicode):
 			column_filter = set(column_filter)
 			filtered_columns = {k: v for k, v in self._data.columns.items() if k in column_filter}
 			left_over = column_filter - set(filtered_columns)
-			assert not left_over, "Columns in filter not available in dataset: %r" % (left_over,)
+			if left_over:
+				raise DatasetUsageError("Columns in filter not available in dataset: %r" % (left_over,))
 			self._data.columns = filtered_columns
 		for n, (t, none_support) in sorted(columns.items()):
 			if t not in type2iter:
@@ -998,11 +1021,14 @@ class DatasetWriter(object):
 		assert '\n' not in name, name
 		from accelerator.g import running
 		if running == 'analysis':
-			assert name in _datasetwriters, 'Dataset with name "%s" not created' % (name,)
-			assert not columns and not filename and not hashlabel and not caption and not parent and for_single_slice is None, "Don't specify any arguments (except optionally name) in analysis"
+			if name not in _datasetwriters:
+				raise DatasetUsageError('Dataset with name "%s" not created' % (name,))
+			if columns or filename or hashlabel or hashlabel_override or caption or previous or parent or meta_only or for_single_slice is not None:
+				raise DatasetUsageError("Don't specify any arguments (except optionally name) in analysis")
 			return _datasetwriters[name]
 		else:
-			assert name not in _datasetwriters, 'Duplicate dataset name "%s"' % (name,)
+			if name in _datasetwriters:
+				raise DatasetUsageError('Duplicate dataset name "%s"' % (name,))
 			os.mkdir(name)
 			obj = object.__new__(cls)
 			obj._running = running
@@ -1022,12 +1048,14 @@ class DatasetWriter(object):
 			if parent:
 				parent_cols = Dataset(parent).columns
 				unknown_discards = discard_columns - set(parent_cols)
-				assert not unknown_discards, "Can't discard non-existant columns %r" % (unknown_discards,)
+				if unknown_discards:
+					raise DatasetUsageError("Can't discard non-existant columns %r" % (unknown_discards,))
 				obj._pcolumns = {k: v for k, v in parent_cols.items() if k not in discard_columns}
 				obj._seen_n = set(c.name.lower() for c in obj._pcolumns.values())
 				obj._column_filter = set(obj._pcolumns)
 			else:
-				assert not discard_columns, "Can't discard columns without a parent"
+				if discard_columns:
+					raise DatasetUsageError("Can't discard columns without a parent")
 				obj._pcolumns = {}
 				obj._seen_n = set()
 			obj._started = False
@@ -1049,13 +1077,19 @@ class DatasetWriter(object):
 
 	def add(self, colname, coltype, default=_nodefault, none_support=False):
 		from accelerator.g import running
-		assert running == self._running, "Add all columns in the same step as creation"
-		assert not self._started, "Add all columns before setting slice"
+		if running != self._running:
+			raise DatasetUsageError("Add all columns in the same step as creation")
+		if self._started:
+			raise DatasetUsageError("Add all columns before setting slice")
 		colname = uni(colname)
 		coltype = uni(coltype)
-		assert colname not in self.columns, colname
 		assert colname
-		typed_writer(coltype) # gives error for unknown types
+		if colname in self.columns:
+			raise DatasetUsageError("Column %s already exists" % (colname,))
+		try:
+			typed_writer(coltype) # gives error for unknown types
+		except ValueError as e:
+			raise DatasetUsageError(str(e))
 		if none_support and coltype.startswith('bits'):
 			raise DatasetUsageError("%s columns can't have None support" % (coltype,))
 		self.columns[colname] = (coltype, default, none_support)
@@ -1067,14 +1101,19 @@ class DatasetWriter(object):
 
 	def set_slice(self, sliceno):
 		from accelerator import g
-		assert g.running != 'analysis' or self._for_single_slice == g.sliceno, "Only use set_slice in analysis together with for_single_slice"
+		if g.running == 'analysis' and self._for_single_slice != g.sliceno:
+			if self._for_single_slice is not None:
+				raise DatasetUsageError("This writer is for slice %d" % (self._for_single_slice,))
+			else:
+				raise DatasetUsageError("Only use set_slice in analysis together with for_single_slice")
 		self._set_slice(sliceno)
 
 	def _set_slice(self, sliceno):
 		from accelerator.g import slices
-		assert self._started < 2, "Don't use both set_slice and a split writer"
-		assert isinstance(sliceno, int_types)
-		assert 0 <= sliceno < slices
+		if self._started == 2:
+			raise DatasetUsageError("Don't use both set_slice and a split writer")
+		if not isinstance(sliceno, int_types) or sliceno < 0 or sliceno >= slices:
+			raise DatasetUsageError("sliceno must be int in range(%d)" % (slices,))
 		self.close()
 		self.sliceno = sliceno
 		writers = self._mkwriters(sliceno)
@@ -1090,14 +1129,17 @@ class DatasetWriter(object):
 	def enable_hash_discard(self):
 		"""Make the write functions silently discard data that does not
 		hash to the current slice."""
-		assert self.hashlabel, "Can't enable hash discard without hashlabel"
-		assert self._started == 1, "Call enable_hash_discard after set_slice"
+		if not self.hashlabel:
+			raise DatasetUsageError("Can't enable hash discard without hashlabel")
+		if self._started != 1:
+			raise DatasetUsageError("Call enable_hash_discard after set_slice")
 		self._mkwritefuncs(discard=True)
 
 	def _mkwriters(self, sliceno, filtered=True):
-		assert self.columns, "No columns in dataset"
-		if self.hashlabel:
-			assert self.hashlabel in self.columns, "Hashed column (%s) missing" % (self.hashlabel,)
+		if not self.columns:
+			raise DatasetUsageError("No columns in dataset")
+		if self.hashlabel and self.hashlabel not in self.columns:
+			raise DatasetUsageError("Hashed column (%s) missing" % (self.hashlabel,))
 		self._started = 2 - filtered
 		if self.meta_only:
 			return
@@ -1184,9 +1226,13 @@ class DatasetWriter(object):
 
 	def _mksplit(self):
 		from accelerator import g
-		if g.running == 'analysis':
-			assert self._for_single_slice == g.sliceno, "Only use dataset in designated slice"
-		assert self._started != 1, "Don't use both a split writer and set_slice"
+		if g.running == 'analysis' and self._for_single_slice != g.sliceno:
+			if self._for_single_slice is not None:
+				raise DatasetUsageError("This writer is for slice %d" % (self._for_single_slice,))
+			else:
+				raise DatasetUsageError("Only use a split writer in analysis together with for_single_slice")
+		if self._started == 1:
+			raise DatasetUsageError("Don't use both a split writer and set_slice")
 		names = [self._clean_names[n] for n in self._order]
 		def key(t):
 			return self._order.index(t[0])
@@ -1239,7 +1285,8 @@ class DatasetWriter(object):
 			minmax[k] = (w.min, w.max,)
 			w.close()
 		len_set = set(lens.values())
-		assert len(len_set) == 1, "Not all columns have the same linecount in slice %d: %r" % (sliceno, lens)
+		if len(len_set) != 1:
+			raise DatasetUsageError("Not all columns have the same linecount in slice %d: %r" % (sliceno, lens))
 		self._lens[sliceno] = len_set.pop()
 		self._minmax[sliceno] = minmax
 
@@ -1258,11 +1305,13 @@ class DatasetWriter(object):
 		rmtree(self.name)
 
 	def set_lines(self, sliceno, count):
-		assert self.meta_only, "Don't try to set lines for writers that actually write"
+		if not self.meta_only:
+			raise DatasetUsageError("Don't try to set lines for writers that actually write")
 		self._lens[sliceno] = count
 
 	def set_minmax(self, sliceno, minmax):
-		assert self.meta_only, "Don't try to set minmax for writers that actually write"
+		if not self.meta_only:
+			raise DatasetUsageError("Don't try to set minmax for writers that actually write")
 		self._minmax[sliceno] = minmax
 
 	def finish(self):
@@ -1270,9 +1319,11 @@ class DatasetWriter(object):
 		pass yourself as a dataset to a subjob you need to call
 		this first."""
 		from accelerator.g import running, slices, job
-		assert running == self._running or running == 'synthesis', "Finish where you started or in synthesis"
+		if running != self._running and running != 'synthesis':
+			raise DatasetUsageError("Finish where you started or in synthesis")
 		self.close()
-		assert len(self._lens) == slices, "Not all slices written, missing %r" % (set(range(slices)) - set(self._lens),)
+		if len(self._lens) != slices:
+			raise DatasetUsageError("Not all slices written, missing %r" % (set(range(slices)) - set(self._lens),))
 		args = dict(
 			columns={k: (v[0].split(':')[-1], v[2]) for k, v in self.columns.items()},
 			filenames=self._clean_names,

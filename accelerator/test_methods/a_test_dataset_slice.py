@@ -24,6 +24,8 @@ description = r'''
 Test dataset iteration slicing.
 '''
 
+from accelerator.error import DatasetError
+
 def synthesis(job, slices):
 	dw = job.datasetwriter({'a': 'int32'}, name='first')
 	dw.set_slice(0)
@@ -73,7 +75,7 @@ def synthesis(job, slices):
 		try:
 			func(sliceno, slice, columns)
 			raise Exception("Iterating with slice %r should have failed" % (slice,))
-		except AssertionError:
+		except DatasetError:
 			pass
 	assert_fails(None, -101)
 	assert_fails(None, slice(20, 10))

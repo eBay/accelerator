@@ -1,6 +1,6 @@
 ############################################################################
 #                                                                          #
-# Copyright (c) 2019 Carl Drougge                                          #
+# Copyright (c) 2019-2020 Carl Drougge                                     #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -29,6 +29,7 @@ wrong hashlabel without rehashing is not allowed.
 from accelerator.dataset import DatasetWriter, Dataset
 from accelerator.extras import DotDict
 from accelerator.gzwrite import typed_writer
+from accelerator.error import DatasetUsageError
 
 all_data = list(zip(range(10000), reversed(range(10000))))
 
@@ -138,11 +139,11 @@ def synthesis(prepare_res, params, job, slices):
 	try:
 		up.iterate(None, hashlabel="down")
 		good = False
-	except AssertionError:
+	except DatasetUsageError:
 		pass
 	try:
 		unhashed.iterate(None, hashlabel="down")
 		good = False
-	except AssertionError:
+	except DatasetUsageError:
 		pass
 	assert good, "Iteration allowed on the wrong hashlabel"
