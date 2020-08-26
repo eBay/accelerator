@@ -1040,8 +1040,7 @@ class DatasetWriter(object):
 			obj.hashlabel_override = hashlabel_override
 			obj.caption = uni(caption)
 			obj.previous = _dsid(previous)
-			obj.name = uni(name)
-			obj.parent = _dsid(parent)
+			obj.name = name
 			obj.columns = {}
 			obj.meta_only = meta_only
 			obj._for_single_slice = for_single_slice
@@ -1049,7 +1048,14 @@ class DatasetWriter(object):
 			discard_columns = {k for k, v in columns.items() if v is None}
 			columns = {k: v for k, v in columns.items() if v is not None}
 			if parent:
-				parent_cols = Dataset(parent).columns
+				obj.parent = Dataset(parent)
+				if not hashlabel_override:
+					if obj.hashlabel:
+						if obj.hashlabel != obj.parent.hashlabel:
+							raise DatasetUsageError("Hashlabel mismatch %s != %s" % (obj.hashlabel, obj.parent.hashlabel,))
+					elif obj.parent.hashlabel in columns:
+						obj.hashlabel = obj.parent.hashlabel
+				parent_cols = obj.parent.columns
 				unknown_discards = discard_columns - set(parent_cols)
 				if unknown_discards:
 					raise DatasetUsageError("Can't discard non-existant columns %r" % (unknown_discards,))
@@ -1059,6 +1065,7 @@ class DatasetWriter(object):
 			else:
 				if discard_columns:
 					raise DatasetUsageError("Can't discard columns without a parent")
+				obj.parent = None
 				obj._pcolumns = {}
 				obj._seen_n = set()
 			obj._started = False
@@ -1236,6 +1243,8 @@ class DatasetWriter(object):
 				raise DatasetUsageError("Only use a split writer in analysis together with for_single_slice")
 		if self._started == 1:
 			raise DatasetUsageError("Don't use both a split writer and set_slice")
+		if self.parent and self.parent.hashlabel and not self.hashlabel:
+			raise DatasetUsageError("Can't use a split writer on hashed dataset when not writing the hash column.")
 		names = [self._clean_names[n] for n in self._order]
 		def key(t):
 			return self._order.index(t[0])
@@ -1339,8 +1348,7 @@ class DatasetWriter(object):
 			name=self.name,
 		)
 		if self.parent:
-			res = Dataset(self.parent)
-			res.append(hashlabel_override=self.hashlabel_override, column_filter=self._column_filter, **args)
+			self.parent.append(hashlabel_override=self.hashlabel_override, column_filter=self._column_filter, **args)
 			res = Dataset((job, self.name))
 		else:
 			res = Dataset.new(**args)
