@@ -139,6 +139,15 @@ def _ds_load(obj):
 		_ds_cache.update(_ds_cache[n].get('cache', ()))
 	return _ds_cache[n]
 
+def _namechk(name):
+	if not name:
+		raise DatasetUsageError("Dataset name can't be empty")
+	name = uni(name)
+	for c in '/\n\0':
+		if c in name:
+			raise DatasetUsageError("Dataset name can't contain " + repr(c))
+	return name
+
 class Dataset(unicode):
 	"""
 	Represents a dataset. Is also a string 'jobid/name', or just 'jobid' if
@@ -176,8 +185,7 @@ class Dataset(unicode):
 			if name:
 				raise DatasetUsageError("Don't pass both a separate name and jobid as jid/name")
 			jobid, name = jobid.split('/', 1)
-		name = uni(name or 'default')
-		assert '/' not in name
+		name = _namechk(name or 'default')
 		if name == 'default':
 			suffix = ''
 		else:
@@ -305,10 +313,7 @@ class Dataset(unicode):
 		from accelerator.g import job
 		new_ds = Dataset(self)
 		other = Dataset(other)
-		assert name
-		name = uni(name)
-		assert '/' not in name, name
-		assert '\n' not in name, name
+		name = _namechk(name)
 		if previous:
 			previous = Dataset(previous)
 		else:
@@ -1016,9 +1021,7 @@ class DatasetWriter(object):
 	def __new__(cls, columns={}, filename=None, hashlabel=None, hashlabel_override=False, caption=None, previous=None, name='default', parent=None, meta_only=False, for_single_slice=None):
 		"""columns can be {'name': 'type'} or {'name': ('type', none_support)}.
 		It can also be {'name': DatasetColumn} to simplify basing your dataset on another."""
-		name = uni(name)
-		assert '/' not in name, name
-		assert '\n' not in name, name
+		name = _namechk(name)
 		from accelerator.g import running
 		if running == 'analysis':
 			if name not in _datasetwriters:
