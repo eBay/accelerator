@@ -120,29 +120,30 @@ class Main:
 		"""Insert all new jobids (from all workdirs) in database,
 		discard all deleted or with incorrect hash.
 		"""
-		t_l = []
-		for name in self.workspaces:
-			# Run all updates in parallel. This gets all (sync) listdir calls
-			# running at the same time. Then each workspace will spawn processes
-			# to do the post.json checking, to keep disk queues effective. But
-			# try to run a reasonable total number of post.json checkers.
-			parallelism = max(3, int(self.workspaces[name].slices / len(self.workspaces)))
-			t = Thread(
-				target=self.workspaces[name].update,
-				kwargs=dict(parallelism=parallelism),
-				name='Update ' + name,
-			)
-			t.daemon = True
-			t.start()
-			t_l.append(t)
-		for t in t_l:
-			t.join()
-		# These run one at a time, but they will spawn SLICES workers for
-		# reading and parsing files. (So unless workdirs are on different
-		# disks this is probably better.)
-		self.DataBase._update_begin()
-		for ws in self.workspaces.values():
-			self.DataBase._update_workspace(ws)
+		from accelerator.safe_pool import Pool
+		pool = Pool()
+		try:
+			self.DataBase._update_begin()
+			def update(ws):
+				ws.update(pool)
+				self.DataBase._update_workspace(ws, pool)
+			t_l = []
+			for name in self.workspaces:
+				# Run all updates in parallel. This gets all (sync) listdir calls
+				# running at the same time. Then each workspace will use the same
+				# process pool to do the post.json checking.
+				t = Thread(
+					target=update,
+					args=(self.workspaces[name],),
+					name='Update ' + name,
+				)
+				t.daemon = True
+				t.start()
+				t_l.append(t)
+			for t in t_l:
+				t.join()
+		finally:
+			pool.close()
 		self.DataBase._update_finish(self.Methods.hash)
 
 

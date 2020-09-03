@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2018-2019 Carl Drougge                       #
+# Modifications copyright (c) 2018-2020 Carl Drougge                       #
 # Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -69,11 +69,10 @@ class WorkSpace:
 		self.valid_jobids.add(jobid)
 
 
-	def update(self, parallelism=4):
+	def update(self, pool):
 		"""find all new jobids on disk"""
 		from os.path import exists, join
 		from accelerator.job import dirnamematcher
-		from accelerator.safe_pool import Pool
 		from itertools import compress
 		cand = set(filter(dirnamematcher(self.name), os.listdir(self.path)))
 		bad = self.known_jobids - cand
@@ -91,12 +90,10 @@ class WorkSpace:
 		# So we need to keep mtimes and look at them, plus the above recent_bad_jobids
 		new = [Job(j) for j in cand - self.known_jobids]
 		if new:
-			pool = Pool(processes=parallelism)
 			pathv = [join(self.path, j, 'post.json') for j in new]
-			good = set(compress(new, pool.map(exists, pathv, chunksize=64)))
+			good = set(compress(new, pool.imap(exists, pathv, chunksize=64)))
 			self.valid_jobids.update(good)
 			self.known_jobids.update(new)
-			pool.close()
 
 
 	def allocate_jobs(self, num_jobs):

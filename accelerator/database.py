@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2019 Carl Drougge                            #
+# Modifications copyright (c) 2019-2020 Carl Drougge                       #
 # Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -27,7 +27,6 @@ from collections import namedtuple
 
 from accelerator.compat import iteritems, itervalues
 
-from accelerator.safe_pool import Pool
 from accelerator.extras import _job_params, job_post, OptionEnum, OptionDefault
 
 
@@ -95,7 +94,7 @@ class DataBase:
 		self.db_by_method[job.method].insert(0, job)
 		return job
 
-	def _update_workspace(self, WorkSpace, verbose=False):
+	def _update_workspace(self, WorkSpace, pool, verbose=False):
 		"""Insert all items in WorkSpace in database (call update_finish too)"""
 		if verbose:
 			print("DATABASE:  update for \"%s\"" % WorkSpace.name)
@@ -106,9 +105,7 @@ class DataBase:
 		# Insert any new jobids, including with invalid hash
 		new_jobids = filesystem_jobids.difference(_paramsdict)
 		if new_jobids:
-			pool = Pool(processes=WorkSpace.slices)
 			_paramsdict.update(pool.imap_unordered(_get_params, new_jobids, chunksize=64))
-			pool.close()
 		if verbose:
 			print("DATABASE:  Database \"%s\" contains %d potential items" % (WorkSpace.name, len(filesystem_jobids), ))
 
