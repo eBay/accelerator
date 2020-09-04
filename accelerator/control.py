@@ -130,9 +130,12 @@ class Main:
 		pool = Pool(initializer=_pool_init, initargs=(WORKDIRS,))
 		try:
 			self.DataBase._update_begin()
-			def update(ws):
+			def update(name):
+				ws = self.workspaces[name]
 				ws.update(pool)
 				self.DataBase._update_workspace(ws, pool)
+				failed.remove(name)
+			failed = set(self.workspaces)
 			t_l = []
 			for name in self.workspaces:
 				# Run all updates in parallel. This gets all (sync) listdir calls
@@ -140,7 +143,7 @@ class Main:
 				# process pool to do the post.json checking.
 				t = Thread(
 					target=update,
-					args=(self.workspaces[name],),
+					args=(name,),
 					name='Update ' + name,
 				)
 				t.daemon = True
@@ -148,6 +151,7 @@ class Main:
 				t_l.append(t)
 			for t in t_l:
 				t.join()
+			assert not failed, "%s failed to update" % (', '.join(failed),)
 		finally:
 			pool.close()
 		self.DataBase._update_finish(self.Methods.hash)
