@@ -136,7 +136,6 @@ Not so interesting files
 	g.py
 	gzwrite.py
 	init.py
-	safe_pool.py
 	setupfile.py
 	unixhttp.py
 	web.py

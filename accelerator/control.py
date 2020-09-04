@@ -22,6 +22,8 @@ from __future__ import print_function
 from __future__ import division
 
 from threading import Thread
+import multiprocessing
+import signal
 from os import unlink
 from os.path import join
 import time
@@ -120,8 +122,12 @@ class Main:
 		"""Insert all new jobids (from all workdirs) in database,
 		discard all deleted or with incorrect hash.
 		"""
-		from accelerator.safe_pool import Pool
-		pool = Pool()
+		if hasattr(multiprocessing, 'get_context'):
+			ctx = multiprocessing.get_context('forkserver')
+			Pool = ctx.Pool
+		else:
+			Pool = multiprocessing.Pool
+		pool = Pool(initializer=_pool_init, initargs=(WORKDIRS,))
 		try:
 			self.DataBase._update_begin()
 			def update(ws):
@@ -205,3 +211,10 @@ class Main:
 				d[k] = [v[0] if isinstance(v, (list, tuple)) else v for v in p[k]]
 			d['description'] = self.Methods.descriptions[method]
 			return d
+
+
+def _pool_init(workdirs):
+	# The pool system will send SIGTERM when the pool is closed, so
+	# restore the original behaviour for that.
+	signal.signal(signal.SIGTERM, signal.SIG_DFL)
+	WORKDIRS.update(workdirs)

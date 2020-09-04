@@ -244,6 +244,9 @@ def main():
 	# for more information.
 	import multiprocessing
 	if hasattr(multiprocessing, 'set_start_method'):
+		# If possible, make the forkserver (used by database updates) pre-import everthing
+		if hasattr(multiprocessing, 'set_forkserver_preload'):
+			multiprocessing.set_forkserver_preload(['accelerator', 'accelerator.server'])
 		multiprocessing.set_start_method('fork')
 
 	from accelerator.autoflush import AutoFlush
