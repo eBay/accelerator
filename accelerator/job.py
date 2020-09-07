@@ -253,24 +253,24 @@ class CurrentJob(Job):
 		from accelerator.extras import saved_files
 		saved_files[filename] = 0
 
-class JobWithFile(namedtuple('JobWithFile', 'job filename sliced extra')):
-	def __new__(cls, job, filename, sliced=False, extra=None):
-		assert not filename.startswith('/'), "Specify relative filenames to JobWithFile"
-		return tuple.__new__(cls, (Job(job), filename, sliced, extra,))
+class JobWithFile(namedtuple('JobWithFile', 'job name sliced extra')):
+	def __new__(cls, job, name, sliced=False, extra=None):
+		assert not name.startswith('/'), "Specify relative filenames to JobWithFile"
+		return tuple.__new__(cls, (Job(job), name, bool(sliced), extra,))
 
-	def resolve(self, sliceno=None):
+	def filename(self, sliceno=None):
 		if sliceno is None:
 			assert not self.sliced, "A sliced file requires a sliceno"
 		else:
 			assert self.sliced, "An unsliced file can not have a sliceno"
-		return self.job.filename(self.filename, sliceno)
+		return self.job.filename(self.name, sliceno)
 
 	def load(self, sliceno=None, encoding='bytes'):
 		"""blob.load this file"""
 		from accelerator.extras import pickle_load
-		return pickle_load(self.resolve(sliceno), encoding=encoding)
+		return pickle_load(self.filename(sliceno), encoding=encoding)
 
 	def json_load(self, sliceno=None, unicode_as_utf8bytes=PY2):
 		from accelerator.extras import json_load
-		return json_load(self.resolve(sliceno), unicode_as_utf8bytes=unicode_as_utf8bytes)
+		return json_load(self.filename(sliceno), unicode_as_utf8bytes=unicode_as_utf8bytes)
 
