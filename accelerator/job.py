@@ -274,3 +274,5 @@ class JobWithFile(namedtuple('JobWithFile', 'job name sliced extra')):
 		from accelerator.extras import json_load
 		return json_load(self.filename(sliceno), unicode_as_utf8bytes=unicode_as_utf8bytes)
 
+	def open(self, mode='r', sliceno=None, encoding=None, errors=None):
+		return self.job.open(self.name, mode, sliceno, encoding, errors)
