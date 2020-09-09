@@ -33,7 +33,7 @@ all_c_functions = r'''
 #include <sys/types.h>
 #include <signal.h>
 
-#define err1(v) if (v) { perror("ERROR"); printf("ERROR! %s %d\n", __FILE__, __LINE__); goto err; }
+#define err1(v) if (v) { if (errno) perror("ERROR"); fprintf(stderr, "ERROR on %s line %d\n", __FILE__, __LINE__); goto err; }
 #define BIG_Z (1024 * 1024 * 16 - 64)
 #define SMALL_Z (1024 * 64)
 
@@ -120,7 +120,7 @@ again:
 	char *lf = memchr(ptr, lf_char, len - pos);
 	if (!lf) {
 		if (overflow_len) {
-			printf("Cannot handle lines longer than %d bytes\n", BIG_Z);
+			fprintf(stderr, "Cannot handle lines longer than %d bytes\n", BIG_Z);
 			goto err;
 		}
 		overflow_len = len - pos;
@@ -133,7 +133,7 @@ again:
 	*r_len = line_len + overflow_len;
 	if (overflow_len) {
 		if (*r_len > BIG_Z) {
-			printf("Cannot handle lines longer than %d bytes\n", BIG_Z);
+			fprintf(stderr, "Cannot handle lines longer than %d bytes\n", BIG_Z);
 			goto err;
 		}
 		memcpy(bufs[2] + overflow_len, ptr, line_len);
@@ -202,7 +202,7 @@ static int reader(const char *fn, const int slices, uint64_t skip_lines, const i
 		int32_t claim_len;
 		char *ptr = read_line(rl_lf_char, &len);
 		if (!len) break;
-		err1(!ptr);
+		if (!ptr) goto err;
 		if ((++linecnt % 1000000) == 0) {
 			// failure here only breaks status updating, so we don't care.
 			ssize_t ignore = write(status_fd, &linecnt, 8);
@@ -285,7 +285,7 @@ static int reader(const char *fn, const int slices, uint64_t skip_lines, const i
 	}
 	res = 0;
 err:
-	if (res) perror("reader");
+	if (res && errno) perror("reader");
 	if (labels_fd != -1) close(labels_fd);
 	for (int i = 0; i < slices; i++) {
 		if (slicebufs[i]) free(slicebufs[i]);
@@ -571,8 +571,8 @@ static PyObject *py_reader(PyObject *self, PyObject *args)
 			return 0;
 		}
 	}
-	err1(reader(fn, slices, skip_lines, outfds, labels_fd, status_fd, comment_char, lf_char));
-	fail = 0;
+	fail = reader(fn, slices, skip_lines, outfds, labels_fd, status_fd, comment_char, lf_char);
+	fflush(stderr);
 err:
 	if (outfds) free(outfds);
 	if (fail) Py_RETURN_TRUE;

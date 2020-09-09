@@ -104,8 +104,12 @@ def reader_process(slices, filename, write_fds, labels_fd, success_fd, status_fd
 			except OSError:
 				pass
 	setproctitle("reader")
+	os.dup2(success_fd, 2) # reader writes errors to stderr
+	os.close(success_fd)
+	success_fd = 2
 	res = cstuff.backend.reader(filename.encode("ascii"), slices, options.skip_lines, write_fds, labels_fd, status_fd, comment_char, lf_char)
-	os.write(success_fd, b"\x01" if res else b"\0")
+	if not res:
+		os.write(success_fd, b"\0")
 	os.close(success_fd)
 
 def char2int(name, empty_value, specials="empty"):
@@ -149,14 +153,13 @@ def prepare(job, slices):
 		labels_rfd, labels_wfd = os.pipe()
 	else:
 		labels_wfd = -1
-	success_rfd, success_wfd = os.pipe()
+	success_fh = open("reader.success", "wb+")
 	status_rfd, status_wfd = os.pipe()
 
-	p = Process(target=reader_process, name="reader", args=(slices, filename, write_fds, labels_wfd, success_wfd, status_wfd, comment_char, lf_char))
+	p = Process(target=reader_process, name="reader", args=(slices, filename, write_fds, labels_wfd, success_fh.fileno(), status_wfd, comment_char, lf_char))
 	p.start()
 	for fd in write_fds:
 		os.close(fd)
-	os.close(success_wfd)
 	os.close(status_wfd)
 
 	if options.labelsonfirstline:
@@ -222,7 +225,7 @@ def prepare(job, slices):
 	else:
 		skipped_dw = None
 
-	return separator, quote_char, lf_char, filename, orig_filename, labels, dw, bad_dw, skipped_dw, read_fds, success_rfd, status_rfd,
+	return separator, quote_char, lf_char, filename, orig_filename, labels, dw, bad_dw, skipped_dw, read_fds, success_fh, status_rfd,
 
 def analysis(sliceno, slices, prepare_res, update_top_status):
 	separator, quote_char, lf_char, filename, _, labels, dw, bad_dw, skipped_dw, fds, _, status_fd, = prepare_res
@@ -266,16 +269,21 @@ def analysis(sliceno, slices, prepare_res, update_top_status):
 	return list(r_num)
 
 def synthesis(prepare_res, analysis_res):
-	separator, _, _, filename, _, labels, dw, bad_dw, skipped_dw, fds, success_fd, _, = prepare_res
+	separator, _, _, filename, _, labels, dw, bad_dw, skipped_dw, fds, success_fh, _, = prepare_res
 	# Analysis may have gotten a perfectly legitimate EOF if something
 	# went wrong in the reader process, so we need to check that all
 	# went well.
+	reader_res = []
 	try:
-		reader_res = os.read(success_fd, 1)
+		success_fh.seek(0)
+		reader_res = success_fh.read()
 	except OSError:
-		reader_res = None
+		pass
 	if reader_res != b"\0":
-		raise Exception("Reader process failed")
+		reader_res = reader_res.decode("utf-8", "replace").strip("\r\n \t\0")
+		raise Exception(reader_res or "Reader process failed")
+	success_fh.close()
+	os.unlink("reader.success")
 	good_counts = []
 	bad_counts = []
 	skipped_counts = []
