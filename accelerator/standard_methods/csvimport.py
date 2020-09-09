@@ -352,6 +352,8 @@ static inline int bufread(const int fd, readbuf *buf, const uint32_t len, int *r
 
 static int import_slice(const int fd, const int sliceno, const int slices, int field_count, const char *out_fns[], const char *gzip_mode, const int separator, uint64_t *r_num, const int quote_char, const int lf_char, const int allow_bad)
 {
+	FILE * const badline_report_fh = (allow_bad ? stdout : stderr);
+	int badline_reported = 0;
 	int res = 1;
 	uint64_t num = 0;
 	readbuf *buf = 0;
@@ -476,15 +478,17 @@ keep_going:
 				if (last) {
 					if (field != real_field_count) {
 						if (!r_num[1]) {
-							printf("Not enough fields on line %llu\n", (unsigned long long)lineno);
+							fprintf(badline_report_fh, "Not enough fields on line %llu", (unsigned long long)lineno);
 						}
+						badline_reported = 1;
 						goto bad_line;
 					}
 				} else {
 					if (field == real_field_count) {
 						if (!r_num[1]) {
-							printf("Too many fields on line %llu\n", (unsigned long long)lineno);
+							fprintf(badline_report_fh, "Too many fields on line %llu", (unsigned long long)lineno);
 						}
+						badline_reported = 1;
 						goto bad_line;
 					}
 				}
@@ -513,14 +517,21 @@ keep_going:
 	*r_num = num;
 	res = 0;
 err:
-	if (res) perror("import_slice");
+	if (res && errno) perror("import_slice");
 	for (int i = 0; i < full_field_count; i++) {
 		if (outfh[i] && gzclose(outfh[i])) res = 1;
 	}
 	return res;
 bad_line:
 	if (!r_num[1]) {
-		printf("Line %llu bad (further bad lines in slice %d not reported)\n", (unsigned long long)lineno, sliceno);
+		if (!badline_reported) {
+			fprintf(badline_report_fh, "Line %llu bad", (unsigned long long)lineno);
+		}
+		if (allow_bad) {
+			fprintf(badline_report_fh, " (further bad lines in slice %d not reported)", sliceno);
+		}
+		fprintf(badline_report_fh, "\n");
+		fflush(stderr);
 	}
 	r_num[1]++;
 	if (allow_bad) {

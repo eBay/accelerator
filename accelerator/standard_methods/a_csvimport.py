@@ -126,6 +126,24 @@ def char2int(name, empty_value, specials="empty"):
 	assert len(char) == 1, msg
 	return cstuff.backend.char2int(char)
 
+def import_slice(fallback_msg, fd, sliceno, slices, field_count, out_fns, gzip_mode, separator, r_num, quote_char, lf_char, allow_bad):
+	fn = "import.success.%d" % (sliceno,)
+	fh = open(fn, "wb+")
+	real_stderr = os.dup(2)
+	try:
+		os.dup2(fh.fileno(), 2)
+		res = cstuff.backend.import_slice(*cstuff.bytesargs(fd, sliceno, slices, field_count, out_fns, gzip_mode, separator, r_num, quote_char, lf_char, allow_bad))
+		os.dup2(real_stderr, 2)
+		fh.seek(0)
+		msg = fh.read().decode("utf-8", "replace")
+		if msg or res:
+			raise Exception(msg.strip() or fallback_msg)
+	finally:
+		os.dup2(real_stderr, 2)
+		os.close(real_stderr)
+		fh.close()
+		os.unlink(fn)
+
 def prepare(job, slices):
 	# use 256 as a marker value, because that's not a possible char value (assuming 8 bit chars)
 	lf_char = char2int("newline", 256)
@@ -167,9 +185,10 @@ def prepare(job, slices):
 		# re-use import logic
 		out_fns = ["labels"]
 		r_num = cstuff.mk_uint64(3)
-		res = cstuff.backend.import_slice(*cstuff.bytesargs(labels_rfd, -1, -1, -1, out_fns, b"wb1", separator, r_num, quote_char, lf_char, 0))
-		os.close(labels_rfd)
-		assert res == 0, "c backend failed in label parsing"
+		try:
+			import_slice("c backend failed in label parsing", labels_rfd, -1, -1, -1, out_fns, b"wb1", separator, r_num, quote_char, lf_char, 0)
+		finally:
+			os.close(labels_rfd)
 		with typed_reader("bytes")("labels") as fh:
 			labels_from_file = [lab.decode("utf-8", "backslashreplace") for lab in fh]
 		os.unlink("labels")
@@ -263,9 +282,10 @@ def analysis(sliceno, slices, prepare_res, update_top_status):
 		out_fns.append(cstuff.NULL)
 	r_num = cstuff.mk_uint64(3) # [good_count, bad_count, comment_count]
 	gzip_mode = b"wb%d" % (options.compression,)
-	res = cstuff.backend.import_slice(*cstuff.bytesargs(fds[sliceno], sliceno, slices, len(labels), out_fns, gzip_mode, separator, r_num, quote_char, lf_char, options.allow_bad))
-	assert res == 0, "c backend failed in slice %d" % (sliceno,)
-	os.close(fds[sliceno])
+	try:
+		import_slice("c backend failed in slice %d" % (sliceno,), fds[sliceno], sliceno, slices, len(labels), out_fns, gzip_mode, separator, r_num, quote_char, lf_char, options.allow_bad)
+	finally:
+		os.close(fds[sliceno])
 	return list(r_num)
 
 def synthesis(prepare_res, analysis_res):
