@@ -82,16 +82,25 @@ static void *readgz_thread(void *args)
 	int i = 0;
 	while (1) {
 		const int32_t len = gzread(read_fh, bufs[i], BIG_Z);
-		err1(len < 0);
 		buf_lens[i] = len;
+		if (len <= 0) {
+			int e = Z_OK;
+			const char *msg = gzerror(read_fh, &e);
+			if (e == Z_OK) {
+				barrier_wait();
+				return 0;
+			} else if (e == Z_ERRNO) {
+				perror("readgz_thread");
+			} else {
+				fprintf(stderr, "zlib: %s\n", msg);
+			}
+			fflush(stderr);
+			kill(getpid(), 9);
+			return 0;
+		}
 		barrier_wait();
-		if (len == 0) return 0;
 		i = !i;
 	}
-err:
-	perror("readgz_thread");
-	kill(getpid(), 9);
-	return 0;
 }
 
 static char *read_line(const int lf_char, int32_t *r_len)
