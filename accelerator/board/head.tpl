@@ -82,6 +82,9 @@
 		input[type="checkbox"]:checked::before {
 			visibility: visible;
 		}
+		input[type="submit"] {
+			margin-bottom: 1em;
+		}
 
 		a[href="/"] {
 			float: right;
@@ -192,7 +195,7 @@
 			text-align: left;
 		}
 		.ds-table {
-			margin-left: 1.5em;
+			margin: 0 0 0.5em 1.5em;
 			border: 1px solid var(--border0);
 		}
 		.ds-table td, .ds-table th {
