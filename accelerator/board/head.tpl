@@ -5,47 +5,51 @@
 		:root {
 			color-scheme: light dark;
 			--bg0: #fffef7;
-			--bg1: #f9fff6;
-			--bg2: #fff8f3;
+			--bg1: #f5f8ef;
+			--bg2: #f5f2e8;
 			--bgwarn: #fd7;
+			--bgerr: #b42;
 			--not-loaded: #dcb;
-			--bg0dark: #f8f4f1;
+			--bg0-odd: #f8f4f1;
 			--bg-click: #fbb;
 			--fg0: #222;
+			--fg-a: #11f;
+			--fg-a-v: #529;
+			--fg-a-a: #c16;
 			--checkmark: #193;
-			--border0: #ecece8;
-			--border1: #ccb;
+			--border0: #e4e1d0;
+			--border1: #e7e5d6;
 			--border2: #aad;
 			--max-height: 300px;
 		}
-		a:link { color: #11F; }
-		a:visited { color: #529; }
-		a:active { color: #C16; }
 
 		@media (prefers-color-scheme: dark) {
 			:root {
-				--bg0: #302a12;
-				--bg1: #032;
-				--bg2: #301;
-				--bgwarn: #c71;
+				--bg0: #3a2b1a;
+				--bg1: #3f3425;
+				--bg2: #493724;
+				--bgwarn: #a41;
 				--not-loaded: #654;
-				--bg0dark: #113;
-				--bg-click: #854;
-				--fg0: #eec;
+				--bg0-odd: #4e3d2f;
+				--bg-click: #944;
+				--fg0: #ddc;
+				--fg-a: #8cf;
+				--fg-a-v: #caf;
+				--fg-a-a: #f9b;
 				--checkmark: #9eb;
-				--border0: #552;
-				--border1: #774;
+				--border0: #764;
+				--border1: #875;
 				--border2: #549;
 			}
-			a:link { color: #6cf; }
-			a:visited { color: #caf; }
-			a:active { color: #f9b; }
 		}
 
 		body {
 			background: var(--bg0);
 			color: var(--fg0);
 		}
+		a:link { color: var(--fg-a); }
+		a:visited { color: var(--fg-a-v); }
+		a:active { color: var(--fg-a-a); }
 		input {
 			-webkit-appearance: none;
 			appearance: none;
@@ -83,7 +87,7 @@
 			float: right;
 		}
 		.error {
-			background: red;
+			background: var(--bgerr);
 		}
 		.warning {
 			background: var(--bgwarn);
@@ -198,7 +202,7 @@
 			border-left: 1px solid var(--border1);
 		}
 		.ds-table tbody tr:nth-child(odd) {
-			background: var(--bg0dark);
+			background: var(--bg0-odd);
 		}
 		input[type="number"] {
 			width: 8em;
@@ -219,7 +223,7 @@
 			width: 100%;
 		}
 		.method-table tbody tr:nth-child(odd) {
-			background: var(--bg0dark);
+			background: var(--bg0-odd);
 		}
 		.method-table tbody tr {
 			border-bottom: 1px solid var(--border1);
