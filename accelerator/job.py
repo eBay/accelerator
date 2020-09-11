@@ -253,6 +253,15 @@ class CurrentJob(Job):
 		from accelerator.extras import saved_files
 		saved_files[filename] = 0
 
+	def input_filename(self, filename):
+		return os.path.join(self.input_directory, filename)
+
+	def open_input(self, filename, mode='r', encoding=None, errors=None):
+		assert 'r' in mode, "Don't write to input files"
+		if 'b' not in mode and encoding is None:
+			encoding = 'utf-8'
+		return open(self.input_filename(filename), mode, encoding=encoding, errors=errors)
+
 class JobWithFile(namedtuple('JobWithFile', 'job name sliced extra')):
 	def __new__(cls, job, name, sliced=False, extra=None):
 		assert not name.startswith('/'), "Specify relative filenames to JobWithFile"
