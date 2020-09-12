@@ -133,10 +133,15 @@ def call_analysis(analysis_func, sliceno_, q, preserve_result, parent_pid, outpu
 
 def fork_analysis(slices, analysis_func, kw, preserve_result, output_fds):
 	from multiprocessing import Process, Queue
+	import gc
 	q = Queue()
 	children = []
 	t = time()
 	pid = os.getpid()
+	if hasattr(gc, 'freeze'):
+		# See https://bugs.python.org/issue31558
+		# (Though we keep the gc disabled by default.)
+		gc.freeze()
 	for i in range(slices):
 		p = Process(target=call_analysis, args=(analysis_func, i, q, preserve_result, pid, output_fds), kwargs=kw, name='analysis-%d' % (i,))
 		p.start()

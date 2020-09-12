@@ -291,8 +291,7 @@ def launch_start(data):
 	# Additionally, as seen in https://bugs.python.org/issue31558
 	# the GC sometimes causes considerable extra COW after fork.
 	# (If prepare_res is something GC-tracked.)
-	# Once gc.freeze is available we will probably want to call that before
-	# splitting the analysis processes if the method has re-enabled gc.
+	# On 3.7+ we also call gc.freeze before forking the analysis processes.
 	try:
 		gc.disable()
 		child = os.fork()
