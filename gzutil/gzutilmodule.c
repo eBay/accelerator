@@ -1,6 +1,6 @@
 /**
  * Copyright (c) 2017 eBay Inc.
- * Modifications copyright (c) 2018-2019 Carl Drougge
+ * Modifications copyright (c) 2018-2020 Carl Drougge
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -2169,8 +2169,6 @@ PyMODINIT_FUNC INITFUNC(void)
 	PyObject *c_hash = PyCapsule_New((void *)hash, "gzutil._C_hash", 0);
 	if (!c_hash) return INITERR;
 	PyModule_AddObject(m, "_C_hash", c_hash);
-	PyObject *version = Py_BuildValue("(iii)", 2, 11, 0);
-	PyModule_AddObject(m, "version", version);
 #if PY_MAJOR_VERSION >= 3
 	return m;
 #endif
