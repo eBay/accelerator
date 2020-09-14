@@ -18,8 +18,10 @@
 
 try:
 	# setup.py needs to import some things, let's not break that.
-	from .gzutil import GzUnicode
-	del GzUnicode
+	# When adding types to gzutil switch this to one of those
+	# (to make building with a previous version installed work).
+	from .gzutil import GzComplex64
+	del GzComplex64
 	before_install = False
 except ImportError:
 	before_install = True
