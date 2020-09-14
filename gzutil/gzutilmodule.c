@@ -1450,7 +1450,16 @@ MK_MINMAX_SET(DateTime, unfmt_datetime((*(uint64_t *)cmp_value) >> 32, *(uint64_
 MK_MINMAX_SET(Date    , unfmt_date(*(uint32_t *)cmp_value));
 MK_MINMAX_SET(Time    , unfmt_time((*(uint64_t *)cmp_value) >> 32, *(uint64_t *)cmp_value));
 
-#define MKWRITER(tname, T, HT, conv, withnone, minmax_value, minmax_set, hash)           	\
+#define MINMAX_STD(T, v, minmax_set)                                                         	\
+	T cmp_value = v;                                                                     	\
+	if (!self->min_obj || (cmp_value < self->min_u.as_ ## T)) {                          	\
+		minmax_set(&self->min_obj, obj, &self->min_u, &cmp_value, sizeof(cmp_value));	\
+	}                                                                                    	\
+	if (!self->max_obj || (cmp_value > self->max_u.as_ ## T)) {                          	\
+		minmax_set(&self->max_obj, obj, &self->max_u, &cmp_value, sizeof(cmp_value));	\
+	}
+
+#define MKWRITER_C(tname, T, HT, conv, withnone, errchk, do_minmax, minmax_value, minmax_set, hash) \
 	static int gzwrite_init_ ## tname(PyObject *self_, PyObject *args, PyObject *kwds)	\
 	{                                                                                	\
 		static char *kwlist[] = {"name", "mode", "default", "hashfilter", "none_support", 0}; \
@@ -1504,7 +1513,7 @@ is_none:                                                                        
 			return gzwrite_write_(self, (char *)&noneval_ ## T, sizeof(T));  	\
 		}                                                                        	\
 		T value = conv(obj);                                                     	\
-		PyObject *pyerr = (value == (T)-1 ? PyErr_Occurred() : 0);               	\
+		PyObject *pyerr = (errchk ? PyErr_Occurred() : 0);                       	\
 		if (withnone && !pyerr &&                                                	\
 		    !memcmp(&value, &noneval_ ## T, sizeof(T))                           	\
 		   ) {                                                                   	\
@@ -1524,13 +1533,7 @@ is_none:                                                                        
 			if (sliceno != self->sliceno) Py_RETURN_FALSE;                   	\
 		}                                                                        	\
 		if (!actually_write) Py_RETURN_TRUE;                                     	\
-		T cmp_value = minmax_value(value);                                       	\
-		if (!self->min_obj || (cmp_value < self->min_u.as_ ## T)) {              	\
-			minmax_set(&self->min_obj, obj, &self->min_u, &cmp_value, sizeof(cmp_value));	\
-		}                                                                        	\
-		if (!self->max_obj || (cmp_value > self->max_u.as_ ## T)) {              	\
-			minmax_set(&self->max_obj, obj, &self->max_u, &cmp_value, sizeof(cmp_value));	\
-		}                                                                        	\
+		do_minmax(T, minmax_value(value), minmax_set)                            	\
 		self->count++;                                                           	\
 		return gzwrite_write_(self, (char *)&value, sizeof(value));              	\
 	}                                                                                	\
@@ -1559,6 +1562,9 @@ is_none:                                                                        
 		}                                                                        	\
 		return pyInt_FromU64(h);                                                 	\
 	}
+
+#define MKWRITER(tname, T, HT, conv, withnone, minmax_value, minmax_set, hash) \
+	MKWRITER_C(tname, T, HT, conv, withnone, value == (T)-1, MINMAX_STD, minmax_value, minmax_set, hash)
 
 #if PY_MAJOR_VERSION < 3
 // Passing a non-int object to some of the As functions in py2 gives
