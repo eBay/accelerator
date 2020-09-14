@@ -1956,16 +1956,28 @@ MKPARSEDNUMBERWRAPPER(write, GzWrite)
 MKPARSEDNUMBERWRAPPER(hashcheck, GzWrite)
 MKPARSEDNUMBERWRAPPER(hash, PyObject)
 
-#define MKPARSED(name, T, HT, inner, conv, withnone, minmax_set, hash)	\
+#define MKPARSED_C(name, T, HT, inner, conv, withnone, errchk, err_v, do_minmax, minmax_set, hash) \
 	static T parse ## name(PyObject *obj)                        	\
 	{                                                            	\
 		PyObject *parsed = inner(obj);                       	\
-		if (!parsed) return -1;                              	\
+		if (!parsed) return err_v;                           	\
 		T res = conv(parsed);                                	\
 		Py_DECREF(parsed);                                   	\
 		return res;                                          	\
 	}                                                            	\
-	MKWRITER(GzWriteParsed ## name, T, HT, parse ## name, withnone, , minmax_set, hash)
+	MKWRITER_C(GzWriteParsed ## name, T, HT, parse ## name, withnone, errchk, do_minmax, , minmax_set, hash)
+#define MKPARSED(name, T, HT, inner, conv, withnone, minmax_set, hash)	\
+	MKPARSED_C(name, T, HT, inner, conv, withnone, value == (T)-1, -1, MINMAX_STD, minmax_set, hash)
+
+static inline PyObject *pyComplex_parse(PyObject *obj)
+{
+	return PyObject_CallFunctionObjArgs((PyObject *)&PyComplex_Type, obj, 0);
+}
+
+static const complex64 complex64_error = { -1.0, 0.0 };
+static const complex32 complex32_error = { -1.0, 0.0 };
+MKPARSED_C(Complex64, complex64, complex64, pyComplex_parse, PyComplex_AsCComplex  , 1, value.real == -1.0, complex64_error, MINMAX_DUMMY, , hash_double);
+MKPARSED_C(Complex32, complex32, complex32, pyComplex_parse, pyComplex_AsCComplex32, 1, value.real == -1.0, complex32_error, MINMAX_DUMMY, , hash_double);
 MKPARSED(Float64, double  , double  , PyNumber_Float, PyFloat_AsDouble , 1, minmax_set_Float64, hash_double);
 MKPARSED(Float32, float   , double  , PyNumber_Float, PyFloat_AsDouble , 1, minmax_set_Float32, hash_double);
 MKPARSED(Int64  , int64_t , int64_t , PyNumber_Int  , pyLong_AsS64     , 1, minmax_set_Int64  , hash_integer);
@@ -2068,6 +2080,8 @@ MKWTYPE(GzWriteDate);
 MKWTYPE(GzWriteTime);
 
 MKWTYPE(GzWriteParsedNumber);
+MKWTYPE(GzWriteParsedComplex64);
+MKWTYPE(GzWriteParsedComplex32);
 MKWTYPE(GzWriteParsedFloat64);
 MKWTYPE(GzWriteParsedFloat32);
 MKWTYPE(GzWriteParsedInt64);
@@ -2231,6 +2245,8 @@ PyMODINIT_FUNC INITFUNC(void)
 	INIT(GzWriteDate);
 	INIT(GzWriteTime);
 	INIT(GzWriteParsedNumber);
+	INIT(GzWriteParsedComplex64);
+	INIT(GzWriteParsedComplex32);
 	INIT(GzWriteParsedFloat64);
 	INIT(GzWriteParsedFloat32);
 	INIT(GzWriteParsedInt64);

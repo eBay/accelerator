@@ -43,6 +43,8 @@ _convfuncs = {
 	'ascii'    : gzutil.GzWriteAscii,
 	'unicode'  : gzutil.GzWriteUnicode,
 	'parsed:number'   : gzutil.GzWriteParsedNumber,
+	'parsed:complex64': gzutil.GzWriteParsedComplex64,
+	'parsed:complex32': gzutil.GzWriteParsedComplex32,
 	'parsed:float64'  : gzutil.GzWriteParsedFloat64,
 	'parsed:float32'  : gzutil.GzWriteParsedFloat32,
 	'parsed:int64'    : gzutil.GzWriteParsedInt64,
