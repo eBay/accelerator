@@ -914,11 +914,24 @@ typedef union {
 	uint64_t as_uint64_t;
 } minmax_u;
 
+// Same thing but with the larger complex64 type which isn't needed in minmax.
+typedef union {
+	double   as_double;
+	float    as_float;
+	int32_t  as_int32_t;
+	int64_t  as_int64_t;
+	uint8_t  as_uint8_t;
+	uint32_t as_uint32_t;
+	uint64_t as_uint64_t;
+	complex32 as_complex32;
+	complex64 as_complex64;
+} default_u;
+
 typedef struct gzwrite {
 	PyObject_HEAD
 	gzFile fh;
 	char *name;
-	minmax_u *default_value;
+	default_u *default_value;
 	unsigned long count;
 	PyObject *hashfilter;
 	PyObject *default_obj;
@@ -1458,6 +1471,7 @@ MK_MINMAX_SET(Time    , unfmt_time((*(uint64_t *)cmp_value) >> 32, *(uint64_t *)
 	if (!self->max_obj || (cmp_value > self->max_u.as_ ## T)) {                          	\
 		minmax_set(&self->max_obj, obj, &self->max_u, &cmp_value, sizeof(cmp_value));	\
 	}
+#define MINMAX_DUMMY(T, v, minmax_set) /* Nothing */
 
 #define MKWRITER_C(tname, T, HT, conv, withnone, errchk, do_minmax, minmax_value, minmax_set, hash) \
 	static int gzwrite_init_ ## tname(PyObject *self_, PyObject *args, PyObject *kwds)	\
@@ -1641,6 +1655,15 @@ static uint8_t pyLong_AsBool(PyObject *l)
 	return value;
 }
 
+static inline complex32 pyComplex_AsCComplex32(PyObject *obj)
+{
+	complex64 v64 = PyComplex_AsCComplex(obj);
+	complex32 v = { v64.real, v64.imag };
+	return v;
+}
+
+MKWRITER_C(GzWriteComplex64, complex64, complex64, PyComplex_AsCComplex  , 1, value.real == -1.0, MINMAX_DUMMY, , , hash_complex64);
+MKWRITER_C(GzWriteComplex32, complex32, complex32, pyComplex_AsCComplex32, 1, value.real == -1.0, MINMAX_DUMMY, , , hash_complex32);
 MKWRITER(GzWriteFloat64, double  , double  , PyFloat_AsDouble , 1, , minmax_set_Float64, hash_double );
 MKWRITER(GzWriteFloat32, float   , double  , PyFloat_AsDouble , 1, , minmax_set_Float32, hash_double );
 MKWRITER(GzWriteInt64  , int64_t , int64_t , pyLong_AsS64     , 1, , minmax_set_Int64  , hash_integer);
@@ -2030,6 +2053,8 @@ MKWTYPE(GzWriteUnicode);
 MKWTYPE(GzWriteBytesLines);
 MKWTYPE(GzWriteAsciiLines);
 MKWTYPE(GzWriteUnicodeLines);
+MKWTYPE(GzWriteComplex64);
+MKWTYPE(GzWriteComplex32);
 MKWTYPE(GzWriteFloat64);
 MKWTYPE(GzWriteFloat32);
 MKWTYPE(GzWriteNumber);
@@ -2193,6 +2218,8 @@ PyMODINIT_FUNC INITFUNC(void)
 	INIT(GzWriteUnicodeLines);
 	INIT(GzWriteAsciiLines);
 	INIT(GzWriteNumber);
+	INIT(GzWriteComplex64);
+	INIT(GzWriteComplex32);
 	INIT(GzWriteFloat64);
 	INIT(GzWriteFloat32);
 	INIT(GzWriteInt64);
