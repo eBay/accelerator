@@ -25,6 +25,8 @@ from accelerator.compat import PY3
 
 type2iter = {
 	'number'  : gzutil.GzNumber,
+	'complex64': gzutil.GzComplex64,
+	'complex32': gzutil.GzComplex32,
 	'float64' : gzutil.GzFloat64,
 	'float32' : gzutil.GzFloat32,
 	'int64'   : gzutil.GzInt64,

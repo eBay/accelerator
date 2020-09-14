@@ -27,6 +27,8 @@ GzWrite = gzutil.GzWrite
 
 _convfuncs = {
 	'number'   : gzutil.GzWriteNumber,
+	'complex64': gzutil.GzWriteComplex64,
+	'complex32': gzutil.GzWriteComplex32,
 	'float64'  : gzutil.GzWriteFloat64,
 	'float32'  : gzutil.GzWriteFloat32,
 	'int64'    : gzutil.GzWriteInt64,

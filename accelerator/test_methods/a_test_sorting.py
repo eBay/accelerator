@@ -1,6 +1,6 @@
 ############################################################################
 #                                                                          #
-# Copyright (c) 2019 Carl Drougge                                          #
+# Copyright (c) 2019-2020 Carl Drougge                                     #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -92,7 +92,8 @@ def synthesis(params):
 	source = Dataset(subjobs.build("test_sorting_gendata"))
 	# Test that all datatypes work for sorting
 	for key in test_data.data:
-		check_one(params.slices, key, source)
+		if not key.startswith('complex'):
+			check_one(params.slices, key, source)
 	# Check reverse sorting
 	check_one(params.slices, "int32", source, reverse=True)
 	# Check that sorting across slices and by two columns works

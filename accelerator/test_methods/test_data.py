@@ -1,6 +1,6 @@
 ############################################################################
 #                                                                          #
-# Copyright (c) 2019 Carl Drougge                                          #
+# Copyright (c) 2019-2020 Carl Drougge                                     #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -35,6 +35,7 @@ from accelerator.compat import first_value, num_types
 #       Which means no tuple may contain None, even for types that support None.
 #    Numeric types other than int64 must have a low-ish first value.
 #    Most of the above doesn't apply to json (because it's handled specially.)
+#    complex* are also unsortable. (first value is sortable though.)
 # It's supposed to contain all types, but it doesn't really have to.
 data = {
 	"float64": (1/3, 1e100, -9.0),
@@ -53,6 +54,8 @@ data = {
 	# big value - will change if it roundtrips through (any type of) float, semibig to find 32bit issues, and a float.
 	"number": (1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000, 13578058080989382, 1/3),
 	"json": ({"a": [1, 2, {"b": {}}]}, None, "bl\xe4"),
+	"complex64": (1.5, -1e100+0.00000002j, 5.3j),
+	"complex32": (-1, 1+2j, -0.25j),
 }
 
 value_cnt = {len(v) for v in data.values()}
@@ -68,6 +71,7 @@ def sort_data_for_slice(sliceno):
 	# int64 goes down one every other line,
 	# all other numeric columns go up sliceno + 1 every line.
 	# json starts as 0 (pretending to be a numeric type).
+	# complex* is also pretending to be a real number type here.
 	def add(offset):
 		res = []
 		for k, v in sorted(data.items()):

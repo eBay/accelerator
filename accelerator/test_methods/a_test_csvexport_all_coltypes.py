@@ -38,6 +38,8 @@ def synthesis(job):
 		'bits64',
 		'bool',
 		'bytes',
+		'complex32',
+		'complex64',
 		'date',
 		'datetime',
 		'float32',
@@ -63,6 +65,7 @@ def synthesis(job):
 	write = dw.get_split_write()
 	write(
 		'a', 0xffffffff, 0xfedcba9876543210, True, b'hello',
+		42, 1e100+0.00000000000000001j,
 		date(2020, 6, 23), datetime(2020, 6, 23, 12, 13, 14),
 		1.0, float('-inf'), -10, -20,
 		{'json': True}, 0xfedcba9876543210beef,
@@ -72,6 +75,7 @@ def synthesis(job):
 	d['recursion'] = d
 	write(
 		'b', 0, 0, False, b'bye',
+		2-3j, -7,
 		date(1868,  1,  3), datetime(1868,  1,  3, 13, 14, 5),
 		float('inf'), float('nan'), 0, 0,
 		[False, None], 42.18,
@@ -79,6 +83,7 @@ def synthesis(job):
 	)
 	write(
 		None, 72, 64, None, None,
+		None, None,
 		None, None,
 		None, None, None, None,
 		None, None,
@@ -95,6 +100,7 @@ def synthesis(job):
 		expect(*sorted(todo))
 		expect(
 			'a', '4294967295', '18364758544493064720', 'True', 'hello',
+			'(42+0j)', '(1e+100+1e-17j)',
 			'2020-06-23', '2020-06-23 12:13:14',
 			'1.0', '-inf', '-10', '-20',
 			'{"json": true}', '1203552815971897489538799',
@@ -102,6 +108,7 @@ def synthesis(job):
 		)
 		expect(
 			'b', '0', '0', 'False', 'bye',
+			'(2-3j)', '(-7+0j)',
 			'1868-01-03', '1868-01-03 13:14:05',
 			'inf', 'nan', '0', '0',
 			'[false, null]', '42.18',
@@ -109,6 +116,7 @@ def synthesis(job):
 		)
 		expect(
 			'None', '72', '64', 'None', 'None',
+			'None', 'None',
 			'None', 'None',
 			'None', 'None', 'None', 'None',
 			'null', 'None',

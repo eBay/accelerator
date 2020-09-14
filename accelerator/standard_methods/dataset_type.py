@@ -612,6 +612,11 @@ def _conv_json(_):
 		return dec(v.decode('utf-8'))
 	return conv_json
 
+def _conv_complex(t):
+	def conv_complex(v):
+		return complex(v.decode('utf-8'))
+	return conv_complex
+
 ConvTuple = namedtuple('ConvTuple', 'size conv_code_str pyfunc')
 # Size is bytes per value, or 0 for variable size.
 # If pyfunc is specified it is called with the type string
@@ -621,6 +626,9 @@ ConvTuple = namedtuple('ConvTuple', 'size conv_code_str pyfunc')
 # type in the dataset.
 # If conv_code_str and size is set, the destination type must exist in minmaxfuncs.
 convfuncs = {
+	'complex64'    : ConvTuple(16, None, _conv_complex),
+	'complex32'    : ConvTuple(8, None, _conv_complex),
+	# no *i-types for complex since we just reuse the python complex constructor.
 	'float64'      : ConvTuple(8, _c_conv_float_template % dict(type='double', func='strtod', whole=1), None),
 	'float32'      : ConvTuple(4, _c_conv_float_template % dict(type='float', func='strtof', whole=1) , None),
 	'float64i'     : ConvTuple(8, _c_conv_float_template % dict(type='double', func='strtod', whole=0), None),
@@ -781,7 +789,7 @@ def _test():
 	for key, data in iteritems(convfuncs):
 		key = key.split(":")[0]
 		typed_writer(typerename.get(key, key))
-		assert data.size in (0, 1, 4, 8,), (key, data)
+		assert data.size in (0, 1, 4, 8, 16), (key, data)
 		if isinstance(data.conv_code_str, list):
 			for v in data.conv_code_str:
 				assert isinstance(v, (str, NoneType)), (key, data)
