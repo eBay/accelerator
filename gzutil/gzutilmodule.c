@@ -141,6 +141,11 @@ static PyTypeObject GzDate_Type;
 static PyTypeObject GzTime_Type;
 static PyTypeObject GzBool_Type;
 
+typedef Py_complex complex64;
+typedef struct {
+	float real, imag;
+} complex32;
+
 static const uint8_t hash_k[16] = {94, 70, 175, 255, 152, 30, 237, 97, 252, 125, 174, 76, 165, 112, 16, 9};
 
 int siphash(uint8_t *out, const uint8_t *in, uint64_t inlen, const uint8_t *k);
@@ -175,6 +180,20 @@ static uint64_t hash_double(const void *ptr)
 	int64_t i = d;
 	if (i == d) return hash_integer(&i);
 	return hash(&d, sizeof(d));
+}
+static uint64_t hash_complex64(const void *ptr)
+{
+	complex64 *p = (complex64 *)ptr;
+	if (p->imag == 0.0) return hash_double(&p->real);
+	return hash(p, sizeof(*p));
+}
+static uint64_t hash_complex32(const void *ptr)
+{
+	complex32 *p = (complex32 *)ptr;
+	complex64 v64;
+	v64.real = p->real;
+	v64.imag = p->imag;
+	return hash_complex64(&v64);
 }
 
 static int parse_hashfilter(PyObject *hashfilter, PyObject **r_hashfilter, unsigned int *r_sliceno, unsigned int *r_slices, uint64_t *r_spread_None)
@@ -372,6 +391,8 @@ static int gzread_read_(GzRead *self, int itemsize)
 #define SIZE_DateTime 8
 #define SIZE_Time     8
 #define SIZE_Date     4
+#define SIZE_complex64 16
+#define SIZE_complex32 8
 #define SIZE_double   8
 #define SIZE_float    4
 #define SIZE_int64_t  8
@@ -624,8 +645,12 @@ MKBLOBITER(GzUnicode, Unicode);
 // These are signaling NaNs with extra DEADness in the significand
 static unsigned char noneval_double[8] = {0xde, 0xad, 0xde, 0xad, 0xde, 0xad, 0xf0, 0xff};
 static unsigned char noneval_float[4] = {0xde, 0xad, 0x80, 0xff};
+static unsigned char noneval_complex64[16] = {0xde, 0xad, 0xde, 0xad, 0xde, 0xad, 0xf0, 0xff, 0, 0, 0, 0, 0, 0, 0, 0};
+static unsigned char noneval_complex32[8] = {0xde, 0xad, 0x80, 0xff, 0, 0, 0, 0};
 static const unsigned char BE_noneval_double[8] = {0xff, 0xf0, 0xde, 0xad, 0xde, 0xad, 0xde, 0xad};
 static const unsigned char BE_noneval_float[4] = {0xff, 0x80, 0xde, 0xad};
+static const unsigned char BE_noneval_complex64[16] = {0xff, 0xf0, 0xde, 0xad, 0xde, 0xad, 0xde, 0xad, 0, 0, 0, 0, 0, 0, 0, 0};
+static const unsigned char BE_noneval_complex32[8] = {0xff, 0x80, 0xde, 0xad, 0, 0, 0, 0};
 
 // The smallest value is one less than -biggest, so that seems like a good signal value.
 static const int64_t noneval_int64_t = INT64_MIN;
@@ -657,6 +682,13 @@ static const uint8_t noneval_uint8_t = 255;
 		return conv(res);                                            	\
 	}
 
+PyObject *pyComplex_From32(complex32 v)
+{
+	return PyComplex_FromDoubles(v.real, v.imag);
+}
+
+MKITER(GzComplex64, complex64, PyComplex_FromCComplex, hash_complex64, complex64, 1)
+MKITER(GzComplex32, complex32, pyComplex_From32      , hash_complex32, complex32, 1)
 MKITER(GzFloat64, double  , PyFloat_FromDouble     , hash_double , double  , 1)
 MKITER(GzFloat32, float   , PyFloat_FromDouble     , hash_double , double  , 1)
 MKITER(GzInt64  , int64_t , pyInt_FromS64          , hash_integer, int64_t , 1)
@@ -858,6 +890,8 @@ MKTYPE(GzBytesLines, r_default_members);
 MKTYPE(GzAsciiLines, r_default_members);
 MKTYPE(GzUnicodeLines, r_unicode_members);
 MKTYPE(GzNumber, r_default_members);
+MKTYPE(GzComplex64, r_default_members);
+MKTYPE(GzComplex32, r_default_members);
 MKTYPE(GzFloat64, r_default_members);
 MKTYPE(GzFloat32, r_default_members);
 MKTYPE(GzInt64, r_default_members);
@@ -2094,6 +2128,8 @@ PyMODINIT_FUNC INITFUNC(void)
 			// big endian, we can work with this.
 			memcpy(&noneval_double, &BE_noneval_double, sizeof(noneval_double));
 			memcpy(&noneval_float, &BE_noneval_float, sizeof(noneval_float));
+			memcpy(&noneval_complex64, &BE_noneval_complex64, sizeof(noneval_complex64));
+			memcpy(&noneval_complex32, &BE_noneval_complex32, sizeof(noneval_complex32));
 		} else {
 			// wat?
 			good = 0;
@@ -2131,6 +2167,8 @@ PyMODINIT_FUNC INITFUNC(void)
 	INIT(GzUnicodeLines);
 	INIT(GzAsciiLines);
 	INIT(GzNumber);
+	INIT(GzComplex64);
+	INIT(GzComplex32);
 	INIT(GzFloat64);
 	INIT(GzFloat32);
 	INIT(GzInt64);
