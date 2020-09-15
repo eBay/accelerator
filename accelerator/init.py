@@ -57,7 +57,7 @@ config_template = r"""# The configuration is a collection of key value pairs.
 
 slices: {slices}
 workdirs:
-	{name} {prefix}/workdirs/{name}
+	{name} ./workdirs/{name}
 
 # Target workdir defaults to the first workdir, but you can override it.
 # (this is where jobs without a workdir override are built)
@@ -70,7 +70,7 @@ method packages:
 
 urd: local # can also be URL/socket to your urd
 
-result directory: {prefix}/results
+result directory: ./results
 input directory: {input}
 
 # If you want to run methods on different python interpreters you can
@@ -157,7 +157,6 @@ def main(argv):
 	with open('accelerator.conf', 'w') as fh:
 		fh.write(config_template.format(
 			name=options.name,
-			prefix=prefix,
 			slices=options.slices,
 			input=options.input,
 			major=version_info.major,
