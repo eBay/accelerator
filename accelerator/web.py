@@ -36,10 +36,10 @@ import cgi
 from traceback import print_exc
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
-	pass
+	request_queue_size = 512
 
 class ThreadedUnixHTTPServer(ThreadingMixIn, UnixStreamServer):
-	pass # allow_reuse_address = True doesn't work for unix sockets
+	request_queue_size = 512
 
 class BaseWebHandler(BaseHTTPRequestHandler):
 	"""What I usually do in my web servers.
