@@ -1971,6 +1971,12 @@ MKPARSEDNUMBERWRAPPER(hash, PyObject)
 
 static inline PyObject *pyComplex_parse(PyObject *obj)
 {
+#if PY_MAJOR_VERSION >= 3
+	if (PyBytes_Check(obj)) {
+		obj = PyUnicode_DecodeUTF8(PyBytes_AS_STRING(obj), PyBytes_GET_SIZE(obj), 0);
+		if (!obj) return 0;
+	}
+#endif
 	return PyObject_CallFunctionObjArgs((PyObject *)&PyComplex_Type, obj, 0);
 }
 
