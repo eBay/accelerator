@@ -22,12 +22,12 @@
 from accelerator.compat import PY3, unicode
 
 if PY3:
-	from socketserver import ThreadingMixIn, ForkingMixIn
+	from socketserver import ThreadingMixIn
 	from http.server import HTTPServer, BaseHTTPRequestHandler
 	from socketserver import UnixStreamServer
 	from urllib.parse import parse_qs
 else:
-	from SocketServer import ThreadingMixIn, ForkingMixIn
+	from SocketServer import ThreadingMixIn
 	from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 	from SocketServer import UnixStreamServer
 	from urlparse import parse_qs
@@ -36,9 +36,6 @@ import cgi
 from traceback import print_exc
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
-	pass
-
-class ForkedHTTPServer(ForkingMixIn, HTTPServer):
 	pass
 
 class ThreadedUnixHTTPServer(ThreadingMixIn, UnixStreamServer):
