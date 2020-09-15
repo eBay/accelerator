@@ -55,27 +55,13 @@ class UnixHTTPHandler(AbstractHTTPHandler):
 install_opener(build_opener(UnixHTTPHandler))
 
 
-from wsgiref.simple_server import WSGIServer, WSGIRequestHandler
-if PY3:
-	from socketserver import UnixStreamServer
-else:
-	from SocketServer import UnixStreamServer
+import bottle
 
-class WSGIUnixServer(UnixStreamServer, WSGIServer):
-	def server_bind(self):
-		# Everything expects a (host, port) pair, except the unix bind function.
-		save = self.server_address
-		self.server_address = save[0]
-		UnixStreamServer.server_bind(self)
-		self.server_address = save
-		self.server_name, self.server_port = self.server_address
-		self.setup_environ()
-
-class WSGIUnixRequestHandler(WSGIRequestHandler):
-	def __init__(self, request, client_address, server):
-		# Everything expects a (host, port) pair, so let's provide something like that.
-		client_address = (client_address, 0)
-		WSGIRequestHandler.__init__(self, request, client_address, server)
+class WaitressUnixServer(bottle.ServerAdapter):
+	def run(self, handler):
+		from waitress import create_server
+		server = create_server(handler, unix_socket=self.host)
+		server.run()
 
 
 def call(url, data=None, fmt=json_decode, headers={}, server_name='server'):

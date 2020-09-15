@@ -517,15 +517,15 @@ def main(argv, cfg):
 	kw = dict(debug=False, reloader=False, quiet=args.quiet)
 	listen = cfg.urd_listen
 	if isinstance(listen, tuple):
+		kw['server'] = 'waitress'
 		kw['host'], kw['port'] = listen
 	else:
-		from accelerator.unixhttp import WSGIUnixServer, WSGIUnixRequestHandler
+		from accelerator.unixhttp import WaitressUnixServer
 		from accelerator.server import check_socket
 		if listen == 'local':
 			listen = '.socket.dir/urd'
 		check_socket(listen)
-		kw['server_class'] = WSGIUnixServer
-		kw['handler_class'] = WSGIUnixRequestHandler
+		kw['server'] = WaitressUnixServer
 		kw['host'] = listen
 		kw['port'] = 0
 	bottle.run(**kw)
