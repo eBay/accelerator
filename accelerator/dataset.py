@@ -1109,6 +1109,12 @@ class DatasetWriter(object):
 		else:
 			self._clean_names[colname] = _clean_name(colname, self._seen_n)
 
+	# These will be overwritten by set_slice
+	def write(self, *a, **kw):
+		raise DatasetUsageError("Call .set_slice(sliceno) before writing.")
+	write_list = write
+	write_dict = write
+
 	def set_slice(self, sliceno):
 		from accelerator import g
 		if g.running == 'analysis' and self._for_single_slice != g.sliceno:
