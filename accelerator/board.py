@@ -27,8 +27,9 @@ import time
 
 from accelerator.job import Job
 from accelerator.dataset import Dataset
-from accelerator.unixhttp import call
+from accelerator.unixhttp import call, WaitressUnixServer
 from accelerator.build import fmttime
+from accelerator.configfile import resolve_listen
 
 def get_job(jobid):
 	if jobid.endswith('-LATEST'):
@@ -39,11 +40,15 @@ def get_job(jobid):
 def main(argv, cfg):
 	prog = argv.pop(0)
 	if '-h' in argv or '--help' in argv or len(argv) not in (0, 1):
-		print('usage: %s [port]' % (prog,))
-		print('runs a web server on port (default 8520)')
+		print('usage: %s [listen_on]' % (prog,))
+		print('runs a web server on listen_on (default localhost:8520, can be socket path)')
 		print('for displaying results (result_directory)')
 		return
-	port = int(argv[0]) if argv else 8520
+	if argv:
+		listen = argv[0]
+	else:
+		listen = 'localhost:8520'
+	listen = resolve_listen(listen)[0]
 
 	@bottle.get('/')
 	@bottle.view('main')
@@ -197,4 +202,14 @@ def main(argv, cfg):
 		return dict(name=name, data=methods[name], cfg=cfg)
 
 	bottle.TEMPLATE_PATH = [os.path.join(os.path.dirname(__file__), 'board')]
-	bottle.run(port=port, reloader=True, server='waitress')
+	kw = {'reloader': True}
+	if isinstance(listen, tuple):
+		kw['server'] = 'waitress'
+		kw['host'], kw['port'] = listen
+	else:
+		from accelerator.server import check_socket
+		check_socket(listen)
+		kw['server'] = WaitressUnixServer
+		kw['host'] = listen
+		kw['port'] = 0
+	bottle.run(**kw)
