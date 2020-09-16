@@ -70,6 +70,10 @@ method packages:
 
 urd: local # can also be URL/socket to your urd
 
+# [host]:port or path where board will listen.
+# You can also start board separately with "ax board".
+board listen: .socket.dir/board
+
 result directory: ./results
 input directory: {input}
 

@@ -64,7 +64,7 @@ def load_config(filename):
 	key = None
 	multivalued = {'workdirs', 'method packages', 'interpreters'}
 	required = {'slices', 'workdirs', 'method packages'}
-	known = {'target workdir', 'listen', 'urd', 'result directory', 'input directory', 'project directory'} | required | multivalued
+	known = {'target workdir', 'listen', 'urd', 'board listen', 'result directory', 'input directory', 'project directory'} | required | multivalued
 	cfg = {key: [] for key in multivalued}
 	cfg['listen'] = '.socket.dir/server', None
 
@@ -97,6 +97,7 @@ def load_config(filename):
 		'interpreters': partial(parse_pair, 'interpreter'),
 		'listen': resolve_listen,
 		'urd': resolve_listen,
+		'board listen': resolve_listen,
 		'input directory': fixpath,
 		'result directory': fixpath,
 	}
@@ -149,6 +150,7 @@ def load_config(filename):
 			'input directory': 'input_directory',
 			'result directory': 'result_directory',
 			'project directory': 'project_directory',
+			'board listen': 'board_listen',
 		}
 		res = DotDict({rename.get(k, k): v for k, v in cfg.items()})
 		if 'target_workdir' not in res:
@@ -165,6 +167,7 @@ def load_config(filename):
 			res.urd_listen, res.urd = fixup_listen(res.project_directory, res.urd, True)
 		else:
 			res.urd_listen, res.urd = None, None
+		res.board_listen, _ = fixup_listen(res.project_directory, res.get('board_listen', ('.socket.dir/board', None)))
 	except _E as e:
 		if lineno is None:
 			prefix = 'Error in %s:\n' % (filename,)

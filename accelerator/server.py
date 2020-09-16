@@ -31,6 +31,7 @@ import resource
 import time
 from stat import S_ISSOCK
 from threading import Thread, Lock as TLock, Lock as JLock
+from multiprocessing import Process
 from string import ascii_letters
 import random
 import atexit
@@ -44,7 +45,7 @@ from accelerator import control
 from accelerator.extras import json_encode, json_decode, DotDict
 from accelerator.build import JobError
 from accelerator.statmsg import statmsg_sink, children, print_status_stacks, status_stacks_export
-from accelerator import iowrapper
+from accelerator import iowrapper, board
 
 
 
@@ -318,6 +319,16 @@ def main(argv, config):
 	r1, r2 = resource.getrlimit(resource.RLIMIT_NOFILE)
 	r1 = min(r1, r2, 1024)
 	resource.setrlimit(resource.RLIMIT_NOFILE, (r1, r2))
+
+	# Start the board in a separate process so it can't interfere.
+	# Even if it dies we don't care.
+	try:
+		if not isinstance(config.board_listen, tuple):
+			# Don't bother if something is already listening.
+			check_socket(config.board_listen)
+		Process(target=board.run, args=(config,), name='board').start()
+	except Exception:
+		pass
 
 	iowrapper.main()
 

@@ -48,8 +48,10 @@ def main(argv, cfg):
 		listen = argv[0]
 	else:
 		listen = 'localhost:8520'
-	listen = resolve_listen(listen)[0]
+	cfg.board_listen = resolve_listen(listen)[0]
+	run(cfg, from_shell=True)
 
+def run(cfg, from_shell=False):
 	@bottle.get('/')
 	@bottle.view('main')
 	def main_page():
@@ -202,7 +204,11 @@ def main(argv, cfg):
 		return dict(name=name, data=methods[name], cfg=cfg)
 
 	bottle.TEMPLATE_PATH = [os.path.join(os.path.dirname(__file__), 'board')]
-	kw = {'reloader': True}
+	if from_shell:
+		kw = {'reloader': True}
+	else:
+		kw = {'quiet': True}
+	listen = cfg.board_listen
 	if isinstance(listen, tuple):
 		kw['server'] = 'waitress'
 		kw['host'], kw['port'] = listen
