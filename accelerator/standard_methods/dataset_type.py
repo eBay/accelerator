@@ -828,9 +828,11 @@ convert_template = r'''
 	int chosen_slice = 0;
 	int current_file = 0;
 	err1(g_init(&g, in_fns[current_file], offsets[current_file], 1));
-	for (int i = 0; i < slices; i++) {
-		outfhs[i] = gzopen(out_fns[i], gzip_mode);
-		err1(!outfhs[i]);
+	if (!safe_to_skip_write) {
+		for (int i = 0; i < slices; i++) {
+			outfhs[i] = gzopen(out_fns[i], gzip_mode);
+			err1(!outfhs[i]);
+		}
 	}
 	if (badmap_fd != -1) {
 		badmap = mmap(0, badmap_size, PROT_READ | PROT_WRITE, MAP_NOSYNC | MAP_SHARED, badmap_fd, 0);
@@ -888,6 +890,10 @@ more_infiles:
 			}
 			ptr = defbuf;
 			default_count[chosen_slice] += 1;
+		}
+		if (!outfhs[chosen_slice]) {
+			outfhs[chosen_slice] = gzopen(out_fns[chosen_slice], gzip_mode);
+			err1(!outfhs[chosen_slice]);
 		}
 		%(minmax_code)s;
 		err1(gzwrite(outfhs[chosen_slice], ptr, %(datalen)s) != %(datalen)s);
@@ -1041,9 +1047,11 @@ err:
 	PyGILState_STATE gstate = PyGILState_Ensure();
 #endif
 	err1(g_init(&g, in_fns[current_file], offsets[current_file], 1));
-	for (int i = 0; i < slices; i++) {
-		outfhs[i] = gzopen(out_fns[i], gzip_mode);
-		err1(!outfhs[i]);
+	if (!safe_to_skip_write) {
+		for (int i = 0; i < slices; i++) {
+			outfhs[i] = gzopen(out_fns[i], gzip_mode);
+			err1(!outfhs[i]);
+		}
 	}
 	if (badmap_fd != -1) {
 		badmap = mmap(0, badmap_size, PROT_READ | PROT_WRITE, MAP_NOSYNC | MAP_SHARED, badmap_fd, 0);
@@ -1164,6 +1172,10 @@ more_infiles:
 				if (o_v) Py_INCREF(o_v);
 			}
 		}
+		if (!outfhs[chosen_slice]) {
+			outfhs[chosen_slice] = gzopen(out_fns[chosen_slice], gzip_mode);
+			err1(!outfhs[chosen_slice]);
+		}
 		err1(gzwrite(outfhs[chosen_slice], ptr, len) != len);
 	}
 	current_file++;
@@ -1200,7 +1212,7 @@ err:
 }
 '''
 
-proto_template = 'static int convert_column_%s(const char **in_fns, int in_count, const char **out_fns, const char *gzip_mode, const char *minmax_fn, const char *default_value, uint32_t default_len, int default_value_is_None, const char *fmt, const char *fmt_b, int record_bad, int skip_bad, int badmap_fd, size_t badmap_size, int slices, int slicemap_fd, size_t slicemap_size, uint64_t *bad_count, uint64_t *default_count, off_t *offsets, int64_t *max_counts)'
+proto_template = 'static int convert_column_%s(const char **in_fns, int in_count, const char **out_fns, const char *gzip_mode, const char *minmax_fn, const char *default_value, uint32_t default_len, int default_value_is_None, const char *fmt, const char *fmt_b, int record_bad, int skip_bad, int badmap_fd, size_t badmap_size, int slices, int slicemap_fd, size_t slicemap_size, uint64_t *bad_count, uint64_t *default_count, off_t *offsets, int64_t *max_counts, int safe_to_skip_write)'
 
 protos = []
 funcs = [noneval_data]
@@ -1227,9 +1239,11 @@ convert_blob_template = r'''
 	int chosen_slice = 0;
 	int current_file = 0;
 	err1(g_init(&g, in_fns[current_file], offsets[current_file], 1));
-	for (int i = 0; i < slices; i++) {
-		outfhs[i] = gzopen(out_fns[i], gzip_mode);
-		err1(!outfhs[i]);
+	if (!safe_to_skip_write) {
+		for (int i = 0; i < slices; i++) {
+			outfhs[i] = gzopen(out_fns[i], gzip_mode);
+			err1(!outfhs[i]);
+		}
 	}
 	if (badmap_fd != -1) {
 		badmap = mmap(0, badmap_size, PROT_READ | PROT_WRITE, MAP_NOSYNC | MAP_SHARED, badmap_fd, 0);
@@ -1281,6 +1295,10 @@ more_infiles:
 		if (skip_bad && badmap[i / 8] & (1 << (i %% 8))) {
 			bad_count[chosen_slice] += 1;
 			continue;
+		}
+		if (!outfhs[chosen_slice]) {
+			outfhs[chosen_slice] = gzopen(out_fns[chosen_slice], gzip_mode);
+			err1(!outfhs[chosen_slice]);
 		}
 		if (line == NoneMarker) {
 			err1(gzwrite(outfhs[chosen_slice], "\xff\0\0\0\0", 5) != 5);
@@ -1358,9 +1376,11 @@ null_number_template = r'''
 	int chosen_slice = 0;
 	int current_file = 0;
 	err1(g_init(&g, in_fns[current_file], offsets[current_file], 1));
-	for (int i = 0; i < slices; i++) {
-		outfhs[i] = gzopen(out_fns[i], gzip_mode);
-		err1(!outfhs[i]);
+	if (!safe_to_skip_write) {
+		for (int i = 0; i < slices; i++) {
+			outfhs[i] = gzopen(out_fns[i], gzip_mode);
+			err1(!outfhs[i]);
+		}
 	}
 	if (badmap_fd != -1) {
 		badmap = mmap(0, badmap_size, PROT_READ | PROT_WRITE, MAP_NOSYNC | MAP_SHARED, badmap_fd, 0);
@@ -1393,6 +1413,10 @@ more_infiles:
 		if (skip_bad && badmap[i / 8] & (1 << (i %% 8))) {
 			bad_count[chosen_slice] += 1;
 			continue;
+		}
+		if (!outfhs[chosen_slice]) {
+			outfhs[chosen_slice] = gzopen(out_fns[chosen_slice], gzip_mode);
+			err1(!outfhs[chosen_slice]);
 		}
 		err1(gzwrite(outfhs[chosen_slice], buf, z) != z);
 	}
@@ -1434,9 +1458,11 @@ null_template = r'''
 	int chosen_slice = 0;
 	int current_file = 0;
 	err1(g_init(&g, in_fns[current_file], offsets[current_file], 1));
-	for (int i = 0; i < slices; i++) {
-		outfhs[i] = gzopen(out_fns[i], gzip_mode);
-		err1(!outfhs[i]);
+	if (!safe_to_skip_write) {
+		for (int i = 0; i < slices; i++) {
+			outfhs[i] = gzopen(out_fns[i], gzip_mode);
+			err1(!outfhs[i]);
+		}
 	}
 	if (badmap_fd != -1) {
 		badmap = mmap(0, badmap_size, PROT_READ | PROT_WRITE, MAP_NOSYNC | MAP_SHARED, badmap_fd, 0);
@@ -1463,6 +1489,10 @@ more_infiles:
 		if (skip_bad && badmap[i / 8] & (1 << (i %% 8))) {
 			bad_count[chosen_slice] += 1;
 			continue;
+		}
+		if (!outfhs[chosen_slice]) {
+			outfhs[chosen_slice] = gzopen(out_fns[chosen_slice], gzip_mode);
+			err1(!outfhs[chosen_slice]);
 		}
 		err1(gzwrite(outfhs[chosen_slice], buf, %(size)d) != %(size)d);
 	}
@@ -1794,7 +1824,8 @@ static PyObject *py_%s(PyObject *self, PyObject *args)
 	off_t *offsets = 0;
 	PyObject *o_max_counts;
 	int64_t *max_counts = 0;
-	if (!PyArg_ParseTuple(args, "OiOetetOiiOOiiiLiiLOOOO",
+	int safe_to_skip_write;
+	if (!PyArg_ParseTuple(args, "OiOetetOiiOOiiiLiiLOOOOi",
 		&o_in_fns,
 		&in_count,
 		&o_out_fns,
@@ -1815,7 +1846,8 @@ static PyObject *py_%s(PyObject *self, PyObject *args)
 		&o_bad_count,
 		&o_default_count,
 		&o_offsets,
-		&o_max_counts
+		&o_max_counts,
+		&safe_to_skip_write
 	)) {
 		return 0;
 	}
@@ -1860,7 +1892,7 @@ static PyObject *py_%s(PyObject *self, PyObject *args)
 		default_count[i] = bad_count[i] = 0;
 	}
 
-	err1(%s(in_fns, in_count, out_fns, gzip_mode, minmax_fn, default_value, default_len, default_value_is_None, fmt, fmt_b, record_bad, skip_bad, badmap_fd, badmap_size, slices, slicemap_fd, slicemap_size, bad_count, default_count, offsets, max_counts));
+	err1(%s(in_fns, in_count, out_fns, gzip_mode, minmax_fn, default_value, default_len, default_value_is_None, fmt, fmt_b, record_bad, skip_bad, badmap_fd, badmap_size, slices, slicemap_fd, slicemap_size, bad_count, default_count, offsets, max_counts, safe_to_skip_write));
 	for (int i = 0; i < slices; i++) {
 		err1(PyList_SetItem(o_default_count, i, PyLong_FromUnsignedLongLong(default_count[i])));
 		err1(PyList_SetItem(o_bad_count, i, PyLong_FromUnsignedLongLong(bad_count[i])));
