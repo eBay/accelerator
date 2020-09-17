@@ -574,14 +574,17 @@ def synthesis(slices, analysis_res, prepare_res):
 					print('        total   %d' % (sum(defaulted),))
 	if dws: # rehashing
 		if dw: # not as a chain
+			final_bad_count = [data[1] for data in analysis_res]
+			hash_lines = [data[4] for data in analysis_res]
 			for colname in dw.columns:
 				for sliceno in range(slices):
 					out_fn = dw.column_filename(colname, sliceno=sliceno)
 					with open(out_fn, 'wb') as out_fh:
 						for s in range(slices):
-							src_fn = dws[s].column_filename(colname, sliceno=sliceno)
-							with open(src_fn, 'rb') as in_fh:
-								copyfileobj(in_fh, out_fh)
+							if hash_lines[s][sliceno] - final_bad_count[s][sliceno]:
+								src_fn = dws[s].column_filename(colname, sliceno=sliceno)
+								with open(src_fn, 'rb') as in_fh:
+									copyfileobj(in_fh, out_fh)
 			for sliced_dw in dws:
 				sliced_dw.discard()
 			for sliceno, counts in enumerate(zip(*[data[4] for data in analysis_res])):
