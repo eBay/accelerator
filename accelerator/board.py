@@ -18,6 +18,7 @@
 
 import bottle
 import json
+import sys
 import os
 import tarfile
 import itertools
@@ -49,6 +50,12 @@ def main(argv, cfg):
 	else:
 		listen = 'localhost:8520'
 	cfg.board_listen = resolve_listen(listen)[0]
+	if isinstance(cfg.board_listen, str):
+		# The listen path may be relative to the directory the user started us
+		# from, but the reloader will exec us from the project directory, so we
+		# have to be a little gross.
+		cfg.board_listen = os.path.join(cfg.user_cwd, cfg.board_listen)
+		sys.argv[sys.argv.index(listen)] = cfg.board_listen
 	run(cfg, from_shell=True)
 
 def run(cfg, from_shell=False):

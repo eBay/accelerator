@@ -106,10 +106,12 @@ def setup(config_fn=None, debug_cmd=False):
 	unpath(dirname(__file__))
 	if config_fn is False:
 		return
+	user_cwd = getcwd()
 	if config_fn:
 		load_cfg(config_fn)
 	else:
 		load_some_cfg(all=debug_cmd)
+	cfg.user_cwd = user_cwd
 	if not debug_cmd:
 		# We want the project directory to be first in sys.path.
 		unpath(cfg['project_directory'])
