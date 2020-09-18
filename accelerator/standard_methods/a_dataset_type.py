@@ -162,22 +162,35 @@ def prepare(job, slices):
 	dws = []
 	if rehashing:
 		previous = datasets.previous
+		if options.as_chain:
+			# The last slice that actually has data in it becomes 'default'.
+			# Or slice 0 if the whole source is empty (we must produce a ds).
+			default_sliceno = 0
+			for sliceno in range(slices - 1, -1, -1):
+				if chain.lines(sliceno):
+					default_sliceno = sliceno
+					break
+		else:
+			default_sliceno = None
 		for sliceno in range(slices):
-			if options.as_chain and sliceno == slices - 1:
-				name = 'default'
+			if sliceno == default_sliceno or chain.lines(sliceno):
+				if sliceno == default_sliceno:
+					name = 'default'
+				else:
+					name = str(sliceno)
+				dw = job.datasetwriter(
+					columns=columns,
+					caption='%s (from slice %d)' % (options.caption, sliceno,),
+					hashlabel=hashlabel,
+					filename=filename,
+					previous=previous,
+					meta_only=True,
+					name=name,
+					for_single_slice=sliceno,
+				)
+				previous = dw
 			else:
-				name = str(sliceno)
-			dw = job.datasetwriter(
-				columns=columns,
-				caption='%s (from slice %d)' % (options.caption, sliceno,),
-				hashlabel=hashlabel,
-				filename=filename,
-				previous=previous,
-				meta_only=True,
-				name=name,
-				for_single_slice=sliceno,
-			)
-			previous = dw
+				dw = None
 			dws.append(dw)
 	if rehashing and options.as_chain:
 		dw = None
@@ -200,7 +213,7 @@ def prepare(job, slices):
 			previous=datasets.previous,
 			meta_only=True,
 		)
-	return dw, dws, lines, chain, column2type, rev_rename
+	return dw, dws, lines, chain, column2type, sorted(columns), rev_rename
 
 
 def map_init(vars, name, z='badmap_size'):
@@ -230,9 +243,12 @@ def analysis(sliceno, slices, prepare_res):
 				break
 		else:
 			raise Exception("Failed to enable numeric_comma, please install at least one of the following locales: " + " ".join(try_locales))
-	dw, dws, lines, chain, column2type, rev_rename = prepare_res
+	dw, dws, lines, chain, column2type, _, rev_rename = prepare_res
 	if dws:
 		dw = dws[sliceno]
+		if not dw:
+			dummy = [0] * slices
+			return {}, dummy, dummy, {}, dummy
 		rehashing = True
 	else:
 		rehashing = False
@@ -521,7 +537,7 @@ def one_column(vars, colname, coltype, out_fns, for_hasher=False):
 	return real_coltype
 
 def synthesis(slices, analysis_res, prepare_res):
-	dw, dws, lines, _, column2type, rev_rename = prepare_res
+	dw, dws, lines, _, column2type, columns, rev_rename = prepare_res
 	analysis_res = list(analysis_res)
 	if options.filter_bad:
 		bad_line_count_per_slice = [sum(data[1]) for data in analysis_res]
@@ -552,8 +568,8 @@ def synthesis(slices, analysis_res, prepare_res):
 				print('...')
 			print()
 			print('Bad line count   Column')
-			for colname in sorted(analysis_res[0][0]):
-				cnt = sum(sum(data[0][colname]) for data in analysis_res)
+			for colname in columns:
+				cnt = sum(sum(data[0].get(colname, ())) for data in analysis_res)
 				if cnt:
 					print('%14d   %s' % (cnt, colname,))
 			print()
@@ -587,7 +603,8 @@ def synthesis(slices, analysis_res, prepare_res):
 								with open(src_fn, 'rb') as in_fh:
 									copyfileobj(in_fh, out_fh)
 			for sliced_dw in dws:
-				sliced_dw.discard()
+				if sliced_dw:
+					sliced_dw.discard()
 			for sliceno, counts in enumerate(zip(*[data[4] for data in analysis_res])):
 				bad_counts = (data[1][sliceno] for data in analysis_res)
 				dw.set_lines(sliceno, sum(counts) - sum(bad_counts))
@@ -595,9 +612,10 @@ def synthesis(slices, analysis_res, prepare_res):
 				dw.set_minmax(sliceno, data[3])
 		else:
 			for sliceno, data in enumerate(analysis_res):
-				dws[sliceno].set_minmax(-1, data[3])
-				for s, count in enumerate(data[4]):
-					dws[sliceno].set_lines(s, count - data[1][s])
+				if dws[sliceno]:
+					dws[sliceno].set_minmax(-1, data[3])
+					for s, count in enumerate(data[4]):
+						dws[sliceno].set_lines(s, count - data[1][s])
 	else:
 		for sliceno, count in enumerate(lines):
 			dw.set_lines(sliceno, count)
