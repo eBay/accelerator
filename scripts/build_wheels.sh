@@ -51,6 +51,8 @@ fi
 rm -rf unfixed_wheels
 mkdir unfixed_wheels
 
+SLICES=12 # run the first test with a few extra slices
+
 for V in $(ls /opt/python/); do
 	case "$V" in
 		cp27-*|cp3[5-9]-*)
@@ -63,11 +65,12 @@ for V in $(ls /opt/python/); do
 			auditwheel repair "$UNFIXED_NAME" -w /io/wheelhouse/
 			"/opt/python/$V/bin/pip" install "$FIXED_NAME"
 			rm -rf /tmp/axtest
-			"/opt/python/$V/bin/ax" init /tmp/axtest
+			"/opt/python/$V/bin/ax" init --slices "$SLICES" /tmp/axtest
 			"/opt/python/$V/bin/ax" --config /tmp/axtest/accelerator.conf server &
 			sleep 1
 			USER=test "/opt/python/$V/bin/ax" --config /tmp/axtest/accelerator.conf run tests
 			rm -rf /tmp/axtest
+			SLICES=3 # run all other tests with the lowest (and fastest) allowed for tests
 			;;
 		*)
 			;;
