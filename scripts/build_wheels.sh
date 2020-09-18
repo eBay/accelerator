@@ -1,6 +1,6 @@
 #!/bin/bash
 # This is for running in a manylinux2010 docker image, so /bin/bash is fine.
-# docker run --rm -v /tmp/io:/io quay.io/pypa/manylinux2010_x86_64 /io/build_wheels.sh accelerator-....tar.gz
+# docker run --rm -v /tmp/io:/io quay.io/pypa/manylinux2010_x86_64 /io/accelerator/scripts/build_wheels.sh 20xx.xx.xx.dev1
 
 set -euo pipefail
 
