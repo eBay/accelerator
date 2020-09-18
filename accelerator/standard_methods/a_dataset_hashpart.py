@@ -47,20 +47,33 @@ def prepare(job, slices):
 		filename = None
 	dws = []
 	previous = datasets.previous
+	if options.as_chain:
+		# The last slice that actually has data in it becomes 'default'.
+		# Or slice 0 if the whole source is empty (we must produce a ds).
+		default_sliceno = 0
+		for sliceno in range(slices - 1, -1, -1):
+			if chain.lines(sliceno):
+				default_sliceno = sliceno
+				break
+	else:
+		default_sliceno = None
 	for sliceno in range(slices):
-		if options.as_chain and sliceno == slices - 1:
-			name = "default"
+		if sliceno == default_sliceno or chain.lines(sliceno):
+			if sliceno == default_sliceno:
+				name = "default"
+			else:
+				name = str(sliceno)
+			dw = job.datasetwriter(
+				caption="%s (slice %d)" % (caption, sliceno),
+				hashlabel=options.hashlabel,
+				filename=filename,
+				previous=previous,
+				name=name,
+				for_single_slice=sliceno,
+			)
+			previous = dw
 		else:
-			name = str(sliceno)
-		dw = job.datasetwriter(
-			caption="%s (slice %d)" % (caption, sliceno),
-			hashlabel=options.hashlabel,
-			filename=filename,
-			previous=previous,
-			name=name,
-			for_single_slice=sliceno,
-		)
-		previous = dw
+			dw = None
 		dws.append(dw)
 	names = []
 	cols = {}
@@ -70,11 +83,14 @@ def prepare(job, slices):
 		names.append(n)
 		cols[n] = (c.type, chain.none_support(n))
 		for dw in dws:
-			dw.add(n, c.type, none_support=cols[n][1])
+			if dw:
+				dw.add(n, c.type, none_support=cols[n][1])
 	return dws, names, caption, filename, cols
 
 def analysis(sliceno, prepare_res):
 	dws, names = prepare_res[:2]
+	if not dws[sliceno]:
+		return
 	it = datasets.source.iterate_chain(
 		sliceno,
 		names,
@@ -98,6 +114,7 @@ def synthesis(prepare_res, job, slices):
 			meta_only=True,
 			columns=cols,
 		)
+		dws = list(filter(None, dws))
 		for sliceno in range(slices):
 			merged_dw.set_lines(sliceno, sum(dw._lens[sliceno] for dw in dws))
 			for dwno, dw in enumerate(dws):

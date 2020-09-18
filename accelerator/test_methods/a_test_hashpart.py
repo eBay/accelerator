@@ -1,6 +1,6 @@
 ############################################################################
 #                                                                          #
-# Copyright (c) 2019 Carl Drougge                                          #
+# Copyright (c) 2019-2020 Carl Drougge                                     #
 # Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -82,7 +82,7 @@ def verify(slices, data, source, previous=None, **options):
 	h = typed_writer(columns[hl][0]).hash
 	ds = Dataset(jid)
 	good = {row[hl]: row for row in data}
-	names = list(data[0])
+	names = list(source.columns)
 	for slice in range(slices):
 		for row in ds.iterate_chain(slice, names):
 			row = dict(zip(names, row))
@@ -102,9 +102,25 @@ def synthesis(params):
 	# just the bonus ds
 	verify(params.slices, bonus_data, bonus_ds, hashlabel="date", length=1)
 	# built as a chain
-	re_ds = verify(params.slices, data + bonus_data, bonus_ds, hashlabel="date", as_chain=True)
-	assert len(re_ds.chain()) == params.slices, "%s was build with as_chain=True but does not have %d datasets in the chain" % (re_ds, params.slices)
+	verify(params.slices, data + bonus_data, bonus_ds, hashlabel="date", as_chain=True)
 	# normal chaining
 	a = verify(params.slices, data, ds, hashlabel="date")
 	b = verify(params.slices, data + bonus_data, bonus_ds, hashlabel="date", previous=a)
 	assert b.chain() == [a, b], "chain of %s is not [%s, %s] as expected" % (b, a, b)
+	# as_chain sparseness
+	dw = DatasetWriter(columns=columns, name="empty")
+	dw.get_split_write()
+	ds = verify(params.slices, [], dw.finish(), hashlabel="date", as_chain=True)
+	assert len(ds.chain()) == 1, ds + ": dataset_hashpart on empty dataset with as_chain=True did not produce a single dataset"
+	# two populated slices with the same data, should end up in two datasets.
+	dw = DatasetWriter(columns=columns, name="0 and 2")
+	dw.set_slice(0)
+	dw.write_dict(data[0])
+	dw.set_slice(1)
+	dw.set_slice(2)
+	dw.write_dict(data[0])
+	for s in range(3, params.slices):
+		dw.set_slice(s)
+	ds = verify(params.slices, [data[0]], dw.finish(), hashlabel="date", as_chain=True)
+	got_slices = len(ds.chain())
+	assert got_slices == 2, "%s (built with as_chain=True) has %d datasets in chain, expected 2." % (ds, got_slices,)
