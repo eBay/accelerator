@@ -942,14 +942,32 @@ typedef struct gzwrite {
 	uint64_t spread_None;
 	unsigned int sliceno;
 	unsigned int slices;
+	int closed;
 	int none_support;
 	int len;
+	char mode[4];
 	char buf[Z];
 } GzWrite;
+
+static int gzwrite_ensure_open(GzWrite *self)
+{
+	if (self->fh) return 0;
+	if (self->closed) {
+		(void) err_closed();
+		return 1;
+	}
+	self->fh = gzopen(self->name, self->mode);
+	if (!self->fh) {
+		PyErr_SetFromErrnoWithFilename(PyExc_IOError, self->name);
+		return 1;
+	}
+	return 0;
+}
 
 static int gzwrite_flush_(GzWrite *self)
 {
 	if (!self->len) return 0;
+	if (gzwrite_ensure_open(self)) return 1;
 	const int len = self->len;
 	self->len = 0;
 	if (gzwrite(self->fh, self->buf, len) != len) {
@@ -961,7 +979,7 @@ static int gzwrite_flush_(GzWrite *self)
 
 static PyObject *gzwrite_flush(GzWrite *self)
 {
-	if (!self->fh) return err_closed();
+	if (gzwrite_ensure_open(self)) return 0;
 	if (gzwrite_flush_(self)) return 0;
 	Py_RETURN_NONE;
 }
@@ -977,17 +995,17 @@ static int gzwrite_close_(GzWrite *self)
 	Py_CLEAR(self->default_obj);
 	Py_CLEAR(self->min_obj);
 	Py_CLEAR(self->max_obj);
-	if (self->fh) {
-		int err = gzwrite_flush_(self);
-		err |= gzclose(self->fh);
-		self->fh = 0;
-		return err;
-	}
-	return 1;
+	if (self->closed) return 1;
+	if (!self->fh) return 0;
+	int err = gzwrite_flush_(self);
+	err |= gzclose(self->fh);
+	self->fh = 0;
+	self->closed = 1;
+	return err;
 }
 
 // Make sure mode matches [wa]b?(\d.?)?
-static int mode_fixup(const char * const mode, char buf[static 5])
+static int mode_fixup(const char * const mode, char buf[static 4])
 {
 	const char *modeptr;
 	if (mode && *mode) {
@@ -998,7 +1016,6 @@ static int mode_fixup(const char * const mode, char buf[static 5])
 	if (modeptr[0] != 'w' && modeptr[0] != 'a') goto bad;
 	*(buf++) = *(modeptr++);
 	if (*modeptr == 'b') modeptr++;
-	*(buf++) = 'b';
 	if (strlen(modeptr) > 2) goto bad;
 	if (*modeptr && (*modeptr < '0' || *modeptr > '9')) goto bad;
 	strcpy(buf, modeptr);
@@ -1006,19 +1023,6 @@ static int mode_fixup(const char * const mode, char buf[static 5])
 bad:
 	PyErr_Format(PyExc_IOError, "Bad mode '%s'", mode);
 	return 1;
-}
-
-// Wrap gzopen with mode_fixup and exception setting
-static int wrapped_gzopen(GzWrite *self, const char *mode)
-{
-	char mode_buf[5];
-	if (mode_fixup(mode, mode_buf)) return 1;
-	self->fh = gzopen(self->name, mode_buf);
-	if (!self->fh) {
-		PyErr_SetFromErrnoWithFilename(PyExc_IOError, self->name);
-		return 1;
-	}
-	return 0;
 }
 
 static int gzwrite_init_GzWrite(PyObject *self_, PyObject *args, PyObject *kwds)
@@ -1030,7 +1034,8 @@ static int gzwrite_init_GzWrite(PyObject *self_, PyObject *args, PyObject *kwds)
 	gzwrite_close_(self);
 	if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|s", kwlist, Py_FileSystemDefaultEncoding, &name, &mode)) return -1;
 	self->name = name;
-	err1(wrapped_gzopen(self, mode));
+	err1(mode_fixup(mode, self->mode));
+	self->closed = 0;
 	self->count = 0;
 	self->len = 0;
 	return 0;
@@ -1055,7 +1060,8 @@ static int gzwrite_init_GzWriteLines(PyObject *self_, PyObject *args, PyObject *
 	}
 	self->name = name;
 	err1(parse_hashfilter(hashfilter, &self->hashfilter, &self->sliceno, &self->slices, &self->spread_None));
-	err1(wrapped_gzopen(self, mode));
+	err1(mode_fixup(mode, self->mode));
+	self->closed = 0;
 	self->count = 0;
 	self->len = 0;
 	if (write_bom) {
@@ -1081,7 +1087,8 @@ static int gzwrite_init_GzWriteBlob(PyObject *self_, PyObject *args, PyObject *k
 	if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|sOi", kwlist, Py_FileSystemDefaultEncoding, &name, &mode, &hashfilter, &self->none_support)) return -1;
 	self->name = name;
 	err1(parse_hashfilter(hashfilter, &self->hashfilter, &self->sliceno, &self->slices, &self->spread_None));
-	err1(wrapped_gzopen(self, mode));
+	err1(mode_fixup(mode, self->mode));
+	self->closed = 0;
 	self->count = 0;
 	self->len = 0;
 	return 0;
@@ -1108,7 +1115,7 @@ static PyObject *gzwrite_close(GzWrite *self)
 
 static PyObject *gzwrite_self(GzWrite *self)
 {
-	if (!self->fh) return err_closed();
+	if (self->closed) return err_closed();
 	Py_INCREF(self);
 	return (PyObject *)self;
 }
@@ -1511,7 +1518,8 @@ MK_MINMAX_SET(Time    , unfmt_time((*(uint64_t *)cmp_value) >> 32, *(uint64_t *)
 			memcpy(self->default_value, &value, sizeof(T));                  	\
 		}                                                                        	\
 		err1(parse_hashfilter(hashfilter, &self->hashfilter, &self->sliceno, &self->slices, &self->spread_None)); \
-		err1(wrapped_gzopen(self, mode));                                        	\
+		err1(mode_fixup(mode, self->mode));                                      	\
+		self->closed = 0;                                                        	\
 		self->count = 0;                                                         	\
 		self->len = 0;                                                           	\
 		return 0;                                                                	\
@@ -1771,7 +1779,8 @@ static int gzwrite_init_GzWriteNumber(PyObject *self_, PyObject *args, PyObject 
 		}
 	}
 	err1(parse_hashfilter(hashfilter, &self->hashfilter, &self->sliceno, &self->slices, &self->spread_None));
-	err1(wrapped_gzopen(self, mode));
+	err1(mode_fixup(mode, self->mode));
+	self->closed = 0;
 	self->count = 0;
 	self->len = 0;
 	return 0;

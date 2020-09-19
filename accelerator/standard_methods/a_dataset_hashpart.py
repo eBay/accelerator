@@ -25,6 +25,7 @@ Rewrite a dataset (or chain to previous) with new hashlabel.
 '''
 
 from shutil import copyfileobj
+from os.path import exists
 
 from accelerator import OptionString
 
@@ -124,7 +125,8 @@ def synthesis(prepare_res, job, slices):
 				with open(fn, "wb") as out_fh:
 					for dw in dws:
 						fn = dw.column_filename(n, sliceno=sliceno)
-						with open(fn, "rb") as in_fh:
-							copyfileobj(in_fh, out_fh)
+						if exists(fn):
+							with open(fn, "rb") as in_fh:
+								copyfileobj(in_fh, out_fh)
 		for dw in dws:
 			dw.discard()

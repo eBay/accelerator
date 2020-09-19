@@ -24,6 +24,7 @@ description = r'''Dataset (or chain) to CSV file.'''
 
 from shutil import copyfileobj
 from os import unlink
+from os.path import exists
 from contextlib import contextmanager
 from json import JSONEncoder
 
@@ -50,6 +51,9 @@ jobs = ('previous',)
 def mkwrite_gz(filename):
 	w = GzWriteUnicodeLines if PY3 else GzWriteBytesLines
 	with w(filename) as fh:
+		if options.sliced:
+			# ensure file will exist even if empty.
+			fh.flush()
 		yield fh.write
 
 @contextmanager
@@ -157,7 +161,8 @@ def synthesis(job, slices):
 		filename = '%d.gz' if options.filename.lower().endswith('.gz') else '%d.csv'
 		with job.open(options.filename, "wb") as outfh:
 			for sliceno in range(slices):
-				with status("Assembling %s (%d/%d)" % (options.filename, sliceno, slices)):
-					with open(filename % sliceno, "rb") as infh:
-						copyfileobj(infh, outfh)
-					unlink(filename % sliceno)
+				if exists(filename % sliceno):
+					with status("Assembling %s (%d/%d)" % (options.filename, sliceno, slices)):
+						with open(filename % sliceno, "rb") as infh:
+							copyfileobj(infh, outfh)
+						unlink(filename % sliceno)
