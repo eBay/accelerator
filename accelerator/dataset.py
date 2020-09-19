@@ -148,6 +148,8 @@ def _namechk(name):
 			raise DatasetUsageError("Dataset name can't contain " + repr(c))
 	return name
 
+_dummy_iter = iter(())
+
 class Dataset(unicode):
 	"""
 	Represents a dataset. Is also a string 'jobid/name', or just 'jobid' if
@@ -353,6 +355,8 @@ class Dataset(unicode):
 		return job.dataset(name) # new_ds has the wrong string value, so we must make a new instance here.
 
 	def _column_iterator(self, sliceno, col, _type=None, **kw):
+		if sliceno is not None and self.lines[sliceno] == 0:
+			return _dummy_iter
 		from accelerator.sourcedata import type2iter
 		dc = self.columns[col]
 		mkiter = partial(type2iter[_type or dc.backing_type], **kw)
@@ -593,6 +597,9 @@ class Dataset(unicode):
 			else:
 				to_iter.append((d, sliceno, rehash_on,))
 			slice_first = False
+		if not rehash and not pre_callback and not post_callback and not isinstance(sliceno, str_types):
+			# No reason to include empty slices then
+			to_iter = [t for t in to_iter if t[0].lines[t[1]]]
 		filter_func = Dataset._resolve_filters(columns, filters, want_tuple)
 		translation_func, translators = Dataset._resolve_translators(columns, translators)
 		if sloppy_range:
