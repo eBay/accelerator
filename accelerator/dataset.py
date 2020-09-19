@@ -34,7 +34,7 @@ from operator import itemgetter
 
 from accelerator.compat import unicode, uni, ifilter, imap, iteritems
 from accelerator.compat import builtins, open, getarglist, izip, izip_longest
-from accelerator.compat import str_types, int_types
+from accelerator.compat import str_types, int_types, FileNotFoundError
 
 from accelerator import blob
 from accelerator.extras import DotDict, job_params, _ListTypePreserver
@@ -913,20 +913,28 @@ class Dataset(unicode):
 		if slices < 2:
 			return
 		fn = self.column_filename(n)
-		sizes = [os.path.getsize(fn % (sliceno,)) for sliceno in range(slices)]
-		if sum(sizes) / slices > 524288: # arbitrary guess of good size
+		def getsize(sliceno):
+			try:
+				return os.path.getsize(fn % (sliceno,))
+			except FileNotFoundError:
+				return None
+		sizes = [(sliceno, getsize(sliceno)) for sliceno, cnt in enumerate(self.lines)]
+		bare_sizes = [z for _, z in sizes if z]
+		if sum(bare_sizes) / (len(bare_sizes) or 1) > 524288: # arbitrary guess of good size
 			return
 		offsets = []
 		pos = 0
 		with open(fn % ('m',), 'wb') as m_fh:
-			for sliceno, size in enumerate(sizes):
-				with open(fn % (sliceno,), 'rb') as p_fh:
-					data = p_fh.read()
-				assert len(data) == size, "Slice %d is %d bytes, not %d?" % (sliceno, len(data), size,)
-				os.unlink(fn % (sliceno,))
-				m_fh.write(data)
+			for sliceno, size in sizes:
+				if size:
+					with open(fn % (sliceno,), 'rb') as p_fh:
+						data = p_fh.read()
+					assert len(data) == size, "Slice %d is %d bytes, not %d?" % (sliceno, len(data), size,)
+					m_fh.write(data)
 				offsets.append(pos)
-				pos += size
+				if size is not None:
+					os.unlink(fn % (sliceno,))
+					pos += size
 		c = self._data.columns[n]
 		self._data.columns[n] = c._replace(
 			offsets=offsets,
