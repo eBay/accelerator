@@ -185,6 +185,7 @@ def prepare(job, slices):
 		# re-use import logic
 		out_fns = ["labels"]
 		r_num = cstuff.mk_uint64(3)
+		open("labels", "wb").close()
 		try:
 			import_slice("c backend failed in label parsing", labels_rfd, -1, -1, -1, out_fns, b"wb1", separator, r_num, quote_char, lf_char, 0)
 		finally:

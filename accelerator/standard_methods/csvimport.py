@@ -377,24 +377,31 @@ static int import_slice(const int fd, const int sliceno, const int slices, int f
 		err1(!qbuf);
 		qbuf++; // Room for a short length before
 	}
-	for (int i = 0; i < full_field_count; i++) {
-		if (out_fns[i]) {
-			outfh[i] = gzopen(out_fns[i], gzip_mode);
-			err1(!outfh[i]);
-		}
-	}
 	int eof = 0;
 	int32_t len;
 	uint64_t lineno = sliceno + 1;
 	int field;
 	int skip_line = 0;
 	char *bufptr;
+	// Do this first so we can skip opening output files if we are empty.
+	if (bufread(fd, buf, 4, &eof, &bufptr)) {
+		if (eof) goto done;
+		goto err;
+	}
+	for (int i = 0; i < full_field_count; i++) {
+		if (out_fns[i]) {
+			outfh[i] = gzopen(out_fns[i], gzip_mode);
+			err1(!outfh[i]);
+		}
+	}
+	goto buf_prefilled;
 keep_going:
 	while (1) {
 		if (bufread(fd, buf, 4, &eof, &bufptr)) {
 			if (eof) break;
 			goto err;
 		}
+buf_prefilled:
 		memcpy(&len, bufptr, 4);
 		if (len < 0) {
 			if (len == LABELS_DONE_MARKER) {
@@ -514,6 +521,7 @@ keep_going:
 		num++;
 		lineno += slices;
 	}
+done:
 	*r_num = num;
 	res = 0;
 err:
