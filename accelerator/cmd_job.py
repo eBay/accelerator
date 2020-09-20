@@ -27,7 +27,7 @@ from datetime import datetime
 from accelerator.extras import json_load
 from accelerator.setupfile import encode_setup
 from accelerator.job import Job
-from accelerator.compat import open
+from accelerator.compat import open, FileNotFoundError
 
 def show(path):
 	if '/' not in path:
@@ -39,7 +39,8 @@ def show(path):
 	setup = json_load(join(path, 'setup.json'))
 	setup.pop('_typing', None)
 	setup.starttime = str(datetime.fromtimestamp(setup.starttime))
-	setup.endtime = str(datetime.fromtimestamp(setup.endtime))
+	if 'endtime' in setup:
+		setup.endtime = str(datetime.fromtimestamp(setup.endtime))
 	print(encode_setup(setup, as_str=True))
 	try:
 		with open(join(path, 'datasets.txt'), 'r', encoding='utf-8') as fh:
@@ -49,7 +50,12 @@ def show(path):
 				print('    %s/%s' % (jid, line[:-1],))
 	except IOError:
 		pass
-	post = json_load(join(path, 'post.json'))
+	try:
+		post = json_load(join(path, 'post.json'))
+	except FileNotFoundError:
+		print('\x1b[31mWARNING: Job did not finish\x1b[m')
+		print()
+		return
 	if post.subjobs:
 		print()
 		print('subjobs:')
