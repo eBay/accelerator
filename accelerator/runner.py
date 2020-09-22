@@ -71,6 +71,12 @@ def load_methods(all_packages, data):
 	from accelerator.compat import str_types, iteritems
 	from accelerator.extras import DotDict, OptionEnum, OptionEnumValue
 	from accelerator.extras import RequiredOption, OptionDefault
+	try:
+		# Is there a better way? There should be.
+		import pkg_resources
+		ax_version = pkg_resources.get_distribution('accelerator').version
+	except Exception:
+		ax_version = None
 	res_warnings = []
 	res_failed = []
 	res_hashes = {}
@@ -174,6 +180,8 @@ def load_methods(all_packages, data):
 			res_descriptions[key] = {
 				'text': getattr(mod, 'description', '').strip(),
 				'interpreter': sys.executable,
+				'interpreter_version': sys.version,
+				'accelerator_version': ax_version,
 			}
 			def fmtopt(v):
 				if isinstance(v, type):

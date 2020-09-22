@@ -30,15 +30,18 @@ from accelerator.compat import iteritems, unicode, long, PY3
 from accelerator.extras import DotDict, json_load, json_save, json_encode
 from accelerator.job import Job
 
-def generate(caption, method, params, package=None, python=None, why_build=False):
+def generate(caption, method, params, package=None, description=None, why_build=False):
 	data = DotDict()
 	data.caption = caption
 	data.method  = method
 	if package:
 		data.package = package
 	data.versions = DotDict()
-	if python:
-		data.versions.python_path = python
+	if description:
+		data.versions.python_path = description['interpreter']
+		data.versions.python = description['interpreter_version']
+		if description['accelerator_version']:
+			data.versions.accelerator = description['accelerator_version']
 	if why_build:
 		data.why_build = why_build
 	data.params = params

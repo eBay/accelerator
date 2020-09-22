@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2019 Carl Drougge                            #
+# Modifications copyright (c) 2019-2020 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -108,7 +108,7 @@ def initialise_jobs(setup, target_WorkSpace, DataBase, Methods, verbose=False):
 				method=data['method'],
 				params=data['params'],
 				package=method['package'],
-				python=runners[method.version].python,
+				description=Methods.descriptions[data['method']],
 			)
 			new_setup.hash = Methods.hash[data['method']][0]
 			new_setup.seed = randint(0, 2**63 - 1)
