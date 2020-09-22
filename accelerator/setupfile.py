@@ -52,16 +52,17 @@ def load_setup(jobid):
 	You probably want to use extras.job_params instead.
 	"""
 	d = json_load('setup.json', jobid)
-	if d.version == 1:
+	version = d.version
+	if version == 1:
 		d.jobs = d.pop('jobids')
-		d.version = 2
-	if d.version == 2:
+		version = 2
+	if version == 2:
 		d.versions = DotDict()
 		python_path = d.pop('python', None)
 		if python_path:
 			d.versions.python_path = python_path
-		d.version = 3
-	if d.version == 3:
+		version = 3
+	if version == 3:
 		if '_typing' in d:
 			d['_typing'] = {d.method: d['_typing']}
 		d.params = {d.method: DotDict({k: d[k] for k in ('options', 'datasets', 'jobs')})}
