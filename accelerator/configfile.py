@@ -67,9 +67,14 @@ def load_config(filename):
 	cfg = {key: [] for key in multivalued}
 	cfg['listen'] = '.socket.dir/server', None
 
-	def fixpath(fn):
+	def fixpath(fn, realpath=True):
 		# convert relative path to absolute wrt location of config file
-		return os.path.realpath(os.path.join(project_directory, fn))
+		p = os.path.join(project_directory, fn)
+		if realpath:
+			p = os.path.realpath(p)
+		else:
+			p = os.path.normpath(p)
+		return p
 
 	class _E(Exception):
 		pass
@@ -77,7 +82,7 @@ def load_config(filename):
 		a = val.split()
 		if len(a) != 2:
 			raise _E("Invalid %s specification %r (expected 'name path')" % (thing, val,))
-		return a[0], fixpath(a[1])
+		return a[0], fixpath(a[1], thing != 'interpreter')
 	def check_interpreter(val):
 		if val[0] == 'DEFAULT':
 			raise _E("Don't override DEFAULT interpreter")
