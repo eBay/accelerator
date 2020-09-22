@@ -13,7 +13,7 @@
 		<div class="box" id="other-params">
 			% blacklist = {
 			%     'package', 'method', 'options', 'datasets', 'jobs', 'params',
-			%     'starttime', 'endtime', 'exectime', '_typing',
+			%     'starttime', 'endtime', 'exectime', '_typing', 'versions',
 			% }
 			<table>
 				<tr><td>starttime</td><td>=</td><td>{{ datetime.fromtimestamp(params['starttime']) }}</td></tr>
@@ -26,6 +26,10 @@
 				% end
 				% for k in sorted(set(params) - blacklist):
 					<tr><td>{{ k }}</td><td>=</td><td>{{ repr(params[k]) }}</td></tr>
+				% end
+				% versions = params['versions']
+				% for k in sorted(versions):
+					<tr><td>versions.{{ k }}</td><td>=</td><td>{{ repr(versions[k]) }}</td></tr>
 				% end
 			</table>
 		</div>
