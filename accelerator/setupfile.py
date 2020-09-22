@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2019 Carl Drougge                            #
+# Modifications copyright (c) 2019-2020 Carl Drougge                       #
 # Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -36,8 +36,9 @@ def generate(caption, method, params, package=None, python=None, why_build=False
 	data.method  = method
 	if package:
 		data.package = package
+	data.versions = DotDict()
 	if python:
-		data.python = python
+		data.versions.python_path = python
 	if why_build:
 		data.why_build = why_build
 	data.params = params
@@ -52,6 +53,12 @@ def load_setup(jobid):
 		d.jobs = d.pop('jobids')
 		d.version = 2
 	if d.version == 2:
+		d.versions = DotDict()
+		python_path = d.pop('python', None)
+		if python_path:
+			d.versions.python_path = python_path
+		d.version = 3
+	if d.version == 3:
 		if '_typing' in d:
 			d['_typing'] = {d.method: d['_typing']}
 		d.params = {d.method: DotDict({k: d[k] for k in ('options', 'datasets', 'jobs')})}
@@ -147,7 +154,7 @@ def _encode_with_compact(data, compact_keys, extra_indent=0, separator='\n', spe
 
 def save_setup(jobid, data):
 	data = dict(data)
-	data['version'] = 2
+	data['version'] = 3
 	data.update(data['params'][data['method']])
 	del data['params']
 	if '_typing' in data:
