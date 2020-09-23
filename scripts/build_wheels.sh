@@ -65,7 +65,7 @@ for V in $(ls /opt/python/); do
 			auditwheel repair "$UNFIXED_NAME" -w /io/wheelhouse/
 			"/opt/python/$V/bin/pip" install "$FIXED_NAME"
 			rm -rf /tmp/axtest
-			"/opt/python/$V/bin/ax" init --slices "$SLICES" /tmp/axtest
+			"/opt/python/$V/bin/ax" init --slices "$SLICES" --name "${V/*-/}" /tmp/axtest
 			"/opt/python/$V/bin/ax" --config /tmp/axtest/accelerator.conf server &
 			sleep 1
 			USER=test "/opt/python/$V/bin/ax" --config /tmp/axtest/accelerator.conf run tests
