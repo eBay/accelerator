@@ -22,6 +22,7 @@ from __future__ import division
 from __future__ import unicode_literals
 
 import sys
+import errno
 from os import getcwd, chdir
 from os.path import dirname, basename, realpath, join
 from locale import resetlocale
@@ -276,14 +277,20 @@ def main():
 		print(file=sys.stderr)
 		print('Unknown command "%s"' % (args.command,), file=sys.stderr)
 		sys.exit(2)
+	config_fn = args.config
+	if args.command == 'init':
+		config_fn = False
+	cmd = COMMANDS[args.command]
+	debug_cmd = getattr(cmd, 'is_debug', False)
 	try:
-		config_fn = args.config
-		if args.command == 'init':
-			config_fn = False
-		cmd = COMMANDS[args.command]
-		setup(config_fn, debug_cmd=getattr(cmd, 'is_debug', False))
+		setup(config_fn, debug_cmd)
 		argv.insert(0, '%s %s' % (basename(sys.argv[0]), args.command,))
 		return cmd(argv)
 	except UserError as e:
 		print(e, file=sys.stderr)
 		return 1
+	except IOError as e:
+		if e.errno == errno.EPIPE and debug_cmd:
+			return
+		else:
+			raise
