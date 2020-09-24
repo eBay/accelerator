@@ -23,6 +23,7 @@ from __future__ import unicode_literals
 import os
 from select import select
 from multiprocessing import Process
+from subprocess import Popen
 from time import sleep
 import signal
 from pty import openpty
@@ -34,7 +35,12 @@ from accelerator import statmsg
 
 
 def main():
-	os.environ['BD_TERM_FD'] = str(os.dup(1))
+	# Run cat between ourselves and the real terminal, so we can set our
+	# output (this pipe) non-blocking without messing up the real stdout.
+	a, b = os.pipe()
+	os.environ['BD_TERM_FD'] = str(b)
+	Popen(['cat'], close_fds=True, stdin=a)
+	# Use a pty for programs under us, so they stay line buffered.
 	a, b = openpty()
 	run_reader({}, None, [a], [b], 'main iowrapper.reader', None, True)
 	os.dup2(b, 1)
