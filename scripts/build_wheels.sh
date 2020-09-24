@@ -48,6 +48,9 @@ if [ ! -e "$ZLIB_PREFIX/lib/libz.a" ]; then
 fi
 
 
+# The numeric_comma test needs a locale which uses numeric comma.
+localedef -i da_DK -f UTF-8 da_DK.UTF-8
+
 rm -rf unfixed_wheels
 mkdir unfixed_wheels
 
