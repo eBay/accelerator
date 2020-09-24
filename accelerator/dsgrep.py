@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2019 Carl Drougge                            #
+# Modifications copyright (c) 2019-2020 Carl Drougge                       #
 # Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -25,7 +25,8 @@ from __future__ import division, print_function
 import sys
 import re
 from argparse import ArgumentParser
-from multiprocessing import Process
+from multiprocessing import Process, JoinableQueue
+from itertools import chain
 import errno
 from os import write
 
@@ -62,7 +63,19 @@ def main(argv):
 		parser.print_help(file=sys.stderr)
 		return 1
 
-	def grep(lines):
+	if args.slice:
+		want_slices = []
+		for s in args.slice:
+			assert 0 <= s < g.slices, "Slice %d not available" % (s,)
+			if s not in want_slices:
+				want_slices.append(s)
+	else:
+		want_slices = list(range(g.slices))
+
+	if args.chain:
+		datasets = chain.from_iterable(ds.chain() for ds in datasets)
+
+	def grep(ds, sliceno):
 		chk_b = pat_b.search
 		chk_s = pat_s.search
 		def match(items):
@@ -79,20 +92,18 @@ def main(argv):
 			if isinstance(v, unicode):
 				v = v.encode('utf-8', 'replace')
 			return v
-		for items in lines:
+		for items in ds.iterate(sliceno, columns):
 			if match(items):
 				# This will be atomic if the line is not too long
 				# (at least up to PIPE_BUF bytes, should be at least 512).
 				write(1, b'\t'.join(map(fmt, items)) + b'\n')
 
-	def one_slice(sliceno):
+	def one_slice(sliceno, q):
 		try:
 			for ds in datasets:
-				if args.chain:
-					f = ds.iterate_chain
-				else:
-					f = ds.iterate
-				grep(f(sliceno, columns))
+				q.get()
+				grep(ds, sliceno)
+				q.task_done()
 		except KeyboardInterrupt:
 			return
 		except IOError as e:
@@ -101,14 +112,22 @@ def main(argv):
 			else:
 				raise
 
+	queues = []
+	for sliceno in want_slices[1:]:
+		queues.append(JoinableQueue())
+		Process(
+			target=one_slice,
+			args=(sliceno, queues[-1],),
+			name='slice-%d' % (sliceno,),
+			daemon=True,
+		).start()
+
 	try:
-		children = []
-		want_slices = set(args.slice) if args.slice else range(g.slices)
-		for sliceno in want_slices:
-			p = Process(target=one_slice, args=(sliceno,), name='slice-%d' % (sliceno,))
-			p.start()
-			children.append(p)
-		for p in children:
-			p.join()
+		for ds in datasets:
+			for q in queues:
+				q.put(None)
+			grep(ds, want_slices[0])
+			for q in queues:
+				q.join()
 	except KeyboardInterrupt:
 		print()
