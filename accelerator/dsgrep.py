@@ -39,6 +39,7 @@ def main(argv):
 	parser = ArgumentParser(usage=usage, prog=argv.pop(0))
 	parser.add_argument('-c', '--chain',       dest="chain",      action='store_true', help="follow dataset chains", )
 	parser.add_argument('-i', '--ignore-case', dest="ignorecase", action='store_true', help="case insensitive pattern", )
+	parser.add_argument('-H', '--headers',     dest="headers",    action='store_true', help="print column names before output (and on each change)", )
 	parser.add_argument('-s', '--slice',       dest="slice",      action='append',     help="grep this slice only, can be specified multiple times",  type=int)
 	parser.add_argument('pattern')
 	parser.add_argument('dataset')
@@ -122,8 +123,14 @@ def main(argv):
 			daemon=True,
 		).start()
 
+	headers = []
 	try:
 		for ds in datasets:
+			if args.headers:
+				new_headers = columns or sorted(ds.columns)
+				if new_headers != headers:
+					headers = new_headers
+					print('\x1b[34m' + '\t'.join(headers) + '\x1b[m')
 			for q in queues:
 				q.put(None)
 			grep(ds, want_slices[0])
