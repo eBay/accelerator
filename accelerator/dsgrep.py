@@ -42,6 +42,9 @@ def main(argv):
 	parser.add_argument('-H', '--headers',      action='store_true', help="print column names before output (and on each change)", )
 	parser.add_argument('-o', '--ordered',      action='store_true', help="Output in order (one slice at a time)", )
 	parser.add_argument('-s', '--slice',        action='append',     help="grep this slice only, can be specified multiple times",  type=int)
+	parser.add_argument('-D', '--show-dataset', action='store_true', help="Show dataset on matching lines", )
+	parser.add_argument('-S', '--show-sliceno', action='store_true', help="Show sliceno on matching lines", )
+	parser.add_argument('-L', '--show-lineno',  action='store_true', help="Show lineno (per slice) on matching lines", )
 	parser.add_argument('pattern')
 	parser.add_argument('dataset')
 	parser.add_argument('columns', nargs='*', default=[])
@@ -72,10 +75,7 @@ def main(argv):
 			if s not in want_slices:
 				want_slices.append(s)
 	else:
-		if args.ordered:
-			want_slices = [None]
-		else:
-			want_slices = list(range(g.slices))
+		want_slices = list(range(g.slices))
 
 	if args.chain:
 		datasets = chain.from_iterable(ds.chain() for ds in datasets)
@@ -97,11 +97,19 @@ def main(argv):
 			if isinstance(v, unicode):
 				v = v.encode('utf-8', 'replace')
 			return v
-		for items in ds.iterate(sliceno, columns):
+		prefix = []
+		if args.show_dataset:
+			prefix.append(ds.encode('utf-8'))
+		if args.show_sliceno:
+			prefix.append(str(sliceno).encode('utf-8'))
+		prefix = tuple(prefix)
+		for lineno, items in enumerate(ds.iterate(sliceno, columns)):
 			if match(items):
+				if args.show_lineno:
+					items = (lineno,) + items
 				# This will be atomic if the line is not too long
 				# (at least up to PIPE_BUF bytes, should be at least 512).
-				write(1, b'\t'.join(map(fmt, items)) + b'\n')
+				write(1, b'\t'.join(map(fmt, prefix + items)) + b'\n')
 
 	def one_slice(sliceno, q):
 		try:
@@ -139,6 +147,13 @@ def main(argv):
 			children.append(p)
 		want_slices = want_slices[:1]
 
+	headers_prefix = []
+	if args.show_dataset:
+		headers_prefix.append('[DATASET]')
+	if args.show_sliceno:
+		headers_prefix.append('[SLICE]')
+	if args.show_lineno:
+		headers_prefix.append('[LINE]')
 	headers = []
 	try:
 		for ds in datasets:
@@ -146,7 +161,7 @@ def main(argv):
 				new_headers = columns or sorted(ds.columns)
 				if new_headers != headers:
 					headers = new_headers
-					print('\x1b[34m' + '\t'.join(headers) + '\x1b[m')
+					print('\x1b[34m' + '\t'.join(headers_prefix + headers) + '\x1b[m')
 			for q in queues:
 				q.put(None)
 			for sliceno in want_slices:
