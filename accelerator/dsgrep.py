@@ -37,18 +37,18 @@ from accelerator import g
 def main(argv):
 	usage = "%(prog)s [options] pattern ds [ds [...]] [column [column [...]]"
 	parser = ArgumentParser(usage=usage, prog=argv.pop(0))
-	parser.add_argument('-c', '--chain',       dest="chain",      action='store_true', help="follow dataset chains", )
-	parser.add_argument('-i', '--ignore-case', dest="ignorecase", action='store_true', help="case insensitive pattern", )
-	parser.add_argument('-H', '--headers',     dest="headers",    action='store_true', help="print column names before output (and on each change)", )
-	parser.add_argument('-o', '--ordered',     dest="ordered",    action='store_true', help="Output in order (one slice at a time)", )
-	parser.add_argument('-s', '--slice',       dest="slice",      action='append',     help="grep this slice only, can be specified multiple times",  type=int)
+	parser.add_argument('-c', '--chain',        action='store_true', help="follow dataset chains", )
+	parser.add_argument('-i', '--ignore-case',  action='store_true', help="case insensitive pattern", )
+	parser.add_argument('-H', '--headers',      action='store_true', help="print column names before output (and on each change)", )
+	parser.add_argument('-o', '--ordered',      action='store_true', help="Output in order (one slice at a time)", )
+	parser.add_argument('-s', '--slice',        action='append',     help="grep this slice only, can be specified multiple times",  type=int)
 	parser.add_argument('pattern')
 	parser.add_argument('dataset')
 	parser.add_argument('columns', nargs='*', default=[])
 	args = parser.parse_args(argv)
 
-	pat_s = re.compile(args.pattern                , re.IGNORECASE if args.ignorecase else 0)
-	pat_b = re.compile(args.pattern.encode('utf-8'), re.IGNORECASE if args.ignorecase else 0)
+	pat_s = re.compile(args.pattern                , re.IGNORECASE if args.ignore_case else 0)
+	pat_b = re.compile(args.pattern.encode('utf-8'), re.IGNORECASE if args.ignore_case else 0)
 	datasets = [name2ds(args.dataset)]
 	columns = []
 
