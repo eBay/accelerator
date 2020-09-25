@@ -40,6 +40,7 @@ def main(argv):
 	parser.add_argument('-c', '--chain',       dest="chain",      action='store_true', help="follow dataset chains", )
 	parser.add_argument('-i', '--ignore-case', dest="ignorecase", action='store_true', help="case insensitive pattern", )
 	parser.add_argument('-H', '--headers',     dest="headers",    action='store_true', help="print column names before output (and on each change)", )
+	parser.add_argument('-o', '--ordered',     dest="ordered",    action='store_true', help="Output in order (one slice at a time)", )
 	parser.add_argument('-s', '--slice',       dest="slice",      action='append',     help="grep this slice only, can be specified multiple times",  type=int)
 	parser.add_argument('pattern')
 	parser.add_argument('dataset')
@@ -71,7 +72,10 @@ def main(argv):
 			if s not in want_slices:
 				want_slices.append(s)
 	else:
-		want_slices = list(range(g.slices))
+		if args.ordered:
+			want_slices = [None]
+		else:
+			want_slices = list(range(g.slices))
 
 	if args.chain:
 		datasets = chain.from_iterable(ds.chain() for ds in datasets)
@@ -114,14 +118,16 @@ def main(argv):
 				raise
 
 	queues = []
-	for sliceno in want_slices[1:]:
-		queues.append(JoinableQueue())
-		Process(
-			target=one_slice,
-			args=(sliceno, queues[-1],),
-			name='slice-%d' % (sliceno,),
-			daemon=True,
-		).start()
+	if not args.ordered:
+		for sliceno in want_slices[1:]:
+			queues.append(JoinableQueue())
+			Process(
+				target=one_slice,
+				args=(sliceno, queues[-1],),
+				name='slice-%d' % (sliceno,),
+				daemon=True,
+			).start()
+		want_slices = want_slices[:1]
 
 	headers = []
 	try:
@@ -133,7 +139,8 @@ def main(argv):
 					print('\x1b[34m' + '\t'.join(headers) + '\x1b[m')
 			for q in queues:
 				q.put(None)
-			grep(ds, want_slices[0])
+			for sliceno in want_slices:
+				grep(ds, sliceno)
 			for q in queues:
 				q.join()
 	except KeyboardInterrupt:
