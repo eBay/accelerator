@@ -105,10 +105,14 @@ def main(argv):
 
 	def one_slice(sliceno, q):
 		try:
-			for ds in datasets:
-				q.get()
-				grep(ds, sliceno)
-				q.task_done()
+			if q:
+				for ds in datasets:
+					q.get()
+					grep(ds, sliceno)
+					q.task_done()
+			else:
+				for ds in datasets:
+					grep(ds, sliceno)
 		except KeyboardInterrupt:
 			return
 		except IOError as e:
@@ -118,15 +122,21 @@ def main(argv):
 				raise
 
 	queues = []
+	children = []
 	if not args.ordered:
+		q = None
 		for sliceno in want_slices[1:]:
-			queues.append(JoinableQueue())
-			Process(
+			if args.headers:
+				q = JoinableQueue()
+				queues.append(q)
+			p = Process(
 				target=one_slice,
-				args=(sliceno, queues[-1],),
+				args=(sliceno, q,),
 				name='slice-%d' % (sliceno,),
 				daemon=True,
-			).start()
+			)
+			p.start()
+			children.append(p)
 		want_slices = want_slices[:1]
 
 	headers = []
@@ -143,5 +153,7 @@ def main(argv):
 				grep(ds, sliceno)
 			for q in queues:
 				q.join()
+		for c in children:
+			c.join()
 	except KeyboardInterrupt:
 		print()
