@@ -28,7 +28,7 @@ from datetime import datetime, time, date
 from math import ceil, floor, log10, isinf, isnan
 
 from accelerator.compat import terminal_size
-from accelerator import dscmdhelper
+from .dscmdhelper import name2ds
 from accelerator.dataset import Dataset
 from accelerator.error import NoSuchWhateverError
 from accelerator.job import Job
@@ -110,7 +110,7 @@ def main(argv):
 
 	for n in args.dataset:
 		try:
-			ds = dscmdhelper.name2ds(n)
+			ds = name2ds(n)
 		except NoSuchWhateverError:
 			badinput.append(n)
 			continue

@@ -31,7 +31,7 @@ import errno
 from os import write
 
 from accelerator.compat import unicode
-from accelerator.dscmdhelper import name2ds
+from .dscmdhelper import name2ds
 from accelerator import g
 
 def main(argv):

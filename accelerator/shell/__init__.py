@@ -122,13 +122,13 @@ def setup(config_fn=None, debug_cmd=False):
 		chdir(cfg['project_directory'])
 
 def cmd_grep(argv):
-	from accelerator.dsgrep import main
+	from accelerator.shell.grep import main
 	return main(argv)
 cmd_grep.help = '''search for a pattern in one or more datasets'''
 cmd_grep.is_debug = True
 
 def cmd_ds(argv):
-	from accelerator.dsinfo import main
+	from accelerator.shell.ds import main
 	return main(argv)
 cmd_ds.help = '''display information about datasets'''
 cmd_ds.is_debug = True
@@ -144,7 +144,7 @@ def cmd_server(argv):
 cmd_server.help = '''run the main server'''
 
 def cmd_init(argv):
-	from accelerator.init import main
+	from accelerator.shell.init import main
 	main(argv)
 cmd_init.help = '''create a project directory'''
 
@@ -196,12 +196,12 @@ def cmd_curl(argv):
 cmd_curl.help = '''http request (with curl) to urd or the server'''
 
 def cmd_method(argv):
-	from accelerator.cmd_method import main
+	from accelerator.shell.method import main
 	main(argv, cfg)
 cmd_method.help = '''information about methods'''
 
 def cmd_job(argv):
-	from accelerator.cmd_job import main
+	from accelerator.shell.job import main
 	main(argv, cfg)
 cmd_job.help = '''information about a job'''
 cmd_job.is_debug = True
