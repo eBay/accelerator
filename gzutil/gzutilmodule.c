@@ -1591,10 +1591,19 @@ is_none:                                                                        
 #if PY_MAJOR_VERSION < 3
 // Passing a non-int object to some of the As functions in py2 gives
 // SystemError, but we want TypeError.
+// Sometimes passing an int to a function that wants a long also breaks.
 #  define MKpy2AsFix(T, TN, bitcnt) \
 	static T fix_pyLong_As ## TN(PyObject *l)                                        	\
 	{                                                                                	\
-		T value = pyLong_As ## TN(l);                                            	\
+		T value;                                                                 	\
+		if (PyInt_Check(l)) {                                                    	\
+			PyObject *ll = PyNumber_Long(l);                                 	\
+			if (!ll) return -1; /* "can't" happen */                         	\
+			value = pyLong_As ## TN(ll);                                     	\
+			Py_DECREF(ll);                                                   	\
+		} else {                                                                 	\
+			value = pyLong_As ## TN(l);                                      	\
+		}                                                                        	\
 		if (value == (T)-1 && PyErr_Occurred()) {                                	\
 			if (Integer_Check(l)) {                                          	\
 				PyErr_SetString(PyExc_OverflowError,                     	\
