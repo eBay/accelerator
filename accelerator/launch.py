@@ -275,8 +275,10 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 	sortnum_cache = {}
 	def dw_sortnum(name):
 		if name not in sortnum_cache:
-			dw = dataset._datasetwriters[name]
-			if dw.previous and dw.previous.startswith(jobid + '/'):
+			dw = dataset._datasetwriters.get(name)
+			if not dw: # manually .finish()ed
+				num = -1
+			elif dw.previous and dw.previous.startswith(jobid + '/'):
 				pname = dw.previous.split('/')[1]
 				num = dw_sortnum(pname) + 1
 			else:
