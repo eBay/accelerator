@@ -106,10 +106,11 @@ def test_filters(ds):
 	alles_filtered_c_negative_again = list(ds.last.iterate_chain(None, filters=lambda t: t[0] == "c" and t[1] < 0))
 	assert alles_filtered_c_negative == alles_filtered_c_negative_again
 	# test filtering something translated
-	just_0_plus_2_pos = list(ds.last.iterate_chain(0, filters={"num": lambda v: v > 0}, translators={"num": (2).__add__}))
+	# Can't use (2).__add__ in (some) py2.
+	just_0_plus_2_pos = list(ds.last.iterate_chain(0, filters={"num": lambda v: v > 0}, translators={"num": lambda v: v + 2}))
 	just_0 = list(ds.last.iterate_chain(0))
 	just_0_plus_2_pos_manual = [(t[0], t[1] + 2,) for t in just_0 if t[1] + 2 > 0]
 	assert just_0_plus_2_pos == just_0_plus_2_pos_manual
 	# Test filtering with (non-tupled) single column
-	just_0_num_plus_2_pos = list(ds.last.iterate_chain(0, columns="num", filters={"num": lambda v: v > 0}, translators={"num": (2).__add__}))
+	just_0_num_plus_2_pos = list(ds.last.iterate_chain(0, columns="num", filters={"num": lambda v: v > 0}, translators={"num": lambda v: v + 2}))
 	assert just_0_num_plus_2_pos == [t[1] for t in just_0_plus_2_pos]
