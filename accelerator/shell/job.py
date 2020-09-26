@@ -23,6 +23,7 @@ from __future__ import unicode_literals
 from traceback import print_exc
 from os.path import join, split, normpath
 from datetime import datetime
+import errno
 
 from accelerator.extras import json_load
 from accelerator.setupfile import encode_setup
@@ -77,6 +78,8 @@ def main(argv, cfg):
 	for path in argv:
 		try:
 			show(path)
-		except Exception:
+		except Exception as e:
+			if isinstance(e, IOError) and e.errno == errno.EPIPE:
+				raise
 			print_exc()
 			print("Failed to show %r" % (path,))
