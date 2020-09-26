@@ -31,6 +31,7 @@ from accelerator.dataset import Dataset
 from accelerator.unixhttp import call, WaitressUnixServer
 from accelerator.build import fmttime
 from accelerator.configfile import resolve_listen
+from accelerator.compat import setproctitle
 
 def get_job(jobid):
 	if jobid.endswith('-LATEST'):
@@ -59,11 +60,14 @@ def main(argv, cfg):
 	run(cfg, from_shell=True)
 
 def run(cfg, from_shell=False):
+	project = os.path.split(cfg.project_directory)[1]
+	setproctitle('ax board for %s on %s' % (project, cfg.board_listen,))
+
 	@bottle.get('/')
 	@bottle.view('main')
 	def main_page():
 		return dict(
-			project=os.path.split(cfg.project_directory)[1],
+			project=project,
 			workdirs=cfg.workdirs,
 		)
 
