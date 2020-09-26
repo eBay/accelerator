@@ -214,6 +214,34 @@ def run(cfg, from_shell=False):
 			return bottle.HTTPError(404, 'Method %s not found' % (name,))
 		return dict(name=name, data=methods[name], cfg=cfg)
 
+	@bottle.get('/urd')
+	@bottle.get('/urd/')
+	@bottle.view('urd')
+	def urd():
+		return dict(
+			lists=call(cfg.urd + '/list'),
+			project=project,
+		)
+
+	@bottle.get('/urd/<user>/<build>')
+	@bottle.get('/urd/<user>/<build>/')
+	@bottle.view('urdlist')
+	def urdlist(user, build):
+		key = user + '/' + build
+		return dict(
+			key=key,
+			timestamps=call(cfg.urd + '/' + key + '/since/0'),
+		)
+
+	@bottle.get('/urd/<user>/<build>/<ts>')
+	@bottle.view('urditem')
+	def urditem(user, build, ts):
+		key = user + '/' + build + '/' + ts
+		return dict(
+			key=key,
+			entry=call(cfg.urd + '/' + key),
+		)
+
 	bottle.TEMPLATE_PATH = [os.path.join(os.path.dirname(__file__), 'board')]
 	if from_shell:
 		kw = {'reloader': True}

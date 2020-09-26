@@ -9,9 +9,10 @@
 				</tr>
 			% end
 		</table>
-		<div id="methods">
-			<a target="_blank" href="/methods">methods</a>
-		</div>
+		<ul>
+			<li><a target="_blank" href="/methods">methods</a></li>
+			<li><a target="_blank" href="/urd">urd</a></li>
+		</ul>
 	</div>
 	<h1 id="header">ax board: {{ project }}</h1>
 	<div id="status">

@@ -16,6 +16,7 @@
 			--fg-a: #11f;
 			--fg-a-v: #529;
 			--fg-a-a: #c16;
+			--fg-weak: #988890;
 			--checkmark: #193;
 			--border0: #e4e1d0;
 			--border1: #e7e5d6;
@@ -36,6 +37,7 @@
 				--fg-a: #8cf;
 				--fg-a-v: #caf;
 				--fg-a-a: #f9b;
+				--fg-weak: #877;
 				--checkmark: #9eb;
 				--border0: #764;
 				--border1: #875;
@@ -120,8 +122,8 @@
 			float: right;
 			margin-bottom: 1em;
 		}
-		#methods {
-			border-top: 2px solid var(--border1);
+		#bonus-info ul {
+			list-style-type: none;
 			display: table;
 			margin: 0 1em 0 auto;
 			padding: 3px 0 5px 0;
@@ -130,6 +132,7 @@
 			margin-left: auto;
 			margin-right: 0;
 			text-align: right;
+			border-bottom: 1px solid var(--border1);
 		}
 		#workdirs td {
 			padding-right: 1em;
@@ -230,6 +233,29 @@
 		}
 		.method-table tbody tr {
 			border-bottom: 1px solid var(--border1);
+		}
+
+		.urd-table {
+			border: 1px solid var(--border0);
+		}
+		.urd-table tbody td {
+			vertical-align: top;
+			padding: 0.3em 0.5em;
+			border-bottom: 1px solid var(--border1);
+		}
+		.urd-table tbody tr:last-child td {
+			border-bottom: 0;
+		}
+		.urd-table ol {
+			list-style-position: inside;
+			padding: 0;
+			margin: 0.3em 0 0 2em;
+		}
+		.urd-table ol:first-child {
+			margin: 0;
+		}
+		.urd-table li::marker {
+			color: var(--fg-weak);
 		}
 
 		#status-stacks td {
