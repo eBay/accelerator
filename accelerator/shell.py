@@ -121,17 +121,17 @@ def setup(config_fn=None, debug_cmd=False):
 		# as working directory.
 		chdir(cfg['project_directory'])
 
-def cmd_dsgrep(argv):
+def cmd_grep(argv):
 	from accelerator.dsgrep import main
 	return main(argv)
-cmd_dsgrep.help = '''search for a pattern in one or more datasets'''
-cmd_dsgrep.is_debug = True
+cmd_grep.help = '''search for a pattern in one or more datasets'''
+cmd_grep.is_debug = True
 
-def cmd_dsinfo(argv):
+def cmd_ds(argv):
 	from accelerator.dsinfo import main
 	return main(argv)
-cmd_dsinfo.help = '''display information about datasets'''
-cmd_dsinfo.is_debug = True
+cmd_ds.help = '''display information about datasets'''
+cmd_ds.is_debug = True
 
 def cmd_run(argv):
 	from accelerator.build import main
@@ -212,8 +212,8 @@ def cmd_board(argv):
 cmd_board.help = '''runs a webserver for displaying results'''
 
 COMMANDS = dict(
-	dsgrep=cmd_dsgrep,
-	dsinfo=cmd_dsinfo,
+	ds=cmd_ds,
+	grep=cmd_grep,
 	run=cmd_run,
 	server=cmd_server,
 	init=cmd_init,
