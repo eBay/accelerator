@@ -35,8 +35,11 @@ cd /
 MANYLINUX_VERSION="${AUDITWHEEL_PLAT/%_*}"
 AUDITWHEEL_ARCH="${AUDITWHEEL_PLAT/${MANYLINUX_VERSION}_}"
 ZLIB_PREFIX="/out/zlib-ng-$AUDITWHEEL_PLAT"
-# we are (probably) in a 2010 container, but the wheel will be 1-compatible.
-AUDITWHEEL_PLAT="manylinux1_$AUDITWHEEL_ARCH"
+
+if [ "$MANYLINUX_VERSION" = "manylinux2010" ]; then
+		# The 2010 wheels are in our case 1-compatible
+		AUDITWHEEL_PLAT="manylinux1_$AUDITWHEEL_ARCH"
+fi
 
 # So you can provide a pre-built zlib-ng if you want.
 if [ ! -e "$ZLIB_PREFIX/lib/libz.a" ]; then
