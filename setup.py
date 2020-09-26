@@ -27,7 +27,6 @@ from datetime import datetime
 from subprocess import check_output, check_call, CalledProcessError
 from io import open
 import re
-import sys
 
 def dirty():
 	for extra in ([], ['--cached'],):
@@ -83,14 +82,6 @@ def mk_file(fn, contents):
 	return fn
 
 def mk_ext(name, *sources):
-	if sys.version_info[0] == 2:
-		init_prefix = 'init'
-	else:
-		init_prefix = 'PyInit_'
-	version_script = mk_file('version.' + name, '''{
-		global: %s%s;
-		local: *;
-	}; ''' % (init_prefix, name.split('.')[-1],))
 	zlib = os.environ.get('ACCELERATOR_BUILD_STATIC_ZLIB')
 	if zlib:
 		kw = dict(extra_objects=[zlib])
@@ -99,9 +90,7 @@ def mk_ext(name, *sources):
 	return Extension(
 		name,
 		sources=list(sources),
-		extra_compile_args=['-std=c99', '-O3'],
-		extra_link_args=['-Wl,--version-script=' + version_script],
-		depends=[version_script],
+		extra_compile_args=['-std=c99', '-O3', '-fvisibility=hidden'],
 		**kw
 	)
 

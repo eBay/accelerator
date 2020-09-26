@@ -43,7 +43,7 @@ if [ ! -e "$ZLIB_PREFIX/lib/libz.a" ]; then
 	git clone https://github.com/zlib-ng/zlib-ng.git
 	cd zlib-ng
 	git checkout 8832d7db7241194fa68509c96c092f3cf527ccce
-	CFLAGS=-fPIC ./configure --zlib-compat --prefix="$ZLIB_PREFIX"
+	CFLAGS="-fPIC -fvisibility=hidden" ./configure --zlib-compat --static --prefix="$ZLIB_PREFIX"
 	make install
 	cd ..
 fi

@@ -2172,7 +2172,7 @@ static struct PyModuleDef moduledef = {
 	good &= !!isnan(value);                                      	\
 } while (0)
 
-PyMODINIT_FUNC INITFUNC(void)
+__attribute__ ((visibility("default"))) PyMODINIT_FUNC INITFUNC(void)
 {
 	int good = (sizeof(py64T) == 8);
 	good &= (sizeof(int64_t) == 8);

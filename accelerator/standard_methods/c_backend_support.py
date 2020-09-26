@@ -80,7 +80,7 @@ static struct PyModuleDef moduledef = {
 #endif
 
 #if PY_MAJOR_VERSION >= 3
-PyMODINIT_FUNC PyInit__%(name)s(void)
+__attribute__ ((visibility("default"))) PyMODINIT_FUNC PyInit__%(name)s(void)
 {
 	PyObject *m = PyModule_Create(&moduledef);
 	if (!m) return 0;
@@ -88,7 +88,7 @@ PyMODINIT_FUNC PyInit__%(name)s(void)
 	return m;
 }
 #else
-PyMODINIT_FUNC init_%(name)s(void)
+__attribute__ ((visibility("default"))) PyMODINIT_FUNC init_%(name)s(void)
 {
 	PyObject *m = Py_InitModule3("_%(name)s", module_methods, NULL);
 	if (!m) return;
