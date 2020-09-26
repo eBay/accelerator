@@ -52,27 +52,29 @@ fi
 # The numeric_comma test needs a locale which uses numeric comma.
 localedef -i da_DK -f UTF-8 da_DK.UTF-8
 
-rm -rf unfixed_wheels
-mkdir unfixed_wheels
+rm -rf /tmp/wheels
+mkdir /tmp/wheels /tmp/wheels/fixed
 
 SLICES=12 # run the first test with a few extra slices
 
 for V in $(ls /opt/python/); do
 	case "$V" in
 		cp27-*|cp3[5-9]-*)
-			UNFIXED_NAME="unfixed_wheels/$NAME-$V-linux_$AUDITWHEEL_ARCH.whl"
-			FIXED_NAME="/out/wheelhouse/$NAME-$V-$AUDITWHEEL_PLAT.whl"
+			UNFIXED_NAME="/tmp/wheels/$NAME-$V-linux_$AUDITWHEEL_ARCH.whl"
+			FIXED_NAME="/tmp/wheels/fixed/$NAME-$V-$AUDITWHEEL_PLAT.whl"
 			rm -f "$UNFIXED_NAME" "$FIXED_NAME"
 			ACCELERATOR_BUILD_STATIC_ZLIB="$ZLIB_PREFIX/lib/libz.a" \
 			CPPFLAGS="-I$ZLIB_PREFIX/include" \
-			"/opt/python/$V/bin/pip" wheel /accelerator/dist/"$NAME".tar.gz --no-deps -w unfixed_wheels/
-			auditwheel repair "$UNFIXED_NAME" -w /out/wheelhouse/
+			"/opt/python/$V/bin/pip" wheel /accelerator/dist/"$NAME".tar.gz --no-deps -w /tmp/wheels/
+			auditwheel repair "$UNFIXED_NAME" -w /tmp/wheels/fixed/
 			"/opt/python/$V/bin/pip" install "$FIXED_NAME"
 			rm -rf /tmp/axtest
 			"/opt/python/$V/bin/ax" init --slices "$SLICES" --name "${V/*-/}" /tmp/axtest
 			"/opt/python/$V/bin/ax" --config /tmp/axtest/accelerator.conf server &
 			sleep 1
 			USER=test "/opt/python/$V/bin/ax" --config /tmp/axtest/accelerator.conf run tests
+			# The wheel passed the tests, copy it to the wheelhouse.
+			cp -p "$FIXED_NAME" /out/wheelhouse/
 			rm -rf /tmp/axtest
 			SLICES=3 # run all other tests with the lowest (and fastest) allowed for tests
 			;;
