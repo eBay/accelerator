@@ -932,7 +932,7 @@ typedef struct gzwrite {
 	gzFile fh;
 	char *name;
 	default_u *default_value;
-	unsigned long count;
+	unsigned PY_LONG_LONG count;
 	PyObject *hashfilter;
 	PyObject *default_obj;
 	PyObject *min_obj;
@@ -1175,30 +1175,30 @@ static PyObject *gzwrite_write_GzWrite(GzWrite *self, PyObject *obj)
 	if (checktype) {                                                              	\
 		PyErr_Format(PyExc_TypeError,                                         	\
 		             "For your protection, only " errname                     	\
-		             " objects are accepted (line %ld)",                      	\
-		             self->count + 1);                                        	\
+		             " objects are accepted (line %llu)",                     	\
+		             (unsigned long long) self->count + 1);                   	\
 		return 0;                                                             	\
 	}
 #define WRITELINEDO(cleanup) \
 	if (len == 1 && *data == 0) {                                                 	\
 		cleanup;                                                              	\
 		PyErr_Format(PyExc_ValueError,                                        	\
-		             "Value becomes None-marker (line %lu)",                  	\
-		             self->count + 1);                                        	\
+		             "Value becomes None-marker (line %llu)",                 	\
+		             (unsigned long long) self->count + 1);                   	\
 		return 0;                                                             	\
 	}                                                                             	\
 	if (memchr(data, '\n', len)) {                                                	\
 		cleanup;                                                              	\
 		PyErr_Format(PyExc_ValueError,                                        	\
-		             "Value must not contain \\n (line %lu)",                 	\
-		             self->count + 1);                                        	\
+		             "Value must not contain \\n (line %llu)",                	\
+		             (unsigned long long) self->count + 1);                   	\
 		return 0;                                                             	\
 	}                                                                             	\
 	if (data[len - 1] == '\r') {                                                  	\
 		cleanup;                                                              	\
 		PyErr_Format(PyExc_ValueError,                                        	\
-		             "Value must not end with \\r (line %lu)",                	\
-		             self->count + 1);                                        	\
+		             "Value must not end with \\r (line %llu)",               	\
+		             (unsigned long long) self->count + 1);                   	\
 		return 0;                                                             	\
 	}                                                                             	\
 	if (self->slices) {                                                           	\
@@ -1346,8 +1346,8 @@ MKWLINE(Unicode);
 	if (checktype) {                                                              	\
 		PyErr_Format(PyExc_TypeError,                                         	\
 		             "For your protection, only " errname                     	\
-		             " objects are accepted (line %lu)",                      	\
-		             self->count + 1);                                        	\
+		             " objects are accepted (line %llu)",                     	\
+		             (unsigned long long) self->count + 1);                   	\
 		return 0;                                                             	\
 	}
 
@@ -2002,7 +2002,7 @@ MKPARSED(Bits32 , uint32_t, uint64_t, PyNumber_Int  , pyLong_AsU32     , 0, minm
 
 static PyMemberDef w_default_members[] = {
 	{"name"      , T_STRING   , offsetof(GzWrite, name       ), READONLY},
-	{"count"     , T_ULONG    , offsetof(GzWrite, count      ), READONLY},
+	{"count"     , T_ULONGLONG, offsetof(GzWrite, count      ), READONLY},
 	{"hashfilter", T_OBJECT_EX, offsetof(GzWrite, hashfilter ), READONLY},
 	{"min"       , T_OBJECT   , offsetof(GzWrite, min_obj    ), READONLY},
 	{"max"       , T_OBJECT   , offsetof(GzWrite, max_obj    ), READONLY},
