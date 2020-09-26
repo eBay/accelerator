@@ -899,8 +899,15 @@ class Dataset(unicode):
 		for k in ('cache', 'cache_distance',):
 			if k in self._data:
 				del self._data[k]
-		if self.previous:
-			d = Dataset(self.previous)
+		try:
+			d = self.previous
+		except NoSuchDatasetError:
+			j, n = self._data['previous'].split('/', 1)
+			if self.job == j and n in _datasetwriters:
+				raise DatasetUsageError('previous dataset %r must be .finish()ed first.' % (n,))
+			else:
+				raise
+		if d:
 			cache_distance = d._data.get('cache_distance', 1) + 1
 			if cache_distance == 64:
 				cache_distance = 0
