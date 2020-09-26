@@ -1742,10 +1742,12 @@ static inline int read_fixed(g *g, unsigned char *res, int z)
 	}
 	int avail = g->len - g->pos;
 	if (avail < z) {
+		err1(z <= 1); // This can't happen, but some compilers produce warnings without it.
 		memcpy(res, g->buf + g->pos, avail);
 		res += avail;
 		z -= avail;
 		if (read_chunk(g, 0) || g->len < z) {
+err:
 			PyErr_Format(PyExc_IOError, "%s: Format error\n", g->filename);
 			g->error = 1;
 			return 1;
