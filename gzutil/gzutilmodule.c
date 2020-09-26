@@ -682,7 +682,7 @@ static const uint8_t noneval_uint8_t = 255;
 		return conv(res);                                            	\
 	}
 
-PyObject *pyComplex_From32(complex32 v)
+static PyObject *pyComplex_From32(complex32 v)
 {
 	return PyComplex_FromDoubles(v.real, v.imag);
 }
