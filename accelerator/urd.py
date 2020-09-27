@@ -37,6 +37,7 @@ from io import TextIOWrapper
 
 from accelerator.compat import iteritems, itervalues, unicode
 from accelerator.extras import DotDict, PY3
+from accelerator.unixhttp import WaitressServer
 
 LOGFILEVERSION = '3'
 
@@ -514,18 +515,15 @@ def main(argv, cfg):
 
 	bottle.install(jsonify)
 
-	kw = dict(debug=False, reloader=False, quiet=args.quiet)
+	kw = dict(debug=False, reloader=False, quiet=args.quiet, server=WaitressServer)
 	listen = cfg.urd_listen
 	if isinstance(listen, tuple):
-		kw['server'] = 'waitress'
 		kw['host'], kw['port'] = listen
 	else:
-		from accelerator.unixhttp import WaitressUnixServer
 		from accelerator.server import check_socket
 		if listen == 'local':
 			listen = '.socket.dir/urd'
 		check_socket(listen)
-		kw['server'] = WaitressUnixServer
 		kw['host'] = listen
 		kw['port'] = 0
 	bottle.run(**kw)

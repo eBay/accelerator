@@ -28,7 +28,7 @@ import time
 
 from accelerator.job import Job
 from accelerator.dataset import Dataset
-from accelerator.unixhttp import call, WaitressUnixServer
+from accelerator.unixhttp import call, WaitressServer
 from accelerator.build import fmttime
 from accelerator.configfile import resolve_listen
 from accelerator.compat import setproctitle
@@ -247,14 +247,13 @@ def run(cfg, from_shell=False):
 		kw = {'reloader': True}
 	else:
 		kw = {'quiet': True}
+	kw['server'] = WaitressServer
 	listen = cfg.board_listen
 	if isinstance(listen, tuple):
-		kw['server'] = 'waitress'
 		kw['host'], kw['port'] = listen
 	else:
 		from accelerator.server import check_socket
 		check_socket(listen)
-		kw['server'] = WaitressUnixServer
 		kw['host'] = listen
 		kw['port'] = 0
 	bottle.run(**kw)

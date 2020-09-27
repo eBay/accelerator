@@ -57,10 +57,15 @@ install_opener(build_opener(UnixHTTPHandler))
 
 import bottle
 
-class WaitressUnixServer(bottle.ServerAdapter):
+# The standard bottle WaitressServer can't handle unix sockets and doesn't set threads.
+class WaitressServer(bottle.ServerAdapter):
 	def run(self, handler):
 		from waitress import create_server
-		server = create_server(handler, unix_socket=self.host)
+		if self.port:
+			kw = dict(host=self.host, port=self.port)
+		else:
+			kw = dict(unix_socket=self.host)
+		server = create_server(handler, threads=12, **kw)
 		server.run()
 
 
