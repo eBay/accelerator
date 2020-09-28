@@ -30,7 +30,7 @@ from itertools import chain, repeat
 import errno
 from os import write
 
-from accelerator.compat import unicode
+from accelerator.compat import unicode, izip
 from .dscmdhelper import name2ds
 from accelerator import g
 
@@ -129,11 +129,14 @@ def main(argv):
 			grep_iter = ds.iterate(sliceno, grep_columns)
 		else:
 			grep_iter = repeat(None)
-		for lineno, items in enumerate(ds.iterate(sliceno, columns)):
-			if match(next(grep_iter) or items):
-				if args.show_lineno:
+		lines = izip(grep_iter, ds.iterate(sliceno, columns))
+		if args.show_lineno:
+			for lineno, (grep_items, items) in enumerate(lines):
+				if match(grep_items or items):
 					show(prefix + (str(lineno).encode('utf-8'),), items)
-				else:
+		else:
+			for grep_items, items in lines:
+				if match(grep_items or items):
 					show(prefix, items)
 
 	def one_slice(sliceno, q):
