@@ -38,6 +38,7 @@ def main(argv):
 	usage = "%(prog)s [options] pattern ds [ds [...]] [column [column [...]]"
 	parser = ArgumentParser(usage=usage, prog=argv.pop(0))
 	parser.add_argument('-c', '--chain',        action='store_true', help="follow dataset chains", )
+	parser.add_argument('-C', '--color',        action='store_true', help="color matched text", )
 	parser.add_argument('-i', '--ignore-case',  action='store_true', help="case insensitive pattern", )
 	parser.add_argument('-H', '--headers',      action='store_true', help="print column names before output (and on each change)", )
 	parser.add_argument('-o', '--ordered',      action='store_true', help="Output in order (one slice at a time)", )
@@ -102,6 +103,15 @@ def main(argv):
 			if isinstance(v, unicode):
 				v = v.encode('utf-8', 'replace')
 			return v
+		def color(item):
+			pos = 0
+			parts = []
+			for m in pat_b.finditer(item):
+				a, b = m.span()
+				parts.extend((item[pos:a], b'\x1b[31m', item[a:b], b'\x1b[m'))
+				pos = b
+			parts.append(item[pos:])
+			return b''.join(parts)
 		prefix = []
 		if args.show_dataset:
 			prefix.append(ds.encode('utf-8'))
@@ -110,6 +120,8 @@ def main(argv):
 		prefix = tuple(prefix)
 		def show(prefix, items):
 			items = map(fmt, items)
+			if args.color:
+				items = map(color, items)
 			# This will be atomic if the line is not too long
 			# (at least up to PIPE_BUF bytes, should be at least 512).
 			write(1, b'\t'.join(prefix + tuple(items)) + b'\n')
