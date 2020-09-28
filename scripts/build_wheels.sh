@@ -75,7 +75,7 @@ for V in $(ls /opt/python/); do
 			"/opt/python/$V/bin/ax" init --slices "$SLICES" --name "${V/*-/}" /tmp/axtest
 			"/opt/python/$V/bin/ax" --config /tmp/axtest/accelerator.conf server &
 			sleep 1
-			USER=test "/opt/python/$V/bin/ax" --config /tmp/axtest/accelerator.conf run tests
+			"/opt/python/$V/bin/ax" --config /tmp/axtest/accelerator.conf run tests
 			# The wheel passed the tests, copy it to the wheelhouse.
 			cp -p "$FIXED_NAME" /out/wheelhouse/
 			rm -rf /tmp/axtest

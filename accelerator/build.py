@@ -672,9 +672,14 @@ def run_automata(options, cfg):
 
 	assert getarglist(module_ref.main) == ['urd'], "Only urd-enabled automatas are supported"
 	if 'URD_AUTH' in os.environ:
+		assert ':' in os.environ['URD_AUTH'], "Set $URD_AUTH to user:password"
 		user, password = os.environ['URD_AUTH'].split(':', 1)
 	else:
-		user, password = os.environ['USER'], ''
+		user = os.environ.get('USER')
+		if not user:
+			user = 'NO-USER'
+			print("No $URD_AUTH or $USER in environment, using %r" % (user,), file=sys.stderr)
+		password = ''
 	info = a.info()
 	urd = Urd(a, info, user, password, options.horizon, options.workdir)
 	if options.quick:
