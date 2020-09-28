@@ -26,7 +26,7 @@ import sys
 import re
 from argparse import ArgumentParser
 from multiprocessing import Process, JoinableQueue
-from itertools import chain
+from itertools import chain, repeat
 import errno
 from os import write
 
@@ -41,6 +41,7 @@ def main(argv):
 	parser.add_argument('-i', '--ignore-case',  action='store_true', help="case insensitive pattern", )
 	parser.add_argument('-H', '--headers',      action='store_true', help="print column names before output (and on each change)", )
 	parser.add_argument('-o', '--ordered',      action='store_true', help="Output in order (one slice at a time)", )
+	parser.add_argument('-g', '--grep',         action='append',     help="grep this column only, can be specified multiple times", metavar='COLUMN')
 	parser.add_argument('-s', '--slice',        action='append',     help="grep this slice only, can be specified multiple times",  type=int)
 	parser.add_argument('-D', '--show-dataset', action='store_true', help="Show dataset on matching lines", )
 	parser.add_argument('-S', '--show-sliceno', action='store_true', help="Show sliceno on matching lines", )
@@ -67,6 +68,10 @@ def main(argv):
 	if not datasets:
 		parser.print_help(file=sys.stderr)
 		return 1
+
+	grep_columns = set(args.grep or ())
+	if grep_columns == set(columns):
+		grep_columns = None
 
 	if args.slice:
 		want_slices = []
@@ -103,13 +108,21 @@ def main(argv):
 		if args.show_sliceno:
 			prefix.append(str(sliceno).encode('utf-8'))
 		prefix = tuple(prefix)
+		def show(prefix, items):
+			items = map(fmt, items)
+			# This will be atomic if the line is not too long
+			# (at least up to PIPE_BUF bytes, should be at least 512).
+			write(1, b'\t'.join(prefix + tuple(items)) + b'\n')
+		if grep_columns and grep_columns != set(columns or ds.columns):
+			grep_iter = ds.iterate(sliceno, grep_columns)
+		else:
+			grep_iter = repeat(None)
 		for lineno, items in enumerate(ds.iterate(sliceno, columns)):
-			if match(items):
+			if match(next(grep_iter) or items):
 				if args.show_lineno:
-					items = (lineno,) + items
-				# This will be atomic if the line is not too long
-				# (at least up to PIPE_BUF bytes, should be at least 512).
-				write(1, b'\t'.join(map(fmt, prefix + items)) + b'\n')
+					show(prefix + (str(lineno).encode('utf-8'),), items)
+				else:
+					show(prefix, items)
 
 	def one_slice(sliceno, q):
 		try:
