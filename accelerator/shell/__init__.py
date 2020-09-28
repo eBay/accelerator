@@ -25,7 +25,7 @@ import sys
 import errno
 from os import getcwd, chdir
 from os.path import dirname, basename, realpath, join
-from locale import resetlocale
+import locale
 from glob import glob
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 
@@ -101,7 +101,10 @@ def unpath(path):
 		sys.path.pop(sys.path.index(path))
 
 def setup(config_fn=None, debug_cmd=False):
-	resetlocale()
+	try:
+		locale.resetlocale()
+	except locale.Error:
+		print("WARNING: Broken locale", file=sys.stderr)
 	# Make sure the accelerator dir in not in sys.path
 	# (as it might be if running without installing.)
 	unpath(dirname(__file__))
