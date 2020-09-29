@@ -30,7 +30,7 @@ from itertools import chain, repeat
 import errno
 from os import write
 
-from accelerator.compat import unicode, izip
+from accelerator.compat import unicode, izip, imap
 from .dscmdhelper import name2ds
 from accelerator import g
 
@@ -91,16 +91,23 @@ def main(argv):
 		datasets = chain.from_iterable(ds.chain() for ds in datasets)
 
 	def grep(ds, sliceno):
-		chk_b = pat_b.search
-		chk_s = pat_s.search
-		def match(items):
-			for item in items:
-				if isinstance(item, bytes):
-					if chk_b(item):
-						return True
+		# Use bytes for everything if anything is bytes, str otherwise. (For speed.)
+		if any(ds.columns[col].backing_type == 'bytes' for col in (grep_columns or columns or ds.columns)):
+			def strbytes(v):
+				return str(v).encode('utf-8', 'replace')
+			def mk_iter(col):
+				if ds.columns[col].backing_type in ('bytes', 'unicode', 'ascii',):
+					return ds._column_iterator(sliceno, col, _type='bytes')
 				else:
-					if chk_s(str(item)):
-						return True
+					return imap(strbytes, ds._column_iterator(sliceno, col))
+			chk = pat_b.search
+		else:
+			def mk_iter(col):
+				if ds.columns[col].backing_type in ('unicode', 'ascii',):
+					return ds._column_iterator(sliceno, col, _type='unicode')
+				else:
+					return imap(str, ds._column_iterator(sliceno, col))
+			chk = pat_s.search
 		def fmt(v):
 			if not isinstance(v, (unicode, bytes)):
 				v = str(v)
@@ -130,17 +137,19 @@ def main(argv):
 			# (at least up to PIPE_BUF bytes, should be at least 512).
 			write(1, separator_b.join(prefix + tuple(items)) + b'\n')
 		if grep_columns and grep_columns != set(columns or ds.columns):
-			grep_iter = ds.iterate(sliceno, grep_columns)
+			grep_iter = izip(*(mk_iter(col) for col in grep_columns))
+			lines_iter = ds.iterate(sliceno, columns)
 		else:
 			grep_iter = repeat(None)
-		lines = izip(grep_iter, ds.iterate(sliceno, columns))
+			lines_iter = izip(*(mk_iter(col) for col in (columns or sorted(ds.columns))))
+		lines = izip(grep_iter, lines_iter)
 		if args.show_lineno:
 			for lineno, (grep_items, items) in enumerate(lines):
-				if match(grep_items or items):
+				if any(imap(chk, grep_items or items)):
 					show(prefix + (str(lineno).encode('utf-8'),), items)
 		else:
 			for grep_items, items in lines:
-				if match(grep_items or items):
+				if any(imap(chk, grep_items or items)):
 					show(prefix, items)
 
 	def one_slice(sliceno, q):
