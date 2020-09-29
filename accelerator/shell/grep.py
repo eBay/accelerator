@@ -44,6 +44,7 @@ def main(argv):
 	parser.add_argument('-o', '--ordered',      action='store_true', help="output in order (one slice at a time)", )
 	parser.add_argument('-g', '--grep',         action='append',     help="grep this column only, can be specified multiple times", metavar='COLUMN')
 	parser.add_argument('-s', '--slice',        action='append',     help="grep this slice only, can be specified multiple times",  type=int)
+	parser.add_argument('-t', '--separator', help="field separator (default tab)", default='\t')
 	parser.add_argument('-D', '--show-dataset', action='store_true', help="show dataset on matching lines", )
 	parser.add_argument('-S', '--show-sliceno', action='store_true', help="show sliceno on matching lines", )
 	parser.add_argument('-L', '--show-lineno',  action='store_true', help="show lineno (per slice) on matching lines", )
@@ -56,6 +57,9 @@ def main(argv):
 	pat_b = re.compile(args.pattern.encode('utf-8'), re.IGNORECASE if args.ignore_case else 0)
 	datasets = [name2ds(args.dataset)]
 	columns = []
+
+	separator_s = args.separator
+	separator_b = separator_s.encode('utf-8')
 
 	for ds_or_col in args.columns:
 		if columns:
@@ -124,7 +128,7 @@ def main(argv):
 				items = map(color, items)
 			# This will be atomic if the line is not too long
 			# (at least up to PIPE_BUF bytes, should be at least 512).
-			write(1, b'\t'.join(prefix + tuple(items)) + b'\n')
+			write(1, separator_b.join(prefix + tuple(items)) + b'\n')
 		if grep_columns and grep_columns != set(columns or ds.columns):
 			grep_iter = ds.iterate(sliceno, grep_columns)
 		else:
@@ -189,7 +193,7 @@ def main(argv):
 				new_headers = columns or sorted(ds.columns)
 				if new_headers != headers:
 					headers = new_headers
-					print('\x1b[34m' + '\t'.join(headers_prefix + headers) + '\x1b[m')
+					print('\x1b[34m' + separator_s.join(headers_prefix + headers) + '\x1b[m')
 			for q in queues:
 				q.put(None)
 			for sliceno in want_slices:
