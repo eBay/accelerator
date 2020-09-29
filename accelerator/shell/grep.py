@@ -182,8 +182,8 @@ def main(argv):
 				target=one_slice,
 				args=(sliceno, q,),
 				name='slice-%d' % (sliceno,),
-				daemon=True,
 			)
+			p.daemon = True
 			p.start()
 			children.append(p)
 		want_slices = want_slices[:1]
