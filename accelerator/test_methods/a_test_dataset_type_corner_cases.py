@@ -269,6 +269,10 @@ def test_datetimes():
 				idata = [v + b'1868' for v in data]
 				default += '42'
 			verify(name + ' i', [typ.replace(':', 'i:', 1)], idata, want, default)
+	# Timezone tests. I hope all systems accept the :Region/City syntax.
+	verify('tz a', ['datetime:%Y-%m-%d %H:%M'], [b'2020-09-30 11:44'], [datetime(2020, 9, 30, 11, 44)])
+	verify('tz b', ['datetime:%Y-%m-%d %H:%M'], [b'2020-09-30 11:44'], [datetime(2020, 9, 30, 11, 44)], timezone='UTC')
+	verify('tz c', ['datetime:%Y-%m-%d %H:%M'], [b'2020-09-30 13:44', b'2020-02-22 12:44'], [datetime(2020, 9, 30, 11, 44), datetime(2020, 2, 22, 11, 44)], timezone=':Europe/Stockholm')
 
 def test_filter_bad_across_types():
 	columns={

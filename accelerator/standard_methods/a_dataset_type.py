@@ -57,6 +57,14 @@ TYPENAME = OptionEnum(dataset_type.convfuncs.keys())
 
 options = {
 	'column2type'               : {'COLNAME': TYPENAME},
+	# Anything your system would accept in $TZ. Parses datetimes (but not
+	# dates or times) as being in this timezone (you get UTC).
+	# Doesn't work for %s (which is always in UTC).
+	# No error checking can be done on this (tzset(3) can not return failure).
+	# On most 32bit systems this will break dates outside about 1970 - 2037.
+	# Setting this will mask most bad dates (mktime(3) "fixes" them).
+	# Don't set this to 'UTC', leaving it as None is faster and safer.
+	'timezone'                  : str,
 	'hashlabel'                 : str, # leave as None to inherit hashlabel, set to '' to not have a hashlabel
 	'defaults'                  : {}, # {'COLNAME': value}, unspecified -> method fails on unconvertible unless filter_bad
 	'rename'                    : {}, # {'OLDNAME': 'NEWNAME'} doesn't shadow OLDNAME. (Other COLNAMEs use NEWNAME.) Use {'OLDNAME': None} to discard OLDNAME.
@@ -78,7 +86,10 @@ cstuff = dataset_type.init()
 
 def prepare(job, slices):
 	assert 1 <= options.compression <= 9
-	cstuff.backend.init()
+	if options.timezone:
+		cstuff.backend.init(options.timezone.encode('utf-8'))
+	else:
+		cstuff.backend.init(cstuff.NULL)
 	d = datasets.source
 	chain = d.chain(stop_ds={datasets.previous: 'source'}, length=options.length)
 	if len(chain) == 1:

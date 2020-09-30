@@ -311,6 +311,11 @@ _c_conv_date_template = r'''
 	}
 '''
 _c_conv_datetime = r'''
+		if (use_tz) {
+			tm.tm_isdst = -1;
+			time_t t = mktime(&tm);
+			gmtime_r(&t, &tm);
+		}
 		const uint32_t year = tm.tm_year + 1900;
 		const uint32_t mon  = tm.tm_mon + 1;
 		const uint32_t mday = tm.tm_mday;
@@ -1758,7 +1763,9 @@ err:
 	return 0;
 }
 
-static void init(void)
+static int use_tz = 0;
+
+static void init(const char *tz)
 {
 #ifdef CFFI_ATE_MY_GIL
 	PyGILState_STATE gstate = PyGILState_Ensure();
@@ -1767,17 +1774,25 @@ static void init(void)
 #else
 	PyDateTime_IMPORT;
 #endif
-	// strptime parses %s in whatever timezone is set, so set UTC.
-	if (setenv("TZ", "UTC", 1)) exit(1);
+	if (tz) {
+		use_tz = 1;
+	} else {
+		// strptime parses %s in whatever timezone is set,
+		// so set UTC if user does not ask for a timezone.
+		tz = "UTC";
+	}
+	if (setenv("TZ", tz, 1)) exit(1);
 	tzset();
 }
 ''' + ''.join(funcs)
 
 
 extra_c_functions = r'''
-static PyObject *py_init(PyObject *dummy, PyObject *dummy2)
+static PyObject *py_init(PyObject *dummy, PyObject *o_tz)
 {
-	init();
+	const char *tz;
+	if (str_or_0(o_tz, &tz)) return 0;
+	init(tz);
 	Py_RETURN_NONE;
 }
 
@@ -1919,7 +1934,7 @@ err:
 '''
 
 extra_method_defs = [
-	'{"init", py_init, METH_NOARGS, 0}',
+	'{"init", py_init, METH_O, 0}',
 	'{"numeric_comma", py_numeric_comma, METH_O, 0}',
 ]
 
@@ -1929,6 +1944,6 @@ def init():
 	_test()
 	extra_protos = [
 		'static int numeric_comma(const char *localename);',
-		'static void init(void);',
+		'static void init(const char *tz);',
 	]
 	return c_backend_support.init('dataset_type', c_module_hash, protos, extra_protos, all_c_functions)
