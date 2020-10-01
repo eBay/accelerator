@@ -88,7 +88,7 @@ def main(argv):
 		want_slices = list(range(g.slices))
 
 	if args.chain:
-		datasets = chain.from_iterable(ds.chain() for ds in datasets)
+		datasets = list(chain.from_iterable(ds.chain() for ds in datasets))
 
 	def grep(ds, sliceno):
 		# Use bytes for everything if anything is bytes, str otherwise. (For speed.)
@@ -180,6 +180,7 @@ def main(argv):
 	if args.show_lineno:
 		headers_prefix.append('[LINE]')
 
+	need_q = False
 	if args.headers:
 		headers = [None]
 		def maybe_show_headers(ds):
@@ -189,7 +190,13 @@ def main(argv):
 				print('\x1b[34m' + separator_s.join(headers_prefix + new_headers) + '\x1b[m')
 			else:
 				write(1, b'') # maybe trigger broken pipe (to avoid starting next ds needlessly)
-	else:
+		maybe_show_headers(datasets[0])
+		if not columns:
+			for ds in datasets:
+				if sorted(ds.columns) != headers[0]:
+					need_q = True
+					break
+	if not need_q:
 		maybe_show_headers = lambda _: None
 
 	queues = []
@@ -197,7 +204,7 @@ def main(argv):
 	if not args.ordered:
 		q = None
 		for sliceno in want_slices[1:]:
-			if args.headers:
+			if need_q:
 				q = JoinableQueue()
 				queues.append(q)
 			p = Process(
