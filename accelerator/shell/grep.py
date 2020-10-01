@@ -172,6 +172,26 @@ def main(argv):
 			else:
 				raise
 
+	headers_prefix = []
+	if args.show_dataset:
+		headers_prefix.append('[DATASET]')
+	if args.show_sliceno:
+		headers_prefix.append('[SLICE]')
+	if args.show_lineno:
+		headers_prefix.append('[LINE]')
+
+	if args.headers:
+		headers = [None]
+		def maybe_show_headers(ds):
+			new_headers = columns or sorted(ds.columns)
+			if new_headers != headers[0]:
+				headers[0] = new_headers
+				print('\x1b[34m' + separator_s.join(headers_prefix + new_headers) + '\x1b[m')
+			else:
+				write(1, b'') # maybe trigger broken pipe (to avoid starting next ds needlessly)
+	else:
+		maybe_show_headers = lambda _: None
+
 	queues = []
 	children = []
 	if not args.ordered:
@@ -190,23 +210,9 @@ def main(argv):
 			children.append(p)
 		want_slices = want_slices[:1]
 
-	headers_prefix = []
-	if args.show_dataset:
-		headers_prefix.append('[DATASET]')
-	if args.show_sliceno:
-		headers_prefix.append('[SLICE]')
-	if args.show_lineno:
-		headers_prefix.append('[LINE]')
-	headers = []
 	try:
 		for ds in datasets:
-			if args.headers:
-				new_headers = columns or sorted(ds.columns)
-				if new_headers != headers:
-					headers = new_headers
-					print('\x1b[34m' + separator_s.join(headers_prefix + headers) + '\x1b[m')
-				else:
-					write(1, b'') # maybe trigger broken pipe (to avoid starting next ds needlessly)
+			maybe_show_headers(ds)
 			for q in queues:
 				q.put(None)
 			for sliceno in want_slices:
