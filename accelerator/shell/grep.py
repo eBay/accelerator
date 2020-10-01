@@ -157,8 +157,10 @@ def main(argv):
 			if q:
 				for ds in datasets:
 					q.get()
-					grep(ds, sliceno)
-					q.task_done()
+					try:
+						grep(ds, sliceno)
+					finally:
+						q.task_done()
 			else:
 				for ds in datasets:
 					grep(ds, sliceno)
@@ -203,13 +205,16 @@ def main(argv):
 				if new_headers != headers:
 					headers = new_headers
 					print('\x1b[34m' + separator_s.join(headers_prefix + headers) + '\x1b[m')
+				else:
+					write(1, b'') # maybe trigger broken pipe (to avoid starting next ds needlessly)
 			for q in queues:
 				q.put(None)
 			for sliceno in want_slices:
 				grep(ds, sliceno)
 			for q in queues:
 				q.join()
-		for c in children:
-			c.join()
+		if not queues:
+			for c in children:
+				c.join()
 	except KeyboardInterrupt:
 		print()
