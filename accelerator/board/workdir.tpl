@@ -1,12 +1,11 @@
 % include('head', title=name)
 <body>
 <h1>{{ name }}</h1>
-<ul>
-	<li><a href="/job/{{ name }}-LATEST">{{ name }}-LATEST</li>
-	% for job in jobs:
-		<li><a href="/job/{{ job }}">{{ job }}</a></li>
+<table class="job-table">
+	% for job in [name + '-LATEST'] + jobs:
+		<tr><td><a href="/job/{{ job }}">{{ job }}</a></td><td>...</td><td></td></tr>
 	% end
-<ul>
+</table>
 <script language="javascript">
 (function () {
 	const units = [['second', 60], ['minute', 60], ['hour', 24], ['day', 0]];
@@ -20,22 +19,25 @@
 			t = t / size;
 		}
 	};
-	for (const el of document.querySelectorAll('ul li')) {
+	for (const el of document.querySelectorAll('.job-table tr td a')) {
 		const url = '/job/' + encodeURIComponent(el.innerText) + '/setup.json';
+		const tr = el.parentNode.parentNode;
+		const td_m = el.parentNode.nextSibling;
+		const td_t = td_m.nextSibling;
 		fetch(url)
 		.then(res => res.json())
 		.then(res => {
-			let stuff = ' ' + res.method;
+			td_m.innerText = res.method;
 			try {
-				stuff += ' ' + fmttime(res.exectime.total);
+				td_t.innerText = fmttime(res.exectime.total);
 			} catch (e) {
-				stuff += ' DID NOT FINISH'
+				td_t.innerText = 'DID NOT FINISH'
 			};
-			el.appendChild(document.createTextNode(stuff));
 		})
 		.catch(error => {
 			console.log('Error fetching ' + url + ':', error);
-			el.appendChild(document.createTextNode('???'));
+			td_m.innerText = '???';
+			tr.className = 'error';
 		});
 	}
 })();

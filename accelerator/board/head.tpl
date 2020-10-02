@@ -258,6 +258,14 @@
 			color: var(--fg-weak);
 		}
 
+		table.job-table td:nth-child(2) {
+			padding: 0 1em;
+			min-width: 13em;
+		}
+		table.job-table td:last-child {
+			color: var(--fg-weak);
+		}
+
 		#status-stacks td {
 			padding: 1px 0.5em;
 		}
