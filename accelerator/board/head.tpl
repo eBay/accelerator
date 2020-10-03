@@ -265,6 +265,15 @@
 		table.job-table td:last-child {
 			color: var(--fg-weak);
 		}
+		table.job-table tr.filtered {
+			visibility: collapse;
+		}
+		table.job-table tr.error {
+			visibility: visible;
+		}
+		.filter {
+			text-align: right;
+		}
 
 		#status-stacks td {
 			padding: 1px 0.5em;
