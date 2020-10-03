@@ -1,6 +1,7 @@
 % include('head', title=name)
 <body>
 <h1>{{ name }}</h1>
+<div id="waiting"><div class="spinner"></div></div>
 <div class="filter">Filter: <input type="text" id="filter" disabled></div>
 <table class="job-table">
 	% for job in [name + '-LATEST'] + jobs:
@@ -48,6 +49,7 @@
 		if (todo == 0) {
 			if (filter.value) filter_change();
 			filter.disabled = false;
+			document.getElementById('waiting').style.display = 'none';
 		}
 	}
 	for (const el of all_a) {
