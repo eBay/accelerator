@@ -29,7 +29,6 @@
 		}
 	};
 	const filter = document.getElementById('filter');
-	filter.onchange = filter_change;
 	filter.oninput = filter_change;
 	const units = [['second', 60], ['minute', 60], ['hour', 24], ['day', 0]];
 	const fmttime = function (t) {
@@ -42,7 +41,16 @@
 			t = t / size;
 		}
 	};
-	for (const el of document.querySelectorAll('.job-table tr td a')) {
+	const all_a = document.querySelectorAll('.job-table tr td a');
+	let todo = all_a.length;
+	const one_done = function () {
+		todo -= 1;
+		if (todo == 0) {
+			if (filter.value) filter_change();
+			filter.disabled = false;
+		}
+	}
+	for (const el of all_a) {
 		const url = '/job/' + encodeURIComponent(el.innerText) + '/setup.json';
 		const tr = el.parentNode.parentNode;
 		const td_m = el.parentNode.nextSibling;
@@ -56,14 +64,15 @@
 			} catch (e) {
 				td_t.innerText = 'DID NOT FINISH'
 			};
+			one_done();
 		})
 		.catch(error => {
 			console.log('Error fetching ' + url + ':', error);
 			td_m.innerText = '???';
 			tr.className = 'error';
+			one_done();
 		});
 	}
-	filter.disabled = false;
 })();
 </script>
 </body>
