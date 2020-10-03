@@ -62,7 +62,7 @@
 		.then(res => {
 			td_m.innerText = res.method;
 			try {
-				td_t.innerText = fmttime(res.exectime.total);
+				td_t.innerText = fmttime(res.exectime ? res.exectime.total : res.profile.total);
 			} catch (e) {
 				td_t.innerText = 'DID NOT FINISH'
 			};

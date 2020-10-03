@@ -57,6 +57,8 @@ def load_setup(jobid):
 		d.jobs = d.pop('jobids')
 		version = 2
 	if version == 2:
+		if 'exectime' not in d and 'profile' in d:
+			d.exectime = d.pop('profile')
 		d.versions = DotDict()
 		python_path = d.pop('python', None)
 		if python_path:
