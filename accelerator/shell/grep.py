@@ -152,18 +152,15 @@ def main(argv):
 				if any(imap(chk, grep_items or items)):
 					show(prefix, items)
 
-	def one_slice(sliceno, q):
+	def one_slice(sliceno, q, wait_for):
 		try:
 			if q:
-				for ds in datasets:
+				q.get()
+			for ds in datasets:
+				if ds in wait_for:
+					q.task_done()
 					q.get()
-					try:
-						grep(ds, sliceno)
-					finally:
-						q.task_done()
-			else:
-				for ds in datasets:
-					grep(ds, sliceno)
+				grep(ds, sliceno)
 		except KeyboardInterrupt:
 			return
 		except IOError as e:
@@ -171,6 +168,12 @@ def main(argv):
 				return
 			else:
 				raise
+		finally:
+			# Make sure we are joinable
+			try:
+				q.task_done()
+			except Exception:
+				pass
 
 	headers_prefix = []
 	if args.show_dataset:
@@ -180,36 +183,34 @@ def main(argv):
 	if args.show_lineno:
 		headers_prefix.append('[LINE]')
 
-	need_q = False
+	headers = {}
 	if args.headers:
-		headers = [None]
-		def maybe_show_headers(ds):
-			new_headers = columns or sorted(ds.columns)
-			if new_headers != headers[0]:
-				headers[0] = new_headers
-				print('\x1b[34m' + separator_s.join(headers_prefix + new_headers) + '\x1b[m')
-			else:
-				write(1, b'') # maybe trigger broken pipe (to avoid starting next ds needlessly)
-		maybe_show_headers(datasets[0])
-		if not columns:
+		if columns:
+			current_headers = columns
+		else:
+			current_headers = None
 			for ds in datasets:
-				if sorted(ds.columns) != headers[0]:
-					need_q = True
-					break
-	if not need_q:
-		maybe_show_headers = lambda _: None
+				candidate_headers = sorted(ds.columns)
+				if candidate_headers != current_headers:
+					headers[ds] = current_headers = candidate_headers
+			current_headers = headers.pop(datasets[0])
+		def show_headers(headers):
+			print('\x1b[34m' + separator_s.join(headers_prefix + headers) + '\x1b[m')
+		show_headers(current_headers)
 
 	queues = []
 	children = []
 	if not args.ordered:
 		q = None
+		wait_for = set(headers)
 		for sliceno in want_slices[1:]:
-			if need_q:
+			if wait_for:
 				q = JoinableQueue()
+				q.put(None)
 				queues.append(q)
 			p = Process(
 				target=one_slice,
-				args=(sliceno, q,),
+				args=(sliceno, q, wait_for),
 				name='slice-%d' % (sliceno,),
 			)
 			p.daemon = True
@@ -219,15 +220,15 @@ def main(argv):
 
 	try:
 		for ds in datasets:
-			maybe_show_headers(ds)
-			for q in queues:
-				q.put(None)
+			if ds in headers:
+				for q in queues:
+					q.join()
+				show_headers(headers.pop(ds))
+				for q in queues:
+					q.put(None)
 			for sliceno in want_slices:
 				grep(ds, sliceno)
-			for q in queues:
-				q.join()
-		if not queues:
-			for c in children:
-				c.join()
+		for c in children:
+			c.join()
 	except KeyboardInterrupt:
 		print()
