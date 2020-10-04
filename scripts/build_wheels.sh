@@ -1,6 +1,6 @@
 #!/bin/bash
 # This is for running in a manylinux2010 docker image, so /bin/bash is fine.
-# docker run --rm -v /some/where:/out -v /path/to/accelerator:/accelerator --tmpfs /tmp quay.io/pypa/manylinux2010_x86_64 /accelerator/scripts/build_wheels.sh 20xx.xx.xx.dev1
+# docker run --rm -v /some/where:/out:rw -v /path/to/accelerator:/accelerator:ro --tmpfs /tmp:exec,size=1G quay.io/pypa/manylinux2010_x86_64 /accelerator/scripts/build_wheels.sh /accelerator 20xx.xx.xx.dev1
 
 set -euo pipefail
 
@@ -12,6 +12,7 @@ fi
 set -x
 
 test -d /out/wheelhouse || exit 1
+test -d /accelerator/.git || exit 1
 test -d /accelerator/accelerator || exit 1
 
 case "$1" in
@@ -27,9 +28,14 @@ esac
 VERSION="$1"
 NAME="accelerator-$(echo "$1" | sed s/\\.0/./g)"
 
-cd /accelerator
+cd /tmp
+rm -rf accelerator
+git clone /accelerator
+cd accelerator
 ACCELERATOR_BUILD_VERSION="$VERSION" /opt/python/cp38-cp38/bin/python3 ./setup.py sdist
-cd /
+cp dist/"$NAME".tar.gz /out/wheelhouse/
+cd ..
+rm -rf accelerator
 
 
 MANYLINUX_VERSION="${AUDITWHEEL_PLAT/%_*}"
@@ -43,18 +49,22 @@ fi
 
 # So you can provide a pre-built zlib-ng if you want.
 if [ ! -e "$ZLIB_PREFIX/lib/libz.a" ]; then
+	cd /tmp
+	rm -rf zlib-ng
 	git clone https://github.com/zlib-ng/zlib-ng.git
 	cd zlib-ng
 	git checkout 8832d7db7241194fa68509c96c092f3cf527ccce
 	CFLAGS="-fPIC -fvisibility=hidden" ./configure --zlib-compat --static --prefix="$ZLIB_PREFIX"
 	make install
 	cd ..
+	rm -rf zlib-ng
 fi
 
 
 # The numeric_comma test needs a locale which uses numeric comma.
 localedef -i da_DK -f UTF-8 da_DK.UTF-8
 
+cd /tmp
 rm -rf /tmp/wheels
 mkdir /tmp/wheels /tmp/wheels/fixed
 
@@ -68,7 +78,7 @@ for V in $(ls /opt/python/); do
 			rm -f "$UNFIXED_NAME" "$FIXED_NAME"
 			ACCELERATOR_BUILD_STATIC_ZLIB="$ZLIB_PREFIX/lib/libz.a" \
 			CPPFLAGS="-I$ZLIB_PREFIX/include" \
-			"/opt/python/$V/bin/pip" wheel /accelerator/dist/"$NAME".tar.gz --no-deps -w /tmp/wheels/
+			"/opt/python/$V/bin/pip" wheel /out/wheelhouse/"$NAME".tar.gz --no-deps -w /tmp/wheels/
 			auditwheel repair "$UNFIXED_NAME" -w /tmp/wheels/fixed/
 			"/opt/python/$V/bin/pip" install "$FIXED_NAME"
 			rm -rf /tmp/axtest
