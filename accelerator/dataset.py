@@ -420,9 +420,9 @@ class Dataset(unicode):
 		chain = self.chain(length, reverse, stop_ds)
 		return self.iterate_list(sliceno, columns, chain, range=range, sloppy_range=sloppy_range, hashlabel=hashlabel, pre_callback=pre_callback, post_callback=post_callback, filters=filters, translators=translators, status_reporting=status_reporting, rehash=rehash, slice=slice)
 
-	def iterate(self, sliceno, columns=None, hashlabel=None, filters=None, translators=None, status_reporting=True, rehash=False, slice=None):
+	def iterate(self, sliceno, columns=None, hashlabel=None, pre_callback=None, post_callback=None, filters=None, translators=None, status_reporting=True, rehash=False, slice=None):
 		"""Iterate just this dataset. See .iterate_list for details."""
-		return self.iterate_list(sliceno, columns, [self], hashlabel=hashlabel, filters=filters, translators=translators, status_reporting=status_reporting, rehash=rehash, slice=slice)
+		return self.iterate_list(sliceno, columns, [self], hashlabel=hashlabel, pre_callback=pre_callback, post_callback=post_callback, filters=filters, translators=translators, status_reporting=status_reporting, rehash=rehash, slice=slice)
 
 	@staticmethod
 	def iterate_list(sliceno, columns, datasets, range=None, sloppy_range=False, hashlabel=None, pre_callback=None, post_callback=None, filters=None, translators=None, status_reporting=True, rehash=False, slice=None):
