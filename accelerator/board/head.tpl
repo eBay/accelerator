@@ -9,6 +9,7 @@
 			--bg2: #f5f2e8;
 			--bgwarn: #fd7;
 			--bgerr: #b42;
+			--fgerr: #fce;
 			--not-loaded: #dcb;
 			--bg0-odd: #f8f4f1;
 			--bg-click: #fbb;
@@ -91,8 +92,9 @@
 		a[href="/"] {
 			float: right;
 		}
-		.error {
+		.error, input:focus.error {
 			background: var(--bgerr);
+			color: var(--fgerr);
 		}
 		.warning {
 			background: var(--bgwarn);
