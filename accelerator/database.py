@@ -66,6 +66,12 @@ def _mkjob(setup):
 	)
 	return job
 
+def _mklistinfo(setup):
+	return dict(
+		method=setup.method,
+		totaltime=setup.exectime.total,
+	)
+
 def _get_params(jobid):
 	try:
 		return jobid, (_job_params(jobid), list(job_post(jobid).subjobs))
@@ -90,8 +96,10 @@ class DataBase:
 		self._fsjid = set()
 
 	def add_single_jobid(self, jobid):
-		job = _mkjob(_paramsdict[jobid][0])
+		setup = _paramsdict[jobid][0]
+		job = _mkjob(setup)
 		self.db_by_method[job.method].insert(0, job)
+		self.db_by_workdir[job.id.rsplit('-', 1)[0]][job.id] = _mklistinfo(setup)
 		return job
 
 	def _update_workspace(self, WorkSpace, pool, verbose=False):
@@ -118,6 +126,7 @@ class DataBase:
 		for j in set(_paramsdict) - self._fsjid:
 			del _paramsdict[j]
 		discarded_due_to_hash_list = []
+		self.db_by_workdir = defaultdict(dict) # includes all known jobs, not just valid ones.
 
 		# Keep only jobs with valid hashes.
 		job_candidates = {}
@@ -126,6 +135,7 @@ class DataBase:
 				job_candidates[setup.jobid] = (setup, subjobs)
 			else:
 				discarded_due_to_hash_list.append(setup.jobid)
+			self.db_by_workdir[setup.jobid.rsplit('-', 1)[0]][setup.jobid] = _mklistinfo(setup)
 
 		# Keep only jobs where all subjobs are valid.
 		discarded_due_to_subjobs = []

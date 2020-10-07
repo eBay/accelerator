@@ -260,6 +260,9 @@
 			color: var(--fg-weak);
 		}
 
+		table.job-table {
+			border-spacing: 0 2px;
+		}
 		table.job-table td:nth-child(2) {
 			padding: 0 1em;
 			min-width: 13em;
@@ -275,6 +278,9 @@
 		}
 		.filter {
 			text-align: right;
+		}
+		table.job-table tr.unfinished {
+			background: var(--bg2);
 		}
 
 		#status-stacks td {

@@ -5,7 +5,17 @@
 <div class="filter">Filter: <input type="text" id="filter" disabled></div>
 <table class="job-table">
 	% for job in [name + '-LATEST'] + jobs:
-		<tr><td><a href="/job/{{ job }}">{{ job }}</a></td><td>...</td><td></td></tr>
+		% if job in meta:
+			<tr>
+				<td><a href="/job/{{ job }}">{{ job }}</a></td>
+				<td>{{ meta[job].method }}</td><td>{{ meta[job].totaltime }}</td>
+			</tr>
+		% else:
+			<tr class="unfinished">
+				<td><a href="/job/{{ job }}">{{ job }}</a></td>
+				<td>...</td><td></td>
+			</tr>
+		% end
 	% end
 </table>
 <script language="javascript">
@@ -47,7 +57,10 @@
 			t = t / size;
 		}
 	};
-	const all_a = document.querySelectorAll('.job-table tr td a');
+	for (const el of document.querySelectorAll('.job-table tr:not(.unfinished) td:last-child')) {
+		el.innerText = fmttime(parseFloat(el.innerText));
+	}
+	const all_a = document.querySelectorAll('.job-table tr.unfinished td a');
 	let todo = all_a.length;
 	const one_done = function () {
 		todo -= 1;
@@ -60,14 +73,15 @@
 	for (const el of all_a) {
 		const url = '/job/' + encodeURIComponent(el.innerText) + '/setup.json';
 		const tr = el.parentNode.parentNode;
-		const td_m = el.parentNode.nextSibling;
-		const td_t = td_m.nextSibling;
+		const td_m = el.parentNode.nextElementSibling;
+		const td_t = td_m.nextElementSibling;
 		fetch(url)
 		.then(res => res.json())
 		.then(res => {
 			td_m.innerText = res.method;
 			try {
 				td_t.innerText = fmttime(res.exectime ? res.exectime.total : res.profile.total);
+				tr.className = '';
 			} catch (e) {
 				td_t.innerText = 'DID NOT FINISH'
 			};

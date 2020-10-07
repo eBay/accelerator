@@ -111,6 +111,9 @@ class XtdHandler(BaseWebHandler):
 			ws = {k: v.path for k, v in self.ctrl.list_workdirs().items()}
 			self.do_response(200, "text/json", ws)
 
+		elif path[0]=='workdir':
+			self.do_response(200, "text/json", self.ctrl.DataBase.db_by_workdir[path[1]])
+
 		elif path==['config']:
 			self.do_response(200, "text/json", self.ctrl.config)
 

@@ -194,7 +194,8 @@ def run(cfg, from_shell=False):
 				except Exception:
 					pass
 		jobs.sort(key=operator.attrgetter('number'))
-		return dict(name=name, jobs=jobs)
+		meta = call(cfg.url + '/workdir/' + name)
+		return dict(name=name, jobs=jobs, meta=meta)
 
 	@bottle.get('/methods')
 	@bottle.view('methods')
