@@ -277,6 +277,8 @@ class Automata:
 
 
 def fmttime(t, short=False):
+	if t is None:
+		return None
 	if short:
 		units = ['h', 'm', 's']
 		fmts = ['%.2f', '%.1f', '%.0f']

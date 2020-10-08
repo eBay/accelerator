@@ -23,7 +23,6 @@ import os
 import tarfile
 import itertools
 import collections
-import operator
 import time
 
 from accelerator.job import Job
@@ -31,6 +30,8 @@ from accelerator.dataset import Dataset
 from accelerator.unixhttp import call, WaitressServer
 from accelerator.build import fmttime
 from accelerator.configfile import resolve_listen
+from accelerator.setupfile import load_setup
+from accelerator.extras import DotDict
 from accelerator.compat import setproctitle
 
 def get_job(jobid):
@@ -185,17 +186,40 @@ def run(cfg, from_shell=False):
 	@bottle.view('workdir')
 	def workdir(name):
 		path = cfg.workdirs[name]
-		prefix = name + '-'
-		jobs = []
+		jidlist = []
 		for jid in os.listdir(path):
-			if jid.startswith(prefix):
+			if '-' in jid:
+				wd, num = jid.rsplit('-', 1)
+				if wd == name and num.isdigit():
+					jidlist.append(int(num))
+		jidlist.sort()
+		jidlist = ['%s-%s' % (name, jid,) for jid in jidlist]
+		known = call(cfg.url + '/workdir/' + name)
+		jobs = collections.OrderedDict()
+		jobs[name + '-LATEST'] = None # Sorts first
+		try:
+			latest = os.readlink(os.path.join(path, name + '-LATEST'))
+		except OSError:
+			latest = None
+		for jid in jidlist:
+			if jid in known:
+				data = known[jid]
+			else:
+				data = DotDict(method='???', totaltime=None)
 				try:
-					jobs.append(Job(jid))
+					setup = load_setup(jid)
+					data.method = setup.method
+					if 'exectime' in setup:
+						data.totaltime = setup.exectime.total
 				except Exception:
 					pass
-		jobs.sort(key=operator.attrgetter('number'))
-		meta = call(cfg.url + '/workdir/' + name)
-		return dict(name=name, jobs=jobs, meta=meta)
+			data.totaltime = fmttime(data.totaltime)
+			jobs[jid] = data
+		if latest in jobs:
+			jobs[name + '-LATEST'] = jobs[latest]
+		else:
+			del jobs[name + '-LATEST']
+		return dict(name=name, jobs=jobs)
 
 	@bottle.get('/methods')
 	@bottle.view('methods')
