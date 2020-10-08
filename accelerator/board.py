@@ -214,6 +214,12 @@ def run(cfg, from_shell=False):
 				except Exception:
 					pass
 			data.totaltime = fmttime(data.totaltime)
+			if data.totaltime is None:
+				data.klass = 'unfinished'
+			elif data.valid:
+				data.klass = 'valid'
+			else:
+				data.klass = 'invalid'
 			jobs[jid] = data
 		if latest in jobs:
 			jobs[name + '-LATEST'] = jobs[latest]

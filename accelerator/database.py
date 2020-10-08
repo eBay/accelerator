@@ -70,6 +70,7 @@ def _mklistinfo(setup):
 	return dict(
 		method=setup.method,
 		totaltime=setup.exectime.total,
+		valid=True,
 	)
 
 def _get_params(jobid):
@@ -149,6 +150,11 @@ class DataBase:
 						discarded_due_to_subjobs.append(setup.jobid)
 						del job_candidates[setup.jobid]
 						break
+
+		for d in self.db_by_workdir.values():
+			for jid, li in d.items():
+				if jid not in job_candidates:
+					li['valid'] = False
 
 		# Keep lists of jobs per method, only with valid hashes
 		self.db_by_method = defaultdict(list)

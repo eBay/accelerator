@@ -281,6 +281,10 @@
 		}
 		table.job-table tr.unfinished {
 			background: var(--bg2);
+			color: var(--fg-weak);
+		}
+		table.job-table tr.invalid {
+			background: var(--bgwarn);
 		}
 
 		#status-stacks td {

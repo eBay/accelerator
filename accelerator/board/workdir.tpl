@@ -4,7 +4,7 @@
 <div class="filter">Filter: <input type="text" id="filter" disabled></div>
 <table class="job-table">
 	% for job, data in jobs.items():
-		<tr class="{{ 'unfinished' if data.totaltime is None else '' }}">
+		<tr class="{{ data.klass }}">
 			<td><a href="/job/{{ job }}">{{ job }}</a></td>
 			<td>{{ data.method }}</td><td>{{ data.totaltime or 'DID NOT FINISH' }}</td>
 		</tr>
