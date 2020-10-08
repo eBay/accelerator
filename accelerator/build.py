@@ -280,18 +280,18 @@ def fmttime(t, short=False):
 	if t is None:
 		return None
 	if short:
-		units = ['h', 'm', 's']
-		fmts = ['%.2f', '%.1f', '%.0f']
+		fmts = ['%.0fs', '%.1fm', '%.2fh', '%.2fd']
 	else:
-		units = ['hours', 'minutes', 'seconds']
-		fmts = ['%.2f ', '%.1f ', '%.1f ']
-	unit = units.pop()
-	fmt = fmts.pop()
-	while t > 60 * 3 and units:
-		unit = units.pop()
-		fmt = fmts.pop()
-		t /= 60
-	return fmt % (t,) + unit
+		fmts = ['%.1f seconds', '%.1f minutes', '%.2f hours', '%.2f days']
+	sizes = [60, 60, 24, 1]
+	for fmt, size in zip(fmts, sizes):
+		if t < size * 2:
+			break
+		t /= size
+	res = fmt % (t,)
+	if res == '1.0 seconds':
+		return '1 second'
+	return res
 
 
 class JobList(_ListTypePreserver):
