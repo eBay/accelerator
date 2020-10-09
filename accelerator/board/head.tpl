@@ -283,7 +283,7 @@
 			background: var(--bg2);
 			color: var(--fg-weak);
 		}
-		table.job-table tr.invalid {
+		table.job-table tr.old {
 			background: var(--bgwarn);
 		}
 

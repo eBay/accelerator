@@ -217,9 +217,9 @@ def run(cfg, from_shell=False):
 			if data.totaltime is None:
 				data.klass = 'unfinished'
 			elif data.valid:
-				data.klass = 'valid'
+				data.klass = 'current'
 			else:
-				data.klass = 'invalid'
+				data.klass = 'old'
 			jobs[jid] = data
 		if latest in jobs:
 			jobs[name + '-LATEST'] = jobs[latest]
