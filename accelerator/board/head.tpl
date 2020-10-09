@@ -277,7 +277,23 @@
 			visibility: visible;
 		}
 		.filter {
-			text-align: right;
+			position: fixed;
+			top: 0;
+			right: 0;
+			border-left: 1px solid var(--border2);
+			border-bottom: 1px solid var(--border2);
+			padding: 1em;
+		}
+		.filter h1 {
+			margin: 0 0 0.5em 0;
+			font-size: 130%;
+			font-weight: lighter;
+		}
+		.filter input[type="text"] {
+			width: 11em;
+		}
+		.filter tbody td {
+			padding-right: 0.3em;
 		}
 		table.job-table tr.unfinished {
 			background: var(--bg2);
