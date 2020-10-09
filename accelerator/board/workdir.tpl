@@ -1,7 +1,7 @@
 % include('head', title=name)
 <body>
 <h1>{{ name }}</h1>
-<div class="filter">Filter: <input type="text" id="filter" disabled></div>
+<div class="filter">Filter: <input type="text" id="f-method" disabled></div>
 <table class="job-table">
 	% for job, data in jobs.items():
 		<tr class="{{ data.klass }}">
@@ -13,7 +13,7 @@
 <script language="javascript">
 (function () {
 	const filter_change = function () {
-		const want = filter.value.toLowerCase().split(/\s+/).filter(v => !!v).map(v => {
+		const want = f_method.value.toLowerCase().split(/\s+/).filter(v => !!v).map(v => {
 			try {
 				return new RegExp(v);
 			} catch (e) {
@@ -21,10 +21,10 @@
 			}
 		});
 		if (want.includes(undefined)) {
-			filter.className = 'error';
+			f_method.className = 'error';
 			return;
 		}
-		filter.className = '';
+		f_method.className = '';
 		if (want.length == 0) want.push(/./); // nothing -> all
 		for (const el of document.querySelectorAll('.job-table tr')) {
 			// innerText is '' when collapsed (at least in FF), so use innerHTML.
@@ -36,10 +36,10 @@
 			}
 		}
 	};
-	const filter = document.getElementById('filter');
-	filter.oninput = filter_change;
-	if (filter.value) filter_change();
-	filter.disabled = false;
+	const f_method = document.getElementById('f-method');
+	f_method.oninput = filter_change;
+	if (f_method.value) filter_change();
+	f_method.disabled = false;
 })();
 </script>
 </body>
