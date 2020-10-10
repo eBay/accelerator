@@ -55,6 +55,16 @@ def show_job(known, jid, show_jid=None):
 	data = job_data(known, jid)
 	print('\t'.join((show_jid or jid, data.klass, data.method, data.totaltime or '')))
 
+def workdir_jids(cfg, name):
+	jidlist = []
+	for jid in os.listdir(cfg.workdirs[name]):
+		if '-' in jid:
+			wd, num = jid.rsplit('-', 1)
+			if wd == name and num.isdigit():
+				jidlist.append(int(num))
+	jidlist.sort()
+	return ['%s-%s' % (name, jid,) for jid in jidlist]
+
 def main(argv, cfg):
 	usage = "%(prog)s [-a | [workdir [workdir [...]]]"
 	parser = ArgumentParser(usage=usage, prog=argv.pop(0))
@@ -74,16 +84,8 @@ def main(argv, cfg):
 		if name not in cfg.workdirs:
 			print("No such workdir:", name, file=sys.stderr)
 			continue
-		jidlist = []
-		for jid in os.listdir(cfg.workdirs[name]):
-			if '-' in jid:
-				wd, num = jid.rsplit('-', 1)
-				if wd == name and num.isdigit():
-					jidlist.append(int(num))
-		jidlist.sort()
-		jidlist = ['%s-%s' % (name, jid,) for jid in jidlist]
 		known = call(cfg.url + '/workdir/' + name)
-		for jid in jidlist:
+		for jid in workdir_jids(cfg, name):
 			show_job(known, jid)
 
 		try:

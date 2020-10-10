@@ -30,7 +30,7 @@ from accelerator.dataset import Dataset
 from accelerator.unixhttp import call, WaitressServer
 from accelerator.build import fmttime
 from accelerator.configfile import resolve_listen
-from accelerator.shell.workdir import job_data
+from accelerator.shell.workdir import job_data, workdir_jids
 from accelerator.compat import setproctitle
 
 def get_job(jobid):
@@ -184,23 +184,14 @@ def run(cfg, from_shell=False):
 	@bottle.get('/workdir/<name>')
 	@bottle.view('workdir')
 	def workdir(name):
-		path = cfg.workdirs[name]
-		jidlist = []
-		for jid in os.listdir(path):
-			if '-' in jid:
-				wd, num = jid.rsplit('-', 1)
-				if wd == name and num.isdigit():
-					jidlist.append(int(num))
-		jidlist.sort()
-		jidlist = ['%s-%s' % (name, jid,) for jid in jidlist]
 		known = call(cfg.url + '/workdir/' + name)
 		jobs = collections.OrderedDict()
 		jobs[name + '-LATEST'] = None # Sorts first
 		try:
-			latest = os.readlink(os.path.join(path, name + '-LATEST'))
+			latest = os.readlink(os.path.join(cfg.workdirs[name], name + '-LATEST'))
 		except OSError:
 			latest = None
-		for jid in jidlist:
+		for jid in workdir_jids(cfg, name):
 			jobs[jid] = job_data(known, jid)
 		if latest in jobs:
 			jobs[name + '-LATEST'] = jobs[latest]
