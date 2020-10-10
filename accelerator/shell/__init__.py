@@ -203,6 +203,12 @@ def cmd_method(argv):
 	main(argv, cfg)
 cmd_method.help = '''information about methods'''
 
+def cmd_workdir(argv):
+	from accelerator.shell.workdir import main
+	main(argv, cfg)
+cmd_workdir.help = '''information about workdirs'''
+cmd_workdir.is_debug = True
+
 def cmd_job(argv):
 	from accelerator.shell.job import main
 	main(argv, cfg)
@@ -223,6 +229,7 @@ COMMANDS = dict(
 	urd=cmd_urd,
 	curl=cmd_curl,
 	method=cmd_method,
+	workdir=cmd_workdir,
 	board=cmd_board,
 	job=cmd_job,
 )
