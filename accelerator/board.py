@@ -181,11 +181,8 @@ def run(cfg, from_shell=False):
 		else:
 			return bottle.template('dataset', ds=ds)
 
-	@bottle.get('/workdir/<name>')
-	@bottle.view('workdir')
-	def workdir(name):
+	def load_workdir(jobs, name):
 		known = call(cfg.url + '/workdir/' + name)
-		jobs = collections.OrderedDict()
 		jobs[name + '-LATEST'] = None # Sorts first
 		try:
 			latest = os.readlink(os.path.join(cfg.workdirs[name], name + '-LATEST'))
@@ -197,7 +194,21 @@ def run(cfg, from_shell=False):
 			jobs[name + '-LATEST'] = jobs[latest]
 		else:
 			del jobs[name + '-LATEST']
-		return dict(name=name, jobs=jobs)
+		return jobs
+
+	@bottle.get('/workdir/<name>')
+	@bottle.view('workdir')
+	def workdir(name):
+		return dict(name=name, jobs=load_workdir(collections.OrderedDict(), name))
+
+	@bottle.get('/workdir')
+	@bottle.get('/workdir/')
+	@bottle.view('workdir')
+	def all_workdirs():
+		jobs = collections.OrderedDict()
+		for name in sorted(cfg.workdirs):
+			load_workdir(jobs, name)
+		return dict(name='ALL', jobs=jobs)
 
 	@bottle.get('/methods')
 	@bottle.view('methods')

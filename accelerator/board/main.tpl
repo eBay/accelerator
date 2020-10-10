@@ -8,6 +8,9 @@
 					<td><a target="_blank" href="/job/{{ workdir }}-LATEST">latest</a></td>
 				</tr>
 			% end
+			<tr>
+				<td><a target="_blank" href="/workdir/">ALL</a></td>
+			</tr>
 		</table>
 		<ul>
 			<li><a target="_blank" href="/methods">methods</a></li>
