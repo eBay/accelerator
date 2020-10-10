@@ -296,11 +296,10 @@
 			padding-right: 0.3em;
 		}
 		table.job-table tr.unfinished {
-			background: var(--bg2);
-			color: var(--fg-weak);
+			background: var(--bgwarn);
 		}
 		table.job-table tr.old {
-			background: var(--bgwarn);
+			background: var(--bg2);
 		}
 
 		#status-stacks td {
