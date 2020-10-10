@@ -262,6 +262,7 @@
 
 		table.job-table {
 			border-spacing: 0 2px;
+			clear: both;
 		}
 		table.job-table td:nth-child(2) {
 			padding: 0 1em;
@@ -283,6 +284,15 @@
 			border-left: 1px solid var(--border2);
 			border-bottom: 1px solid var(--border2);
 			padding: 1em;
+		}
+		@media (max-width: 60em) {
+			.workdir > h1 {
+				float: left;
+			}
+			.filter {
+				position: relative;
+				float: right;
+			}
 		}
 		.filter h1 {
 			margin: 0 0 0.5em 0;

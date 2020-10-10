@@ -1,5 +1,5 @@
 % include('head', title=name)
-<body>
+<body class="workdir">
 <h1>{{ name }}</h1>
 <div class="filter">
 	<h1>Filter</h1>
