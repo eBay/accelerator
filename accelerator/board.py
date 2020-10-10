@@ -30,8 +30,7 @@ from accelerator.dataset import Dataset
 from accelerator.unixhttp import call, WaitressServer
 from accelerator.build import fmttime
 from accelerator.configfile import resolve_listen
-from accelerator.setupfile import load_setup
-from accelerator.extras import DotDict
+from accelerator.shell.workdir import job_data
 from accelerator.compat import setproctitle
 
 def get_job(jobid):
@@ -202,25 +201,7 @@ def run(cfg, from_shell=False):
 		except OSError:
 			latest = None
 		for jid in jidlist:
-			if jid in known:
-				data = known[jid]
-			else:
-				data = DotDict(method='???', totaltime=None)
-				try:
-					setup = load_setup(jid)
-					data.method = setup.method
-					if 'exectime' in setup:
-						data.totaltime = setup.exectime.total
-				except Exception:
-					pass
-			data.totaltime = fmttime(data.totaltime)
-			if data.totaltime is None:
-				data.klass = 'unfinished'
-			elif data.current:
-				data.klass = 'current'
-			else:
-				data.klass = 'old'
-			jobs[jid] = data
+			jobs[jid] = job_data(known, jid)
 		if latest in jobs:
 			jobs[name + '-LATEST'] = jobs[latest]
 		else:
