@@ -216,7 +216,7 @@ def run(cfg, from_shell=False):
 			data.totaltime = fmttime(data.totaltime)
 			if data.totaltime is None:
 				data.klass = 'unfinished'
-			elif data.valid:
+			elif data.current:
 				data.klass = 'current'
 			else:
 				data.klass = 'old'

@@ -70,7 +70,7 @@ def _mklistinfo(setup):
 	return dict(
 		method=setup.method,
 		totaltime=setup.exectime.total,
-		valid=True,
+		current=True,
 	)
 
 def _get_params(jobid):
@@ -127,7 +127,7 @@ class DataBase:
 		for j in set(_paramsdict) - self._fsjid:
 			del _paramsdict[j]
 		discarded_due_to_hash_list = []
-		self.db_by_workdir = defaultdict(dict) # includes all known jobs, not just valid ones.
+		self.db_by_workdir = defaultdict(dict) # includes all known jobs, not just current ones.
 
 		# Keep only jobs with valid hashes.
 		job_candidates = {}
@@ -138,7 +138,7 @@ class DataBase:
 				discarded_due_to_hash_list.append(setup.jobid)
 			self.db_by_workdir[setup.jobid.rsplit('-', 1)[0]][setup.jobid] = _mklistinfo(setup)
 
-		# Keep only jobs where all subjobs are valid.
+		# Keep only jobs where all subjobs are kept.
 		discarded_due_to_subjobs = []
 		done = False
 		while not done:
@@ -154,9 +154,9 @@ class DataBase:
 		for d in self.db_by_workdir.values():
 			for jid, li in d.items():
 				if jid not in job_candidates:
-					li['valid'] = False
+					li['current'] = False
 
-		# Keep lists of jobs per method, only with valid hashes
+		# Keep lists of jobs per method, only with valid hashes and subjobs.
 		self.db_by_method = defaultdict(list)
 		for setup, _ in itervalues(job_candidates):
 			job = _mkjob(setup)
