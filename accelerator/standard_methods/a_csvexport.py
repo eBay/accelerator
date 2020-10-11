@@ -35,7 +35,7 @@ from accelerator import OptionString, status
 
 options = dict(
 	filename          = OptionString, # .csv or .gz
-	separator         = ',', # Single iso-8859-1 character
+	separator         = ',',
 	labelsonfirstline = True,
 	chain_source      = False, # everything in source is replaced by datasetchain(self, stop=from previous)
 	quote_fields      = '', # can be ' or "
@@ -78,7 +78,6 @@ def nonefix_b(s):
 	return b'None' if s is None else s
 
 def csvexport(sliceno, filename, labelsonfirstline):
-	assert len(options.separator) == 1
 	assert options.quote_fields in ('', "'", '"',)
 	d = datasets.source[0]
 	if not options.labels:
