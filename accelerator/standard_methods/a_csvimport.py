@@ -36,6 +36,9 @@ If comment or skip_lines is set also creates a "skipped" dataset containing
 lineno and data from skipped lines.
 
 If you want lineno for good lines too set lineno_label.
+
+There is no support for multi-line quoted fields. (But if you control the
+writing side try using something like \x1e or \0 instead of newline.)
 '''
 
 
