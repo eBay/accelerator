@@ -3,7 +3,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2018-2019 Carl Drougge                       #
+# Modifications copyright (c) 2018-2020 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -86,7 +86,10 @@ for name, data, bad_cnt, res_data in (
 	# verify that failures in init are handled reasonably.
 	for typ in (r_typ, w_typ,):
 		try:
-			typ("DOES/NOT/EXIST")
+			with typ("DOES/NOT/EXIST") as fh:
+				if typ is w_typ:
+					# File is not created until written.
+					fh.flush()
 			raise Exception("%r does not give IOError for DOES/NOT/EXIST" % (typ,))
 		except IOError:
 			pass
@@ -170,6 +173,7 @@ for name, data, bad_cnt, res_data in (
 				assert fh.count == count, "%s (%d, %d): %d lines written, claims %d" % (name, sliceno, slices, count, fh.count,)
 				if not forstrings(name):
 					got_min, got_max = fh.min, fh.max
+				fh.flush() # we overwrite the same file, so make sure we write.
 			total_count += count
 			with r_typ(TMP_FN) as fh:
 				tmp = list(fh)
