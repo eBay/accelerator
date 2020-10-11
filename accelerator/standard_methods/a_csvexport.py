@@ -27,20 +27,23 @@ from os import unlink
 from os.path import exists
 from contextlib import contextmanager
 from json import JSONEncoder
+from functools import partial
+import gzip
 
 from accelerator.compat import PY3, PY2, izip, imap
-from accelerator.gzutil import GzWriteUnicodeLines, GzWriteBytesLines
 from accelerator import OptionString, status
 
 
 options = dict(
 	filename          = OptionString, # .csv or .gz
 	separator         = ',',
+	line_separator    = '\n',
 	labelsonfirstline = True,
 	chain_source      = False, # everything in source is replaced by datasetchain(self, stop=from previous)
 	quote_fields      = '', # can be ' or "
 	labels            = [], # empty means all labels in (first) dataset
 	sliced            = False, # one output file per slice, put %02d or similar in filename
+	compression       = 6,     # gzip level
 )
 
 datasets = (['source'],) # normally just one, but you can specify several
@@ -48,24 +51,14 @@ datasets = (['source'],) # normally just one, but you can specify several
 jobs = ('previous',)
 
 @contextmanager
-def mkwrite_gz(filename):
-	w = GzWriteUnicodeLines if PY3 else GzWriteBytesLines
-	with w(filename) as fh:
-		if options.sliced:
-			# ensure file will exist even if empty.
-			fh.flush()
-		yield fh.write
-
-@contextmanager
-def mkwrite_uncompressed(filename):
-	if PY2:
-		fh = open(filename, 'wb')
-	else:
-		fh = open(filename, 'w', encoding='utf-8')
+def writer(fh):
 	with fh:
-		def write(s):
-			fh.write(s + '\n')
-		yield write
+		write = fh.write
+		line_sep = options.line_separator
+		def wrapped_write(s):
+			write(s)
+			write(line_sep)
+		yield wrapped_write
 
 if PY3:
 	enc = str
@@ -93,11 +86,15 @@ def csvexport(sliceno, filename, labelsonfirstline):
 			lst.extend(src.chain(stop_ds=stop))
 		datasets.source = lst
 	if filename.lower().endswith('.gz'):
-		mkwrite = mkwrite_gz
+		open_func = partial(gzip.open, compresslevel=options.compression)
 	elif filename.lower().endswith('.csv'):
-		mkwrite = mkwrite_uncompressed
+		open_func = open
 	else:
 		raise Exception("Filename should end with .gz for compressed or .csv for uncompressed")
+	if PY2:
+		open_func = partial(open_func, mode='wb')
+	else:
+		open_func = partial(open_func, mode='xt', encoding='utf-8')
 	iters = []
 	first = True
 	dumps = JSONEncoder(
@@ -131,7 +128,7 @@ def csvexport(sliceno, filename, labelsonfirstline):
 			it = imap(str, it)
 		iters.append(it)
 	it = izip(*iters)
-	with mkwrite(filename) as write:
+	with writer(open_func(filename)) as write:
 		q = options.quote_fields
 		sep = options.separator
 		if q:
