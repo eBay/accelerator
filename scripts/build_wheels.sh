@@ -1,11 +1,11 @@
 #!/bin/bash
 # This is for running in a manylinux2010 docker image, so /bin/bash is fine.
-# docker run --rm -v /some/where:/out:rw -v /path/to/accelerator:/accelerator:ro --tmpfs /tmp:exec,size=1G quay.io/pypa/manylinux2010_x86_64 /accelerator/scripts/build_wheels.sh /accelerator 20xx.xx.xx.dev1
+# docker run --rm -v /some/where:/out:rw -v /path/to/accelerator:/accelerator:ro --tmpfs /tmp:exec,size=1G quay.io/pypa/manylinux2010_x86_64 /accelerator/scripts/build_wheels.sh 20xx.xx.xx.dev1 commit/tag/branch
 
 set -euo pipefail
 
-if [ "$#" != "1" ]; then
-	echo "Usage: $0 ACCELERATOR_BUILD_VERSION"
+if [ "$#" != "2" ]; then
+	echo "Usage: $0 ACCELERATOR_BUILD_VERSION commit/tag/branch"
 	exit 1
 fi
 
@@ -32,6 +32,7 @@ cd /tmp
 rm -rf accelerator
 git clone /accelerator
 cd accelerator
+git checkout $2
 ACCELERATOR_BUILD_VERSION="$VERSION" /opt/python/cp38-cp38/bin/python3 ./setup.py sdist
 cp dist/"$NAME".tar.gz /out/wheelhouse/
 cd ..
