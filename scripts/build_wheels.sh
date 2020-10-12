@@ -18,8 +18,10 @@ test -d /accelerator/accelerator || exit 1
 
 case "$1" in
 	20[2-9][0-9].[01][0-9].[0-3][0-9])
+		ACCELERATOR_BUILD=IS_RELEASE
 		;;
 	20[2-9][0-9].[01][0-9].[0-3][0-9].dev[1-9])
+		ACCELERATOR_BUILD=DEV
 		;;
 	*)
 		echo "Specify a valid ACCELERATOR_BUILD_VERSION please"
@@ -40,7 +42,7 @@ else
 	git clone /accelerator
 	cd accelerator
 	git checkout $2
-	ACCELERATOR_BUILD_VERSION="$VERSION" /opt/python/cp38-cp38/bin/python3 ./setup.py sdist
+	ACCELERATOR_BUILD_VERSION="$VERSION" ACCELERATOR_BUILD="$ACCELERATOR_BUILD" /opt/python/cp38-cp38/bin/python3 ./setup.py sdist
 	cp dist/"$NAME".tar.gz /out/wheelhouse/
 	BUILT="$BUILT"$'\n'"$NAME.tar.gz"
 	cd ..
