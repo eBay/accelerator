@@ -1,0 +1,16 @@
+root = true
+
+[*]
+	indent_style = tab
+	indent_size = tab
+	charset = utf-8
+	end_of_line = lf
+	insert_final_newline = true
+
+[*.{py,tpl}]
+	tab_width = 4
+	trim_trailing_whitespace = true
+
+[*.c]
+	tab_width = 8
+	trim_trailing_whitespace = true
