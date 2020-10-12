@@ -27,6 +27,17 @@ except ImportError:
 	before_install = True
 
 if not before_install:
+	def get_version():
+		import os.path
+		try:
+			dn = os.path.dirname(__file__)
+			fn = os.path.join(dn, 'version.txt')
+			with open(fn, 'r') as fh:
+				return next(fh).strip()
+		except Exception:
+			return None
+	__version__ = get_version()
+	del get_version
 	from .dataset import SkipSlice, SkipDataset
 	from .error import AcceleratorError, UserError, ServerError
 	from .error import UrdError, UrdPermissionError, UrdConflictError

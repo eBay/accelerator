@@ -71,12 +71,7 @@ def load_methods(all_packages, data):
 	from accelerator.compat import str_types, iteritems
 	from accelerator.extras import DotDict, OptionEnum, OptionEnumValue
 	from accelerator.extras import RequiredOption, OptionDefault
-	try:
-		# Is there a better way? There should be.
-		import pkg_resources
-		ax_version = pkg_resources.get_distribution('accelerator').version
-	except Exception:
-		ax_version = None
+	from accelerator import __version__ as ax_version
 	res_warnings = []
 	res_failed = []
 	res_hashes = {}

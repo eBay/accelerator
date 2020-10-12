@@ -69,6 +69,9 @@ else:
 		else:
 			commit = check_output(['git', 'rev-parse', 'HEAD']).strip()[:10].decode('ascii')
 			version = "%s.dev1+%s%s" % (version, commit, dirty(),)
+	version = version.replace('.0', '.')
+	with open('accelerator/version.txt', 'w') as fh:
+		fh.write(version + '\n')
 
 def mk_file(fn, contents):
 	if exists(fn):
