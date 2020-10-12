@@ -19,6 +19,8 @@ The Accelerator project has been built, tested, and runs on:
 
 but is not limited to these systems or versions.
 
+Windows is not supported, but WSL should work.
+
 
 License
 =======
