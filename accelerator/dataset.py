@@ -154,16 +154,16 @@ class Dataset(unicode):
 	"""
 	Represents a dataset. Is also a string 'jobid/name', or just 'jobid' if
 	name is 'default' (for better backwards compatibility).
-	
+
 	You usually don't have to make these yourself, because datasets.foo is
 	already a Dataset instance (or None).
-	
+
 	You can pass jobid="jid/name" or jobid="jid", name="name", or skip
 	name completely for "default".
-	
+
 	You can also pass jobid={jid: dsname} to resolve dsname from the datasets
 	passed to jid. This gives None if that option was unset.
-	
+
 	These decay to a (unicode) string when pickled.
 	"""
 
@@ -982,55 +982,55 @@ class DatasetWriter(object):
 	"""
 	Create in prepare, use in analysis. Or do the whole thing in
 	synthesis.
-	
+
 	You can pass these through prepare_res, or get them by trying to
 	create a new writer in analysis (don't specify any arguments except
 	an optional name).
-	
+
 	There are three writing functions with different arguments:
-	
+
 	dw.write_dict({column: value})
 	dw.write_list([value, value, ...])
 	dw.write(value, value, ...)
-	
+
 	Values are in the same order as you add()ed the columns (which is in
 	sorted order if you passed a dict). The dw.write() function names the
 	arguments from the columns too.
-	
+
 	If you set a column type to None that column is not inherited from the
 	parent dataset. (Only works as an init argument, not with dw.add.)
-	
+
 	If you want support for None values in a column you can pass
 	none_support=True to dw.add, or {colname: (coltype, True)} to the
 	constructor. If you pass a DatasetColumn (from ds.columns[name]) you
 	will inherit both type and None-support of that column.
-	
+
 	If you set hashlabel you can use dw.hashcheck(v) to check if v
 	belongs in this slice. You can also call enable_hash_discard
 	(in each slice, or after each set_slice), then the writer will
 	discard anything that does not belong in this slice.
-	
+
 	If you are not in analysis and you wish to use the functions above
 	you need to call dw.set_slice(sliceno) first.
-	
+
 	If you do not, you can instead get one of the splitting writer
 	functions, that select which slice to use based on hashlabel, or
 	round robin if there is no hashlabel.
-	
+
 	dw.get_split_write_dict()({column: value})
 	dw.get_split_write_list()([value, value, ...])
 	dw.get_split_write()(value, value, ...)
-	
+
 	These should of course be assigned to a local name for performance.
-	
+
 	It is permitted (but probably useless) to mix different write or
 	split functions, but you can only use either write functions or
 	split functions.
-	
+
 	You can also use dw.writers[colname] to get a typed_writer and use
 	it as you please. The one belonging to the hashlabel will be
 	filtering, and returns True if this is the right slice.
-	
+
 	If you need to handle everything yourself, set meta_only=True and
 	use dw.column_filename(colname) to find the right files to write to.
 	In this case you also need to call dw.set_lines(sliceno, count)

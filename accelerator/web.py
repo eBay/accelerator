@@ -1,5 +1,3 @@
-# -*- coding: iso-8859-1 -*-
-
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
@@ -46,25 +44,25 @@ class BaseWebHandler(BaseHTTPRequestHandler):
 	   Implement do_request(path, args)
 	   and optionally override encode_body(obj)
 	   set unicode_args if you want args decoded to unicode
-	   
+
 	   POSTs that do not contain a known form encoding will be put in
 	   args with None as the key.
 	   """
-	
+
 	unicode_args = False
-	
+
 	# Stop it from doing name lookups for logging
 	def address_string(self):
 		return self.client_address[0]
-	
+
 	def do_GET(self):
 		self.is_head = False
 		self._do_req()
-	
+
 	def do_HEAD(self):
 		self.is_head = True
 		self._do_req()
-	
+
 	def do_POST(self):
 		length = self.headers.get('content-length')
 		if not length:
@@ -86,7 +84,7 @@ class BaseWebHandler(BaseHTTPRequestHandler):
 			cgi_args = {None: [self.rfile.read(int(length))]}
 		self.is_head = False
 		self._do_req2(self.path, cgi_args)
-	
+
 	def _do_req(self):
 		path = self.path.split("?")
 		cgi_args = {}
@@ -95,10 +93,10 @@ class BaseWebHandler(BaseHTTPRequestHandler):
 		elif len(path) != 1:
 			return self._bad_request()
 		self._do_req2(path[0], cgi_args)
-	
+
 	def _bad_request(self):
 		self.do_response(400, "text/plain", "Bad request\n")
-	
+
 	def argdec(self, v):
 		if self.unicode_args:
 			if type(v) is unicode: return v
@@ -110,7 +108,7 @@ class BaseWebHandler(BaseHTTPRequestHandler):
 				except Exception:
 					return u""
 		return v
-	
+
 	def _do_req2(self, path, cgi_args):
 		p_a = []
 		for e in path.split("/"):
@@ -120,14 +118,14 @@ class BaseWebHandler(BaseHTTPRequestHandler):
 				p_a.append(e)
 		args = dict((a, self.argdec(cgi_args[a][-1])) for a in cgi_args)
 		self.handle_req(p_a, args)
-	
+
 	def encode_body(self, body):
 		"""Encode whatever you passed as body to do_response as byte stream.
 		   Should be overridden if you pass anything but str or an object
 		   with a unicode-compatible encode method."""
 		if isinstance(body, bytes): return body
 		return body.encode("utf-8")
-	
+
 	def do_response(self, code, content_type, body, extra_headers = []):
 		try:
 			body = self.encode_body(body)
