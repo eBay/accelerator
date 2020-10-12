@@ -29,6 +29,8 @@ esac
 VERSION="$1"
 NAME="accelerator-$(echo "$1" | sed s/\\.0/./g)"
 
+BUILT=$'\n\nBuilt the following files:'
+
 if [ "$#" = "1" ]; then
 	test -e /out/wheelhouse/"$NAME".tar.gz || exit 1
 else
@@ -40,6 +42,7 @@ else
 	git checkout $2
 	ACCELERATOR_BUILD_VERSION="$VERSION" /opt/python/cp38-cp38/bin/python3 ./setup.py sdist
 	cp dist/"$NAME".tar.gz /out/wheelhouse/
+	BUILT="$BUILT"$'\n'"$NAME.tar.gz"
 	cd ..
 	rm -rf accelerator
 fi
@@ -63,6 +66,7 @@ if [ ! -e "$ZLIB_PREFIX/lib/libz.a" ]; then
 	git checkout 8832d7db7241194fa68509c96c092f3cf527ccce
 	CFLAGS="-fPIC -fvisibility=hidden" ./configure --zlib-compat --static --prefix="$ZLIB_PREFIX"
 	make install
+	BUILT="$BUILT"$'\n'"$ZLIB_PREFIX/..."
 	cd ..
 	rm -rf zlib-ng
 fi
@@ -82,6 +86,7 @@ for V in $(ls /opt/python/); do
 		cp27-*|cp3[5-9]-*)
 			UNFIXED_NAME="/tmp/wheels/$NAME-$V-linux_$AUDITWHEEL_ARCH.whl"
 			FIXED_NAME="/tmp/wheels/fixed/$NAME-$V-$AUDITWHEEL_PLAT.whl"
+			test -e "/out/wheelhouse/${FIXED_NAME/*\//}" && continue
 			rm -f "$UNFIXED_NAME" "$FIXED_NAME"
 			ACCELERATOR_BUILD_STATIC_ZLIB="$ZLIB_PREFIX/lib/libz.a" \
 			CPPFLAGS="-I$ZLIB_PREFIX/include" \
@@ -95,6 +100,7 @@ for V in $(ls /opt/python/); do
 			"/opt/python/$V/bin/ax" --config /tmp/axtest/accelerator.conf run tests
 			# The wheel passed the tests, copy it to the wheelhouse.
 			cp -p "$FIXED_NAME" /out/wheelhouse/
+			BUILT="$BUILT"$'\n'"${FIXED_NAME/*\//}"
 			rm -rf /tmp/axtest
 			SLICES=3 # run all other tests with the lowest (and fastest) allowed for tests
 			;;
@@ -102,3 +108,6 @@ for V in $(ls /opt/python/); do
 			;;
 	esac
 done
+
+set +x
+echo "$BUILT"
