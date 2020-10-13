@@ -34,6 +34,9 @@ import operator
 from argparse import ArgumentParser
 import os.path
 from io import TextIOWrapper
+import sys
+import os
+import signal
 
 from accelerator.compat import iteritems, itervalues, unicode
 from accelerator.extras import DotDict, PY3
@@ -350,8 +353,35 @@ class DB:
 			path = os.path.join(self.path, user)
 			if not os.path.isdir(path):
 				os.makedirs(path)
-			with open(os.path.join(path, build + '.urd'), 'a') as fh:
-				fh.write(self._serialise(action, data) + '\n')
+			fn = os.path.join(path, build + '.urd')
+			with open(fn, 'a') as fh:
+				start_pos = fh.tell()
+				try:
+					fh.write(self._serialise(action, data) + '\n')
+					fh.flush()
+				except IOError as e:
+					try:
+						try:
+							# Try to avoid leaving a partial line in the file.
+							fh.truncate(start_pos)
+							fh.close()
+							extra = ''
+						except:
+							extra = "  Also failed to remove partially written data."
+							extra2 = "  \x1b[31m****\x1b[m YOUR URD DB IS PROBABLY BROKEN NOW! \x1b[31m****\x1b[m"
+						msg = "  Failed to write %s: %s" % (fn, e)
+						brk = "#" * (max(len(msg), len(extra)) + 2)
+						print("", file=sys.stderr)
+						print(brk, file=sys.stderr)
+						print(msg, file=sys.stderr)
+						if extra:
+							print(extra, file=sys.stderr)
+							print(extra2, file=sys.stderr)
+						print(brk, file=sys.stderr)
+						print("", file=sys.stderr)
+					finally:
+						# This is a fatal error.
+						os.killpg(os.getpgid(0), signal.SIGTERM)
 
 	@locked
 	def get(self, key, timestamp):
