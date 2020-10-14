@@ -141,6 +141,17 @@ def cmd_run(argv):
 	return main(argv, cfg)
 cmd_run.help = '''run a build script'''
 
+def cmd_abort(argv):
+	parser = ArgumentParser(prog=argv.pop(0))
+	parser.add_argument('-q', '--quiet', action='store_true', help="no output")
+	args = parser.parse_args(argv)
+	from accelerator.build import Automata
+	a = Automata(cfg.url)
+	res = a.abort()
+	if not args.quiet:
+		print("Killed %d running job%s." % (res.killed, '' if res.killed == 1 else 's'))
+cmd_abort.help = '''abort running job(s)'''
+
 def cmd_server(argv):
 	from accelerator.server import main
 	main(argv, cfg)
@@ -224,6 +235,7 @@ COMMANDS = dict(
 	ds=cmd_ds,
 	grep=cmd_grep,
 	run=cmd_run,
+	abort=cmd_abort,
 	server=cmd_server,
 	init=cmd_init,
 	urd=cmd_urd,
