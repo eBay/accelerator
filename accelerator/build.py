@@ -657,10 +657,6 @@ def run_automata(options, cfg):
 	g.running = 'build'
 	a = Automata(cfg.url, verbose=options.verbose, flags=options.flags.split(','), infoprints=True, print_full_jobpath=options.fullpath)
 
-	if options.abort:
-		a.abort()
-		return
-
 	try:
 		a.wait(ignore_old_errors=not options.just_wait)
 	except JobError:
@@ -699,7 +695,6 @@ def main(argv, cfg):
 		formatter_class=RawTextHelpFormatter,
 	)
 	parser.add_argument('-f', '--flags',    default='',          help="comma separated list of flags", )
-	parser.add_argument('-A', '--abort',    action='store_true', help="abort (fail) currently running job(s)", )
 	parser.add_argument('-q', '--quick',    action='store_true', help="skip method updates and checking workdirs for new jobs", )
 	parser.add_argument('-w', '--workdir',  default=None,        help="build in this workdir\nset_workdir() and workdir= override this.", )
 	parser.add_argument('-W', '--just_wait',action='store_true', help="just wait for running job, don't run any build script", )
