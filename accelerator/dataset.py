@@ -119,7 +119,7 @@ def _dsid(t):
 _DatasetColumn_3_1 = namedtuple('_DatasetColumn_3_1', 'type backing_type name location min max offsets none_support')
 DatasetColumn = _DatasetColumn_3_1
 # It's probably usually best to generate the new type so the rest of the code needs no special handling.
-class _DatasetColumn_3_0:
+class _DatasetColumn_3_0(object):
 	def __new__(cls, type, backing_type, name, location, min, max, offsets):
 		none_support = not backing_type.startswith('bits')
 		return _DatasetColumn_3_1(type, backing_type, name, location, min, max, offsets, none_support)
