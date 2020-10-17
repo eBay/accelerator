@@ -96,3 +96,10 @@ setup v1 00feb8d8fc11bd24c59012b10ae90942e2abeb74 bd "--source .. --prefix ." da
 setup v2 1363e5d94e08bdc16c5d3f3a6a7cb49501272f1a bd "--input .. --prefix ." daemon
 setup v2b 2020.2.14.dev1 ax "--input .." server
 setup v3 2020.10.1.dev1 ax "--input .." server
+
+set +x
+
+sleep 0.2
+echo
+echo OK
+echo
