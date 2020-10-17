@@ -14,6 +14,19 @@ if [ $# -lt 3 -o $# -gt 4 ]; then
 	echo "if \$PYTHON -m venv doesn't work you need to specify a virtualenv command"
 	exit 1
 fi
+
+# Don't depend on realpath if paths are already absolute
+absolute() {
+	case "$1" in
+		/*)
+			echo "$1"
+			;;
+		*)
+			realpath "$1"
+			;;
+	esac
+}
+
 PYTHON="$1"
 AXREPO="$2"
 BASEDIR="$3"
@@ -24,6 +37,11 @@ set -eux
 test -x "$PYTHON" || exit 1
 test -d "$AXREPO" || exit 1
 test -d "$BASEDIR" || exit 1
+
+SCRIPT="`absolute "$0"`"
+TEMPLATES="`dirname "$SCRIPT"`/templates"
+
+AXREPO="`absolute "$AXREPO"`"
 
 SERVER_PID=""
 trap 'test -n "$SERVER_PID" && kill $SERVER_PID' exit
@@ -64,23 +82,7 @@ setup() {
 			HASHPART=hashpart
 			;;
 	esac
-	cat >$1/build.py <<END
-def main(urd):
-	jid = urd.build(
-		'csvimport',
-		options=dict(filename='a.csv'),
-	)
-	jid = urd.build(
-		'dataset_type',
-		datasets=dict(source=jid),
-		options=dict(column2type={'a': 'int32_10', 'b': 'ascii'}),
-	)
-	urd.build(
-		'dataset_$HASHPART',
-		datasets=dict(source=jid),
-		options=dict(hashlabel='b'),
-	)
-END
+	sed s/\\\$HASHPART/$HASHPART/g >$1/build.py <"$TEMPLATES/build_make_old_versions.py"
 	../py.$1/bin/$3 $5 &
 	SERVER_PID=$!
 	sleep 1

@@ -58,14 +58,7 @@ rm -rf ax
 
 ./venv0/bin/ax init proj
 cd proj
-cat >dev/build.py <<END
-from datetime import datetime
-def main(urd):
-	now = datetime.now()
-	for n in range($N + 1):
-		jid = urd.build('venv%d' % (n,), unicode_string='bl\xe5', time=now)
-		urd.build('verify', source=jid, n=n, now=now)
-END
+sed s/\\\$N/$N/g >dev/build.py <"$TEMPLATES/build_multiple_interpreters.py"
 echo verify >dev/methods.conf
 cp "$TEMPLATES/a_verify.py" dev/
 

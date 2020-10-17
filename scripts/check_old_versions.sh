@@ -10,10 +10,24 @@ if [ $# -ne 1 ]; then
 	exit 1
 fi
 
-SRCDIR="$1"
+# Don't depend on realpath if paths are already absolute
+absolute() {
+	case "$1" in
+		/*)
+			echo "$1"
+			;;
+		*)
+			realpath "$1"
+			;;
+	esac
+}
 
 set -eux
 
+SCRIPT="`absolute "$0"`"
+TEMPLATES="`dirname "$SCRIPT"`/templates"
+
+SRCDIR="`absolute "$1"`"
 test -d "$SRCDIR" || exit 1
 
 SERVER_PID=""
@@ -29,37 +43,9 @@ for V in v1 v2 v2b v3; do
 	echo "	$V $SRCDIR/$V/workdirs/$V" >>accelerator.conf
 done
 
-cat >dev/build.py <<END
-def main(urd):
-	for v in ('v1', 'v2', 'v2b', 'v3'):
-		version = int(v[1])
-		urd.build('check', prefix=v, version=version)
-END
-
+cp "$TEMPLATES/build_check_old_versions.py" dev/build.py
+cp "$TEMPLATES/a_check.py" dev/
 echo check >dev/methods.conf
-cat >dev/a_check.py <<END
-from accelerator import Job
-
-options = {'prefix': str, 'version': int}
-
-def check(num, *want):
-	job = Job('%s-%d' % (options.prefix, num))
-	assert job.params.version == options.version
-	assert job.params.versions.python_path
-	if job.params.version > 2:
-		assert job.params.versions.accelerator
-	ds = job.dataset()
-	want_lines = [len(w) for w in want]
-	assert ds.lines == want_lines, '%s should have had %r lines but has %r' % (ds, want_lines, ds.lines,)
-	for sliceno, want in enumerate(want):
-		got = list(ds.iterate(sliceno, ('a', 'b', 'c')))
-		assert got == want, '%s slice %d should have had %r but had %r' % (ds, sliceno, want, got,)
-
-def synthesis(job):
-	check(0, [(b'1', b'foo', b'bar')], [(b'2', b'Foo', b'Bar')], [])
-	check(1, [(1, 'foo', b'bar')], [(2, 'Foo', b'Bar')], [])
-	check(2, [], [(1, 'foo', b'bar'), (2, 'Foo', b'Bar')], [])
-END
 
 ax server &
 SERVER_PID=$!
