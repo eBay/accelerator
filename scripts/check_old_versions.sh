@@ -53,7 +53,7 @@ def check(num, *want):
 	assert ds.lines == want_lines, '%s should have had %r lines but has %r' % (ds, want_lines, ds.lines,)
 	for sliceno, want in enumerate(want):
 		got = list(ds.iterate(sliceno, ('a', 'b', 'c')))
-		assert got == want, '%s slice %d should have had %r but had %r' % (ds, slicen, want, got,)
+		assert got == want, '%s slice %d should have had %r but had %r' % (ds, sliceno, want, got,)
 
 def synthesis(job):
 	check(0, [(b'1', b'foo', b'bar')], [(b'2', b'Foo', b'Bar')], [])
