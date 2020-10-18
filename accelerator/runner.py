@@ -84,8 +84,16 @@ def load_methods(all_packages, data):
 		info.size = len(data)
 		tar_o.addfile(info, io.BytesIO(data))
 	all_prefixes = set()
+	# This is only used for informational warnings, so failure is not a
+	# disaster. And failure is somewhat likely when using several runners
+	# using the same-ish python version. (Maybe only on python 2.)
+	# There appears to be a race where one python reads an incomplete
+	# .pyc file written by the other.
 	for package in all_packages:
-		all_prefixes.add(get_mod(package)[2])
+		try:
+			all_prefixes.add(get_mod(package)[2])
+		except Exception:
+			pass
 	for package, key in data:
 		modname = '%s.a_%s' % (package, key)
 		try:
