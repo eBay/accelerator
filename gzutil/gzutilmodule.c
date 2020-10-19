@@ -2126,6 +2126,7 @@ static PyObject *generic_hash(PyObject *dummy, PyObject *obj)
 	if (PyDateTime_Check(obj)) return gzwrite_hash_GzWriteDateTime(0, obj);
 	if (PyDate_Check(obj))     return gzwrite_hash_GzWriteDate(0, obj);
 	if (PyTime_Check(obj))     return gzwrite_hash_GzWriteTime(0, obj);
+	if (PyComplex_Check(obj))  return gzwrite_hash_GzWriteComplex64(0, obj);
 	PyErr_Format(PyExc_ValueError, "Unknown type %s", obj->ob_type->tp_name);
 	return 0;
 }
