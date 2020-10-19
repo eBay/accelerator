@@ -26,6 +26,7 @@ from __future__ import division, print_function, unicode_literals
 from datetime import datetime, date, time
 from sys import version_info
 from itertools import compress
+from os import unlink
 
 from accelerator import gzutil
 
@@ -416,3 +417,5 @@ with gzutil.GzNumber(TMP_FN, callback=callback3, callback_interval=1) as fh:
 	except ZeroDivisionError:
 		good = True
 	assert good
+
+unlink(TMP_FN)
