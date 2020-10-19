@@ -49,6 +49,9 @@ dt0 = date(1985, 7, 10)
 tm0 = time(0, 0, 0, 0)
 tm1 = time(2, 42, 0, 3)
 tm2 = time(23, 59, 59, 999999)
+if version_info > (3, 6, 0):
+	dttm1 = dttm1.replace(fold=1)
+	tm1 = tm1.replace(fold=1)
 
 def forstrings(name):
 	return name.endswith("Lines") or name in ("Bytes", "Ascii", "Unicode")
@@ -130,6 +133,10 @@ for name, data, bad_cnt, res_data in (
 	with r_typ(TMP_FN) as fh:
 		res = list(fh)
 		assert res == res_data, res
+		if version_info > (3, 6, 0) and 'Time' in name:
+			# Python compares times without .fold, but we want to verify it matches.
+			res = [v.fold if v else None for v in res]
+			assert [v.fold if v else None for v in res_data] == res
 	# Data comes back as expected.
 	if forstrings(name):
 		continue # no default support

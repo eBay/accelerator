@@ -156,9 +156,13 @@ static uint64_t hash(const void *ptr, const uint64_t len)
 	siphash((uint8_t *)&res, ptr, len, hash_k);
 	return res;
 }
-static uint64_t hash_64bits(const void *ptr)
+static uint64_t hash_datetime(const void *ptr)
 {
-	return hash(ptr, 8);
+	struct { uint32_t i0, i1; } tmp;
+	memcpy(&tmp, ptr, 8);
+	// ignore .fold, because python does.
+	tmp.i0 &= 0xfffffff;
+	return hash(&tmp, 8);
 }
 static uint64_t hash_32bits(const void *ptr)
 {
@@ -748,14 +752,19 @@ static PyObject *GzNumber_iternext(GzRead *self)
 static inline PyObject *unfmt_datetime(const uint32_t i0, const uint32_t i1)
 {
 	if (!i0) Py_RETURN_NONE;
-	const int Y = i0 >> 14;
+	const int Y = i0 >> 14 & 0x2fff;
 	const int m = i0 >> 10 & 0x0f;
 	const int d = i0 >> 5 & 0x1f;
 	const int H = i0 & 0x1f;
 	const int M = i1 >> 26 & 0x3f;
 	const int S = i1 >> 20 & 0x3f;
 	const int u = i1 & 0xfffff;
+#if PY_VERSION_HEX >= 0x03060000
+	const int fold = !!(i0 & 0x10000000);
+	return PyDateTime_FromDateAndTimeAndFold(Y, m, d, H, M, S, u, fold);
+#else
 	return PyDateTime_FromDateAndTime(Y, m, d, H, M, S, u);
+#endif
 }
 
 static PyObject *GzDateTime_iternext(GzRead *self)
@@ -766,7 +775,7 @@ static PyObject *GzDateTime_iternext(GzRead *self)
 	memcpy(a, self->buf + self->pos, 8);
 	self->pos += 8;
 	if (!a[0]) HC_RETURN_NONE;
-	HC_CHECK(hash_64bits(self->buf + self->pos - 8));
+	HC_CHECK(hash_datetime(self->buf + self->pos - 8));
 	return unfmt_datetime(a[0], a[1]);
 }
 
@@ -798,7 +807,12 @@ static inline PyObject *unfmt_time(const uint32_t i0, const uint32_t i1)
 	const int M = i1 >> 26 & 0x3f;
 	const int S = i1 >> 20 & 0x3f;
 	const int u = i1 & 0xfffff;
+#if PY_VERSION_HEX >= 0x03060000
+	const int fold = !!(i0 & 0x10000000);
+	return PyTime_FromTimeAndFold(H, M, S, u, fold);
+#else
 	return PyTime_FromTime(H, M, S, u);
+#endif
 }
 
 static PyObject *GzTime_iternext(GzRead *self)
@@ -809,7 +823,7 @@ static PyObject *GzTime_iternext(GzRead *self)
 	memcpy(a, self->buf + self->pos, 8);
 	self->pos += 8;
 	if (!a[0]) HC_RETURN_NONE;
-	HC_CHECK(hash_64bits(self->buf + self->pos - 8));
+	HC_CHECK(hash_datetime(self->buf + self->pos - 8));
 	return unfmt_time(a[0], a[1]);
 }
 
@@ -1448,7 +1462,8 @@ static inline uint64_t minmax_value_datetime(uint64_t value) {
 	/* My choice to use 2x u32 comes back to bite me. */
 	struct { uint32_t i0, i1; } tmp;
 	memcpy(&tmp, &value, sizeof(value));
-	return ((uint64_t)tmp.i0 << 32) | tmp.i1;
+	// ignore .fold, because python does.
+	return ((uint64_t)(tmp.i0 & 0xfffffff) << 32) | tmp.i1;
 }
 
 #define MK_MINMAX_SET(name, parse)                                                       	\
@@ -1704,6 +1719,9 @@ static uint64_t fmt_datetime(PyObject *dt)
 	union { struct { int32_t i0, i1; } i; uint64_t res; } r;
 	r.i.i0 = (Y << 14) | (m << 10) | (d << 5) | H;
 	r.i.i1 = (M << 26) | (S << 20) | u;
+#if PY_VERSION_HEX > 0x03060000
+	if (PyDateTime_DATE_GET_FOLD(dt)) r.i.i0 |= 0x10000000;
+#endif
 	return r.res;
 }
 static uint32_t fmt_date(PyObject *dt)
@@ -1730,11 +1748,14 @@ static uint64_t fmt_time(PyObject *dt)
 	union { struct { int32_t i0, i1; } i; uint64_t res; } r;
 	r.i.i0 = 32277536 | H; // 1970 if read as DateTime
 	r.i.i1 = (M << 26) | (S << 20) | u;
+#if PY_VERSION_HEX > 0x03060000
+	if (PyDateTime_TIME_GET_FOLD(dt)) r.i.i0 |= 0x10000000;
+#endif
 	return r.res;
 }
-MKWRITER(GzWriteDateTime, uint64_t, uint64_t, fmt_datetime, 1, minmax_value_datetime, minmax_set_DateTime, hash_64bits);
+MKWRITER(GzWriteDateTime, uint64_t, uint64_t, fmt_datetime, 1, minmax_value_datetime, minmax_set_DateTime, hash_datetime);
 MKWRITER(GzWriteDate    , uint32_t, uint32_t, fmt_date,     1,                      , minmax_set_Date    , hash_32bits);
-MKWRITER(GzWriteTime    , uint64_t, uint64_t, fmt_time,     1, minmax_value_datetime, minmax_set_Time    , hash_64bits);
+MKWRITER(GzWriteTime    , uint64_t, uint64_t, fmt_time,     1, minmax_value_datetime, minmax_set_Time    , hash_datetime);
 
 static int gzwrite_GzWriteNumber_serialize_Long(PyObject *obj, char *buf, const char *msg)
 {
