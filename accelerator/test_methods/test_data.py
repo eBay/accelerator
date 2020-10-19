@@ -23,6 +23,7 @@ from __future__ import division
 from __future__ import unicode_literals
 
 from datetime import date, time, datetime
+from sys import version_info
 
 from accelerator.compat import first_value, num_types
 
@@ -57,6 +58,12 @@ data = {
 	"complex64": (1.5, -1e100+0.00000002j, 5.3j),
 	"complex32": (-1, 1+2j, -0.25j),
 }
+
+if version_info > (3, 6, 0):
+	for name in ("datetime", "time",):
+		tmp = list(data[name])
+		tmp[1] = tmp[1].replace(fold=1)
+		data[name] = tuple(tmp)
 
 value_cnt = {len(v) for v in data.values()}
 assert len(value_cnt) == 1, "All tuples in data must have the same length."

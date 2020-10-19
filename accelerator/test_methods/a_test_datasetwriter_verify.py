@@ -1,6 +1,6 @@
 ############################################################################
 #                                                                          #
-# Copyright (c) 2019 Carl Drougge                                          #
+# Copyright (c) 2019-2020 Carl Drougge                                     #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -25,6 +25,7 @@ Verify that each slice contains the expected data after test_datasetwriter.
 '''
 
 from datetime import date
+from sys import version_info
 
 from accelerator.dataset import Dataset
 from accelerator.gzwrite import typed_writer
@@ -44,6 +45,10 @@ def analysis(sliceno, params):
 		passed = Dataset(datasets.source, "passed")
 		good = tuple(v[sliceno] for _, v in sorted(test_data.data.items()))
 		assert list(passed.iterate(sliceno)) == [good]
+		if version_info > (3, 6, 0):
+			want_fold = (sliceno == 1)
+			assert next(passed.iterate(sliceno, "datetime")).fold == want_fold
+			assert next(passed.iterate(sliceno, "time")).fold == want_fold
 	synthesis_split = Dataset(datasets.source, "synthesis_split")
 	values = zip((1, 2, 3,), "abc")
 	hash = typed_writer("int32").hash
