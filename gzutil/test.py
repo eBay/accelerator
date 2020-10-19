@@ -52,6 +52,8 @@ tm2 = time(23, 59, 59, 999999)
 
 def forstrings(name):
 	return name.endswith("Lines") or name in ("Bytes", "Ascii", "Unicode")
+def can_minmax(name):
+	return 'Complex' not in name and not forstrings(name)
 
 for name, data, bad_cnt, res_data in (
 	("Float64"       , ["0", float, 0   , 4.2, -0.01, 1e42, inf, ninf, None], 2, [0.0, 4.2, -0.01, 1e42, inf, ninf, None]),
@@ -61,6 +63,8 @@ for name, data, bad_cnt, res_data in (
 	("Int32"         , ["0", int, 0x80000000, -0x80000000, 0.1, 0x7fffffff, l(-5), None], 4, [0, 0x7fffffff, -5, None]),
 	("Bits32"        , ["0", int, None, l(-5), -5, 0.1, 0x80000000, 0x7fffffff, l(0x80000000)], 6, [0x80000000, 0x7fffffff, 0x80000000]),
 	("Number"        , ["0", int, 1 << 1007, -(1 << 1007), 1, l(0), -1, 0.5, 0x8000000000000000, -0x800000000000000, 1 << 340, (1 << 1007) - 1, -(1 << 1007) + 1, None], 4, [1, 0, -1, 0.5, 0x8000000000000000, -0x800000000000000, 1 << 340, (1 << 1007) - 1, -(1 << 1007) + 1, None]),
+	("Complex64"     , ["0", float, 0   , 4.2+1e42j, inf, ninf, complex(inf, ninf), None], 2, [0+0j, 4.2+1e42j, inf, ninf, complex(inf, ninf), None]),
+	("Complex32"     , ["0", float, l(0), 4.2+1e42j, inf, ninf, complex(inf, ninf), None], 2, [0+0j, complex(4.199999809265137, inf), inf, ninf, complex(inf, ninf), None]),
 	("Bool"          , ["0", bool, 0.0, True, False, 0, l(1), None], 2, [False, True, False, False, True, None]),
 	("BytesLines"    , [42, str, b"\n", u"a", b"a", b"foo bar baz", None], 4, [b"a", b"foo bar baz", None]),
 	("AsciiLines"    , [42, str, b"\n", u"foo\xe4", b"foo\xe4", u"a", b"foo bar baz", None], 5, [str("a"), str("foo bar baz"), None]),
@@ -117,7 +121,7 @@ for name, data, bad_cnt, res_data in (
 				except (ValueError, TypeError, OverflowError):
 					assert ix < bad_cnt or (value is None and not test_none_support), repr(value)
 			assert fh.count == count, "%s: %d lines written, claims %d" % (name, count, fh.count,)
-			if not forstrings(name):
+			if can_minmax(name):
 				want_min = min(filter(lambda x: x is not None, res_data))
 				want_max = max(filter(lambda x: x is not None, res_data))
 				assert fh.min == want_min, "%s: claims min %r, not %r" % (name, fh.min, want_min,)
@@ -185,7 +189,7 @@ for name, data, bad_cnt, res_data in (
 					assert w_typ.hash(v) == gzutil.hash(v), "Inconsistent hash for %r" % (v,)
 			res.extend(tmp)
 			sliced_res.append(tmp)
-			if not forstrings(name):
+			if can_minmax(name):
 				tmp = list(filter(lambda x: x is not None, tmp))
 				if tmp:
 					want_min = min(tmp)
