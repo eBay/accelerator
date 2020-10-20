@@ -44,7 +44,7 @@ if not before_install:
 	from .error import NoSuchWhateverError, NoSuchJobError, NoSuchWorkdirError
 	from .error import DatasetError, NoSuchDatasetError, DatasetUsageError
 	from .error import JobError
-	from .extras import DotDict, Temp
+	from .extras import DotDict
 	from .extras import OptionEnum, OptionString, RequiredOption, OptionDefault
 	from .job import Job, JobWithFile
 	from .statmsg import status, dummy_status

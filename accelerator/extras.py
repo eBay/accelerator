@@ -90,8 +90,6 @@ def job_post(jobid):
 
 def pickle_save(variable, filename='result.pickle', sliceno=None, temp=None, _hidden=False):
 	filename = _fn(filename, None, sliceno)
-	if temp == Temp.DEBUG and temp is not True and '--debug' not in sys.argv:
-		return
 	with FileWriteMove(filename, temp, _hidden=_hidden) as fh:
 		# use protocol version 2 so python2 can read the pickles too.
 		pickle.dump(variable, fh, 2)
@@ -139,8 +137,6 @@ def json_encode(variable, sort_keys=True, as_str=False):
 
 def json_save(variable, filename='result.json', sliceno=None, sort_keys=True, _encoder=json_encode, temp=False):
 	filename = _fn(filename, None, sliceno)
-	if temp == Temp.DEBUG and temp is not True and '--debug' not in sys.argv:
-		return
 	with FileWriteMove(filename, temp) as fh:
 		fh.write(_encoder(variable, sort_keys=sort_keys))
 		fh.write(b'\n')
@@ -193,15 +189,6 @@ def stackup():
 			return stk[1], stk[2]
 	return '?', -1
 
-class Temp:
-	# File temporaryness constants
-	# (need to have these values to work in the cleanup code)
-	# You can use True and False for TEMP and PERMANENT when calling.
-	PERMANENT = 0 # aka False
-	DEBUG     = 1 # only saved if --debug
-	DEBUGTEMP = 2 # always saved, only preserved if --debug
-	TEMP      = 3 # aka True
-
 saved_files = {}
 
 class FileWriteMove(object):
@@ -215,14 +202,11 @@ class FileWriteMove(object):
 		from accelerator.g import running
 		self.filename = filename
 		self.tmp_filename = '%s.%dtmp' % (filename, os.getpid(),)
-		temp = {'False': Temp.PERMANENT, 'True': Temp.TEMP}.get(temp, temp)
 		if temp is None: # unspecified
-			temp = Temp.PERMANENT
 			if running == 'analysis':
 				print('WARNING: Should specify file permanence on %s line %d' % stackup(), file=sys.stderr)
-		assert temp in range(4), 'temp should be True, False or a value from Temp'
 		self.temp = temp
-		if temp in (Temp.DEBUGTEMP, Temp.TEMP,):
+		if temp:
 			if running != 'analysis':
 				print('WARNING: Only analysis should make temp files (%s line %d).' % stackup(), file=sys.stderr)
 		self._hidden = _hidden

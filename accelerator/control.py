@@ -36,7 +36,7 @@ from accelerator import database
 from accelerator import methods
 from accelerator.setupfile import update_setup
 from accelerator.job import WORKDIRS, Job
-from accelerator.extras import json_save, DotDict, Temp
+from accelerator.extras import json_save, DotDict
 
 METHODS_CONFIGFILENAME = 'methods.conf'
 
@@ -181,14 +181,11 @@ class Main:
 		prof = setup.get('exectime', DotDict())
 		new_prof, files, subjobs = dispatch.launch(W.path, setup, self.config, self.Methods, active_workdirs, slices, self.debug, self.server_url, subjob_cookie, parent_pid)
 		prefix = join(W.path, jobid) + '/'
-		if self.debug:
-			delete_from = Temp.TEMP
-		else:
-			delete_from = Temp.DEBUG
-		for filename, temp in list(files.items()):
-			if temp >= delete_from:
-				unlink(join(prefix, filename))
-				del files[filename]
+		if not self.debug:
+			for filename, temp in list(files.items()):
+				if temp:
+					unlink(join(prefix, filename))
+					del files[filename]
 		prof.update(new_prof)
 		prof.total = 0
 		prof.total = sum(v for v in prof.values() if isinstance(v, (float, int)))
