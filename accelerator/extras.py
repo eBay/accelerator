@@ -38,11 +38,10 @@ def _fn(filename, jobid, sliceno):
 	if filename.startswith('/'):
 		assert not jobid, "Don't specify full path (%r) and jobid (%s)." % (filename, jobid,)
 		assert not sliceno, "Don't specify full path (%r) and sliceno." % (filename,)
-	else:
-		if not jobid:
-			from accelerator.g import job
-			jobid = job
+	elif jobid:
 		filename = Job(jobid).filename(filename, sliceno)
+	elif sliceno is not None:
+		filename = '%s.%d' % (filename, sliceno,)
 	return filename
 
 def _typelistnone(v, t):
