@@ -77,7 +77,16 @@ def job_params(jobid=None, default_empty=False):
 	return d
 
 def job_post(jobid):
-	return json_load('post.json', jobid)
+	job = Job(jobid)
+	d = job.json_load('post.json')
+	version = d.get('version', 0)
+	if version == 0:
+		prefix = job.path + '/'
+		d.files = sorted(fn[len(prefix):] if fn.startswith(prefix) else fn for fn in d.files)
+		version = 1
+	if version != 1:
+		raise Exception("Don't know how to load post.json version %d (in %s)" % (d.version, jobid,))
+	return d
 
 def pickle_save(variable, filename='result.pickle', sliceno=None, temp=None, _hidden=False):
 	filename = _fn(filename, None, sliceno)

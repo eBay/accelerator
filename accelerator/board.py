@@ -145,8 +145,7 @@ def run(cfg, from_shell=False):
 			post = None
 		if post:
 			aborted = False
-			prefix = job.path + '/'
-			files = [fn[len(prefix):] for fn in job.files() if fn.startswith(prefix)]
+			files = [fn for fn in job.files() if fn[0] != '/']
 			subjobs = [Job(jobid) for jobid in post.subjobs]
 		else:
 			aborted = True

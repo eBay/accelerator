@@ -66,7 +66,7 @@ def show(path):
 		print()
 		print('files:')
 		for fn in sorted(post.files):
-			print('   ', fn)
+			print('   ', join(path, fn))
 	print()
 
 def main(argv, cfg):

@@ -180,13 +180,14 @@ class Main:
 		setup = update_setup(jobid, starttime=t0)
 		prof = setup.get('exectime', DotDict())
 		new_prof, files, subjobs = dispatch.launch(W.path, setup, self.config, self.Methods, active_workdirs, slices, self.debug, self.server_url, subjob_cookie, parent_pid)
+		prefix = join(W.path, jobid) + '/'
 		if self.debug:
 			delete_from = Temp.TEMP
 		else:
 			delete_from = Temp.DEBUG
 		for filename, temp in list(files.items()):
 			if temp >= delete_from:
-				unlink(join(W.path, jobid, filename))
+				unlink(join(prefix, filename))
 				del files[filename]
 		prof.update(new_prof)
 		prof.total = 0
@@ -197,8 +198,9 @@ class Main:
 			exectime=prof,
 		)
 		update_setup(jobid, **data)
-		data['files'] = files
+		data['files'] = sorted(fn[len(prefix):] if fn.startswith(prefix) else fn for fn in files)
 		data['subjobs'] = subjobs
+		data['version'] = 1
 		json_save(data, jobid.filename('post.json'))
 
 
