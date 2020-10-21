@@ -26,6 +26,8 @@ try:
 except ImportError:
 	before_install = True
 
+__all__ = []
+
 if not before_install:
 	def get_version():
 		import os.path
@@ -39,15 +41,26 @@ if not before_install:
 	__version__ = get_version()
 	del get_version
 	from .dataset import SkipSlice, SkipDataset
+	__all__.extend((SkipSlice, SkipDataset,))
 	from .error import AcceleratorError, UserError, ServerError
 	from .error import UrdError, UrdPermissionError, UrdConflictError
 	from .error import NoSuchWhateverError, NoSuchJobError, NoSuchWorkdirError
 	from .error import DatasetError, NoSuchDatasetError, DatasetUsageError
 	from .error import JobError
+	__all__.extend((AcceleratorError, UserError, ServerError,))
+	__all__.extend((UrdError, UrdPermissionError, UrdConflictError,))
+	__all__.extend((NoSuchWhateverError, NoSuchJobError, NoSuchWorkdirError,))
+	__all__.extend((DatasetError, NoSuchDatasetError, DatasetUsageError,))
+	__all__.extend((JobError,))
 	from .extras import DotDict
 	from .extras import OptionEnum, OptionString, RequiredOption, OptionDefault
+	__all__.extend((DotDict,))
+	__all__.extend((OptionEnum, OptionString, RequiredOption, OptionDefault,))
 	from .job import Job, JobWithFile
+	__all__.extend((Job, JobWithFile,))
 	from .statmsg import status, dummy_status
+	__all__.extend((status, dummy_status,))
 	from .subjobs import build
+	__all__.extend((build,))
 
 del before_install
