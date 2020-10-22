@@ -21,52 +21,52 @@ from __future__ import division
 from __future__ import unicode_literals
 
 from traceback import print_exc
-from os.path import join, split, normpath
+from os.path import split, realpath
 from datetime import datetime
 import errno
 
-from accelerator.extras import json_load
 from accelerator.setupfile import encode_setup
-from accelerator.job import Job
-from accelerator.compat import open, FileNotFoundError
+from accelerator.job import Job, WORKDIRS
+from accelerator.compat import FileNotFoundError
 
 def show(path):
 	if '/' not in path:
-		path = Job(path).path
-	path = normpath(path)
-	print(path)
-	print('=' * len(path))
-	jid = split(path)[1]
-	setup = json_load(join(path, 'setup.json'))
+		job = Job(path)
+	else:
+		path, jid = split(realpath(path))
+		job = Job(jid)
+		WORKDIRS[job.workdir] = path
+	print(job.path)
+	print('=' * len(job.path))
+	setup = job.json_load('setup.json')
 	setup.pop('_typing', None)
 	setup.starttime = str(datetime.fromtimestamp(setup.starttime))
 	if 'endtime' in setup:
 		setup.endtime = str(datetime.fromtimestamp(setup.endtime))
 	print(encode_setup(setup, as_str=True))
 	try:
-		with open(join(path, 'datasets.txt'), 'r', encoding='utf-8') as fh:
+		with job.open('datasets.txt') as fh:
 			print()
 			print('datasets:')
 			for line in fh:
-				print('    %s/%s' % (jid, line[:-1],))
+				print('    %s/%s' % (job, line[:-1],))
 	except IOError:
 		pass
 	try:
-		post = json_load(join(path, 'post.json'))
+		post = job.json_load('post.json')
 	except FileNotFoundError:
 		print('\x1b[31mWARNING: Job did not finish\x1b[m')
-		print()
-		return
-	if post.subjobs:
+		post = None
+	if post and post.subjobs:
 		print()
 		print('subjobs:')
 		for sj in sorted(post.subjobs):
 			print('   ', sj)
-	if post.files:
+	if post and post.files:
 		print()
 		print('files:')
 		for fn in sorted(post.files):
-			print('   ', join(path, fn))
+			print('   ', job.filename(fn))
 	print()
 
 def main(argv, cfg):
