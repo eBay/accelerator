@@ -24,12 +24,13 @@ from traceback import print_exc
 from os.path import split, realpath
 from datetime import datetime
 import errno
+import argparse
 
 from accelerator.setupfile import encode_setup
 from accelerator.job import Job, WORKDIRS
 from accelerator.compat import FileNotFoundError
 
-def show(path):
+def show(path, show_output):
 	if '/' not in path:
 		job = Job(path)
 	else:
@@ -68,16 +69,28 @@ def show(path):
 		for fn in sorted(post.files):
 			print('   ', job.filename(fn))
 	print()
+	out = job.output()
+	if show_output:
+		if out:
+			print('output:')
+			print(out)
+		else:
+			print(job, 'produced no output')
+			print()
+	elif out:
+		print('%s produced %d bytes of output, use --output to see it' % (job, len(out),))
+		print()
 
 def main(argv, cfg):
-	prog = argv.pop(0)
-	if '--help' in argv or '-h' in argv or not argv:
-		print('usage: %s [jobid or path] [...]' % (prog,))
-		print('show setup.json, dataset list, etc for jobs')
-		return
-	for path in argv:
+	usage = '%(prog)s [-o|--output] [jobid or path] [...]'
+	descr = 'show setup.json, dataset list, etc for jobs'
+	parser = argparse.ArgumentParser(prog=argv.pop(0), usage=usage, description=descr)
+	parser.add_argument('-o', '--output', action='store_true', help='show job output')
+	parser.add_argument('jobid', nargs='+')
+	args = parser.parse_args(argv)
+	for path in args.jobid:
 		try:
-			show(path)
+			show(path, args.output)
 		except Exception as e:
 			if isinstance(e, IOError) and e.errno == errno.EPIPE:
 				raise
