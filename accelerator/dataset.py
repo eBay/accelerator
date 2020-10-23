@@ -143,7 +143,7 @@ def _namechk(name):
 	if not name:
 		raise DatasetUsageError("Dataset name can't be empty")
 	name = uni(name)
-	for c in '/\n\0':
+	for c in '/\n\0%':
 		if c in name:
 			raise DatasetUsageError("Dataset name can't contain " + repr(c))
 	return name
