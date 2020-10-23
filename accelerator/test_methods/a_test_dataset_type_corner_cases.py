@@ -255,6 +255,8 @@ def test_datetimes():
 		('datetime mmmmmm.DD', 'datetime:%f.%d', [b'30.30', b'0.06', b'00030.03', b'999999.99', b'999999.11'], [datetime(1970, 1, 30, microsecond=300000), datetime(1970, 1, 6), datetime(1970, 1, 3, microsecond=300), None, datetime(1970, 1, 11, microsecond=999999)], None, False,),
 		('datetime mmmmmmpercentfpercentDD', 'datetime:%f%%f%%%d', [b'30%f%30', b'0%f%06', b'00030%f%03', b'999999%f%99', b'999999%f%11'], [datetime(1970, 1, 30, microsecond=300000), datetime(1970, 1, 6), datetime(1970, 1, 3, microsecond=300), None, datetime(1970, 1, 11, microsecond=999999)], None, False,),
 		('datetime unix.f', 'datetime:%s.%f', [b'30.30', b'1558662853.847211', b''], [datetime(1970, 1, 1, 0, 0, 30, 300000), datetime(2019, 5, 24, 1, 54, 13, 847211), datetime(1970, 1, 1, microsecond=100000)], '0.1', False,),
+		('datetime java', 'datetime:%J', [b'0', b'1558662853847', b'', b'-2005'], [datetime(1970, 1, 1), datetime(2019, 5, 24, 1, 54, 13, 847000), datetime(1970, 1, 1, 0, 0, 0, 1000), datetime(1969, 12, 31, 23, 59, 57, 995000)], '1', False,),
+		('datetime java blahbluh', 'datetime:blah%Jbluh', [b'blah0bluh', b'blah   30000bluh', b'bla0bluh', b'blah0blu', b'blah-2005bluh'], [datetime(1970, 1, 1), datetime(1970, 1, 1, 0, 0, 30), datetime(1970, 1, 1, 0, 0, 0, 1000), datetime(1970, 1, 1, 0, 0, 0, 1000), datetime(1969, 12, 31, 23, 59, 57, 995000)], 'blah1bluh', False,),
 	]
 	if sys.version_info >= (3, 6):
 		todo.extend((
@@ -264,7 +266,7 @@ def test_datetimes():
 	for name, typ, data, want, default, all_source_types in todo:
 		verify(name, [typ], data, want, default, all_source_types=all_source_types)
 		if default is not None:
-			if typ.endswith('%f'):
+			if typ.endswith('%f') or typ.endswith('%J'):
 				idata = [v + b'abc123' for v in data]
 				default += 'a2'
 			else:

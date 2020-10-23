@@ -58,7 +58,14 @@ def _resolve_datetime(coltype):
 			return fmt_a[:pos], fmt_a[pos + 1:]
 		elif cnt:
 			raise Exception('Bad pattern %r, only a single %r supported' % (fmt, sep,))
-	if '%f' in fmt_a:
+	if '%J' in fmt_a:
+		fmt_a, fmt_b = split('%J')
+		if any(v[0] == '%' and v != '%%' for v in fmt_a + fmt_b):
+			raise Exception('Can only parse %J as the only format specifier. (%r)' % (fmt,))
+		assert cfunc.startswith('datetime'), 'Only datetime can use %J'
+		cfunc = 'java' + cfunc
+		fmt_b = ''.join(fmt_b)
+	elif '%f' in fmt_a:
 		fmt_a, fmt_b = split('%f')
 		fmt_b = ''.join(fmt_b)
 	else:
@@ -265,6 +272,52 @@ _c_conv_unicode_specific_template = r'''
 	}
 '''
 
+_c_conv_date_java_ts_template = r'''
+	const char *startptr = line;
+	const char *fmtptr = fmt;
+	char *endptr;
+	while (*fmtptr) {
+		if (*fmtptr++ != *startptr++) {
+			startptr = "";
+			break;
+		}
+	}
+	errno = 0;
+	long long ts_j = strtoll(startptr, &endptr, 0);
+	if (errno || !endptr || startptr == endptr) {
+		ptr = 0;
+	} else {
+		fmtptr = fmt_b;
+		while (*fmtptr) {
+			if (*fmtptr++ != *endptr++) {
+				ptr = 0;
+				break;
+			}
+		}
+		if ((%(whole)d) && ptr) {
+			while (*endptr == 32 || (*endptr >= 9 && *endptr <= 13)) endptr++;
+		}
+		if (((%(whole)d) && *endptr) || !ptr) {
+			ptr = 0;
+		} else {
+			int32_t f = (ts_j %% 1000) * 1000;
+			time_t ts_u = ts_j / 1000;
+			const int fit = (ts_j / 1000 == ts_u);
+			if (f < 0) {
+				f += 1000000;
+				ts_u--;
+			}
+			struct tm tm;
+			memset(&tm, 0, sizeof(tm));
+			if (fit && gmtime_r(&ts_u, &tm)) {
+				uint32_t *p = (uint32_t *)ptr;
+%(conv)s
+			} else {
+				ptr = 0;
+			}
+		}
+	}
+'''
 _c_conv_date_template = r'''
 	const char *pres;
 	struct tm tm;
@@ -733,6 +786,8 @@ convfuncs = {
 # can be selected based on the :fmt specified in those values.
 # null_* is used when just copying a column with filtering.
 hidden_convfuncs = {
+	'javadatetime'       : ConvTuple(8, _c_conv_date_java_ts_template % dict(whole=1, conv=_c_conv_datetime,), None),
+	'javadatetimei'      : ConvTuple(8, _c_conv_date_java_ts_template % dict(whole=0, conv=_c_conv_datetime,), None),
 	'unicode_utf8'       : ConvTuple(0, ['', _c_conv_unicode_specific_template % dict(strip=0, func='PyUnicode_DecodeUTF8'), _c_conv_unicode_cleanup], None),
 	'unicodestrip_utf8'  : ConvTuple(0, ['', _c_conv_unicode_specific_template % dict(strip=1, func='PyUnicode_DecodeUTF8'), _c_conv_unicode_cleanup], None),
 	'unicode_latin1'     : ConvTuple(0, ['', _c_conv_unicode_specific_template % dict(strip=0, func='PyUnicode_DecodeLatin1'), _c_conv_unicode_cleanup], None),
@@ -796,6 +851,8 @@ typerename = {
 	'float64i'     : 'float64',
 	'float32i'     : 'float32',
 	'datetimei'    : 'datetime',
+	'javadatetime' : 'datetime',
+	'javadatetimei': 'datetime',
 	'datei'        : 'date',
 	'timei'        : 'time',
 	'bytesstrip'   : 'bytes',
