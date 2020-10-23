@@ -243,15 +243,17 @@ def test_datetimes():
 	todo = [
 		('date YYYYMMDD', 'date:%Y%m%d', [b'20190521', b'19700101', b'1970-01-01', b'1980', b'nah'], [date(2019, 5, 21), date(1970, 1, 1), date(1945, 6, 20), date(1945, 6, 20), date(1945, 6, 20)], '19450620', True,),
 		('date spacy YYYYMMDD', 'date: %Y %m %d', [b'20190521', b'   1970 01\n\n\n01', b'1970\t1 1    ', b'70 0 0', b'1981'], [date(2019, 5, 21), date(1970, 1, 1), date(1970, 1, 1), date(1945, 6, 20), date(1945, 6, 20)], '1945 6 20', False,),
+		('date YYYYblahMMDD', 'date:%Yblah%m%d', [b'2019blah0521', b'1970blah0101', b'1970blah-01-01', b'1980blah', b'nah'], [date(2019, 5, 21), date(1970, 1, 1), date(1945, 6, 20), date(1945, 6, 20), date(1945, 6, 20)], '1945blah0620', True,),
 		('datetime hhmmYYMMDD', 'datetime:%H%M%y%m%d', [b'1852190521', b'0000700101', b'today'], [datetime(2019, 5, 21, 18, 52), datetime(1970, 1, 1), datetime(1978, 1, 1)], '0000780101', False,),
 		('datetime YYYYMMDD HHMMSS.mmmmmm', 'datetime:%Y%m%d %H%M%S.%f', [b'20190521 185206.123', b'19700203040506.000007', b'19700203040506.-00007', b'today'], [datetime(2019, 5, 21, 18, 52, 6, 123000), datetime(1970, 2, 3, 4, 5, 6, 7), datetime(1978, 1, 1), datetime(1978, 1, 1)], '19780101 000000.0', True,),
 		('time HH:MM', 'time:%H:%M', [b'03:14', b'18:52', b'25:10'], [time(3, 14), time(18, 52), time(0, 42)], '00:42', True,),
-		('time HHMMSS', 'time:%H%M%S', [b'031400', b'185209', b'193860'], [time(3, 14), time(18, 52, 9), time(0, 42, 18)], '004218', False,),
+		('time HHMMpercentfSS', 'time:%H%M%%f%S', [b'0314%f00', b'1852%f09', b'1938%f60'], [time(3, 14), time(18, 52, 9), time(0, 42, 18)], '0042%f18', False,),
 		('time HHMM mmm.SS', 'time:%H%M %f.%S', [b'03149.00', b'1852456.09', b'1938   123456.44', b'1938123456.60', b'1852456   .09', b'1852456    .09'], [time(3, 14, 0, 900000), time(18, 52, 9, 456000), time(19, 38, 44, 123456), time(0, 42, 18), time(18, 52, 9, 456000), time(0, 42, 18)], '004200.18', False,),
 		('date MMDD', 'date:%m%d', [b'0101', b'1020', b'nah'], [date(1970, 1, 1), date(1970, 10, 20), date(1970, 6, 20)], '0620', False,),
 		('datetime YY', 'datetime:%y', [b'70', b'2000', b'19'], [datetime(1970, 1, 1, 0, 0, 0), None, datetime(2019, 1, 1, 0, 0, 0)], None, False,),
 		('datetime mmmmmmDD', 'datetime:%f%d', [b'00030030', b'00000006', b'00003003', b'99999999', b'99999911'], [datetime(1970, 1, 30, microsecond=300), datetime(1970, 1, 6), datetime(1970, 1, 3, microsecond=30), None, datetime(1970, 1, 11, microsecond=999999)], None, False,),
 		('datetime mmmmmm.DD', 'datetime:%f.%d', [b'30.30', b'0.06', b'00030.03', b'999999.99', b'999999.11'], [datetime(1970, 1, 30, microsecond=300000), datetime(1970, 1, 6), datetime(1970, 1, 3, microsecond=300), None, datetime(1970, 1, 11, microsecond=999999)], None, False,),
+		('datetime mmmmmmpercentfpercentDD', 'datetime:%f%%f%%%d', [b'30%f%30', b'0%f%06', b'00030%f%03', b'999999%f%99', b'999999%f%11'], [datetime(1970, 1, 30, microsecond=300000), datetime(1970, 1, 6), datetime(1970, 1, 3, microsecond=300), None, datetime(1970, 1, 11, microsecond=999999)], None, False,),
 		('datetime unix.f', 'datetime:%s.%f', [b'30.30', b'1558662853.847211', b''], [datetime(1970, 1, 1, 0, 0, 30, 300000), datetime(2019, 5, 24, 1, 54, 13, 847211), datetime(1970, 1, 1, microsecond=100000)], '0.1', False,),
 	]
 	if sys.version_info >= (3, 6):

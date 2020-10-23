@@ -39,11 +39,31 @@ __all__ = ('convfuncs', 'typerename', 'typesizes', 'minmaxfuncs',)
 
 def _resolve_datetime(coltype):
 	cfunc, fmt = coltype.split(':', 1)
-	if '%f' in fmt:
-		fmt, fmt_b = fmt.split('%f')
+	percent = False
+	fmt_a = []
+	for c in fmt:
+		if percent:
+			fmt_a.append('%' + c)
+			percent = False
+		elif c == '%':
+			percent = True
+		else:
+			fmt_a.append(c)
+	if percent:
+		raise Exception('Stray %% at end of pattern %r' % (fmt,))
+	def split(sep):
+		cnt = fmt_a.count(sep)
+		if cnt == 1:
+			pos = fmt_a.index(sep)
+			return fmt_a[:pos], fmt_a[pos + 1:]
+		elif cnt:
+			raise Exception('Bad pattern %r, only a single %r supported' % (fmt, sep,))
+	if '%f' in fmt_a:
+		fmt_a, fmt_b = split('%f')
+		fmt_b = ''.join(fmt_b)
 	else:
 		fmt_b = None
-	return cfunc, fmt, fmt_b
+	return cfunc, ''.join(fmt_a), fmt_b
 
 def _resolve_unicode(coltype, strip=False):
 	_, fmt = coltype.split(':', 1)
