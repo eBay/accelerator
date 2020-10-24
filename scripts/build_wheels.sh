@@ -74,6 +74,16 @@ if [ ! -e "$ZLIB_PREFIX/lib/libz.a" ]; then
 fi
 
 
+# Test running 2.7 and 3.5 under a 3.8 server
+/opt/python/cp27-cp27mu/bin/pip install virtualenv
+ACCELERATOR_BUILD_STATIC_ZLIB="$ZLIB_PREFIX/lib/libz.a" \
+CPPFLAGS="-I$ZLIB_PREFIX/include" \
+/accelerator/scripts/multiple_interpreters_test.sh /accelerator \
+"/opt/python/cp38-cp38/bin/python -m venv" \
+/opt/python/cp27-cp27mu/bin/virtualenv \
+"/opt/python/cp35-cp35m/bin/python -m venv"
+
+
 # The numeric_comma test needs a locale which uses numeric comma.
 localedef -i da_DK -f UTF-8 da_DK.UTF-8
 
@@ -113,7 +123,6 @@ done
 
 # Test that we can still read old job versions, from both cp27 and cp35.
 # (Don't use ACCELERATOR_BUILD_STATIC_ZLIB, because these old versions don't understand it.)
-/opt/python/cp27-cp27mu/bin/pip install virtualenv
 /opt/python/cp38-cp38/bin/pip install /out/wheelhouse/$NAME-cp38-cp38-$AUDITWHEEL_PLAT.whl
 VE=/opt/python/cp27-cp27mu/bin/virtualenv
 for V in cp27-cp27mu cp35-cp35m; do
