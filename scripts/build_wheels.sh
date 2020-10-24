@@ -111,5 +111,15 @@ for V in $(ls /opt/python/); do
 	esac
 done
 
+# Test that we can still read old job versions
+# (Don't use ACCELERATOR_BUILD_STATIC_ZLIB, because these old versions don't understand it.)
+mkdir /tmp/version_test
+CPPFLAGS="-I$ZLIB_PREFIX/include" \
+LDFLAGS="-L$ZLIB_PREFIX/lib" \
+USER="DUMMY" \
+/accelerator/scripts/make_old_versions.sh /opt/python/cp35-cp35m/bin/python /accelerator /tmp/version_test/
+/opt/python/cp38-cp38/bin/pip install /out/wheelhouse/$NAME-cp38-cp38-$AUDITWHEEL_PLAT.whl
+PATH="/opt/python/cp38-cp38/bin:$PATH" /accelerator/scripts/check_old_versions.sh /tmp/version_test/
+
 set +x
 echo "$BUILT"
