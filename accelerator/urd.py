@@ -498,6 +498,23 @@ def slash_list():
 	return sorted(db.keys())
 
 
+@bottle.error(401)
+@bottle.error(404)
+@bottle.error(409)
+@bottle.error(500)
+def error_handler(e):
+	res = [e.body]
+	if e.exception:
+		res.append(repr(e.exception))
+	if e.traceback:
+		res.append(e.traceback)
+	if isinstance(e.exception, AssertionError):
+		# Just the message then
+		res = [str(e.exception)]
+	bottle.response.content_type = 'text/plain'
+	return '\n'.join(res).encode('utf-8')
+
+
 def readauth(filename):
 	if not os.path.exists(filename):
 		return {}
