@@ -67,14 +67,17 @@ def path_prefix(paths):
 	prefix = prefix.rsplit('/', 1)[0] + '/'
 	return prefix
 
-def check_picklable(desc, modname, value):
+class MsgException(Exception):
+	pass
+
+def check_picklable(desc, value):
 	from accelerator.compat import pickle
 	try:
 		pickle.dumps(value)
 		return
 	except Exception as e:
 		msg = str(e)
-	raise Exception('Unpicklable %s in %s: %s' % (desc, modname, msg,))
+	raise MsgException('Unpicklable %s: %s' % (desc, msg,))
 
 def load_methods(all_packages, data):
 	from accelerator.compat import str_types, iteritems
@@ -116,7 +119,7 @@ def load_methods(all_packages, data):
 						dep = prefix + dep
 					depend_extra.append(dep)
 				else:
-					raise Exception('Bad depend_extra in %s.a_%s: %r' % (package, key, dep,))
+					raise MsgException('Bad depend_extra: %r' % (dep,))
 			dep_prefix = os.path.commonprefix(depend_extra + [mod_filename])
 			# commonprefix works per character (and commonpath is v3.5+)
 			dep_prefix = dep_prefix.rsplit('/', 1)[0] + '/'
@@ -266,16 +269,19 @@ def load_methods(all_packages, data):
 						d['[%s]' % (item[0],)] = d.pop(item[0])
 			equivalent_hashes = getattr(mod, 'equivalent_hashes', ())
 			if equivalent_hashes:
-				assert isinstance(equivalent_hashes, dict), 'Read the docs about equivalent_hashes'
-				assert len(equivalent_hashes) == 1, 'Read the docs about equivalent_hashes'
-				k, v = next(iteritems(equivalent_hashes))
-				assert isinstance(k, str_types), 'Read the docs about equivalent_hashes'
-				if isinstance(v, str_types):
-					v = (v,)
-				assert isinstance(v, tuple), 'Read the docs about equivalent_hashes'
-				for vv in v:
-					assert isinstance(vv, str_types), 'Read the docs about equivalent_hashes'
-					assert len(vv) == 40, 'Read the docs about equivalent_hashes'
+				try:
+					assert isinstance(equivalent_hashes, dict)
+					assert len(equivalent_hashes) == 1
+					k, v = next(iteritems(equivalent_hashes))
+					assert isinstance(k, str_types)
+					if isinstance(v, str_types):
+						v = (v,)
+					assert isinstance(v, tuple)
+					for vv in v:
+						assert isinstance(vv, str_types)
+						assert len(vv) == 40
+				except AssertionError:
+					raise MsgException('Read the docs about equivalent_hashes')
 				if src.startswith(b'equivalent_hashes '):
 					start = 0
 				else:
@@ -292,10 +298,13 @@ def load_methods(all_packages, data):
 			tar_o.close()
 			tar_fh.seek(0)
 			archives[key] = tar_fh.read()
-			check_picklable('options/datasets/jobs', modname, res_params[key])
-			check_picklable('description', modname, res_descriptions[key])
-		except Exception:
-			print_exc()
+			check_picklable('options/datasets/jobs', res_params[key])
+			check_picklable('description', res_descriptions[key])
+		except Exception as e:
+			if isinstance(e, MsgException):
+				print('%s: %s' % (modname, str(e),))
+			else:
+				print_exc()
 			res_failed.append(modname)
 			for d in res_hashes, res_params, res_descriptions:
 				d.pop(key, None)

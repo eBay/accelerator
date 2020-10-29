@@ -154,7 +154,11 @@ cmd_abort.help = '''abort running job(s)'''
 
 def cmd_server(argv):
 	from accelerator.server import main
-	main(argv, cfg)
+	from accelerator.methods import MethodLoadException
+	try:
+		main(argv, cfg)
+	except MethodLoadException as e:
+		print(e)
 cmd_server.help = '''run the main server'''
 
 def cmd_init(argv):
