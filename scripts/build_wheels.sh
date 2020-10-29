@@ -39,7 +39,7 @@ else
 	test -e /out/wheelhouse/"$NAME".tar.gz && exit 1
 	cd /tmp
 	rm -rf accelerator
-	git clone /accelerator
+	git clone -s /accelerator
 	cd accelerator
 	git checkout $2
 	ACCELERATOR_BUILD_VERSION="$VERSION" ACCELERATOR_BUILD="$ACCELERATOR_BUILD" /opt/python/cp38-cp38/bin/python3 ./setup.py sdist
