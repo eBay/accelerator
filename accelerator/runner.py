@@ -67,6 +67,15 @@ def path_prefix(paths):
 	prefix = prefix.rsplit('/', 1)[0] + '/'
 	return prefix
 
+def check_picklable(desc, modname, value):
+	from accelerator.compat import pickle
+	try:
+		pickle.dumps(value)
+		return
+	except Exception as e:
+		msg = str(e)
+	raise Exception('Unpicklable %s in %s: %s' % (desc, modname, msg,))
+
 def load_methods(all_packages, data):
 	from accelerator.compat import str_types, iteritems
 	from accelerator.extras import DotDict, OptionEnum, OptionEnumValue
@@ -283,9 +292,13 @@ def load_methods(all_packages, data):
 			tar_o.close()
 			tar_fh.seek(0)
 			archives[key] = tar_fh.read()
+			check_picklable('options/datasets/jobs', modname, res_params[key])
+			check_picklable('description', modname, res_descriptions[key])
 		except Exception:
 			print_exc()
 			res_failed.append(modname)
+			for d in res_hashes, res_params, res_descriptions:
+				d.pop(key, None)
 			continue
 	return res_warnings, res_failed, res_hashes, res_params, res_descriptions
 
