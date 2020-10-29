@@ -534,6 +534,7 @@ def jsonify(callback):
 		res = callback(*a, **kw)
 		if isinstance(res, (bottle.BaseResponse, bottle.BottleException)):
 			return res
+		bottle.response.content_type = 'text/json'
 		return json.dumps(res)
 	return func
 
