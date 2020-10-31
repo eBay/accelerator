@@ -370,6 +370,7 @@ static int import_slice(const int fd, const int sliceno, const int slices, int f
 	}
 	buf = malloc(sizeof(*buf));
 	err1(!buf);
+	errno = 0;
 	buf->pos = buf->avail = 0;
 	if (quote_char < 257) {
 		// For storing unquoted fields (extra room for a short length)
