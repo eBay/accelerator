@@ -63,7 +63,8 @@ options = dict(
 	quotes            = '',    # Empty or False means no quotes, True means both ' and ", any other character means itself.
 	labelsonfirstline = True,
 	labels            = [],    # Mandatory if not labelsonfirstline, always sets labels if set.
-	rename            = {},    # Labels to replace (if they are in the file) (happens first)
+	strip_labels      = False, # Do .strip() on all labels (happens before rename).
+	rename            = {},    # Labels to replace (if they are in the file) (happens before discard).
 	discard           = set(), # Labels to not include (if they are in the file)
 	lineno_label      = "",    # Label of column to store line number in (not stored if empty).
 	allow_bad         = False, # Still succeed if some lines have too few/many fields or bad quotes
@@ -201,6 +202,8 @@ def prepare(job, slices):
 
 	labels = options.labels or labels_from_file
 	assert labels, "No labels"
+	if options.strip_labels:
+		labels = [x.strip() for x in labels]
 	labels = [options.rename.get(x, x) for x in labels]
 	assert '' not in labels, "Empty label for column %d" % (labels.index(''),)
 	assert len(labels) == len(set(labels)), "Duplicate labels: %r" % (labels,)
