@@ -191,6 +191,9 @@ def synthesis(job):
 	check_good_file(job, "allow extra empty", b"ix,0,1,,,,\n1,a,a\n2,b,b,,\n3,,,", {1: b"a", 2: b"b", 3: b""}, allow_extra_empty=True)
 	check_good_file(job, "allow extra empty quoted", b"ix,_0_,1,,,__,\n1,a,a\n_2_,b,b,__,\n3,c,c,__", {1: b"a", 2: b"b", 3: b"c"}, allow_extra_empty=True, quotes='_')
 	check_good_file(job, "allow extra empty quoted bad", b"ix,0,1,,,'',\"\"\n1,a,a\n'2',b,b,'',\n3,c,c,\"\"\n4,d,d,'\"\n5,'',\"\",'", {1: b"a", 2: b"b", 3: b"c"}, allow_extra_empty=True, quotes=True, allow_bad=True, d_bad={5: b"4,d,d,'\"", 6: b"5,'',\"\",'"})
+	check_good_file(job, "skip empty lines", b"\nix,0,1\n\n\n1,a,a\n", {1: b"a"}, skip_empty_lines=True)
+	check_good_file(job, "skip empty lines and comments", b"\r\nix,0,1\n\n\n5,a,a\n#6,b,b\n7,c,c\n#", {5: b"a", 7: b"c"}, skip_empty_lines=True, comment="#", d_skipped={1: b"", 3: b"", 4: b"", 6: b"#6,b,b", 8: b"#"}, lineno_label="line")
+	check_good_file(job, "skip empty lines and bad", b"\n\nix,0,1\n4,a,a\n \n6,b,b\n\r\n", {4: b"a", 6: b"b"}, skip_empty_lines=True, comment="#", d_skipped={1: b"", 2: b"", 7: b""}, d_bad={5: b" "}, allow_bad=True, lineno_label="line")
 
 	bad_lines = [
 		b"bad,bad",
