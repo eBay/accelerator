@@ -32,8 +32,8 @@ with or without quotes. Any single iso-8859-1 character or both \n and \r\n
 If allow_bad is set also creates a "bad" dataset containing lineno and data
 from bad lines.
 
-If comment or skip_lines is set also creates a "skipped" dataset containing
-lineno and data from skipped lines.
+If comment, skip_lines or skip_empty_lines is set also creates a "skipped"
+dataset containing lineno and data from skipped lines.
 
 If you want lineno for good lines too set lineno_label.
 
@@ -71,6 +71,7 @@ options = dict(
 	                           # creates a "bad" dataset containing lineno and data from the bad lines.
 	allow_extra_empty = False, # Still consider a line good if it has extra empty fields at the end.
 	skip_lines        = 0,     # skip this many lines at the start of the file.
+	skip_empty_lines  = False, # ignore empty lines
 	compression       = 6,     # gzip level
 )
 
@@ -112,7 +113,7 @@ def reader_process(slices, filename, write_fds, labels_fd, success_fd, status_fd
 	os.dup2(success_fd, 2) # reader writes errors to stderr
 	os.close(success_fd)
 	success_fd = 2
-	res = cstuff.backend.reader(filename.encode("ascii"), slices, options.skip_lines, write_fds, labels_fd, status_fd, comment_char, lf_char)
+	res = cstuff.backend.reader(filename.encode("ascii"), slices, options.skip_lines, options.skip_empty_lines, write_fds, labels_fd, status_fd, comment_char, lf_char)
 	if not res:
 		os.write(success_fd, b"\0")
 	os.close(success_fd)
@@ -243,7 +244,7 @@ def prepare(job, slices):
 	else:
 		bad_dw = None
 
-	if options.comment or options.skip_lines:
+	if options.comment or options.skip_lines or options.skip_empty_lines:
 		skipped_dw = job.datasetwriter(
 			name="skipped",
 			filename=orig_filename,

@@ -170,7 +170,7 @@ err:
 // smallest int32
 #define LABELS_DONE_MARKER -2147483648
 
-static int reader(const char *fn, const int slices, uint64_t skip_lines, const int outfds[], int labels_fd, int status_fd, const int comment_char, const int lf_char)
+static int reader(const char *fn, const int slices, uint64_t skip_lines, const int skip_empty_lines, const int outfds[], int labels_fd, int status_fd, const int comment_char, const int lf_char)
 {
 	int res = 1;
 	int sliceno = 0;
@@ -227,7 +227,7 @@ static int reader(const char *fn, const int slices, uint64_t skip_lines, const i
 		} else if (ptr[len - 1] == lf_char) {
 			len--;
 		}
-		if (skip_lines || *ptr == comment_char) {
+		if (skip_lines || *ptr == comment_char || (skip_empty_lines && len == 0)) {
 			if (skip_lines) skip_lines--;
 			claim_len = -len - 1;
 		} else {
@@ -587,16 +587,18 @@ static PyObject *py_reader(PyObject *self, PyObject *args)
 	const char *fn;
 	int slices;
 	PY_LONG_LONG skip_lines;
+	int skip_empty_lines;
 	PyObject *o_outfds;
 	int *outfds = 0;
 	int labels_fd;
 	int status_fd;
 	int comment_char;
 	int lf_char;
-	if (!PyArg_ParseTuple(args, "etiLOiiii",
+	if (!PyArg_ParseTuple(args, "etiLiOiiii",
 		Py_FileSystemDefaultEncoding, &fn,
 		&slices,
 		&skip_lines,
+		&skip_empty_lines,
 		&o_outfds,
 		&labels_fd,
 		&status_fd,
@@ -617,7 +619,7 @@ static PyObject *py_reader(PyObject *self, PyObject *args)
 			return 0;
 		}
 	}
-	fail = reader(fn, slices, skip_lines, outfds, labels_fd, status_fd, comment_char, lf_char);
+	fail = reader(fn, slices, skip_lines, skip_empty_lines, outfds, labels_fd, status_fd, comment_char, lf_char);
 	fflush(stderr);
 err:
 	if (outfds) free(outfds);
@@ -702,7 +704,7 @@ c_module_code, c_module_hash = c_backend_support.make_source('csvimport', all_c_
 
 def init():
 	protos = [
-		'static int reader(const char *fn, const int slices, uint64_t skip_lines, const int outfds[], int labels_fd, int status_fd, const int comment_char, const int lf_char);',
+		'static int reader(const char *fn, const int slices, uint64_t skip_lines, const int skip_empty_lines, const int outfds[], int labels_fd, int status_fd, const int comment_char, const int lf_char);',
 		'static int import_slice(const int fd, const int sliceno, const int slices, const int field_count, const char *out_fns[], const char *gzip_mode, const int separator, uint64_t *r_num, const int quote_char, const int lf_char, const int allow_bad, const int allow_extra_empty);',
 		'static int char2int(const char c);',
 	]
