@@ -1,6 +1,6 @@
 ############################################################################
 #                                                                          #
-# Copyright (c) 2019 Carl Drougge                                          #
+# Copyright (c) 2019-2020 Carl Drougge                                     #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -187,6 +187,10 @@ def synthesis(job):
 	check_good_file(job, "lineno with bad lines", b"ix,0,1\n2,a,a\n3,b\nc\n5,d,d\n6,e,e\n7\n8,g,g\n\n", {2: b"a", 5: b"d", 6: b"e", 8: b"g"}, d_bad={3: b"3,b", 4: b"c", 7: b"7", 9: b""}, allow_bad=True, lineno_label="num")
 	check_good_file(job, "lineno with skipped lines", b"a\nb\n3,c,c\n4,d,d", {3: b"c", 4: b"d"}, lineno_label="l", labels=["ix", "0", "1"], labelsonfirstline=False, skip_lines=2, d_skipped={1: b"a", 2: b"b"})
 	check_good_file(job, "lineno with comment lines", b"ix,0,1\n2,a,a\n3,b,b\n#4,c,c\n5,d,d", {2: b"a", 3: b"b", 5: b"d"}, lineno_label="another name", comment="#", d_skipped={4: b"#4,c,c"})
+	check_good_file(job, "strip labels", b" ix , 0 , 1 \n1,a,a\n2,b ,b ", {1: b"a", 2: b"b "}, strip_labels=True)
+	check_good_file(job, "allow extra empty", b"ix,0,1,,,,\n1,a,a\n2,b,b,,\n3,,,", {1: b"a", 2: b"b", 3: b""}, allow_extra_empty=True)
+	check_good_file(job, "allow extra empty quoted", b"ix,_0_,1,,,__,\n1,a,a\n_2_,b,b,__,\n3,c,c,__", {1: b"a", 2: b"b", 3: b"c"}, allow_extra_empty=True, quotes='_')
+	check_good_file(job, "allow extra empty quoted bad", b"ix,0,1,,,'',\"\"\n1,a,a\n'2',b,b,'',\n3,c,c,\"\"\n4,d,d,'\"\n5,'',\"\",'", {1: b"a", 2: b"b", 3: b"c"}, allow_extra_empty=True, quotes=True, allow_bad=True, d_bad={5: b"4,d,d,'\"", 6: b"5,'',\"\",'"})
 
 	bad_lines = [
 		b"bad,bad",
