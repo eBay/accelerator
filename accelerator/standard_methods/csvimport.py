@@ -350,7 +350,7 @@ static inline int bufread(const int fd, readbuf *buf, const uint32_t len, int *r
 	return 0;
 }
 
-static int import_slice(const int fd, const int sliceno, const int slices, int field_count, const char *out_fns[], const char *gzip_mode, const int separator, uint64_t *r_num, const int quote_char, const int lf_char, const int allow_bad)
+static int import_slice(const int fd, const int sliceno, const int slices, int field_count, const char *out_fns[], const char *gzip_mode, const int separator, uint64_t *r_num, const int quote_char, const int lf_char, const int allow_bad, const int allow_extra_empty)
 {
 	FILE * const badline_report_fh = (allow_bad ? stdout : stderr);
 	int badline_reported = 0;
@@ -429,7 +429,8 @@ buf_prefilled:
 			int last = 0;
 			char *sep;
 			const int quote = bufptr[pos];
-			if (quote == quote_char || (quote_char == 256 && (quote == '"' || quote == '\''))) {
+#define IS_QUOTE (quote == quote_char || (quote_char == 256 && (quote == '"' || quote == '\'')))
+			if (IS_QUOTE) {
 				char *ptr = bufptr + pos + 1;
 				char *qptr = 0;
 				const char * const buf_end = bufptr + len;
@@ -491,8 +492,24 @@ buf_prefilled:
 						badline_reported = 1;
 						goto bad_line;
 					}
-				} else {
-					if (field == real_field_count) {
+				} else if (field == real_field_count) {
+					if (allow_extra_empty) while (pos < len) {
+						if (bufptr[pos] == separator) {
+							pos++;
+						} else {
+							const int quote = bufptr[pos];
+							if (pos + 2 <= len && IS_QUOTE) {
+								if (bufptr[pos + 1] == quote && (pos + 2 == len || bufptr[pos + 2] == separator)) {
+									pos += 3;
+								} else {
+									break;
+								}
+							} else {
+								break;
+							}
+						}
+					}
+					if (!allow_extra_empty || pos < len) {
 						if (!r_num[1]) {
 							fprintf(badline_report_fh, "Too many fields on line %llu", (unsigned long long)lineno);
 						}
@@ -624,7 +641,8 @@ static PyObject *py_import_slice(PyObject *self, PyObject *args)
 	int quote_char;
 	int lf_char;
 	int allow_bad;
-	if (!PyArg_ParseTuple(args, "iiiiOetiOiii",
+	int allow_extra_empty;
+	if (!PyArg_ParseTuple(args, "iiiiOetiOiiii",
 		&fd,
 		&sliceno,
 		&slices,
@@ -635,7 +653,8 @@ static PyObject *py_import_slice(PyObject *self, PyObject *args)
 		&o_r_num,
 		&quote_char,
 		&lf_char,
-		&allow_bad
+		&allow_bad,
+		&allow_extra_empty
 	)) {
 		return 0;
 	}
@@ -652,7 +671,7 @@ static PyObject *py_import_slice(PyObject *self, PyObject *args)
 			return 0;
 		}
 	}
-	err1(import_slice(fd, sliceno, slices, field_count, out_fns, gzip_mode, separator, r_num, quote_char, lf_char, allow_bad));
+	err1(import_slice(fd, sliceno, slices, field_count, out_fns, gzip_mode, separator, r_num, quote_char, lf_char, allow_bad, allow_extra_empty));
 	for (int i = 0; i < 3; i++) {
 		err1(PyList_SetItem(o_r_num, i, PyLong_FromUnsignedLongLong(r_num[i])));
 	}
@@ -684,7 +703,7 @@ c_module_code, c_module_hash = c_backend_support.make_source('csvimport', all_c_
 def init():
 	protos = [
 		'static int reader(const char *fn, const int slices, uint64_t skip_lines, const int outfds[], int labels_fd, int status_fd, const int comment_char, const int lf_char);',
-		'static int import_slice(const int fd, const int sliceno, const int slices, const int field_count, const char *out_fns[], const char *gzip_mode, const int separator, uint64_t *r_num, const int quote_char, const int lf_char, const int allow_bad);',
+		'static int import_slice(const int fd, const int sliceno, const int slices, const int field_count, const char *out_fns[], const char *gzip_mode, const int separator, uint64_t *r_num, const int quote_char, const int lf_char, const int allow_bad, const int allow_extra_empty);',
 		'static int char2int(const char c);',
 	]
 	return c_backend_support.init('csvimport', c_module_hash, [], protos, all_c_functions)

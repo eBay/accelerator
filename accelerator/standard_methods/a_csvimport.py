@@ -69,6 +69,7 @@ options = dict(
 	lineno_label      = "",    # Label of column to store line number in (not stored if empty).
 	allow_bad         = False, # Still succeed if some lines have too few/many fields or bad quotes
 	                           # creates a "bad" dataset containing lineno and data from the bad lines.
+	allow_extra_empty = False, # Still consider a line good if it has extra empty fields at the end.
 	skip_lines        = 0,     # skip this many lines at the start of the file.
 	compression       = 6,     # gzip level
 )
@@ -130,13 +131,13 @@ def char2int(name, empty_value, specials="empty"):
 	assert len(char) == 1, msg
 	return cstuff.backend.char2int(char)
 
-def import_slice(fallback_msg, fd, sliceno, slices, field_count, out_fns, gzip_mode, separator, r_num, quote_char, lf_char, allow_bad):
+def import_slice(fallback_msg, fd, sliceno, slices, field_count, out_fns, gzip_mode, separator, r_num, quote_char, lf_char, allow_bad, allow_extra_empty):
 	fn = "import.success.%d" % (sliceno,)
 	fh = open(fn, "wb+")
 	real_stderr = os.dup(2)
 	try:
 		os.dup2(fh.fileno(), 2)
-		res = cstuff.backend.import_slice(*cstuff.bytesargs(fd, sliceno, slices, field_count, out_fns, gzip_mode, separator, r_num, quote_char, lf_char, allow_bad))
+		res = cstuff.backend.import_slice(*cstuff.bytesargs(fd, sliceno, slices, field_count, out_fns, gzip_mode, separator, r_num, quote_char, lf_char, allow_bad, allow_extra_empty))
 		os.dup2(real_stderr, 2)
 		fh.seek(0)
 		msg = fh.read().decode("utf-8", "replace")
@@ -191,7 +192,7 @@ def prepare(job, slices):
 		r_num = cstuff.mk_uint64(3)
 		open("labels", "wb").close()
 		try:
-			import_slice("c backend failed in label parsing", labels_rfd, -1, -1, -1, out_fns, b"wb1", separator, r_num, quote_char, lf_char, 0)
+			import_slice("c backend failed in label parsing", labels_rfd, -1, -1, -1, out_fns, b"wb1", separator, r_num, quote_char, lf_char, 0, 0)
 		finally:
 			os.close(labels_rfd)
 		with typed_reader("bytes")("labels") as fh:
@@ -201,6 +202,9 @@ def prepare(job, slices):
 		labels_from_file = None
 
 	labels = options.labels or labels_from_file
+	if options.allow_extra_empty:
+		while labels and labels[-1] == '':
+			labels.pop()
 	assert labels, "No labels"
 	if options.strip_labels:
 		labels = [x.strip() for x in labels]
@@ -290,7 +294,7 @@ def analysis(sliceno, slices, prepare_res, update_top_status):
 	r_num = cstuff.mk_uint64(3) # [good_count, bad_count, comment_count]
 	gzip_mode = b"wb%d" % (options.compression,)
 	try:
-		import_slice("c backend failed in slice %d" % (sliceno,), fds[sliceno], sliceno, slices, len(labels), out_fns, gzip_mode, separator, r_num, quote_char, lf_char, options.allow_bad)
+		import_slice("c backend failed in slice %d" % (sliceno,), fds[sliceno], sliceno, slices, len(labels), out_fns, gzip_mode, separator, r_num, quote_char, lf_char, options.allow_bad, options.allow_extra_empty)
 	finally:
 		os.close(fds[sliceno])
 	return list(r_num)
