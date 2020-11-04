@@ -66,13 +66,13 @@ def show(job, show_output):
 	out = job.output()
 	if show_output:
 		if out:
-			print('output:')
+			print('output (use --just-output/-O to see only the output):')
 			print(out)
 		else:
 			print(job, 'produced no output')
 			print()
 	elif out:
-		print('%s produced %d bytes of output, use --output to see it' % (job, len(out),))
+		print('%s produced %d bytes of output, use --output/-o to see it' % (job, len(out),))
 		print()
 
 def main(argv, cfg):
