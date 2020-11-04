@@ -68,6 +68,8 @@ def show(job, show_output):
 		if out:
 			print('output (use --just-output/-O to see only the output):')
 			print(out)
+			if not out.endswith('\n'):
+				print()
 		else:
 			print(job, 'produced no output')
 			print()
