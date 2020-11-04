@@ -78,12 +78,11 @@ def show(job, show_output):
 		print()
 
 def main(argv, cfg):
-	usage = '%(prog)s [-o|--output] [jobid or path] [...]'
 	descr = 'show setup.json, dataset list, etc for jobs'
-	parser = argparse.ArgumentParser(prog=argv.pop(0), usage=usage, description=descr)
+	parser = argparse.ArgumentParser(prog=argv.pop(0), description=descr)
 	parser.add_argument('-o', '--output', action='store_true', help='show job output')
 	parser.add_argument('-O', '--just-output', action='store_true', help='show only job output')
-	parser.add_argument('jobid', nargs='+')
+	parser.add_argument('jobid', nargs='+', metavar='jobid or path')
 	args = parser.parse_args(argv)
 	for path in args.jobid:
 		try:
