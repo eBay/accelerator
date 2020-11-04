@@ -30,13 +30,7 @@ from accelerator.setupfile import encode_setup
 from accelerator.job import Job, WORKDIRS
 from accelerator.compat import FileNotFoundError
 
-def show(path, show_output):
-	if '/' not in path:
-		job = Job(path)
-	else:
-		path, jid = split(realpath(path))
-		job = Job(jid)
-		WORKDIRS[job.workdir] = path
+def show(job, show_output):
 	print(job.path)
 	print('=' * len(job.path))
 	setup = job.json_load('setup.json')
@@ -90,7 +84,13 @@ def main(argv, cfg):
 	args = parser.parse_args(argv)
 	for path in args.jobid:
 		try:
-			show(path, args.output)
+			if '/' not in path:
+				job = Job(path)
+			else:
+				path, jid = split(realpath(path))
+				job = Job(jid)
+				WORKDIRS[job.workdir] = path
+			show(job, args.output)
 		except Exception as e:
 			if isinstance(e, IOError) and e.errno == errno.EPIPE:
 				raise
