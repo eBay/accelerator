@@ -80,6 +80,7 @@ def main(argv, cfg):
 	descr = 'show setup.json, dataset list, etc for jobs'
 	parser = argparse.ArgumentParser(prog=argv.pop(0), usage=usage, description=descr)
 	parser.add_argument('-o', '--output', action='store_true', help='show job output')
+	parser.add_argument('-O', '--just-output', action='store_true', help='show only job output')
 	parser.add_argument('jobid', nargs='+')
 	args = parser.parse_args(argv)
 	for path in args.jobid:
@@ -90,7 +91,11 @@ def main(argv, cfg):
 				path, jid = split(realpath(path))
 				job = Job(jid)
 				WORKDIRS[job.workdir] = path
-			show(job, args.output)
+			if args.just_output:
+				out = job.output()
+				print(out, end='' if out.endswith('\n') else '\n')
+			else:
+				show(job, args.output)
 		except Exception as e:
 			if isinstance(e, IOError) and e.errno == errno.EPIPE:
 				raise
