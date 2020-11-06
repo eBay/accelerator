@@ -138,6 +138,11 @@ class XtdHandler(BaseWebHandler):
 				os.killpg(child, signal.SIGKILL)
 			self.do_response(200, 'text/json', {'killed': len(tokill)})
 
+		elif path[0] == 'find_latest':
+			l = self.ctrl.DataBase.db_by_method.get(path[1])
+			res = {'id': l[0].id} if l else None
+			self.do_response(200, 'text/json', res)
+
 		elif path==['submit']:
 			if self.ctrl.broken:
 				self.do_response(500, "text/json", {'broken': self.ctrl.broken, 'error': 'Broken methods: ' + ', '.join(sorted(m.split('.')[-1][2:] for m in self.ctrl.broken))})

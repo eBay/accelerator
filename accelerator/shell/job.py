@@ -25,10 +25,12 @@ from os.path import split, realpath
 from datetime import datetime
 import errno
 import argparse
+import re
 
 from accelerator.setupfile import encode_setup
 from accelerator.job import Job, WORKDIRS
 from accelerator.compat import FileNotFoundError
+from accelerator.unixhttp import call
 
 def show(job, show_output):
 	print(job.path)
@@ -87,7 +89,13 @@ def main(argv, cfg):
 	for path in args.jobid:
 		try:
 			if '/' not in path:
-				job = Job(path)
+				if re.search(r'-\d+$', path):
+					job = Job(path)
+				else:
+					found = call(cfg.url + '/find_latest/' + path)
+					if not found:
+						raise Exception('No job with method %s available.' % (path,))
+					job = Job(found.id)
 			else:
 				path, jid = split(realpath(path))
 				job = Job(jid)
