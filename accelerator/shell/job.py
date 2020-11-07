@@ -82,9 +82,10 @@ def show(job, show_output):
 def main(argv, cfg):
 	descr = 'show setup.json, dataset list, etc for jobs'
 	parser = argparse.ArgumentParser(prog=argv.pop(0), description=descr)
-	parser.add_argument('-o', '--output', action='store_true', help='show job output')
-	parser.add_argument('-O', '--just-output', action='store_true', help='show only job output')
-	parser.add_argument('-P', '--just-path', action='store_true', help='show only job path')
+	group = parser.add_mutually_exclusive_group()
+	group.add_argument('-o', '--output', action='store_true', help='show job output')
+	group.add_argument('-O', '--just-output', action='store_true', help='show only job output')
+	group.add_argument('-P', '--just-path', action='store_true', help='show only job path')
 	parser.add_argument('jobid', nargs='+', metavar='jobid or path')
 	args = parse_intermixed_args(parser, argv)
 	for path in args.jobid:
