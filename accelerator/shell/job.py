@@ -29,7 +29,7 @@ import re
 
 from accelerator.setupfile import encode_setup
 from accelerator.job import Job, WORKDIRS
-from accelerator.compat import FileNotFoundError
+from accelerator.compat import FileNotFoundError, parse_intermixed_args
 from accelerator.unixhttp import call
 
 def show(job, show_output):
@@ -85,7 +85,7 @@ def main(argv, cfg):
 	parser.add_argument('-o', '--output', action='store_true', help='show job output')
 	parser.add_argument('-O', '--just-output', action='store_true', help='show only job output')
 	parser.add_argument('jobid', nargs='+', metavar='jobid or path')
-	args = parser.parse_args(argv)
+	args = parse_intermixed_args(parser, argv)
 	for path in args.jobid:
 		try:
 			if '/' not in path:

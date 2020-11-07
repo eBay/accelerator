@@ -30,7 +30,7 @@ from itertools import chain, repeat
 import errno
 from os import write
 
-from accelerator.compat import unicode, izip, imap
+from accelerator.compat import unicode, izip, imap, parse_intermixed_args
 from .dscmdhelper import name2ds
 from accelerator import g
 
@@ -51,7 +51,7 @@ def main(argv):
 	parser.add_argument('pattern')
 	parser.add_argument('dataset')
 	parser.add_argument('columns', nargs='*', default=[])
-	args = parser.parse_args(argv)
+	args = parse_intermixed_args(parser, argv)
 
 	pat_s = re.compile(args.pattern                , re.IGNORECASE if args.ignore_case else 0)
 	pat_b = re.compile(args.pattern.encode('utf-8'), re.IGNORECASE if args.ignore_case else 0)

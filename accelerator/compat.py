@@ -139,3 +139,8 @@ def setproctitle(title):
 	if PY2:
 		title = title.encode('utf-8')
 	_setproctitle(title)
+
+# parse_intermixed_args is new in 3.7
+def parse_intermixed_args(parser, argv):
+	f = getattr(parser, 'parse_intermixed_args', parser.parse_args)
+	return f(argv)
