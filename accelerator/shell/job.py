@@ -84,6 +84,7 @@ def main(argv, cfg):
 	parser = argparse.ArgumentParser(prog=argv.pop(0), description=descr)
 	parser.add_argument('-o', '--output', action='store_true', help='show job output')
 	parser.add_argument('-O', '--just-output', action='store_true', help='show only job output')
+	parser.add_argument('-P', '--just-path', action='store_true', help='show only job path')
 	parser.add_argument('jobid', nargs='+', metavar='jobid or path')
 	args = parse_intermixed_args(parser, argv)
 	for path in args.jobid:
@@ -103,6 +104,8 @@ def main(argv, cfg):
 			if args.just_output:
 				out = job.output()
 				print(out, end='' if out.endswith('\n') else '\n')
+			elif args.just_path:
+				print(job.path)
 			else:
 				show(job, args.output)
 		except Exception as e:
