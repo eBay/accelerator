@@ -19,6 +19,8 @@
 #                                                                          #
 ############################################################################
 
+from __future__ import print_function
+
 from setuptools import setup, find_packages, Extension
 from importlib import import_module
 from os.path import exists
@@ -27,6 +29,13 @@ from datetime import datetime
 from subprocess import check_output, check_call, CalledProcessError
 from io import open
 import re
+import sys
+
+if os.name != 'posix':
+	print("Accelerator only works on posix platforms (like Linux).", file=sys.stderr)
+	if os.name == 'nt':
+		print("You could try running under WSL.", file=sys.stderr)
+	sys.exit(1)
 
 def dirty():
 	for extra in ([], ['--cached'],):
