@@ -101,7 +101,8 @@ def main(argv, cfg):
 				else:
 					found = call(cfg.url + '/find_latest/' + path)
 					if not found:
-						raise Exception('No job with method %s available.' % (path,))
+						print('No (current) job with method %s available.' % (path,))
+						continue
 					job = Job(found.id)
 			else:
 				path, jid = split(realpath(path))
