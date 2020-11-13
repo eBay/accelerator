@@ -86,7 +86,12 @@ def main(argv, cfg):
 	group.add_argument('-o', '--output', action='store_true', help='show job output')
 	group.add_argument('-O', '--just-output', action='store_true', help='show only job output')
 	group.add_argument('-P', '--just-path', action='store_true', help='show only job path')
-	parser.add_argument('jobid', nargs='+', metavar='jobid or path')
+	parser.add_argument(
+		'jobid',
+		nargs='+', metavar='jobid/path/method',
+		help='method shows the latest (current) job with that method\n' +
+		     '(i.e. the latest finished job with current source code)'
+	)
 	args = parse_intermixed_args(parser, argv)
 	for path in args.jobid:
 		try:
