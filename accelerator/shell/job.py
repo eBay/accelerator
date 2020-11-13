@@ -93,6 +93,7 @@ def main(argv, cfg):
 		     '(i.e. the latest finished job with current source code)'
 	)
 	args = parse_intermixed_args(parser, argv)
+	res = 0
 	for path in args.jobid:
 		try:
 			if '/' not in path:
@@ -102,6 +103,7 @@ def main(argv, cfg):
 					found = call(cfg.url + '/find_latest/' + path)
 					if not found:
 						print('No (current) job with method %s available.' % (path,))
+						res = 1
 						continue
 					job = Job(found.id)
 			else:
@@ -120,3 +122,5 @@ def main(argv, cfg):
 				raise
 			print_exc()
 			print("Failed to show %r" % (path,))
+			res = 1
+	return res

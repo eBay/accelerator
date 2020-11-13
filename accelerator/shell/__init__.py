@@ -226,7 +226,7 @@ cmd_workdir.is_debug = True
 
 def cmd_job(argv):
 	from accelerator.shell.job import main
-	main(argv, cfg)
+	return main(argv, cfg)
 cmd_job.help = '''information about a job'''
 cmd_job.is_debug = True
 
