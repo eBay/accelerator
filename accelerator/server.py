@@ -138,9 +138,14 @@ class XtdHandler(BaseWebHandler):
 				os.killpg(child, signal.SIGKILL)
 			self.do_response(200, 'text/json', {'killed': len(tokill)})
 
-		elif path[0] == 'find_latest':
-			l = self.ctrl.DataBase.db_by_method.get(path[1])
-			res = {'id': l[0].id} if l else None
+		elif path[0] == 'method2job':
+			method, num = path[1:]
+			l = self.ctrl.DataBase.db_by_method.get(method, ())
+			if num == 'count':
+				res = len(l)
+			else:
+				num = int(num)
+				res = {'id': l[num].id} if len(l) > num else None
 			self.do_response(200, 'text/json', res)
 
 		elif path==['submit']:

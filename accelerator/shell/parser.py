@@ -53,9 +53,21 @@ def name2job(cfg, n):
 		return Job(n)
 	if '/' not in n:
 		# Must be a method then
-		found = call(cfg.url + '/find_latest/' + n)
+		num = 0
+		m = re.match(r'(.*?)([~^]+)(\d*)$', n)
+		if m:
+			n, tildes, cnt = m.groups()
+			if cnt:
+				num = int(cnt) + len(tildes) - 1
+			else:
+				num = len(tildes)
+		found = call('%s/method2job/%s/%d' % (cfg.url, n, num,))
 		if not found:
-			raise JobNotFound('No (current) job with method %s available.' % (n,))
+			avail = call('%s/method2job/%s/count' % (cfg.url, n,))
+			if avail:
+				raise JobNotFound('Only %d (current) jobs with method %s available.' % (avail, n,))
+			else:
+				raise JobNotFound('No (current) job with method %s available.' % (n,))
 		return Job(found.id)
 	if exists(join(n, 'setup.json')):
 		# Looks like the path to a jobdir
