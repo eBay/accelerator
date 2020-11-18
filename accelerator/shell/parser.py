@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2019 Carl Drougge                            #
+# Modifications copyright (c) 2019-2020 Carl Drougge                       #
 # Modifications copyright (c) 2019 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -18,14 +18,37 @@
 #                                                                          #
 ############################################################################
 
-# common functionality for ds* commands
+# parsing of "job specs", including as part of a dataset name.
+# handles jobids, paths and method names.
 
 from __future__ import division, print_function
 
-from os.path import join, exists, realpath
+from os.path import join, exists, realpath, split
+import re
 
 from accelerator.job import WORKDIRS
 from accelerator.dataset import Dataset
+from accelerator.job import Job
+from accelerator.error import NoSuchJobError
+from accelerator.unixhttp import call
+
+class JobNotFound(NoSuchJobError):
+	pass
+
+def name2job(cfg, n):
+	if '/' not in n:
+		if re.search(r'-\d+$', n):
+			job = Job(n)
+		else:
+			found = call(cfg.url + '/find_latest/' + n)
+			if not found:
+				raise JobNotFound('No (current) job with method %s available.' % (n,))
+			job = Job(found.id)
+	else:
+		path, jid = split(realpath(n))
+		job = Job(jid)
+		WORKDIRS[job.workdir] = path
+	return job
 
 def name2ds(n):
 	if exists(n):

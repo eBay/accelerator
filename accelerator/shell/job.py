@@ -21,16 +21,13 @@ from __future__ import division
 from __future__ import unicode_literals
 
 from traceback import print_exc
-from os.path import split, realpath
 from datetime import datetime
 import errno
 import argparse
-import re
 
 from accelerator.setupfile import encode_setup
-from accelerator.job import Job, WORKDIRS
 from accelerator.compat import FileNotFoundError, parse_intermixed_args
-from accelerator.unixhttp import call
+from .parser import name2job, JobNotFound
 
 def show(job, show_output):
 	print(job.path)
@@ -96,20 +93,7 @@ def main(argv, cfg):
 	res = 0
 	for path in args.jobid:
 		try:
-			if '/' not in path:
-				if re.search(r'-\d+$', path):
-					job = Job(path)
-				else:
-					found = call(cfg.url + '/find_latest/' + path)
-					if not found:
-						print('No (current) job with method %s available.' % (path,))
-						res = 1
-						continue
-					job = Job(found.id)
-			else:
-				path, jid = split(realpath(path))
-				job = Job(jid)
-				WORKDIRS[job.workdir] = path
+			job = name2job(cfg, path)
 			if args.just_output:
 				out = job.output()
 				print(out, end='' if out.endswith('\n') else '\n')
@@ -117,6 +101,9 @@ def main(argv, cfg):
 				print(job.path)
 			else:
 				show(job, args.output)
+		except JobNotFound as e:
+			print(e)
+			res = 1
 		except Exception as e:
 			if isinstance(e, IOError) and e.errno == errno.EPIPE:
 				raise
