@@ -36,19 +36,22 @@ class JobNotFound(NoSuchJobError):
 	pass
 
 def name2job(cfg, n):
+	if re.match(r'[^/]+-\d+$', n):
+		# Looks like a jobid
+		return Job(n)
 	if '/' not in n:
-		if re.search(r'-\d+$', n):
-			job = Job(n)
-		else:
-			found = call(cfg.url + '/find_latest/' + n)
-			if not found:
-				raise JobNotFound('No (current) job with method %s available.' % (n,))
-			job = Job(found.id)
-	else:
+		# Must be a method then
+		found = call(cfg.url + '/find_latest/' + n)
+		if not found:
+			raise JobNotFound('No (current) job with method %s available.' % (n,))
+		return Job(found.id)
+	if exists(join(n, 'setup.json')):
+		# Looks like the path to a jobdir
 		path, jid = split(realpath(n))
 		job = Job(jid)
 		WORKDIRS[job.workdir] = path
-	return job
+		return job
+	raise JobNotFound("Don't know what to do with %r." % (n,))
 
 def name2ds(n):
 	if exists(n):
