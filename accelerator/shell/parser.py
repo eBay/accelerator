@@ -53,7 +53,7 @@ def name2job(cfg, n):
 		return job
 	raise JobNotFound("Don't know what to do with %r." % (n,))
 
-def name2ds(n):
+def name2ds(cfg, n):
 	if exists(n):
 		# it's a path - dig out parts, maybe update WORKDIRS
 		n = realpath(n)

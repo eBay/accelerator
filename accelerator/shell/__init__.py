@@ -126,13 +126,13 @@ def setup(config_fn=None, debug_cmd=False):
 
 def cmd_grep(argv):
 	from accelerator.shell.grep import main
-	return main(argv)
+	return main(argv, cfg)
 cmd_grep.help = '''search for a pattern in one or more datasets'''
 cmd_grep.is_debug = True
 
 def cmd_ds(argv):
 	from accelerator.shell.ds import main
-	return main(argv)
+	return main(argv, cfg)
 cmd_ds.help = '''display information about datasets'''
 cmd_ds.is_debug = True
 

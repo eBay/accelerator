@@ -34,7 +34,7 @@ from accelerator.compat import unicode, izip, imap, parse_intermixed_args
 from .parser import name2ds
 from accelerator import g
 
-def main(argv):
+def main(argv, cfg):
 	usage = "%(prog)s [options] pattern ds [ds [...]] [column [column [...]]"
 	parser = ArgumentParser(usage=usage, prog=argv.pop(0))
 	parser.add_argument('-c', '--chain',        action='store_true', help="follow dataset chains", )
@@ -55,7 +55,7 @@ def main(argv):
 
 	pat_s = re.compile(args.pattern                , re.IGNORECASE if args.ignore_case else 0)
 	pat_b = re.compile(args.pattern.encode('utf-8'), re.IGNORECASE if args.ignore_case else 0)
-	datasets = [name2ds(args.dataset)]
+	datasets = [name2ds(cfg, args.dataset)]
 	columns = []
 
 	separator_s = args.separator
@@ -66,7 +66,7 @@ def main(argv):
 			columns.append(ds_or_col)
 		else:
 			try:
-				datasets.append(name2ds(ds_or_col))
+				datasets.append(name2ds(cfg, ds_or_col))
 			except Exception:
 				columns.append(ds_or_col)
 

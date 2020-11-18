@@ -57,7 +57,7 @@ def printcolwise(data, template, printfunc, minrows=8, indent=4):
 		if v:
 			print(' ' * indent + '  '.join(template.format(*printfunc(x)) for x in v))
 
-def main(argv):
+def main(argv, cfg):
 	usage = "%(prog)s [options] ds [ds [...]]"
 	parser = argparse.ArgumentParser(prog=argv.pop(0), usage=usage)
 	parser.add_argument('-c', '--chain', action='store_true', help='list all datasets in a chain')
@@ -110,7 +110,7 @@ def main(argv):
 
 	for n in args.dataset:
 		try:
-			ds = name2ds(n)
+			ds = name2ds(cfg, n)
 		except NoSuchWhateverError:
 			badinput.append(n)
 			continue
