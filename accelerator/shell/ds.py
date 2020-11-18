@@ -28,7 +28,7 @@ from datetime import datetime, time, date
 from math import ceil, floor, log10, isinf, isnan
 
 from accelerator.compat import terminal_size, parse_intermixed_args
-from .dscmdhelper import name2ds
+from .parser import name2ds
 from accelerator.dataset import Dataset
 from accelerator.error import NoSuchWhateverError
 from accelerator.job import Job
