@@ -24,11 +24,12 @@
 from __future__ import division, print_function
 
 from os.path import join, exists, realpath, split
+from os import readlink
 import re
 
 from accelerator.job import WORKDIRS
 from accelerator.job import Job
-from accelerator.error import NoSuchJobError
+from accelerator.error import NoSuchJobError, NoSuchWorkdirError
 from accelerator.unixhttp import call
 
 class JobNotFound(NoSuchJobError):
@@ -37,6 +38,18 @@ class JobNotFound(NoSuchJobError):
 def name2job(cfg, n):
 	if re.match(r'[^/]+-\d+$', n):
 		# Looks like a jobid
+		return Job(n)
+	m = re.match(r'([^/]+)-LATEST$', n)
+	if m:
+		# Looks like workdir-LATEST
+		wd = m.group(1)
+		if wd not in WORKDIRS:
+			raise NoSuchWorkdirError('Not a valid workdir: "%s"' % (wd,))
+		path = join(WORKDIRS[wd], n)
+		try:
+			n = readlink(join(WORKDIRS[wd], path))
+		except OSError as e:
+			raise JobNotFound('Failed to read %s: %s' % (path, e,))
 		return Job(n)
 	if '/' not in n:
 		# Must be a method then
