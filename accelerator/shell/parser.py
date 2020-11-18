@@ -27,7 +27,6 @@ from os.path import join, exists, realpath, split
 import re
 
 from accelerator.job import WORKDIRS
-from accelerator.dataset import Dataset
 from accelerator.job import Job
 from accelerator.error import NoSuchJobError
 from accelerator.unixhttp import call
@@ -49,32 +48,24 @@ def name2job(cfg, n):
 		# Looks like the path to a jobdir
 		path, jid = split(realpath(n))
 		job = Job(jid)
+		if WORKDIRS.get(job.workdir, path) != path:
+			print("### Overriding workdir %s to %s" % (job.workdir, path,))
 		WORKDIRS[job.workdir] = path
 		return job
 	raise JobNotFound("Don't know what to do with %r." % (n,))
 
 def name2ds(cfg, n):
-	if exists(n):
-		# it's a path - dig out parts, maybe update WORKDIRS
-		n = realpath(n)
-		if n.endswith("/dataset.pickle"):
-			n = n.rsplit("/", 1)[0]
-		if exists(join(n, "dataset.pickle")):
-			# includes ds name
-			base, jid, name = n.rsplit("/", 2)
-			n = (jid, name)
-		else:
-			# bare jid (no ds name)
-			base, jid = n.rsplit("/", 1)
-			n = jid
-		k = jid.rsplit("-", 1)[0]
-		if WORKDIRS.get(k, base) != base:
-			print("### Overriding workdir %s to %s" % (k, base,))
-		WORKDIRS[k] = base
-	elif n.startswith('/'):
-		# meant to be a path, but it does not exist
-		return None
-	ds = Dataset(n)
+	try:
+		job = name2job(cfg, n)
+		name = None
+	except JobNotFound:
+		if '/' not in n:
+			raise
+		job = None
+	if not job:
+		n, name = n.rsplit('/', 1)
+		job = name2job(cfg, n)
+	ds = job.dataset(name)
 	slices = ds.job.params.slices
 	from accelerator import g
 	if hasattr(g, 'slices'):
