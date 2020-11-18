@@ -89,7 +89,7 @@ def main(argv, cfg):
 			except Exception:
 				dsvec = None
 			if dsvec:
-				print('%s' % (n,))
+				print('%s' % (dsvec[0].job,))
 				v = []
 				for ds in dsvec:
 					if args.chainedlist:
