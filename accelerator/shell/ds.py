@@ -28,10 +28,8 @@ from datetime import datetime, time, date
 from math import ceil, floor, log10, isinf, isnan
 
 from accelerator.compat import terminal_size, parse_intermixed_args
-from .parser import name2ds
-from accelerator.dataset import Dataset
+from .parser import name2ds, name2job
 from accelerator.error import NoSuchWhateverError
-from accelerator.job import Job
 
 MINMAXWIDTH = 13 # minimum number of characters reserved for min/max values
 COLUMNS, LINES = terminal_size()
@@ -84,10 +82,10 @@ def main(argv, cfg):
 	if args.list or args.chainedlist:
 		for n in args.dataset:
 			try:
-				if '/' in n:
-					dsvec = Dataset(n).job.datasets
-				else:
-					dsvec = Job(n).datasets
+				try:
+					dsvec = name2ds(cfg, n).job.datasets
+				except NoSuchWhateverError:
+					dsvec = name2job(cfg, n).datasets
 			except Exception:
 				dsvec = None
 			if dsvec:
