@@ -49,7 +49,7 @@ def main(argv, cfg):
 	parser.add_argument('-S', '--show-sliceno', action='store_true', help="show sliceno on matching lines", )
 	parser.add_argument('-L', '--show-lineno',  action='store_true', help="show lineno (per slice) on matching lines", )
 	parser.add_argument('pattern')
-	parser.add_argument('dataset')
+	parser.add_argument('dataset', help='can be specified in the same ways as for "ax ds"')
 	parser.add_argument('columns', nargs='*', default=[])
 	args = parse_intermixed_args(parser, argv)
 
