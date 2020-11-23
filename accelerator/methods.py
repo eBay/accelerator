@@ -22,6 +22,7 @@ from __future__ import print_function
 from __future__ import division
 
 import os
+import sys
 import datetime
 from time import time
 from collections import defaultdict
@@ -34,6 +35,7 @@ from accelerator.extras import DotDict, _OptionString, OptionEnum, OptionDefault
 from accelerator.runner import new_runners
 from accelerator.setupfile import _sorted_set
 
+from accelerator import __version__ as ax_version
 
 class MethodLoadException(Exception):
 	def __init__(self, lst):
@@ -111,6 +113,12 @@ class SubMethods(Methods):
 				msg = '%%s.%%s (unconfigured interpreter %s)' % (version)
 				failed.extend(msg % t for t in sorted(data))
 				continue
+			v = runner.get_ax_version()
+			if v != ax_version:
+				if runner.python == sys.executable:
+					raise Exception("Server is using accelerator %s but %s is currently installed, please restart server." % (ax_version, v,))
+				else:
+					print("WARNING: Server is using accelerator %s but runner %r is using accelerator %s." % (ax_version, version, v,))
 			w, f, h, p, d = runner.load_methods(package_list, data)
 			warnings.extend(w)
 			failed.extend(f)

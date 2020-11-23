@@ -481,6 +481,9 @@ class Runner(object):
 	def launch_waitpid(self, child):
 		return self._do(b'w', child)
 
+	def get_ax_version(self):
+		return self._do(b'v', None)
+
 runners = {}
 def new_runners(config, used_versions):
 	from accelerator.dispatch import run
@@ -521,6 +524,8 @@ if __name__ == "__main__":
 	import multiprocessing
 	if hasattr(multiprocessing, 'set_start_method'):
 		multiprocessing.set_start_method('fork')
+
+	from accelerator import __version__ as ax_version
 
 	from accelerator.autoflush import AutoFlush
 	from accelerator.compat import pickle
@@ -573,3 +578,5 @@ if __name__ == "__main__":
 			# killpg the child, so we need it to stick around.
 			os.waitpid(data, 0)
 			respond(cookie, None)
+		elif op == b'v':
+			respond(cookie, ax_version)
