@@ -235,6 +235,19 @@ def cmd_board(argv):
 	main(argv, cfg)
 cmd_board.help = '''runs a webserver for displaying results'''
 
+def cmd_version(argv):
+	from accelerator import __version__ as ax_version
+	if len(argv) > 1:
+		if argv[1:] in (['-h'], ['--help']):
+			print('Usage:', argv[0])
+			return 0
+		else:
+			print('Usage:', argv[0], file=sys.stderr)
+			return 1
+	else:
+		print(ax_version)
+cmd_version.help = '''show installed accelerator version'''
+
 COMMANDS = dict(
 	ds=cmd_ds,
 	grep=cmd_grep,
@@ -248,6 +261,7 @@ COMMANDS = dict(
 	workdir=cmd_workdir,
 	board=cmd_board,
 	job=cmd_job,
+	version=cmd_version,
 )
 
 class HelpFixArgumentParser(ArgumentParser):
