@@ -29,10 +29,13 @@ import re
 
 from accelerator.job import WORKDIRS
 from accelerator.job import Job
-from accelerator.error import NoSuchJobError, NoSuchWorkdirError
+from accelerator.error import NoSuchJobError, NoSuchDatasetError, NoSuchWorkdirError
 from accelerator.unixhttp import call
 
 class JobNotFound(NoSuchJobError):
+	pass
+
+class DatasetNotFound(NoSuchDatasetError):
 	pass
 
 def split_tildes(n):
@@ -84,17 +87,22 @@ def name2job(cfg, n):
 	raise JobNotFound("Don't know what to do with %r." % (n,))
 
 def name2ds(cfg, n):
+	job = name = num = None
 	try:
 		job = name2job(cfg, n)
-		name = None
 	except JobNotFound:
 		if '/' not in n:
 			raise
-		job = None
 	if not job:
 		n, name = n.rsplit('/', 1)
 		job = name2job(cfg, n)
+		name, num = split_tildes(name)
 	ds = job.dataset(name)
+	if num:
+		chain = ds.chain(num + 1)
+		if len(chain) < num + 1:
+			raise DatasetNotFound("You asked to go %d back from %s, but only %d previous datasets are available." % (num, ds, len(chain) - 1,))
+		ds = chain[0]
 	slices = ds.job.params.slices
 	from accelerator import g
 	if hasattr(g, 'slices'):
