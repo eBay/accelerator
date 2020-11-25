@@ -68,7 +68,7 @@ def main(argv, cfg):
 	parser.add_argument('-q', '--suppress_errors', action='store_true', help='silently ignores bad input datasets/jobids')
 	parser.add_argument('-s', '--slices', action='store_true', help='list relative number of lines per slice in sorted order')
 	parser.add_argument('-S', '--chainedslices', action='store_true', help='same as -s but for full chain')
-	parser.add_argument("dataset", nargs='+', help='the job part of the dataset name can be specified in the same ways as for "ax job"')
+	parser.add_argument("dataset", nargs='+', help='the job part of the dataset name can be specified in the same ways as for "ax job", you can use ds~ or ds~N (or with ^) to follow the chain N steps backwards. this requires specifying the ds name, so wd-1~ will not do this, but wd-1/default~ will.')
 	args = parse_intermixed_args(parser, argv)
 	args.chain = args.chain or args.non_empty_chain
 
