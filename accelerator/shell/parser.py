@@ -35,6 +35,17 @@ from accelerator.unixhttp import call
 class JobNotFound(NoSuchJobError):
 	pass
 
+def split_tildes(n):
+	num = 0
+	m = re.match(r'(.*?)([~^]+)(\d*)$', n)
+	if m:
+		n, tildes, cnt = m.groups()
+		if cnt:
+			num = int(cnt) + len(tildes) - 1
+		else:
+			num = len(tildes)
+	return n, num
+
 def name2job(cfg, n):
 	if re.match(r'[^/]+-\d+$', n):
 		# Looks like a jobid
@@ -53,14 +64,7 @@ def name2job(cfg, n):
 		return Job(n)
 	if '/' not in n:
 		# Must be a method then
-		num = 0
-		m = re.match(r'(.*?)([~^]+)(\d*)$', n)
-		if m:
-			n, tildes, cnt = m.groups()
-			if cnt:
-				num = int(cnt) + len(tildes) - 1
-			else:
-				num = len(tildes)
+		n, num = split_tildes(n)
 		found = call('%s/method2job/%s/%d' % (cfg.url, n, num,))
 		if not found:
 			avail = call('%s/method2job/%s/count' % (cfg.url, n,))
