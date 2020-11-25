@@ -22,6 +22,7 @@
 
 from __future__ import division, print_function
 
+import sys
 import argparse
 import locale
 from datetime import datetime, time, date
@@ -73,7 +74,9 @@ def main(argv, cfg):
 
 	def finish(badinput):
 		if badinput and not args.suppress_errors:
-			print('Error, dataset(s) does not exist: ' + ', '.join(repr(x) for x in badinput))
+			print('Error, failed to resolve datasets:', file=sys.stderr)
+			for n, e in badinput:
+				print('    %r: %s' % (n, e,), file=sys.stderr)
 			exit(1)
 		exit()
 
@@ -86,7 +89,8 @@ def main(argv, cfg):
 					dsvec = name2ds(cfg, n).job.datasets
 				except NoSuchWhateverError:
 					dsvec = name2job(cfg, n).datasets
-			except Exception:
+			except Exception as e:
+				badinput.append((n, e))
 				dsvec = None
 			if dsvec:
 				print('%s' % (dsvec[0].job,))
@@ -101,16 +105,13 @@ def main(argv, cfg):
 				template = "{0:%d}  ({1:>%d})" % (len_n, len_l)
 				for name, numlines in sorted(v):
 					print('    ' + template.format(name, numlines))
-			else:
-				badinput.append(n)
-				continue
 		finish(badinput)
 
 	for n in args.dataset:
 		try:
 			ds = name2ds(cfg, n)
-		except NoSuchWhateverError:
-			badinput.append(n)
+		except NoSuchWhateverError as e:
+			badinput.append((n, e))
 			continue
 
 		print(quote("%s/%s" % (ds.job, ds.name,)))
