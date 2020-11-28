@@ -58,21 +58,24 @@ def main(urd):
 	print("Testing urd.begin/end/truncate/get/peek/latest/first/since")
 	urd.truncate("tests_urd", 0)
 	assert not urd.peek_latest("tests_urd").joblist
-	urd.begin("tests_urd", 1)
+	urd.begin("tests_urd", 1, caption="first")
 	urd.build("test_build_kws")
 	fin = urd.finish("tests_urd")
 	assert fin == {'new': True, 'changed': False, 'is_ghost': False}, fin
 	urd.begin("tests_urd", 1)
 	job = urd.build("test_build_kws")
-	fin = urd.finish("tests_urd")
+	fin = urd.finish("tests_urd", caption="first")
 	assert fin == {'new': False, 'changed': False, 'is_ghost': False}, fin
 	urd.begin("tests_urd", 1) # will be overridden to 2 in finish
 	jl = urd.latest("tests_urd").joblist
 	assert jl == [job], '%r != [%r]' % (jl, job,)
 	urd.build("test_build_kws", options=dict(foo='bar', a='A'))
-	urd.finish("tests_urd", 2)
-	dep_jl = list(urd.peek_latest("tests_urd").deps.values())[0].joblist
-	assert dep_jl == jl, '%r != %r' % (dep_jl, jl,)
+	urd.finish("tests_urd", 2, caption="second")
+	u = urd.peek_latest("tests_urd")
+	assert u.caption == "second"
+	dep0 = list(u.deps.values())[0]
+	assert dep0.caption == "first", dep0.caption
+	assert dep0.joblist == jl, '%r != %r' % (dep0.joblist, jl,)
 	assert urd.since("tests_urd", 0) == ['1', '2']
 	urd.truncate("tests_urd", 2)
 	assert urd.since("tests_urd", 0) == ['1']
