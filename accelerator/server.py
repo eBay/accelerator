@@ -45,7 +45,7 @@ from accelerator import control
 from accelerator.extras import json_encode, json_decode, DotDict
 from accelerator.build import JobError
 from accelerator.statmsg import statmsg_sink, children, print_status_stacks, status_stacks_export
-from accelerator import iowrapper, board
+from accelerator import iowrapper, board, g, __version__ as ax_version
 
 
 
@@ -67,6 +67,10 @@ class XtdHandler(BaseWebHandler):
 
 	def log_message(self, format, *args):
 		return
+
+	def do_response(self, code, content_type, body):
+		hdrs = [('Accelerator-Version', ax_version)]
+		BaseWebHandler.do_response(self, code, content_type, body, hdrs)
 
 	def encode_body(self, body):
 		if isinstance(body, bytes):
@@ -315,6 +319,8 @@ def siginfo(sig, frame):
 	print_status_stacks()
 
 def main(argv, config):
+	g.running = 'server'
+
 	parser = argparse.ArgumentParser(prog=argv.pop(0))
 	parser.add_argument('--debug', action='store_true')
 	options = parser.parse_args(argv)

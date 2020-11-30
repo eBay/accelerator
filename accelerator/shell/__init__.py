@@ -292,6 +292,9 @@ def main():
 			multiprocessing.set_forkserver_preload(['accelerator', 'accelerator.server'])
 		multiprocessing.set_start_method('fork')
 
+	from accelerator import g
+	g.running = 'shell'
+
 	from accelerator.autoflush import AutoFlush
 	argv = sys.argv[1:]
 	sys.stdout = AutoFlush(sys.stdout)

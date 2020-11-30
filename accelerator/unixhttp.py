@@ -24,6 +24,7 @@ from accelerator.compat import PY3, unquote_plus
 from accelerator.compat import urlopen, Request, URLError, HTTPError
 from accelerator.extras import json_encode, json_decode
 from accelerator.error import ServerError, UrdError, UrdPermissionError, UrdConflictError
+from accelerator import g, __version__ as ax_version
 
 if PY3:
 	from urllib.request import install_opener, build_opener, AbstractHTTPHandler
@@ -79,6 +80,12 @@ def call(url, data=None, fmt=json_decode, headers={}, server_name='server'):
 			r = urlopen(req)
 			try:
 				resp = r.read()
+				if server_name == 'server' and g.running in ('build', 'shell',):
+					s_version = r.headers['Accelerator-Version']
+					if s_version != ax_version:
+						# Nothing is supposed to catch this, so just print and die.
+						print('Server is running version %s but we are running version %s' % (s_version, ax_version,), file=sys.stderr)
+						exit(1)
 				if PY3:
 					resp = resp.decode('utf-8')
 				# It seems inconsistent if we get HTTPError or not.

@@ -77,7 +77,7 @@ _exc_status = (None, ())
 
 @contextmanager
 def status(msg):
-	if g.running in ('server', 'build',):
+	if g.running in ('server', 'build', 'shell',):
 		yield lambda _: None
 		return
 	global _cookie
