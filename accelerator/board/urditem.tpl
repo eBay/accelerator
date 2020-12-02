@@ -11,12 +11,12 @@
 			% end
 		% end
 		<tr><td>deps</td><td>
-			% for dep, entry in sorted(entry.deps.items()):
-				<a href="/urd/{{ dep }}/{{ entry.timestamp }}">
-					{{ dep }}/{{ entry.timestamp }}
+			% for dep, depentry in sorted(entry.deps.items()):
+				<a href="/urd/{{ dep }}/{{ depentry.timestamp }}">
+					{{ dep }}/{{ depentry.timestamp }}
 				</a>
 				<ol>
-					% for method, job in entry.joblist:
+					% for method, job in depentry.joblist:
 						<li>{{ method }} <a href="/job/{{ job }}">{{ job }}</a></li>
 					% end
 				</ol>
