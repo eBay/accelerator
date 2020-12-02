@@ -252,13 +252,13 @@ def run(cfg, from_shell=False):
 		)
 
 	@bottle.get('/urd/<user>/<build>/<ts>')
-	@bottle.view('urditem')
 	def urditem(user, build, ts):
 		key = user + '/' + build + '/' + ts
-		return dict(
-			key=key,
-			entry=call_u(key),
-		)
+		d = call_u(key)
+		if bottle.request.headers.get('Accept', '').startswith('application/json'):
+			return d
+		else:
+			return bottle.template('urditem', key=key, entry=d)
 
 	bottle.TEMPLATE_PATH = [os.path.join(os.path.dirname(__file__), 'board')]
 	if from_shell:
