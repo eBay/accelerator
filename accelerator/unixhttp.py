@@ -81,7 +81,7 @@ def call(url, data=None, fmt=json_decode, headers={}, server_name='server'):
 			try:
 				resp = r.read()
 				if server_name == 'server' and g.running in ('build', 'shell',):
-					s_version = r.headers['Accelerator-Version']
+					s_version = r.headers['Accelerator-Version'] or '<unknown (old)>'
 					if s_version != ax_version:
 						# Nothing is supposed to catch this, so just print and die.
 						print('Server is running version %s but we are running version %s' % (s_version, ax_version,), file=sys.stderr)
