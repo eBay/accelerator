@@ -63,6 +63,12 @@ def run(cfg, from_shell=False):
 	project = os.path.split(cfg.project_directory)[1]
 	setproctitle('ax board for %s on %s' % (project, cfg.board_listen,))
 
+	def call_s(*path):
+		return call(os.path.join(cfg.url, *path))
+
+	def call_u(*path):
+		return call(os.path.join(cfg.urd, *path), server_name='urd')
+
 	@bottle.get('/')
 	@bottle.view('main')
 	def main_page():
@@ -98,8 +104,7 @@ def run(cfg, from_shell=False):
 
 	@bottle.get('/status')
 	def status():
-		url = cfg.url + '/status/full'
-		status = call(url)
+		status = call_s('status/full')
 		if 'short' in bottle.request.query:
 			if status.idle:
 				return 'idle'
@@ -181,7 +186,7 @@ def run(cfg, from_shell=False):
 			return bottle.template('dataset', ds=ds)
 
 	def load_workdir(jobs, name):
-		known = call(cfg.url + '/workdir/' + name)
+		known = call_s('workdir', name)
 		jobs[name + '-LATEST'] = None # Sorts first
 		try:
 			latest = os.readlink(os.path.join(cfg.workdirs[name], name + '-LATEST'))
@@ -212,7 +217,7 @@ def run(cfg, from_shell=False):
 	@bottle.get('/methods')
 	@bottle.view('methods')
 	def methods():
-		methods = call(cfg.url + '/methods')
+		methods = call_s('methods')
 		by_package = collections.defaultdict(list)
 		for name, data in sorted(methods.items()):
 			by_package[data.package].append(name)
@@ -222,7 +227,7 @@ def run(cfg, from_shell=False):
 	@bottle.get('/method/<name>')
 	@bottle.view('method')
 	def method(name):
-		methods = call(cfg.url + '/methods')
+		methods = call_s('methods')
 		if name not in methods:
 			return bottle.HTTPError(404, 'Method %s not found' % (name,))
 		return dict(name=name, data=methods[name], cfg=cfg)
@@ -232,7 +237,7 @@ def run(cfg, from_shell=False):
 	@bottle.view('urd')
 	def urd():
 		return dict(
-			lists=call(cfg.urd + '/list'),
+			lists=call_u('list'),
 			project=project,
 		)
 
@@ -243,7 +248,7 @@ def run(cfg, from_shell=False):
 		key = user + '/' + build
 		return dict(
 			key=key,
-			timestamps=call(cfg.urd + '/' + key + '/since/0'),
+			timestamps=call_u(key, 'since/0'),
 		)
 
 	@bottle.get('/urd/<user>/<build>/<ts>')
@@ -252,7 +257,7 @@ def run(cfg, from_shell=False):
 		key = user + '/' + build + '/' + ts
 		return dict(
 			key=key,
-			entry=call(cfg.urd + '/' + key),
+			entry=call_u(key),
 		)
 
 	bottle.TEMPLATE_PATH = [os.path.join(os.path.dirname(__file__), 'board')]
