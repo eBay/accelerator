@@ -237,18 +237,18 @@ static int gzread_init(PyObject *self_, PyObject *args, PyObject *kwds)
 	gzread_close_(self);
 	self->error = 0;
 	if (self_->ob_type == &GzBytesLines_Type) {
-		static char *kwlist[] = {"name", "strip_bom", "seek", "max_count", "hashfilter", "callback", "callback_interval", "callback_offset", 0};
-		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|iLLOOLL", kwlist, Py_FileSystemDefaultEncoding, &name, &strip_bom, &seek, &self->max_count, &hashfilter, &callback, &callback_interval, &callback_offset)) return -1;
+		static char *kwlist[] = {"name", "strip_bom", "seek", "max_count", "hashfilter", "callback", "callback_interval", "callback_offset", "fd", 0};
+		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|iLLOOLLi", kwlist, Py_FileSystemDefaultEncoding, &name, &strip_bom, &seek, &self->max_count, &hashfilter, &callback, &callback_interval, &callback_offset, &fd)) return -1;
 	} else if (self_->ob_type == &GzUnicodeLines_Type) {
-		static char *kwlist[] = {"name", "encoding", "errors", "strip_bom", "seek", "max_count", "hashfilter", "callback", "callback_interval", "callback_offset", 0};
+		static char *kwlist[] = {"name", "encoding", "errors", "strip_bom", "seek", "max_count", "hashfilter", "callback", "callback_interval", "callback_offset", "fd", 0};
 		char *errors = 0;
 		char *encoding = 0;
-		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|etetiLLOOLL", kwlist, Py_FileSystemDefaultEncoding, &name, "ascii", &encoding, "ascii", &errors, &strip_bom, &seek, &self->max_count, &hashfilter, &callback, &callback_interval, &callback_offset)) return -1;
+		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|etetiLLOOLLi", kwlist, Py_FileSystemDefaultEncoding, &name, "ascii", &encoding, "ascii", &errors, &strip_bom, &seek, &self->max_count, &hashfilter, &callback, &callback_interval, &callback_offset, &fd)) return -1;
 		self->errors = errors;
 		self->encoding = encoding;
 	} else {
-		static char *kwlist[] = {"name", "seek", "max_count", "hashfilter", "callback", "callback_interval", "callback_offset", 0};
-		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|LLOOLL", kwlist, Py_FileSystemDefaultEncoding, &name, &seek, &self->max_count, &hashfilter, &callback, &callback_interval, &callback_offset)) return -1;
+		static char *kwlist[] = {"name", "seek", "max_count", "hashfilter", "callback", "callback_interval", "callback_offset", "fd", 0};
+		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|LLOOLLi", kwlist, Py_FileSystemDefaultEncoding, &name, &seek, &self->max_count, &hashfilter, &callback, &callback_interval, &callback_offset, &fd)) return -1;
 	}
 	self->name = name;
 	if (callback && callback != Py_None) {
@@ -265,12 +265,14 @@ static int gzread_init(PyObject *self_, PyObject *args, PyObject *kwds)
 		self->callback_interval = callback_interval;
 		self->callback_offset = callback_offset;
 	}
-	fd = open(self->name, O_RDONLY);
-	if (fd < 0) {
-		PyErr_SetFromErrnoWithFilename(PyExc_IOError, self->name);
-		goto err;
+	if (fd == -1) {
+		fd = open(self->name, O_RDONLY);
+		if (fd < 0) {
+			PyErr_SetFromErrnoWithFilename(PyExc_IOError, self->name);
+			goto err;
+		}
 	}
-	if (lseek(fd, seek, 0) != seek) {
+	if (seek && lseek(fd, seek, 0) != seek) {
 		PyErr_SetFromErrnoWithFilename(PyExc_IOError, self->name);
 		goto err;
 	}
