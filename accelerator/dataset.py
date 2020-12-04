@@ -365,7 +365,7 @@ class Dataset(unicode):
 			if dc.offsets:
 				return mkiter(fn, seek=dc.offsets[sliceno], want_count=self.lines[sliceno])
 			else:
-				return mkiter(fn)
+				return mkiter(fn, want_count=self.lines[sliceno])
 		if sliceno is None:
 			from accelerator.g import slices
 			from itertools import chain

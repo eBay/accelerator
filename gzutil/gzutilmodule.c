@@ -383,7 +383,12 @@ static int gzread_read_(GzRead *self, int itemsize)
 		PyErr_SetString(PyExc_ValueError, "File format error");
 		return 1;
 	}
-	if (self->len <= 0) return 1;
+	if (self->len <= 0) {
+		if (self->want_count >= 0 && self->want_count != self->count) {
+			PyErr_Format(PyExc_ValueError, "\"%s\" ended after %lld items, expected %lld", self->name, self->count, self->want_count);
+		}
+		return 1;
+	}
 	self->buf[self->len] = 0;
 	self->pos = 0;
 	return 0;
