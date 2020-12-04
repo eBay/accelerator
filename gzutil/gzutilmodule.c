@@ -76,7 +76,7 @@ typedef struct gzread {
 	PyObject *(*decodefunc)(const char *, Py_ssize_t, const char *);
 	PyObject *hashfilter;
 	PyObject *callback;
-	PY_LONG_LONG max_count;
+	PY_LONG_LONG want_count;
 	PY_LONG_LONG count;
 	PY_LONG_LONG break_count;
 	PY_LONG_LONG callback_interval;
@@ -99,7 +99,7 @@ static int gzread_close_(GzRead *self)
 	FREE(self->encoding);
 	Py_CLEAR(self->hashfilter);
 	self->count = 0;
-	self->max_count = -1;
+	self->want_count = -1;
 	self->break_count = -1;
 	Py_CLEAR(self->callback);
 	self->callback_interval = 0;
@@ -237,18 +237,18 @@ static int gzread_init(PyObject *self_, PyObject *args, PyObject *kwds)
 	gzread_close_(self);
 	self->error = 0;
 	if (self_->ob_type == &GzBytesLines_Type) {
-		static char *kwlist[] = {"name", "strip_bom", "seek", "max_count", "hashfilter", "callback", "callback_interval", "callback_offset", "fd", 0};
-		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|iLLOOLLi", kwlist, Py_FileSystemDefaultEncoding, &name, &strip_bom, &seek, &self->max_count, &hashfilter, &callback, &callback_interval, &callback_offset, &fd)) return -1;
+		static char *kwlist[] = {"name", "strip_bom", "seek", "want_count", "hashfilter", "callback", "callback_interval", "callback_offset", "fd", 0};
+		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|iLLOOLLi", kwlist, Py_FileSystemDefaultEncoding, &name, &strip_bom, &seek, &self->want_count, &hashfilter, &callback, &callback_interval, &callback_offset, &fd)) return -1;
 	} else if (self_->ob_type == &GzUnicodeLines_Type) {
-		static char *kwlist[] = {"name", "encoding", "errors", "strip_bom", "seek", "max_count", "hashfilter", "callback", "callback_interval", "callback_offset", "fd", 0};
+		static char *kwlist[] = {"name", "encoding", "errors", "strip_bom", "seek", "want_count", "hashfilter", "callback", "callback_interval", "callback_offset", "fd", 0};
 		char *errors = 0;
 		char *encoding = 0;
-		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|etetiLLOOLLi", kwlist, Py_FileSystemDefaultEncoding, &name, "ascii", &encoding, "ascii", &errors, &strip_bom, &seek, &self->max_count, &hashfilter, &callback, &callback_interval, &callback_offset, &fd)) return -1;
+		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|etetiLLOOLLi", kwlist, Py_FileSystemDefaultEncoding, &name, "ascii", &encoding, "ascii", &errors, &strip_bom, &seek, &self->want_count, &hashfilter, &callback, &callback_interval, &callback_offset, &fd)) return -1;
 		self->errors = errors;
 		self->encoding = encoding;
 	} else {
-		static char *kwlist[] = {"name", "seek", "max_count", "hashfilter", "callback", "callback_interval", "callback_offset", "fd", 0};
-		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|LLOOLLi", kwlist, Py_FileSystemDefaultEncoding, &name, &seek, &self->max_count, &hashfilter, &callback, &callback_interval, &callback_offset, &fd)) return -1;
+		static char *kwlist[] = {"name", "seek", "want_count", "hashfilter", "callback", "callback_interval", "callback_offset", "fd", 0};
+		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|LLOOLLi", kwlist, Py_FileSystemDefaultEncoding, &name, &seek, &self->want_count, &hashfilter, &callback, &callback_interval, &callback_offset, &fd)) return -1;
 	}
 	self->name = name;
 	if (callback && callback != Py_None) {
@@ -283,9 +283,9 @@ static int gzread_init(PyObject *self_, PyObject *args, PyObject *kwds)
 	}
 	fd = -1; // belongs to self->fh now
 	unsigned int buf_kb = 64;
-	if (self->max_count >= 0) {
-		self->break_count = self->max_count;
-		if (self->max_count < 100000) buf_kb = 16;
+	if (self->want_count >= 0) {
+		self->break_count = self->want_count;
+		if (self->want_count < 100000) buf_kb = 16;
 	}
 	if (self->callback_interval > 0) {
 		if (self->callback_interval < self->break_count || self->break_count < 0) {
@@ -369,8 +369,8 @@ static int gzread_read_(GzRead *self, int itemsize)
 {
 	if (!self->error) {
 		unsigned len = Z;
-		if (self->max_count >= 0) {
-			PY_LONG_LONG count_left = self->max_count - self->count;
+		if (self->want_count >= 0) {
+			PY_LONG_LONG count_left = self->want_count - self->count;
 			PY_LONG_LONG candidate = count_left * itemsize + itemsize;
 			if (candidate < len) len = candidate;
 		}
@@ -413,8 +413,8 @@ static inline int do_callback(GzRead *self)
 	if (res) {
 		Py_DECREF(res);
 		PY_LONG_LONG bc = self->break_count + self->callback_interval;
-		if (self->max_count > 0 && bc > self->max_count) {
-			bc = self->max_count;
+		if (self->want_count > 0 && bc > self->want_count) {
+			bc = self->want_count;
 		}
 		self->break_count = bc;
 		return 0;
@@ -433,7 +433,7 @@ static inline int do_callback(GzRead *self)
 	do {                                                 	\
 		if (!self->fh) return err_closed();          	\
 		if (self->count == self->break_count) {      	\
-			if (self->count == self->max_count) {	\
+			if (self->count == self->want_count) {	\
 				return 0;                    	\
 			}                                    	\
 			if (do_callback(self)) {             	\

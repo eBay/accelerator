@@ -363,7 +363,7 @@ class Dataset(unicode):
 		def one_slice(sliceno):
 			fn = self.column_filename(col, sliceno)
 			if dc.offsets:
-				return mkiter(fn, seek=dc.offsets[sliceno], max_count=self.lines[sliceno])
+				return mkiter(fn, seek=dc.offsets[sliceno], want_count=self.lines[sliceno])
 			else:
 				return mkiter(fn)
 		if sliceno is None:
