@@ -2,6 +2,7 @@
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
 # Modifications copyright (c) 2018-2020 Carl Drougge                       #
+# Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -29,7 +30,7 @@ options = dict(
 	keep_columns = OptionDefault(["colname1", "colname2", "..."]),
 )
 
-datasets = ("source",)
+datasets = ("source", "previous",)
 
 def synthesis():
 	if options.keep_columns:
@@ -40,4 +41,4 @@ def synthesis():
 		discard = set(options.discard_columns)
 		keep = set(datasets.source.columns) - discard
 		assert keep, "All columns discarded"
-	datasets.source.link_to_here(column_filter=keep)
+	datasets.source.link_to_here(column_filter=keep, override_previous=datasets.previous)
