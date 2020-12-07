@@ -139,11 +139,19 @@ def name2ds(cfg, n):
 		name, tildes = split_tildes(name)
 	ds = job.dataset(name)
 	if tildes:
-		num = sum(cnt for _, cnt in tildes)
-		chain = ds.chain(num + 1)
-		if len(chain) < num + 1:
-			raise DatasetNotFound("You asked to go %d back from %s, but only %d previous datasets are available." % (num, ds, len(chain) - 1,))
-		ds = chain[0]
+		def follow(key, motion):
+			# follow ds.key count times
+			res = ds
+			for done in range(count):
+				if not getattr(res, key):
+					raise DatasetNotFound('Tried to go %d %s from %s, but only %d available (stopped on %s)' % (count, motion, ds, done, res,))
+				res = getattr(res, key)
+			return res
+		for char, count in tildes:
+			if char == '~':
+				ds = follow('previous', 'back')
+			else:
+				ds = follow('parent', 'up')
 	slices = ds.job.params.slices
 	from accelerator import g
 	if hasattr(g, 'slices'):
