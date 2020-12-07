@@ -58,3 +58,12 @@ def synthesis(job):
 	chk(j, 'a', 'c', 'd')
 	j = subjobs.build('dataset_filter_columns', source=ds, keep_columns=['b', 'b', 'b'])
 	chk(j, 'b')
+	p1 = j.dataset()
+	j = subjobs.build('dataset_filter_columns', source=ds, keep_columns=['a', 'b'], previous=p1)
+	chk(j, 'a', 'b')
+	p2 = j.dataset()
+	assert p2.previous == p1
+	j = subjobs.build('dataset_filter_columns', source=p2, keep_columns=['b'])
+	chk(j, 'b')
+	p3 = j.dataset()
+	assert not p3.previous
