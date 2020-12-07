@@ -144,12 +144,23 @@ class XtdHandler(BaseWebHandler):
 
 		elif path[0] == 'method2job':
 			method, num = path[1:]
-			l = self.ctrl.DataBase.db_by_method.get(method, ())
-			if num == 'count':
-				res = len(l)
+			jobs = self.ctrl.DataBase.db_by_method.get(method, ())
+			start_ix = 0
+			start_from = args.get('start_from')
+			if start_from:
+				for start_ix, job in enumerate(jobs):
+					if job.id == start_from:
+						break
+				else:
+					start_ix = None
+			if start_ix is None:
+				res = {'error': '%s is not a current %s job' % (start_from, method,)}
 			else:
-				num = int(num)
-				res = {'id': l[num].id} if len(l) > num else None
+				num = int(num) + start_ix
+				if num + start_ix >= len(jobs):
+					res = {'error': 'tried to go %d jobs back from %s, but only %d earlier (current) jobs available' % (num, jobs[start_ix].id, len(jobs) - start_ix,)}
+				else:
+					res = {'id': jobs[num + start_ix].id}
 			self.do_response(200, 'text/json', res)
 
 		elif path==['submit']:

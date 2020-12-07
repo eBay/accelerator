@@ -88,7 +88,8 @@ def main(argv, cfg):
 		nargs='+', metavar='jobid/path/method',
 		help='method shows the latest (current) job with that method\n' +
 		     '(i.e. the latest finished job with current source code)\n' +
-		     'you can also use method~ or method~N (or ^) to go N back'
+		     'you can use spec~ or spec~N to go back N current jobs\n' +
+		     'with that method or spec^ or spec^N to follow .previous'
 	)
 	args = parse_intermixed_args(parser, argv)
 	res = 0

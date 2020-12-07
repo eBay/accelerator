@@ -38,18 +38,66 @@ class JobNotFound(NoSuchJobError):
 class DatasetNotFound(NoSuchDatasetError):
 	pass
 
-def split_tildes(n):
-	num = 0
-	m = re.match(r'(.*?)([~^]+)(\d*)$', n)
-	if m:
-		n, tildes, cnt = m.groups()
-		if cnt:
-			num = int(cnt) + len(tildes) - 1
+def _groups(tildes):
+	def char_and_count(buf):
+		char, count = re.match(r'([~^]+)(\d*)$', ''.join(buf)).groups()
+		count = int(count or 1) - 1
+		return char[0], len(char) + count
+	i = iter(tildes)
+	buf = [next(i)]
+	for c in i:
+		if c in '~^' and buf[-1] != c:
+			yield char_and_count(buf)
+			buf = [c]
 		else:
-			num = len(tildes)
-	return n, num
+			buf.append(c)
+	yield char_and_count(buf)
+
+# "foo~~^3" -> "foo", [("~", 2), ("^", 3)]
+def split_tildes(n):
+	m = re.match(r'(.*?)([~^][~^\d]*)$', n)
+	if m:
+		n, tildes = m.groups()
+		return n, list(_groups(tildes))
+	else:
+		return n, []
+
+def method2job(cfg, method, count=0, start_from=None):
+	def get(count):
+		url ='%s/method2job/%s/%s' % (cfg.url, method, count)
+		if start_from:
+			url += '?start_from=' + start_from
+		return call(url)
+	found = get(count)
+	if 'error' in found:
+		raise JobNotFound(found.error)
+	return Job(found.id)
+
+# follow jobs.previous (or datasets.previous.job if that is unavailable) count times.
+def job_up(job, count):
+	err_job = job
+	for ix in range(count):
+		prev = job.params.jobs.get('previous')
+		if not prev:
+			prev = job.params.datasets.get('previous')
+			if prev:
+				prev = prev.job
+		if not prev:
+			raise JobNotFound('Tried to go %d up from %s, but only %d previous jobs available' % (count, err_job, ix,))
+		job = prev
+	return job
 
 def name2job(cfg, n):
+	n, tildes = split_tildes(n)
+	job = _name2job(cfg, n)
+	for char, count in tildes:
+		if char == '~':
+			job = method2job(cfg, job.method, count, start_from=job)
+		else:
+			job = job_up(job, count)
+	return job
+
+def _name2job(cfg, n):
 	if re.match(r'[^/]+-\d+$', n):
 		# Looks like a jobid
 		return Job(n)
@@ -67,15 +115,7 @@ def name2job(cfg, n):
 		return Job(n)
 	if '/' not in n:
 		# Must be a method then
-		n, num = split_tildes(n)
-		found = call('%s/method2job/%s/%d' % (cfg.url, n, num,))
-		if not found:
-			avail = call('%s/method2job/%s/count' % (cfg.url, n,))
-			if avail:
-				raise JobNotFound('Only %d (current) jobs with method %s available.' % (avail, n,))
-			else:
-				raise JobNotFound('No (current) job with method %s available.' % (n,))
-		return Job(found.id)
+		return method2job(cfg, n)
 	if exists(join(n, 'setup.json')):
 		# Looks like the path to a jobdir
 		path, jid = split(realpath(n))
@@ -87,7 +127,7 @@ def name2job(cfg, n):
 	raise JobNotFound("Don't know what to do with %r." % (n,))
 
 def name2ds(cfg, n):
-	job = name = num = None
+	job = name = tildes = None
 	try:
 		job = name2job(cfg, n)
 	except JobNotFound:
@@ -96,9 +136,10 @@ def name2ds(cfg, n):
 	if not job:
 		n, name = n.rsplit('/', 1)
 		job = name2job(cfg, n)
-		name, num = split_tildes(name)
+		name, tildes = split_tildes(name)
 	ds = job.dataset(name)
-	if num:
+	if tildes:
+		num = sum(cnt for _, cnt in tildes)
 		chain = ds.chain(num + 1)
 		if len(chain) < num + 1:
 			raise DatasetNotFound("You asked to go %d back from %s, but only %d previous datasets are available." % (num, ds, len(chain) - 1,))
