@@ -157,7 +157,9 @@ class XtdHandler(BaseWebHandler):
 				res = {'error': '%s is not a current %s job' % (start_from, method,)}
 			else:
 				num = int(num) + start_ix
-				if num + start_ix >= len(jobs):
+				if not jobs:
+					res = {'error': 'no current jobs with method %s available' % (method,)}
+				elif num + start_ix >= len(jobs):
 					res = {'error': 'tried to go %d jobs back from %s, but only %d earlier (current) jobs available' % (num, jobs[start_ix].id, len(jobs) - start_ix,)}
 				else:
 					res = {'id': jobs[num + start_ix].id}
