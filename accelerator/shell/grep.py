@@ -90,6 +90,16 @@ def main(argv, cfg):
 	if args.chain:
 		datasets = list(chain.from_iterable(ds.chain() for ds in datasets))
 
+	if columns:
+		bad = False
+		for ds in datasets:
+			missing = set(columns) - set(ds.columns)
+			if missing:
+				print('ERROR: %s does not have columns %r' % (ds, missing,), file=sys.stderr)
+				bad = True
+		if bad:
+			return 1
+
 	def grep(ds, sliceno):
 		# Use bytes for everything if anything is bytes, str otherwise. (For speed.)
 		if any(ds.columns[col].backing_type == 'bytes' for col in (grep_columns or columns or ds.columns)):
