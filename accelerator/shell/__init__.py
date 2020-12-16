@@ -327,13 +327,13 @@ def main():
 	for cmd, func in sorted(COMMANDS.items()):
 		epilog.append(template % (cmd, func.help,))
 	epilog.append('')
-	epilog.append('Use %(prog)s <command> --help for <command> usage.')
+	epilog.append('use %(prog)s <command> --help for <command> usage')
 	parser = ArgumentParser(
 		usage='%(prog)s [--config CONFIG_FILE] command [args]',
 		epilog='\n'.join(epilog),
 		formatter_class=RawDescriptionHelpFormatter,
 	)
-	parser.add_argument('--config', metavar='CONFIG_FILE', help='Configuration file')
+	parser.add_argument('--config', metavar='CONFIG_FILE', help='configuration file')
 	parser.add_argument('--version', action='store_true', help='alias for the version command')
 	args = parser.parse_args(main_argv)
 	if args.version:

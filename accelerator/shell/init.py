@@ -99,10 +99,10 @@ def main(argv):
 	parser = ArgumentParser(
 		prog=argv.pop(0),
 		description=r'''
-			Creates an accelerator project directory.
-			Defaults to the current directory.
-			Creates accelerator.conf, a method dir, a workdir and result dir.
-			Both the method directory and workdir will be named <NAME>,
+			creates an accelerator project directory.
+			defaults to the current directory.
+			creates accelerator.conf, a method dir, a workdir and result dir.
+			both the method directory and workdir will be named <NAME>,
 			"dev" by default.
 		''',
 	)
