@@ -264,20 +264,13 @@ COMMANDS = dict(
 	version=cmd_version,
 )
 
-class HelpFixArgumentParser(ArgumentParser):
-	'''We don't want this argument parser to eat --help for our
-	sub commands, but we do want it to take help when no command
-	is specified'''
-
-	def __init__(self, argv, **kw):
-		self.__argv = argv
-		ArgumentParser.__init__(self, **kw)
-
-	def error(self, message):
-		if '--help' in self.__argv or '-h' in self.__argv:
-			self.print_help()
-			self.exit(0)
-		ArgumentParser.error(self, message)
+def split_args(argv):
+	prev = None
+	for ix, arg in enumerate(argv):
+		if not arg.startswith('-') and prev != '--config':
+			return argv[:ix], argv[ix:]
+		prev = arg
+	return argv, []
 
 def main():
 	# As of python 3.8 the default start_method is 'spawn' on macOS.
@@ -296,7 +289,7 @@ def main():
 	g.running = 'shell'
 
 	from accelerator.autoflush import AutoFlush
-	argv = sys.argv[1:]
+	main_argv, argv = split_args(sys.argv[1:])
 	sys.stdout = AutoFlush(sys.stdout)
 	sys.stderr = AutoFlush(sys.stderr)
 	epilog = ['commands:', '']
@@ -306,19 +299,19 @@ def main():
 		epilog.append(template % (cmd, func.help,))
 	epilog.append('')
 	epilog.append('Use %(prog)s <command> --help for <command> usage.')
-	parser = HelpFixArgumentParser(
-		argv,
-		add_help=False,
+	parser = ArgumentParser(
+		usage='%(prog)s [--config CONFIG_FILE] command [args]',
 		epilog='\n'.join(epilog),
 		formatter_class=RawDescriptionHelpFormatter,
 	)
 	parser.add_argument('--config', metavar='CONFIG_FILE', help='Configuration file')
-	parser.add_argument('command')
-	args, argv = parser.parse_known_args(argv)
+	args = parser.parse_args(main_argv)
+	args.command = argv.pop(0) if argv else None
 	if args.command not in COMMANDS:
 		parser.print_help(file=sys.stderr)
 		print(file=sys.stderr)
-		print('Unknown command "%s"' % (args.command,), file=sys.stderr)
+		if args.command is not None:
+			print('Unknown command "%s"' % (args.command,), file=sys.stderr)
 		sys.exit(2)
 	config_fn = args.config
 	if args.command == 'init':
