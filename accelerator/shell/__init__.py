@@ -334,7 +334,10 @@ def main():
 		formatter_class=RawDescriptionHelpFormatter,
 	)
 	parser.add_argument('--config', metavar='CONFIG_FILE', help='Configuration file')
+	parser.add_argument('--version', action='store_true', help='alias for the version command')
 	args = parser.parse_args(main_argv)
+	if args.version:
+		sys.exit(cmd_version(()))
 	args.command = argv.pop(0) if argv else None
 	if args.command not in COMMANDS:
 		parser.print_help(file=sys.stderr)
