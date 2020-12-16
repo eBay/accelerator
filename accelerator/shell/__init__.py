@@ -272,6 +272,29 @@ def split_args(argv):
 		prev = arg
 	return argv, []
 
+def parse_user_config():
+	from accelerator.compat import open
+	from os import environ
+	cfgdir = environ.get('XDG_CONFIG_HOME')
+	if not cfgdir:
+		home = environ.get('HOME')
+		if not home:
+			return None
+		cfgdir = join(home, '.config')
+	fn = join(cfgdir, 'accelerator', 'config')
+	try:
+		fh = open(fn, 'r', encoding='utf-8')
+	except IOError:
+		return None
+	with fh:
+		from configparser import ConfigParser
+		cfg = ConfigParser()
+		cfg.read_file(fh)
+		if 'alias' in cfg:
+			from shlex import split
+			return {k: split(v) for k, v in cfg['alias'].items()}
+	return None
+
 def main():
 	# As of python 3.8 the default start_method is 'spawn' on macOS.
 	# This doesn't work for us. 'fork' is fairly unsafe on macOS,
@@ -292,6 +315,12 @@ def main():
 	main_argv, argv = split_args(sys.argv[1:])
 	sys.stdout = AutoFlush(sys.stdout)
 	sys.stderr = AutoFlush(sys.stderr)
+
+	aliases = parse_user_config() or {}
+	while argv and argv[0] in aliases:
+		more_main_argv, argv = split_args(aliases[argv.pop(0)] + argv)
+		main_argv.extend(more_main_argv)
+
 	epilog = ['commands:', '']
 	cmdlen = max(len(cmd) for cmd in COMMANDS)
 	template = '  %%%ds  %%s' % (cmdlen,)
