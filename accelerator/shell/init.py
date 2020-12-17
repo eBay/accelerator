@@ -93,7 +93,7 @@ def main(argv):
 	from os import makedirs, listdir, chdir
 	from os.path import exists, join, realpath
 	from sys import version_info
-	from argparse import ArgumentParser
+	from argparse import ArgumentParser, RawDescriptionHelpFormatter
 	from accelerator.error import UserError
 
 	parser = ArgumentParser(
@@ -104,7 +104,8 @@ def main(argv):
 			creates accelerator.conf, a method dir, a workdir and result dir.
 			both the method directory and workdir will be named <NAME>,
 			"dev" by default.
-		''',
+		'''.replace('\t', ''),
+		formatter_class=RawDescriptionHelpFormatter,
 	)
 	parser.add_argument('--slices', default=None, type=int, help='override slice count detection')
 	parser.add_argument('--name', default='dev', help='name of method dir and workdir, default "dev"')
