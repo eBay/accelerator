@@ -316,7 +316,10 @@ def main():
 	sys.stdout = AutoFlush(sys.stdout)
 	sys.stderr = AutoFlush(sys.stderr)
 
-	aliases = parse_user_config() or {}
+	aliases = {
+		'cat': 'grep ""',
+	}
+	aliases.update(parse_user_config() or ())
 	while argv and argv[0] in aliases:
 		try:
 			expanded = shlex.split(aliases[argv[0]])
