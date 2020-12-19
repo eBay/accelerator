@@ -292,6 +292,7 @@ def parse_user_config():
 	with fh:
 		from configparser import ConfigParser
 		cfg = ConfigParser()
+		cfg.optionxform = str # case sensitive (don't downcase aliases)
 		cfg.read_file(fh)
 		if 'alias' in cfg:
 			return cfg['alias']
