@@ -181,12 +181,13 @@ def cmd_curl(argv):
 		which = 'urd'
 	if '--help' in argv or '-h' in argv or not argv:
 		from os import environ
-		print('usage: %s [server|urd] [curl options] path' % (prog,))
-		print('%s server talks to the server, %s urd talks to urd (default)' % (prog, prog,))
-		print()
-		print('examples:')
-		print('  %s %s/example/latest' % (prog, environ['USER'],))
-		print('  %s server status' % (prog,))
+		fh = sys.stdout if argv else sys.stderr
+		print('usage: %s [server|urd] [curl options] path' % (prog,), file=fh)
+		print('%s server talks to the server, %s urd talks to urd (default)' % (prog, prog,), file=fh)
+		print(file=fh)
+		print('examples:', file=fh)
+		print('  %s %s/example/latest' % (prog, environ['USER'],), file=fh)
+		print('  %s server status' % (prog,), file=fh)
 		return
 	url_end = argv.pop()
 	socket_opts = []
