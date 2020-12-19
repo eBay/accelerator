@@ -140,11 +140,6 @@ def setproctitle(title):
 		title = title.encode('utf-8')
 	_setproctitle(title)
 
-# parse_intermixed_args is new in 3.7
-def parse_intermixed_args(parser, argv):
-	f = getattr(parser, 'parse_intermixed_args', parser.parse_args)
-	return f(argv)
-
 # allow_abbrev is 3.5+. it's not even available in the pypi backport of argparse.
 # it also regrettably disables -abc for -a -b -c until 3.8.
 from argparse import ArgumentParser as _ArgumentParser
@@ -154,3 +149,7 @@ else:
 	class ArgumentParser(_ArgumentParser):
 		def __init__(self, *a, **kw):
 			return _ArgumentParser.__init__(self, *a, allow_abbrev=False, **kw)
+
+# parse_intermixed_args is new in 3.7
+if not hasattr(ArgumentParser, 'parse_intermixed_args'):
+	ArgumentParser.parse_intermixed_args = ArgumentParser.parse_args

@@ -30,7 +30,7 @@ import errno
 from os import write
 
 from accelerator.compat import ArgumentParser
-from accelerator.compat import unicode, izip, imap, parse_intermixed_args
+from accelerator.compat import unicode, izip, imap
 from .parser import name2ds
 from accelerator import g
 
@@ -51,7 +51,7 @@ def main(argv, cfg):
 	parser.add_argument('pattern')
 	parser.add_argument('dataset', help='can be specified in the same ways as for "ax ds"')
 	parser.add_argument('columns', nargs='*', default=[])
-	args = parse_intermixed_args(parser, argv)
+	args = parser.parse_intermixed_args(argv)
 
 	pat_s = re.compile(args.pattern                , re.IGNORECASE if args.ignore_case else 0)
 	pat_b = re.compile(args.pattern.encode('utf-8'), re.IGNORECASE if args.ignore_case else 0)

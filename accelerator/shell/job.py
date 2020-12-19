@@ -26,7 +26,7 @@ import errno
 
 from accelerator.compat import ArgumentParser
 from accelerator.setupfile import encode_setup
-from accelerator.compat import FileNotFoundError, parse_intermixed_args
+from accelerator.compat import FileNotFoundError
 from .parser import name2job, JobNotFound
 
 def show(job, show_output):
@@ -91,7 +91,7 @@ def main(argv, cfg):
 		     'you can use spec~ or spec~N to go back N current jobs\n' +
 		     'with that method or spec^ or spec^N to follow .previous'
 	)
-	args = parse_intermixed_args(parser, argv)
+	args = parser.parse_intermixed_args(argv)
 	res = 0
 	for path in args.jobid:
 		try:

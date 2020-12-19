@@ -28,7 +28,7 @@ from datetime import datetime, time, date
 from math import ceil, floor, log10, isinf, isnan
 
 from accelerator.compat import ArgumentParser
-from accelerator.compat import terminal_size, parse_intermixed_args
+from accelerator.compat import terminal_size
 from .parser import name2ds, name2job
 from accelerator.error import NoSuchWhateverError
 
@@ -69,7 +69,7 @@ def main(argv, cfg):
 	parser.add_argument('-s', '--slices', action='store_true', help='list relative number of lines per slice in sorted order')
 	parser.add_argument('-S', '--chainedslices', action='store_true', help='same as -s but for full chain')
 	parser.add_argument("dataset", nargs='+', help='the job part of the dataset name can be specified in the same ways as for "ax job". you can use ds~ or ds~N to follow the chain N steps backwards, or ^ to follow .parent. this requires specifying the ds-name, so wd-1~ will not do this, but wd-1/default~ will.')
-	args = parse_intermixed_args(parser, argv)
+	args = parser.parse_intermixed_args(argv)
 	args.chain = args.chain or args.non_empty_chain
 
 	def finish(badinput):
