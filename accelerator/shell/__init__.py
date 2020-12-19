@@ -27,6 +27,7 @@ from os import getcwd, chdir
 from os.path import dirname, basename, realpath, join
 import locale
 from glob import glob
+import shlex
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
 
 from accelerator.error import UserError
@@ -291,8 +292,7 @@ def parse_user_config():
 		cfg = ConfigParser()
 		cfg.read_file(fh)
 		if 'alias' in cfg:
-			from shlex import split
-			return {k: split(v) for k, v in cfg['alias'].items()}
+			return cfg['alias']
 	return None
 
 def main():
@@ -318,7 +318,11 @@ def main():
 
 	aliases = parse_user_config() or {}
 	while argv and argv[0] in aliases:
-		more_main_argv, argv = split_args(aliases[argv.pop(0)] + argv)
+		try:
+			expanded = shlex.split(aliases[argv[0]])
+		except ValueError as e:
+			raise ValueError('Failed to expand alias %s (%r): %s' % (argv[0], aliases[argv[0]], e,))
+		more_main_argv, argv = split_args(expanded + argv[1:])
 		main_argv.extend(more_main_argv)
 
 	epilog = ['commands:', '']
