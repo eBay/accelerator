@@ -22,8 +22,8 @@ from __future__ import unicode_literals
 
 import sys
 import os
-from argparse import ArgumentParser
 
+from accelerator.compat import ArgumentParser
 from accelerator.unixhttp import call
 from accelerator.setupfile import load_setup
 from accelerator.build import fmttime

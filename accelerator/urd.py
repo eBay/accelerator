@@ -31,14 +31,13 @@ import json
 import re
 from datetime import datetime
 import operator
-from argparse import ArgumentParser
 import os.path
 from io import TextIOWrapper
 import sys
 import os
 import signal
 
-from accelerator.compat import iteritems, itervalues, unicode
+from accelerator.compat import iteritems, itervalues, unicode, ArgumentParser
 from accelerator.extras import DotDict, PY3
 from accelerator.unixhttp import WaitressServer
 

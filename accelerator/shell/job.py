@@ -23,8 +23,8 @@ from __future__ import unicode_literals
 from traceback import print_exc
 from datetime import datetime
 import errno
-import argparse
 
+from accelerator.compat import ArgumentParser
 from accelerator.setupfile import encode_setup
 from accelerator.compat import FileNotFoundError, parse_intermixed_args
 from .parser import name2job, JobNotFound
@@ -78,7 +78,7 @@ def show(job, show_output):
 
 def main(argv, cfg):
 	descr = 'show setup.json, dataset list, etc for jobs'
-	parser = argparse.ArgumentParser(prog=argv.pop(0), description=descr)
+	parser = ArgumentParser(prog=argv.pop(0), description=descr)
 	group = parser.add_mutually_exclusive_group()
 	group.add_argument('-o', '--output', action='store_true', help='show job output')
 	group.add_argument('-O', '--just-output', action='store_true', help='show only job output')

@@ -28,8 +28,9 @@ from os.path import dirname, basename, realpath, join
 import locale
 from glob import glob
 import shlex
-from argparse import ArgumentParser, RawDescriptionHelpFormatter
+from argparse import RawDescriptionHelpFormatter
 
+from accelerator.compat import ArgumentParser
 from accelerator.error import UserError
 
 cfg = None

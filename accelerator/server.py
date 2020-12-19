@@ -22,7 +22,6 @@ from __future__ import print_function
 from __future__ import division
 
 import sys
-import argparse
 import socket
 import traceback
 import signal
@@ -36,7 +35,7 @@ from string import ascii_letters
 import random
 import atexit
 
-from accelerator.compat import unicode
+from accelerator.compat import unicode, ArgumentParser
 
 from accelerator.web import ThreadedHTTPServer, ThreadedUnixHTTPServer, BaseWebHandler
 
@@ -334,7 +333,7 @@ def siginfo(sig, frame):
 def main(argv, config):
 	g.running = 'server'
 
-	parser = argparse.ArgumentParser(prog=argv.pop(0))
+	parser = ArgumentParser(prog=argv.pop(0))
 	parser.add_argument('--debug', action='store_true')
 	options = parser.parse_args(argv)
 

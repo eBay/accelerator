@@ -24,12 +24,12 @@ from __future__ import division, print_function
 
 import sys
 import re
-from argparse import ArgumentParser
 from multiprocessing import Process, JoinableQueue
 from itertools import chain, repeat
 import errno
 from os import write
 
+from accelerator.compat import ArgumentParser
 from accelerator.compat import unicode, izip, imap, parse_intermixed_args
 from .parser import name2ds
 from accelerator import g

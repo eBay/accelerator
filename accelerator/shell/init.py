@@ -93,7 +93,8 @@ def main(argv):
 	from os import makedirs, listdir, chdir
 	from os.path import exists, join, realpath
 	from sys import version_info
-	from argparse import ArgumentParser, RawDescriptionHelpFormatter
+	from argparse import RawDescriptionHelpFormatter
+	from accelerator.compat import ArgumentParser
 	from accelerator.error import UserError
 
 	parser = ArgumentParser(

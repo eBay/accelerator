@@ -23,11 +23,11 @@
 from __future__ import division, print_function
 
 import sys
-import argparse
 import locale
 from datetime import datetime, time, date
 from math import ceil, floor, log10, isinf, isnan
 
+from accelerator.compat import ArgumentParser
 from accelerator.compat import terminal_size, parse_intermixed_args
 from .parser import name2ds, name2job
 from accelerator.error import NoSuchWhateverError
@@ -58,7 +58,7 @@ def printcolwise(data, template, printfunc, minrows=8, indent=4):
 
 def main(argv, cfg):
 	usage = "%(prog)s [options] ds [ds [...]]"
-	parser = argparse.ArgumentParser(prog=argv.pop(0), usage=usage)
+	parser = ArgumentParser(prog=argv.pop(0), usage=usage)
 	parser.add_argument('-c', '--chain', action='store_true', help='list all datasets in a chain')
 	parser.add_argument('-C', '--non_empty_chain', action='store_true', help='list all non-empty datasets in a chain')
 	parser.add_argument('-l', '--list', action='store_true', help='list all datasets in a job with number of rows')

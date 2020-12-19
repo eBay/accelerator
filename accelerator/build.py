@@ -30,8 +30,9 @@ from collections import defaultdict
 from datetime import date
 from base64 import b64encode
 from importlib import import_module
-from argparse import ArgumentParser, RawTextHelpFormatter
+from argparse import RawTextHelpFormatter
 
+from accelerator.compat import ArgumentParser
 from accelerator.compat import unicode, str_types, PY3
 from accelerator.compat import urlencode
 from accelerator.compat import getarglist
