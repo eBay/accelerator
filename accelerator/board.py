@@ -146,7 +146,7 @@ def run(cfg, from_shell=False):
 		job = get_job(jobid)
 		try:
 			post = job.post
-		except IOError as e:
+		except IOError:
 			post = None
 		if post:
 			aborted = False
