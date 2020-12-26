@@ -24,6 +24,7 @@ import tarfile
 import itertools
 import collections
 import time
+import functools
 
 from accelerator.job import Job
 from accelerator.dataset import Dataset
@@ -38,6 +39,55 @@ def get_job(jobid):
 		base = jobid.rsplit('-', 1)[0]
 		jobid = os.readlink(Job(base + '-0').path[:-2] + '-LATEST')
 	return Job(jobid)
+
+# why wasn't Accept specified in a sane manner (like sending it in preference order)?
+def get_best_accept(*want):
+	d = {want[0]: -1} # fallback to first specified
+	# {'a/*': 'a/exact'}, reversed() so earlier win
+	want_short = {w.split('/', 1)[0] + '/*': w for w in reversed(want)}
+	want = set(want)
+	want.update(want_short)
+	for accept in bottle.request.headers.get('Accept', '').split(','):
+		accept = accept.split(';')
+		mimetype = accept[0].strip()
+		if mimetype in want:
+			d[mimetype] = 1.0
+			for p in accept[1:]:
+				p = p.strip()
+				if p.startswith('q='):
+					try:
+						d[mimetype] = float(p[2:])
+					except ValueError:
+						pass
+	# include k in sort key as well so /* gets lower priority
+	_, best = sorted(((v, k) for k, v in d.items()), reverse=True)[0]
+	return want_short.get(best, best)
+
+class JSONEncoderWithSet(json.JSONEncoder):
+	def default(self, o):
+		if isinstance(o, set):
+			return list(o)
+		return json.JSONEncoder.default(o)
+
+json_enc = JSONEncoderWithSet(indent=4, ensure_ascii=False).encode
+
+def view(name, subkey=None):
+	def view_decorator(func):
+		@functools.wraps(func)
+		def view_wrapper(**kw):
+			res = func(**kw)
+			if isinstance(res, dict):
+				accept = get_best_accept('application/json', 'text/json', 'text/html')
+				if accept == 'text/html':
+					return bottle.template(name, **res)
+				else:
+					bottle.response.content_type = accept + '; charset=UTF-8'
+					if subkey:
+						res = res[subkey]
+					return [json_enc(res), '\n']
+			return res
+		return view_wrapper
+	return view_decorator
 
 def main(argv, cfg):
 	prog = argv.pop(0)
@@ -252,13 +302,11 @@ def run(cfg, from_shell=False):
 		)
 
 	@bottle.get('/urd/<user>/<build>/<ts>')
+	@view('urditem', 'entry')
 	def urditem(user, build, ts):
 		key = user + '/' + build + '/' + ts
 		d = call_u(key)
-		if bottle.request.headers.get('Accept', '').startswith('application/json'):
-			return d
-		else:
-			return bottle.template('urditem', key=key, entry=d)
+		return dict(key=key, entry=d)
 
 	bottle.TEMPLATE_PATH = [os.path.join(os.path.dirname(__file__), 'board')]
 	if from_shell:
