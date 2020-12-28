@@ -88,6 +88,36 @@ def view(name, subkey=None):
 		return view_wrapper
 	return view_decorator
 
+def fix_stacks(stacks, report_t):
+	pid2pid = {}
+	pid2jid = {}
+	pid2part = {}
+	job_pid = None
+	for pid, indent, msg, t in stacks:
+		if pid not in pid2pid and pid not in pid2jid:
+			if msg.startswith('analysis('):
+				pid2part[pid] = ''.join(c for c in msg if c.isdigit())
+				pid2pid[pid] = job_pid
+			else:
+				pid2jid[pid] = msg.split(' ', 1)[0]
+				job_pid = pid
+		elif pid not in pid2part:
+			pid2part[pid] = msg if msg in ('prepare', 'synthesis') else 'analysis'
+		jobpid = pid
+		while jobpid in pid2pid:
+			jobpid = pid2pid[jobpid]
+		jid = pid2jid[jobpid]
+		if indent < 0:
+			msg = msg.split('\n')
+			start = len(msg) - 1
+			while start and sum(map(bool, msg[start:])) < 5:
+				start -= 1
+			msg = [line.rstrip('\r') for line in msg[start:]]
+			t = fmttime(report_t - t)
+		else:
+			t = fmttime(report_t - t, short=True)
+		yield (jid, pid, indent, pid2part.get(pid), msg, t)
+
 def main(argv, cfg):
 	prog = argv.pop(0)
 	if '-h' in argv or '--help' in argv or len(argv) not in (0, 1):
@@ -162,6 +192,7 @@ def run(cfg, from_shell=False):
 				t, msg, _ = status.current
 				return '%s (%s)' % (msg, fmttime(status.report_t - t, short=True),)
 		else:
+			status.tree = list(fix_stacks(status.pop('status_stacks'), status.report_t))
 			return status
 
 	@bottle.get('/job/<jobid>/method.tar.gz/')
