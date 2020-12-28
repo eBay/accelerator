@@ -153,6 +153,7 @@ def run(cfg, from_shell=False):
 		return bottle.static_file(name, root=cfg.result_directory)
 
 	@bottle.get('/status')
+	@view('status')
 	def status():
 		status = call_s('status/full')
 		if 'short' in bottle.request.query:
@@ -162,7 +163,7 @@ def run(cfg, from_shell=False):
 				t, msg, _ = status.current
 				return '%s (%s)' % (msg, fmttime(time.time() - t, short=True),)
 		else:
-			return bottle.template('status', **status)
+			return status
 
 	@bottle.get('/job/<jobid>/method.tar.gz/')
 	@bottle.get('/job/<jobid>/method.tar.gz/<name:path>')
