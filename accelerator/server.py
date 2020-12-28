@@ -107,6 +107,7 @@ class XtdHandler(BaseWebHandler):
 				data.lock.release()
 			elif path == ['status', 'full']:
 				status.status_stacks, status.current = status_stacks_export()
+			status.report_t = time.time()
 			self.do_response(200, "text/json", status)
 			return
 

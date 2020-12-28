@@ -4,8 +4,6 @@
 		idle
 	% else:
 		% from accelerator.build import fmttime
-		% from time import time
-		% report_t = time()
 		% pids = set()
 		% job = part = '-'
 		<table id="status-stacks">

@@ -23,7 +23,6 @@ import os
 import tarfile
 import itertools
 import collections
-import time
 import functools
 
 from accelerator.job import Job
@@ -161,7 +160,7 @@ def run(cfg, from_shell=False):
 				return 'idle'
 			else:
 				t, msg, _ = status.current
-				return '%s (%s)' % (msg, fmttime(time.time() - t, short=True),)
+				return '%s (%s)' % (msg, fmttime(status.report_t - t, short=True),)
 		else:
 			return status
 
