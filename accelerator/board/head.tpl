@@ -313,7 +313,7 @@
 		}
 
 		#status-stacks td {
-			padding: 1px 0.5em;
+			padding: 1px 1px;
 		}
 		.output {
 			background: var(--bg1);

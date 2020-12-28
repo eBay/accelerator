@@ -5,7 +5,7 @@
 	% else:
 		<table id="status-stacks">
 			% for job, pid, indent, part, msg, t in tree:
-				<tr><td>{{ pid }}</td>
+				<tr><td>{{ job }}</td><td>{{ pid }}</td>
 				% if indent < 0:
 					<td><div class="output">
 						Tail of output ({{ t }} ago)
