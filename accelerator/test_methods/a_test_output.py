@@ -99,7 +99,7 @@ def sub_part(sliceno, opts):
 		timeout = 0
 		got = None
 		for _ in range(25):
-			status_stacks = a._server_idle(timeout)[1]
+			status_stacks = a._server_idle(timeout)[2]
 			for line in status_stacks:
 				if line[0] == pid and line[1] < 0:
 					# this is our tail

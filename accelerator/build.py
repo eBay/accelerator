@@ -127,15 +127,15 @@ class Automata:
 		return self.jobid(method), self.job_retur
 
 	def wait(self, t0=None, ignore_old_errors=False):
-		idle, status_stacks, current, last_time = self._server_idle(0, ignore_errors=ignore_old_errors)
+		idle, now, status_stacks, current, last_time = self._server_idle(0, ignore_errors=ignore_old_errors)
 		if idle:
 			return
 		if t0 is None:
 			if current:
 				t0 = current[0]
 			else:
-				t0 = time.time()
-		waited = int(round(time.time() - t0)) - 1
+				t0 = now
+		waited = int(round(now - t0)) - 1
 		if self.verbose == 'dots':
 			print('[' + '.' * waited, end=' ')
 		while not idle:
@@ -146,7 +146,6 @@ class Automata:
 			if waited % 60 == 0 and self.monitor:
 				self.monitor.ping()
 			if self.verbose:
-				now = time.time()
 				if current:
 					current = (now - t0, current[1], now - current[2],)
 				else:
@@ -166,7 +165,7 @@ class Automata:
 						fmttime(current[2], True),
 					)
 					sys.stdout.write('\r\033[K           %s %s %s' % current_display)
-			idle, status_stacks, current, last_time = self._server_idle(1)
+			idle, now, status_stacks, current, last_time = self._server_idle(1)
 		if self.verbose == 'dots':
 			print('(%d)]' % (last_time,))
 		else:
@@ -195,7 +194,7 @@ class Automata:
 				e = JobError(jobid, method, status)
 				print(e.format_msg(), file=sys.stderr)
 			raise e
-		return resp.idle, resp.get('status_stacks'), resp.get('current'), resp.get('last_time')
+		return resp.idle, resp.report_t, resp.get('status_stacks'), resp.get('current'), resp.get('last_time')
 
 	def _server_submit(self, json):
 		# submit json to server
