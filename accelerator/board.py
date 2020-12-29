@@ -149,7 +149,7 @@ def run(cfg, from_shell=False):
 		return call(os.path.join(cfg.urd, *path), server_name='urd')
 
 	@bottle.get('/')
-	@bottle.view('main')
+	@view('main')
 	def main_page():
 		return dict(
 			project=project,
@@ -222,7 +222,7 @@ def run(cfg, from_shell=False):
 
 	@bottle.get('/job/<jobid>')
 	@bottle.get('/job/<jobid>/')
-	@bottle.view('job')
+	@view('job')
 	def job(jobid):
 		job = get_job(jobid)
 		try:
@@ -282,13 +282,13 @@ def run(cfg, from_shell=False):
 		return jobs
 
 	@bottle.get('/workdir/<name>')
-	@bottle.view('workdir')
+	@view('workdir', 'jobs')
 	def workdir(name):
 		return dict(name=name, jobs=load_workdir(collections.OrderedDict(), name))
 
 	@bottle.get('/workdir')
 	@bottle.get('/workdir/')
-	@bottle.view('workdir')
+	@view('workdir', 'jobs')
 	def all_workdirs():
 		jobs = collections.OrderedDict()
 		for name in sorted(cfg.workdirs):
@@ -296,7 +296,7 @@ def run(cfg, from_shell=False):
 		return dict(name='ALL', jobs=jobs)
 
 	@bottle.get('/methods')
-	@bottle.view('methods')
+	@view('methods')
 	def methods():
 		methods = call_s('methods')
 		by_package = collections.defaultdict(list)
@@ -306,7 +306,7 @@ def run(cfg, from_shell=False):
 		return dict(methods=methods, by_package=by_package)
 
 	@bottle.get('/method/<name>')
-	@bottle.view('method')
+	@view('method', 'data')
 	def method(name):
 		methods = call_s('methods')
 		if name not in methods:
@@ -315,7 +315,7 @@ def run(cfg, from_shell=False):
 
 	@bottle.get('/urd')
 	@bottle.get('/urd/')
-	@bottle.view('urd')
+	@view('urd', 'lists')
 	def urd():
 		return dict(
 			lists=call_u('list'),
@@ -324,7 +324,7 @@ def run(cfg, from_shell=False):
 
 	@bottle.get('/urd/<user>/<build>')
 	@bottle.get('/urd/<user>/<build>/')
-	@bottle.view('urdlist')
+	@view('urdlist', 'timestamps')
 	def urdlist(user, build):
 		key = user + '/' + build
 		return dict(
