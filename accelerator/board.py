@@ -81,7 +81,9 @@ def view(name, subkey=None):
 					return bottle.template(name, **res)
 				else:
 					bottle.response.content_type = accept + '; charset=UTF-8'
-					if subkey:
+					if callable(subkey):
+						res = subkey(res)
+					elif subkey:
 						res = res[subkey]
 					return [json_enc(res), '\n']
 			return res
@@ -117,6 +119,15 @@ def fix_stacks(stacks, report_t):
 		else:
 			t = fmttime(report_t - t, short=True)
 		yield (jid, pid, indent, pid2part.get(pid), msg, t)
+
+# datasets aren't dicts, so can't be usefully json encoded
+def ds_json(d):
+	ds = d['ds']
+	keys = ('job', 'name', 'parent', 'filename', 'previous', 'hashlabel', 'lines')
+	res = {k: getattr(ds, k) for k in keys}
+	res['method'] = ds.job.method
+	res['columns'] = {k: c.type for k, c in ds.columns.items()}
+	return res
 
 def main(argv, cfg):
 	prog = argv.pop(0)
@@ -248,6 +259,7 @@ def run(cfg, from_shell=False):
 		)
 
 	@bottle.get('/dataset/<dsid:path>')
+	@view('dataset', ds_json)
 	def dataset(dsid):
 		ds = Dataset(dsid.rstrip('/'))
 		q = bottle.request.query
@@ -264,7 +276,7 @@ def run(cfg, from_shell=False):
 			bottle.response.content_type = 'application/json; charset=UTF-8'
 			return json.dumps(res)
 		else:
-			return bottle.template('dataset', ds=ds)
+			return dict(ds=ds)
 
 	def load_workdir(jobs, name):
 		known = call_s('workdir', name)
