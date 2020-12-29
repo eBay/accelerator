@@ -95,7 +95,7 @@
 					const h3 = document.createElement('H3');
 					h3.innerText = displayname;
 					const pre = document.createElement('PRE');
-					fetch('/job/{{ job }}/OUTPUT/' + name)
+					fetch('/job/{{ job }}/OUTPUT/' + name, {headers: {Accept: 'text/plain'}})
 					.then(res => {
 						if (res.status == 404) {
 							el.remove();

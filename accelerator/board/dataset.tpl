@@ -74,7 +74,7 @@
 				const spinner = document.createElement('DIV');
 				spinner.className = 'spinner';
 				td.appendChild(spinner);
-				fetch(url + encodeURIComponent(columns[col]))
+				fetch(url + encodeURIComponent(columns[col]), {headers: {Accept: 'application/json'}})
 				.then(res => res.json())
 				.then(res => {
 					spinner.remove();

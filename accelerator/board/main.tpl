@@ -30,7 +30,7 @@
 	const statusEl = document.querySelector('#status span');
 	const status = function () {
 		if (document.body.className === 'error') return;
-		fetch('/status?short')
+		fetch('/status?short', {headers: {Accept: 'text/plain'}})
 		.then(res => {
 			if (res.ok) return res.text();
 			throw new Error('error response');
@@ -46,7 +46,7 @@
 		});
 	};
 	const update = function (try_num) {
-		fetch('/results')
+		fetch('/results', {headers: {Accept: 'application/json'}})
 		.then(res => {
 			if (res.ok) return res.json();
 			throw new Error('error response');
@@ -180,7 +180,7 @@
 			fileEl.className = 'textfile';
 			const pre = document.createElement('PRE');
 			fileEl.appendChild(pre);
-			fetch(fileUrl)
+			fetch(fileUrl, {headers: {Accept: 'text/plain'}})
 			.then(res => {
 				if (res.ok) return res.text();
 				throw new Error('error response');
