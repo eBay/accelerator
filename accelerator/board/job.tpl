@@ -5,6 +5,8 @@
 	<h1>{{ job }}</h1>
 	% if aborted:
 		<div class="warning">WARNING: Job didn't finish, information may be incomplete.</div>
+	% elif not current:
+		<div class="warning">Job is not current.</div>
 	% end
 	<h2>setup</h2>
 	<div class="box">

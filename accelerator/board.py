@@ -244,13 +244,16 @@ def run(cfg, from_shell=False):
 			aborted = False
 			files = [fn for fn in job.files() if fn[0] != '/']
 			subjobs = [Job(jobid) for jobid in post.subjobs]
+			current = call_s('job_is_current', job)
 		else:
 			aborted = True
+			current = False
 			files = None
 			subjobs = None
 		return dict(
 			job=job,
 			aborted=aborted,
+			current=current,
 			output=os.path.exists(job.filename('OUTPUT')),
 			datasets=job.datasets,
 			params=job.params,
