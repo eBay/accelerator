@@ -27,9 +27,10 @@ import errno
 from accelerator.compat import ArgumentParser
 from accelerator.setupfile import encode_setup
 from accelerator.compat import FileNotFoundError
+from accelerator.unixhttp import call
 from .parser import name2job, JobNotFound
 
-def show(job, show_output):
+def show(url, job, show_output):
 	print(job.path)
 	print('=' * len(job.path))
 	setup = job.json_load('setup.json')
@@ -61,6 +62,8 @@ def show(job, show_output):
 		print('files:')
 		for fn in sorted(post.files):
 			print('   ', job.filename(fn))
+	if post and not call(url + '/job_is_current/' + job):
+		print('\x1b[34mJob is not current\x1b[m')
 	print()
 	out = job.output()
 	if show_output:
@@ -102,7 +105,7 @@ def main(argv, cfg):
 			elif args.just_path:
 				print(job.path)
 			else:
-				show(job, args.output)
+				show(cfg.url, job, args.output)
 		except JobNotFound as e:
 			print(e)
 			res = 1
