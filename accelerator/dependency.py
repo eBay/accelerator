@@ -48,11 +48,11 @@ def find_possible_jobs(db, methods, job):
 	remcount = 0
 	while not res:
 		remcount += 1
-		if remcount == len(optset):
-			break
 		for jobid, remset in inner():
 			remset = tuple(s.split()[1] for s in remset)
 			res[jobid] = remset
+		if remcount == len(optset):
+			break
 	return dict(_job_candidates_options(res))
 
 def _job_candidates_options(candidates):
