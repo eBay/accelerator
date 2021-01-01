@@ -2,7 +2,7 @@
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
 # Modifications copyright (c) 2019-2020 Anders Berkeman                    #
-# Modifications copyright (c) 2019-2020 Carl Drougge                       #
+# Modifications copyright (c) 2019-2021 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -56,8 +56,7 @@ def _job_params(jobid):
 	from accelerator.setupfile import load_setup
 	d = load_setup(jobid)
 	for method, tl in iteritems(d.get('_typing', {})):
-		_apply_typing(d.params[method].options, tl)
-	d.update(d.params[d.method])
+		_apply_typing(d.options, tl)
 	return d
 
 def job_params(jobid=None, default_empty=False):

@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2019-2020 Carl Drougge                       #
+# Modifications copyright (c) 2019-2021 Carl Drougge                       #
 # Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -30,13 +30,12 @@ from accelerator.compat import iteritems, itervalues
 from accelerator.extras import _job_params, job_post, OptionEnum, OptionDefault
 
 
-Job = namedtuple('Job', 'id method params optset hash time total')
+Job = namedtuple('Job', 'id method optset hash time total')
 
 _control = None # control.Main instance, global for use in _mkjob, set when DataBase is initialized.
 
 def _mkjob(setup):
-	params_with_defaults = {}
-	# Fill in defaults for all methods, update with actual options
+	# Start with defaults, update with actual options
 	def optfilter(d):
 		res = {}
 		for k, v in iteritems(d):
@@ -46,19 +45,16 @@ def _mkjob(setup):
 				v = v.default
 			res[k] = v
 		return res
-	for method, params in iteritems(setup.params):
-		if method in _control.Methods.params:
-			d = {k: optfilter(v) for k, v in iteritems(_control.Methods.params[method].defaults)}
-		else:
-			d = {}
-		for k, v in iteritems(d):
-			v.update(params[k])
-		params_with_defaults[method] = d
-	optset = _control.Methods.params2optset(params_with_defaults)
+	if setup.method in _control.Methods.params:
+		d = {k: optfilter(v) for k, v in iteritems(_control.Methods.params[setup.method].defaults)}
+	else:
+		d = {}
+	for k, v in iteritems(d):
+		v.update(setup[k])
+	optset = _control.Methods.params2optset({setup.method: d})
 	job = Job(
 		id     = setup.jobid,
 		method = setup.method,
-		params = setup.params[setup.method],
 		optset = optset,
 		hash   = setup.hash,
 		time   = setup.starttime,
