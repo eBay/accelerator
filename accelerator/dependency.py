@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2019-2020 Carl Drougge                       #
+# Modifications copyright (c) 2019-2021 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -30,7 +30,6 @@ from accelerator.compat import iteritems
 from accelerator import setupfile
 from accelerator import deptree
 from accelerator.extras import job_params
-from accelerator.runner import runners
 
 def find_possible_jobs(db, methods, job):
 	method = job['method']
