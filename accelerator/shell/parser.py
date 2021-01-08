@@ -109,7 +109,7 @@ def _name2job(cfg, n):
 			raise NoSuchWorkdirError('Not a valid workdir: "%s"' % (wd,))
 		path = join(WORKDIRS[wd], n)
 		try:
-			n = readlink(join(WORKDIRS[wd], path))
+			n = readlink(path)
 		except OSError as e:
 			raise JobNotFound('Failed to read %s: %s' % (path, e,))
 		return Job(n)
