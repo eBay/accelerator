@@ -26,8 +26,8 @@ License
 =======
 
 Copyright 2017-2018 eBay Inc.  
-Modifications copyright (c) 2018-2020 Carl Drougge  
-Modifications copyright (c) 2019-2020 Anders Berkeman  
+Modifications copyright (c) 2018-2021 Carl Drougge  
+Modifications copyright (c) 2019-2021 Anders Berkeman  
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
