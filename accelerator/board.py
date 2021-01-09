@@ -206,6 +206,11 @@ def run(cfg, from_shell=False):
 			status.tree = list(fix_stacks(status.pop('status_stacks', ()), status.report_t))
 			return status
 
+	@bottle.get('/last_error')
+	@view('last_error')
+	def last_error():
+		return call_s('last_error')
+
 	@bottle.get('/job/<jobid>/method.tar.gz/')
 	@bottle.get('/job/<jobid>/method.tar.gz/<name:path>')
 	def job_method(jobid, name=None):

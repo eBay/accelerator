@@ -1,7 +1,8 @@
 % include('head', title='status')
+% from datetime import datetime
 <body>
 	% if idle:
-		idle
+		<p>idle</p>
 	% else:
 		<table id="status-stacks">
 			% for job, pid, indent, part, msg, t in tree:
@@ -21,5 +22,10 @@
 				</tr>
 			% end
 		</table>
+	% end
+	% if get('last_error_time'):
+		<p><a href="last_error?t={{ last_error_time }}">Last error at
+			{{ datetime.fromtimestamp(last_error_time).replace(microsecond=0) }}
+		</a></p>
 	% end
 </body>
