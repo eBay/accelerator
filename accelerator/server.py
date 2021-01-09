@@ -2,7 +2,7 @@
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
 # Modifications copyright (c) 2019-2020 Anders Berkeman                    #
-# Modifications copyright (c) 2018-2020 Carl Drougge                       #
+# Modifications copyright (c) 2018-2021 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -101,14 +101,24 @@ class XtdHandler(BaseWebHandler):
 				status.idle = data.lock.acquire(False)
 			if status.idle:
 				if data.last_error:
-					status.last_error = data.last_error
-					data.last_error = None
-				else:
-					status.last_time = data.last_time
+					status.last_error_time = data.last_error[0]
+				status.last_time = data.last_time
 				data.lock.release()
 			elif path == ['status', 'full']:
 				status.status_stacks, status.current = status_stacks_export()
 			status.report_t = time.time()
+			self.do_response(200, "text/json", status)
+			return
+
+		elif path==['last_error']:
+			data = job_tracking.get(args.get('subjob_cookie') or None)
+			if not data:
+				self.do_response(400, 'text/plain', 'bad subjob_cookie!\n' )
+				return
+			status = DotDict()
+			if data.last_error:
+				status.time = data.last_error[0]
+				status.last_error = data.last_error[1]
 			self.do_response(200, "text/json", status)
 			return
 
@@ -261,7 +271,8 @@ class XtdHandler(BaseWebHandler):
 									error.append([jobid, "unknown", {"INTERNAL": "Not built"}])
 									print("INTERNAL ERROR IN JOB BUILDING!", file=sys.stderr)
 								total_time += j.get('total_time', 0)
-							data.last_error = error
+							if error:
+								data.last_error = (time.time(), error)
 							data.last_time = total_time
 					except Exception as e:
 						if respond_after:

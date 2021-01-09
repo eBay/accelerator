@@ -2,7 +2,7 @@
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
 # Modifications copyright (c) 2019-2020 Anders Berkeman                    #
-# Modifications copyright (c) 2018-2020 Carl Drougge                       #
+# Modifications copyright (c) 2018-2021 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -62,6 +62,7 @@ class Automata:
 		self.monitor = None
 		self.flags = flags or []
 		self.job_method = None
+		self.last_error_time = None
 		# Workspaces should be per Automata
 		from accelerator.job import WORKDIRS
 		WORKDIRS.update(self.list_workdirs())
@@ -188,12 +189,14 @@ class Automata:
 			path.append('full')
 		path.append('?subjob_cookie=%s&timeout=%s' % (self.subjob_cookie or '', timeout,))
 		resp = self._url_json(*path)
-		if 'last_error' in resp and not ignore_errors:
-			print("\nFailed to build jobs:", file=sys.stderr)
-			for jobid, method, status in resp.last_error:
-				e = JobError(jobid, method, status)
-				print(e.format_msg(), file=sys.stderr)
-			raise e
+		if 'last_error_time' in resp and resp.last_error_time != self.last_error_time:
+			self.last_error_time = resp.last_error_time
+			if not ignore_errors:
+				print("\nFailed to build jobs:", file=sys.stderr)
+				for jobid, method, status in self._url_json('last_error', path[-1]).last_error:
+					e = JobError(jobid, method, status)
+					print(e.format_msg(), file=sys.stderr)
+				raise e
 		return resp.idle, resp.report_t, resp.get('status_stacks'), resp.get('current'), resp.get('last_time')
 
 	def _server_submit(self, json):
