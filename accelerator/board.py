@@ -1,6 +1,6 @@
 ############################################################################
 #                                                                          #
-# Copyright (c) 2020 Carl Drougge                                          #
+# Copyright (c) 2020-2021 Carl Drougge                                     #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -203,7 +203,7 @@ def run(cfg, from_shell=False):
 				t, msg, _ = status.current
 				return '%s (%s)' % (msg, fmttime(status.report_t - t, short=True),)
 		else:
-			status.tree = list(fix_stacks(status.pop('status_stacks'), status.report_t))
+			status.tree = list(fix_stacks(status.pop('status_stacks', ()), status.report_t))
 			return status
 
 	@bottle.get('/job/<jobid>/method.tar.gz/')
