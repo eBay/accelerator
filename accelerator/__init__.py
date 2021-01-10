@@ -62,5 +62,6 @@ if not before_install:
 	__all__.extend((status, dummy_status,))
 	from .subjobs import build
 	__all__.extend((build,))
+	__all__ = [k for k, v in locals().items() if v in __all__]
 
 del before_install
