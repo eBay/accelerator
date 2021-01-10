@@ -106,6 +106,7 @@
 			float: left;
 		}
 		#waiting {
+			pointer-events: none;
 			position: fixed;
 			left: 0;
 			top: 5em;
@@ -327,6 +328,7 @@
 		}
 
 		.spinner {
+			pointer-events: none;
 			margin: 5px auto;
 			width: 32px;
 			height: 32px;
