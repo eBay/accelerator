@@ -65,7 +65,6 @@ def load_config(filename):
 	required = {'slices', 'workdirs', 'method packages'}
 	known = {'target workdir', 'listen', 'urd', 'board listen', 'result directory', 'input directory', 'project directory'} | required | multivalued
 	cfg = {key: [] for key in multivalued}
-	cfg['listen'] = '.socket.dir/server', None
 
 	def fixpath(fn, realpath=True):
 		# convert relative path to absolute wrt location of config file
@@ -173,6 +172,8 @@ def load_config(filename):
 			'board listen': 'board_listen',
 		}
 		res = DotDict({rename.get(k, k): v for k, v in cfg.items()})
+		if 'listen' not in res:
+			res.listen = '.socket.dir/server', None
 		if 'target_workdir' not in res:
 			res.target_workdir = res.workdirs[0][0]
 		if 'project_directory' not in res:
