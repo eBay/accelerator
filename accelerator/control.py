@@ -122,7 +122,8 @@ class Main:
 		"""Insert all new jobids (from all workdirs) in database,
 		discard all deleted or with incorrect hash.
 		"""
-		if hasattr(multiprocessing, 'get_context'):
+		if hasattr(multiprocessing, 'get_context') and not running_under_wsl():
+			# forkserver is apparently broken under (some versions of) WSL1
 			ctx = multiprocessing.get_context('forkserver')
 			Pool = ctx.Pool
 		else:
@@ -221,3 +222,17 @@ def _pool_init(workdirs):
 	# restore the original behaviour for that.
 	signal.signal(signal.SIGTERM, signal.SIG_DFL)
 	WORKDIRS.update(workdirs)
+
+
+# This can't distinguish between WSL1 and WSL2.
+_running_under_wsl = None
+def running_under_wsl():
+	global _running_under_wsl
+	if _running_under_wsl is None:
+		try:
+			with open('/proc/sys/kernel/osrelease', 'rb') as fh:
+				osrelease = fh.read().lower()
+			_running_under_wsl = (b'microsoft' in osrelease or b'wsl' in osrelease)
+		except IOError:
+			_running_under_wsl = False
+	return _running_under_wsl
