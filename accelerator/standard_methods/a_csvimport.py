@@ -1,6 +1,6 @@
 ############################################################################
 #                                                                          #
-# Copyright (c) 2019-2020 Carl Drougge                                     #
+# Copyright (c) 2019-2021 Carl Drougge                                     #
 # Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -113,7 +113,7 @@ def reader_process(slices, filename, write_fds, labels_fd, success_fd, status_fd
 	os.dup2(success_fd, 2) # reader writes errors to stderr
 	os.close(success_fd)
 	success_fd = 2
-	res = cstuff.backend.reader(filename.encode("ascii"), slices, options.skip_lines, options.skip_empty_lines, write_fds, labels_fd, status_fd, comment_char, lf_char)
+	res = cstuff.backend.reader(filename.encode("utf-8"), slices, options.skip_lines, options.skip_empty_lines, write_fds, labels_fd, status_fd, comment_char, lf_char)
 	if not res:
 		os.write(success_fd, b"\0")
 	os.close(success_fd)
