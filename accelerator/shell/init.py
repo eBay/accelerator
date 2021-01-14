@@ -89,6 +89,14 @@ input directory: {input}
 """
 
 
+def quote(v):
+	from accelerator.compat import PY2
+	if PY2:
+		return '"%s"' % (v.replace('"', '\\"'),) # good enough, hopefully
+	else:
+		import shlex
+		return shlex.quote(v)
+
 def main(argv):
 	from os import makedirs, listdir, chdir
 	from os.path import exists, join, realpath
@@ -119,7 +127,7 @@ def main(argv):
 	assert '/' not in options.name
 	assert ' ' not in options.name
 	if not options.input.startswith('#'):
-		options.input = realpath(options.input)
+		options.input = quote(realpath(options.input))
 	prefix = realpath(options.directory)
 	workdir = join(prefix, 'workdirs', options.name)
 	slices_conf = join(workdir, '.slices')
@@ -162,7 +170,7 @@ def main(argv):
 		fh.write(build_script)
 	with open('accelerator.conf', 'w') as fh:
 		fh.write(config_template.format(
-			name=options.name,
+			name=quote(options.name),
 			slices=options.slices,
 			input=options.input,
 			major=version_info.major,
