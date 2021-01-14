@@ -2,7 +2,7 @@
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
 # Modifications copyright (c) 2019-2020 Anders Berkeman                    #
-# Modifications copyright (c) 2019-2020 Carl Drougge                       #
+# Modifications copyright (c) 2019-2021 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -23,14 +23,14 @@ from __future__ import division
 
 import re
 import os
-from functools import partial
+import shlex
 
 from accelerator.compat import quote_plus, open
 
 from accelerator.extras import DotDict
 
 
-_re_var = re.compile(r'\$\{([^\}=]*)(?:=([^\}]*))?\}')
+_re_var = re.compile(r'(?<!\\)\$\{([^\}=]*)(?:=([^\}]*))?\}')
 def interpolate(s):
 	"""Replace ${FOO=BAR} with os.environ.get('FOO', 'BAR')
 	(just ${FOO} is of course also supported, but not $FOO)"""
@@ -77,11 +77,10 @@ def load_config(filename):
 
 	class _E(Exception):
 		pass
-	def parse_pair(thing, val):
-		a = val.split()
-		if len(a) != 2:
-			raise _E("Invalid %s specification %r (expected 'name path')" % (thing, val,))
-		return a[0], fixpath(a[1], thing != 'interpreter')
+	def parse_workdir(val):
+		return val[0], fixpath(val[1])
+	def parse_interpreter(val):
+		return val[0], fixpath(val[1], False)
 	def check_interpreter(val):
 		if val[0] == 'DEFAULT':
 			raise _E("Don't override DEFAULT interpreter")
@@ -95,14 +94,14 @@ def load_config(filename):
 			raise _E('Workdir path %r re-used' % (path,))
 
 	parsers = {
-		'slices': int,
-		'workdirs': partial(parse_pair, 'workdir'),
-		'interpreters': partial(parse_pair, 'interpreter'),
-		'listen': resolve_listen,
-		'urd': resolve_listen,
-		'board listen': resolve_listen,
-		'input directory': fixpath,
-		'result directory': fixpath,
+		'slices': (['count'], int),
+		'workdirs': (['name', 'path'], parse_workdir),
+		'interpreters': (['name', 'path'], parse_interpreter),
+		'listen': (['path or [host]:port'], resolve_listen),
+		'urd': (['path or [host]:port'], resolve_listen),
+		'board listen': (['path or [host]:port'], resolve_listen),
+		'input directory': (['path'], fixpath),
+		'result directory': (['path'], fixpath),
 	}
 	checkers = dict(
 		interpreter=check_interpreter,
@@ -115,10 +114,10 @@ def load_config(filename):
 		key = None
 		for n, line in lines:
 			lineno[0] = n
-			line = line.split('#', 1)[0].rstrip()
-			if not line.strip():
+			line_stripped = line.strip()
+			if not line_stripped or line_stripped[0] == '#':
 				continue
-			if line == line.strip():
+			if line == line.lstrip():
 				if ':' not in line:
 					raise _E('Expected a ":"')
 				key, val = line.split(':', 1)
@@ -128,15 +127,29 @@ def load_config(filename):
 				if not key:
 					raise _E('First line indented')
 				val = line
-			val = interpolate(val).strip()
+			val = shlex.split(interpolate(val), posix=True, comments=True)
 			if val:
 				handle(key, val)
 	def just_project_directory(key, val):
 		if key == 'project directory':
-			project_directory[0] = val
+			if len(val) != 1:
+				raise _E("%s takes a single value path (maybe you meant to quote it?)" % (key,))
+			project_directory[0] = val[0]
 	def everything(key, val):
 		if key in parsers:
-			val = parsers[key](val)
+			args, p = parsers[key]
+			if len(val) != len(args):
+				if len(args) == 1:
+					raise _E("%s takes a single value %s (maybe you meant to quote it?)" % (key, args[0]))
+				else:
+					raise _E("%s takes %d values (expected %s, got %r)" % (key, len(args), ' '.join(args), val))
+			if len(args) == 1:
+				val = val[0]
+			val = p(val)
+		elif len(val) == 1:
+			val = val[0]
+		else:
+			raise _E("%s takes a single value (maybe you meant to quote it?)" % (key,))
 		if key in checkers:
 			checkers[key](val)
 		if key in multivalued:
