@@ -105,15 +105,21 @@ for V in $(ls /opt/python/); do
 			"/opt/python/$V/bin/pip" wheel /out/wheelhouse/"$NAME".tar.gz --no-deps -w /tmp/wheels/
 			auditwheel repair "$UNFIXED_NAME" -w /tmp/wheels/fixed/
 			"/opt/python/$V/bin/pip" install "$FIXED_NAME"
-			rm -rf /tmp/axtest
-			"/opt/python/$V/bin/ax" init --slices "$SLICES" --name "${V/*-/}" /tmp/axtest
-			"/opt/python/$V/bin/ax" --config /tmp/axtest/accelerator.conf server &
+			rm -rf "/tmp/ax test"
+			TEST_NAME="${V/*-/}"
+			if [[ "$V" =~ cp3.* ]]; then
+				TEST_NAME="Ⅲ $TEST_NAME"
+			else
+				TEST_NAME="2 $TEST_NAME"
+			fi
+			"/opt/python/$V/bin/ax" init --slices "$SLICES" --name "$TEST_NAME" "/tmp/ax test"
+			"/opt/python/$V/bin/ax" --config "/tmp/ax test/accelerator.conf" server &
 			sleep 1
-			"/opt/python/$V/bin/ax" --config /tmp/axtest/accelerator.conf run tests
+			"/opt/python/$V/bin/ax" --config "/tmp/ax test/accelerator.conf" run tests
 			# The wheel passed the tests, copy it to the wheelhouse.
 			cp -p "$FIXED_NAME" /out/wheelhouse/
 			BUILT="$BUILT"$'\n'"${FIXED_NAME/*\//}"
-			rm -rf /tmp/axtest
+			rm -rf "/tmp/ax test"
 			SLICES=3 # run all other tests with the lowest (and fastest) allowed for tests
 			;;
 		*)
