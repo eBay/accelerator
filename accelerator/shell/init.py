@@ -1,6 +1,6 @@
 ############################################################################
 #                                                                          #
-# Copyright (c) 2019-2020 Carl Drougge                                     #
+# Copyright (c) 2019-2021 Carl Drougge                                     #
 # Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -125,7 +125,6 @@ def main(argv):
 
 	assert options.name
 	assert '/' not in options.name
-	assert ' ' not in options.name
 	if not options.input.startswith('#'):
 		options.input = quote(realpath(options.input))
 	prefix = realpath(options.directory)

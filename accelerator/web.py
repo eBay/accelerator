@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2019-2020 Carl Drougge                       #
+# Modifications copyright (c) 2019-2021 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -23,12 +23,13 @@ if PY3:
 	from socketserver import ThreadingMixIn
 	from http.server import HTTPServer, BaseHTTPRequestHandler
 	from socketserver import UnixStreamServer
-	from urllib.parse import parse_qs
+	from urllib.parse import parse_qs, unquote_plus
 else:
 	from SocketServer import ThreadingMixIn
 	from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 	from SocketServer import UnixStreamServer
 	from urlparse import parse_qs
+	from urllib import unquote_plus
 
 import cgi
 from traceback import print_exc
@@ -115,7 +116,7 @@ class BaseWebHandler(BaseHTTPRequestHandler):
 			if e == "..":
 				p_a = p_a[:-1]
 			elif e and e != ".":
-				p_a.append(e)
+				p_a.append(self.argdec(unquote_plus(e)))
 		args = dict((a, self.argdec(cgi_args[a][-1])) for a in cgi_args)
 		self.handle_req(p_a, args)
 

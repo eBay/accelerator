@@ -31,7 +31,7 @@ from accelerator.unixhttp import call, WaitressServer
 from accelerator.build import fmttime
 from accelerator.configfile import resolve_listen
 from accelerator.shell.workdir import job_data, workdir_jids
-from accelerator.compat import setproctitle
+from accelerator.compat import setproctitle, url_quote
 
 def get_job(jobid):
 	if jobid.endswith('-LATEST'):
@@ -154,10 +154,10 @@ def run(cfg, from_shell=False):
 	setproctitle('ax board for %s on %s' % (project, cfg.board_listen,))
 
 	def call_s(*path):
-		return call(os.path.join(cfg.url, *path))
+		return call(os.path.join(cfg.url, *map(url_quote, path)))
 
 	def call_u(*path):
-		return call(os.path.join(cfg.urd, *path), server_name='urd')
+		return call(os.path.join(cfg.urd, *map(url_quote, path)), server_name='urd')
 
 	@bottle.get('/')
 	@view('main')

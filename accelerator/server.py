@@ -63,6 +63,7 @@ job_tracking = {None: DotDict(lock=JLock(), last_error=None, last_time=0, workdi
 # This needs .ctrl to work. It is set from main()
 class XtdHandler(BaseWebHandler):
 	server_version = "scx/0.1"
+	unicode_args = True
 	DEBUG =  not True
 
 	def log_message(self, format, *args):
