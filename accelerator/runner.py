@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2018-2020 Carl Drougge                       #
+# Modifications copyright (c) 2018-2021 Carl Drougge                       #
 # Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -282,12 +282,10 @@ def load_methods(all_packages, data):
 						assert len(vv) == 40
 				except AssertionError:
 					raise MsgException('Read the docs about equivalent_hashes')
-				if src.startswith(b'equivalent_hashes '):
-					start = 0
-				else:
-					start = src.index(b'\nequivalent_hashes ') + 1
-					assert start > 0, 'Failed to find equivalent_hashes in ' + mod_filename
-				end   = src.index(b'}', start)
+				m = re.search(br'^equivalent_hashes\s*=\s*\{[^}]*\}', src, re.MULTILINE)
+				assert m, 'Failed to find equivalent_hashes in ' + mod_filename
+				start, end = m.span()
+				end -= 1 # to get the same hash as the old way of parsing
 				h = hashlib.sha1(src[:start])
 				h.update(src[end:])
 				verifier = "%040x" % (int(h.hexdigest(), 16) ^ hash_extra,)
