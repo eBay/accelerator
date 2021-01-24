@@ -1,6 +1,6 @@
 ############################################################################
 #                                                                          #
-# Copyright (c) 2020 Carl Drougge                                          #
+# Copyright (c) 2020-2021 Carl Drougge                                     #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -23,7 +23,7 @@ from __future__ import unicode_literals
 import sys
 import os
 
-from accelerator.compat import ArgumentParser
+from accelerator.compat import ArgumentParser, url_quote
 from accelerator.unixhttp import call
 from accelerator.setupfile import load_setup
 from accelerator.build import fmttime
@@ -84,7 +84,7 @@ def main(argv, cfg):
 		if name not in cfg.workdirs:
 			print("No such workdir:", name, file=sys.stderr)
 			continue
-		known = call(cfg.url + '/workdir/' + name)
+		known = call(cfg.url + '/workdir/' + url_quote(name))
 		for jid in workdir_jids(cfg, name):
 			show_job(known, jid)
 
