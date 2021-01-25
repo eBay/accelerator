@@ -1,6 +1,6 @@
 ############################################################################
 #                                                                          #
-# Copyright (c) 2020 Carl Drougge                                          #
+# Copyright (c) 2020-2021 Carl Drougge                                     #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -26,7 +26,7 @@ import errno
 
 from accelerator.compat import ArgumentParser
 from accelerator.setupfile import encode_setup
-from accelerator.compat import FileNotFoundError
+from accelerator.compat import FileNotFoundError, url_quote
 from accelerator.unixhttp import call
 from .parser import name2job, JobNotFound
 
@@ -62,7 +62,7 @@ def show(url, job, show_output):
 		print('files:')
 		for fn in sorted(post.files):
 			print('   ', job.filename(fn))
-	if post and not call(url + '/job_is_current/' + job):
+	if post and not call(url + '/job_is_current/' + url_quote(job)):
 		print('\x1b[34mJob is not current\x1b[m')
 	print()
 	out = job.output()
