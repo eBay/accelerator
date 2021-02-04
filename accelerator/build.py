@@ -62,7 +62,8 @@ class Automata:
 		self.monitor = None
 		self.flags = flags or []
 		self.job_method = None
-		self.last_error_time = None
+		last_error = self._url_json('last_error?subjob_cookie=' + (subjob_cookie or ''))
+		self.last_error_time = last_error.get('time')
 		# Workspaces should be per Automata
 		from accelerator.job import WORKDIRS
 		WORKDIRS.update(self.list_workdirs())
