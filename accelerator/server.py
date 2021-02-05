@@ -172,7 +172,7 @@ class XtdHandler(BaseWebHandler):
 				if not jobs:
 					res = {'error': 'no current jobs with method %s available' % (method,)}
 				elif num + start_ix >= len(jobs):
-					res = {'error': 'tried to go %d jobs back from %s, but only %d earlier (current) jobs available' % (num, jobs[start_ix].id, len(jobs) - start_ix,)}
+					res = {'error': 'tried to go %d jobs back from %s, but only %d earlier (current) jobs available' % (num, jobs[start_ix].id, len(jobs) - start_ix - 1,)}
 				else:
 					res = {'id': jobs[num + start_ix].id}
 			self.do_response(200, 'text/json', res)
