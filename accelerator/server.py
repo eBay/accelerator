@@ -168,7 +168,7 @@ class XtdHandler(BaseWebHandler):
 			if start_ix is None:
 				res = {'error': '%s is not a current %s job' % (start_from, method,)}
 			else:
-				num = int(num) + start_ix
+				num = int(num)
 				if not jobs:
 					res = {'error': 'no current jobs with method %s available' % (method,)}
 				elif num + start_ix >= len(jobs):
