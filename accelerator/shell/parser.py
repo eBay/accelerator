@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2019-2020 Carl Drougge                       #
+# Modifications copyright (c) 2019-2021 Carl Drougge                       #
 # Modifications copyright (c) 2019 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -31,6 +31,7 @@ from accelerator.job import WORKDIRS
 from accelerator.job import Job
 from accelerator.error import NoSuchJobError, NoSuchDatasetError, NoSuchWorkdirError
 from accelerator.unixhttp import call
+from accelerator.compat import url_quote
 
 class JobNotFound(NoSuchJobError):
 	pass
@@ -66,7 +67,7 @@ def method2job(cfg, method, count=0, start_from=None):
 	def get(count):
 		url ='%s/method2job/%s/%s' % (cfg.url, method, count)
 		if start_from:
-			url += '?start_from=' + start_from
+			url += '?start_from=' + url_quote(start_from)
 		return call(url)
 	found = get(count)
 	if 'error' in found:
