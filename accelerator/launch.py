@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2018-2020 Carl Drougge                       #
+# Modifications copyright (c) 2018-2021 Carl Drougge                       #
 # Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -62,7 +62,7 @@ def writeall(fd, data):
 		data = data[os.write(fd, data):]
 
 
-def call_analysis(analysis_func, sliceno_, q, preserve_result, parent_pid, output_fds, **kw):
+def call_analysis(analysis_func, sliceno_, delayed_start, q, preserve_result, parent_pid, output_fds, **kw):
 	try:
 		# tell iowrapper our PID, so our output goes to the right status stack.
 		# (the pty is not quite a transparent transport ('\n' transforms into
@@ -73,6 +73,8 @@ def call_analysis(analysis_func, sliceno_, q, preserve_result, parent_pid, outpu
 		os.dup2(output_fds[sliceno_], 2)
 		for fd in output_fds:
 			os.close(fd)
+		if delayed_start:
+			delayed_start.get()
 		slicename = 'analysis(%d)' % (sliceno_,)
 		statmsg._start(slicename, parent_pid, 't')
 		setproctitle(slicename)
@@ -131,7 +133,7 @@ def call_analysis(analysis_func, sliceno_, q, preserve_result, parent_pid, outpu
 		sleep(5) # give launcher time to report error (and kill us)
 		exitfunction()
 
-def fork_analysis(slices, analysis_func, kw, preserve_result, output_fds):
+def fork_analysis(slices, concurrency, analysis_func, kw, preserve_result, output_fds):
 	from multiprocessing import Process, Queue
 	import gc
 	q = Queue()
@@ -142,8 +144,13 @@ def fork_analysis(slices, analysis_func, kw, preserve_result, output_fds):
 		# See https://bugs.python.org/issue31558
 		# (Though we keep the gc disabled by default.)
 		gc.freeze()
+	delayed_start = False
 	for i in range(slices):
-		p = Process(target=call_analysis, args=(analysis_func, i, q, preserve_result, pid, output_fds), kwargs=kw, name='analysis-%d' % (i,))
+		if i == concurrency:
+			assert concurrency != 0
+			# The rest will wait on this queue
+			delayed_start = Queue()
+		p = Process(target=call_analysis, args=(analysis_func, i, delayed_start, q, preserve_result, pid, output_fds), kwargs=kw, name='analysis-%d' % (i,))
 		p.start()
 		children.append(p)
 	for fd in output_fds:
@@ -179,6 +186,9 @@ def fork_analysis(slices, analysis_func, kw, preserve_result, output_fds):
 			data = [{'analysis(%d)' % (s_no,): s_tb}, None]
 			writeall(_prof_fd, json.dumps(data).encode('utf-8'))
 			exitfunction()
+		if delayed_start:
+			# Another analysis is allowed to run now
+			delayed_start.put(None)
 		per_slice.append((s_no, s_t))
 		temp_files.update(s_temp_files)
 		for name, lens in s_dw_lens.items():
@@ -221,7 +231,7 @@ def fmt_tb(skip_level):
 	return ''.join(msg)
 
 
-def execute_process(workdir, jobid, slices, result_directory, common_directory, input_directory, index=None, workdirs=None, server_url=None, subjob_cookie=None, parent_pid=0):
+def execute_process(workdir, jobid, slices, concurrency, result_directory, common_directory, input_directory, index=None, workdirs=None, server_url=None, subjob_cookie=None, parent_pid=0):
 	WORKDIRS.update(workdirs)
 
 	g.job = jobid
@@ -316,7 +326,7 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 		g.subjob_cookie = None # subjobs are not allowed from analysis
 		with statmsg.status('Waiting for all slices to finish analysis') as update:
 			g.update_top_status = update
-			prof['per_slice'], files, g.analysis_res = fork_analysis(slices, analysis_func, args_for(analysis_func), synthesis_needs_analysis, slaves)
+			prof['per_slice'], files, g.analysis_res = fork_analysis(slices, concurrency, analysis_func, args_for(analysis_func), synthesis_needs_analysis, slaves)
 			del g.update_top_status
 		prof['analysis'] = time() - t
 		saved_files.update(files)
@@ -345,11 +355,11 @@ def execute_process(workdir, jobid, slices, result_directory, common_directory, 
 	return None, (prof, saved_files, _record)
 
 
-def run(workdir, jobid, slices, result_directory, common_directory, input_directory, index=None, workdirs=None, server_url=None, subjob_cookie=None, parent_pid=0, prof_fd=-1):
+def run(workdir, jobid, slices, concurrency, result_directory, common_directory, input_directory, index=None, workdirs=None, server_url=None, subjob_cookie=None, parent_pid=0, prof_fd=-1):
 	global g_allesgut, _prof_fd
 	_prof_fd = prof_fd
 	try:
-		data = execute_process(workdir, jobid, slices, result_directory, common_directory, input_directory, index=index, workdirs=workdirs, server_url=server_url, subjob_cookie=subjob_cookie, parent_pid=parent_pid)
+		data = execute_process(workdir, jobid, slices, concurrency, result_directory, common_directory, input_directory, index=index, workdirs=workdirs, server_url=server_url, subjob_cookie=subjob_cookie, parent_pid=parent_pid)
 		g_allesgut = True
 	except Exception:
 		msg = fmt_tb(2)

@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2019-2020 Carl Drougge                       #
+# Modifications copyright (c) 2019-2021 Carl Drougge                       #
 # Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -78,7 +78,7 @@ def run(cmd, close_in_child, keep_in_child, with_pgrp=True):
 	os.execv(cmd[0], cmd)
 	os._exit()
 
-def launch(workdir, setup, config, Methods, active_workdirs, slices, debug, server_url, subjob_cookie, parent_pid):
+def launch(workdir, setup, config, Methods, active_workdirs, slices, concurrency, debug, server_url, subjob_cookie, parent_pid):
 	starttime = time.time()
 	jobid = setup.jobid
 	method = setup.method
@@ -90,6 +90,7 @@ def launch(workdir, setup, config, Methods, active_workdirs, slices, debug, serv
 	args = dict(
 		workdir=workdir,
 		slices=slices,
+		concurrency=concurrency,
 		jobid=jobid,
 		result_directory=config.get('result_directory', ''),
 		common_directory=config.get('common_directory', ''),

@@ -223,7 +223,7 @@ class XtdHandler(BaseWebHandler):
 										workdir=workdir,
 									)
 									try:
-										self.ctrl.run_job(jobid, subjob_cookie=passed_cookie, parent_pid=setup.get('parent_pid', 0))
+										self.ctrl.run_job(jobid, subjob_cookie=passed_cookie, parent_pid=setup.get('parent_pid', 0), concurrency=setup.get('concurrency'))
 										# update database since a new jobid was just created
 										job = self.ctrl.add_single_jobid(jobid)
 										with tlock:
