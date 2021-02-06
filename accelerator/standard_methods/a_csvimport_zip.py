@@ -1,6 +1,6 @@
 ############################################################################
 #                                                                          #
-# Copyright (c) 2019-2020 Carl Drougge                                     #
+# Copyright (c) 2019-2021 Carl Drougge                                     #
 # Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -68,7 +68,7 @@ import re
 from accelerator.compat import uni
 
 from . import a_csvimport
-from accelerator import DotDict, OptionEnum, build
+from accelerator import DotDict, OptionEnum, build, status
 
 depend_extra = (a_csvimport,)
 
@@ -142,12 +142,14 @@ def synthesis(prepare_res):
 	opts = DotDict((k, v) for k, v in options.items() if k in a_csvimport.options)
 	lst = prepare_res
 	previous = datasets.previous
-	for fn, info, dsn in lst:
-		opts.filename = fn
-		show_fn = '%s:%s' % (options.filename, info.filename,)
-		ds = build('csvimport', options=opts, previous=previous, caption='Import of ' + show_fn).dataset()
-		previous = ds.link_to_here(dsn, filename=show_fn)
-		if options.chaining == 'off':
-			previous = None
+	with status('importing') as update:
+		for ix, (fn, info, dsn) in enumerate(lst, 1):
+			opts.filename = fn
+			show_fn = '%s:%s' % (options.filename, info.filename,)
+			update('importing %s (%d/%d)' % (show_fn, ix, len(lst),))
+			ds = build('csvimport', options=opts, previous=previous, caption='Import of ' + show_fn).dataset()
+			previous = ds.link_to_here(dsn, filename=show_fn)
+			if options.chaining == 'off':
+				previous = None
 	if (len(lst) == 1 or options.chaining != 'off') and dsn != 'default':
 		ds.link_to_here('default', filename=show_fn)
