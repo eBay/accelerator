@@ -131,6 +131,22 @@ def prepare(job):
 		assert 'default' not in (x[2] for x in res[:-1]), 'When chaining the dataset named "default" must be last (or non-existant)'
 	return [x[:3] for x in res]
 
+class ProgressMsg:
+	def __init__(self, lst):
+		self.filenames = [info.filename for _, info, _ in lst]
+		self.z = [info.file_size for _, info, _ in lst]
+		self.z_total = sum(self.z)
+		self.z_so_far = 0
+		self.cnt_total = len(lst)
+		self.cnt_so_far = 0
+
+	def step(self, msg):
+		fn = self.filenames[self.cnt_so_far]
+		self.z_so_far += self.z[self.cnt_so_far]
+		self.cnt_so_far += 1
+		percent = self.z_so_far / self.z_total * 100
+		return '%s %s (file %d/%d, up to %d%% of total size)' % (msg, fn, self.cnt_so_far, self.cnt_total, percent,)
+
 def analysis(sliceno, slices, prepare_res, job):
 	with ZipFile(join(job.input_directory, options.filename), 'r') as z:
 		for tmpfn, zfn, dsn in prepare_res[sliceno::slices]:
@@ -142,11 +158,12 @@ def synthesis(prepare_res):
 	opts = DotDict((k, v) for k, v in options.items() if k in a_csvimport.options)
 	lst = prepare_res
 	previous = datasets.previous
+	msg = ProgressMsg(lst)
 	with status('importing') as update:
-		for ix, (fn, info, dsn) in enumerate(lst, 1):
+		for fn, info, dsn in lst:
+			update(msg.step('importing'))
 			opts.filename = fn
 			show_fn = '%s:%s' % (options.filename, info.filename,)
-			update('importing %s (%d/%d)' % (show_fn, ix, len(lst),))
 			ds = build('csvimport', options=opts, previous=previous, caption='Import of ' + show_fn).dataset()
 			previous = ds.link_to_here(dsn, filename=show_fn)
 			if options.chaining == 'off':
