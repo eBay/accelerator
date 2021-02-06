@@ -148,11 +148,15 @@ class ProgressMsg:
 		return '%s %s (file %d/%d, up to %d%% of total size)' % (msg, fn, self.cnt_so_far, self.cnt_total, percent,)
 
 def analysis(sliceno, slices, prepare_res, job):
-	with ZipFile(join(job.input_directory, options.filename), 'r') as z:
-		for tmpfn, zfn, dsn in prepare_res[sliceno::slices]:
-			with z.open(zfn) as rfh:
-				with job.open(tmpfn, 'wb', temp=True) as wfh:
-					copyfileobj(rfh, wfh)
+	lst = prepare_res[sliceno::slices]
+	msg = ProgressMsg(lst)
+	with status('extracting') as update:
+		with ZipFile(join(job.input_directory, options.filename), 'r') as z:
+			for tmpfn, zfn, dsn in lst:
+				update(msg.step('extracting'))
+				with z.open(zfn) as rfh:
+					with job.open(tmpfn, 'wb', temp=True) as wfh:
+						copyfileobj(rfh, wfh)
 
 def synthesis(prepare_res):
 	opts = DotDict((k, v) for k, v in options.items() if k in a_csvimport.options)
