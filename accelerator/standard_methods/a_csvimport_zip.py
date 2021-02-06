@@ -171,6 +171,6 @@ def synthesis(prepare_res):
 			ds = build('csvimport', options=opts, previous=previous, caption='Import of ' + show_fn).dataset()
 			previous = ds.link_to_here(dsn, filename=show_fn)
 			if options.chaining == 'off':
-				previous = None
+				previous = datasets.previous
 	if (len(lst) == 1 or options.chaining != 'off') and dsn != 'default':
 		ds.link_to_here('default', filename=show_fn)
