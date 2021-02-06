@@ -100,7 +100,7 @@ class Automata:
 	def config(self):
 		return self._url_json('config')
 
-	def _submit(self, method, options, datasets, jobs, caption=None, wait=True, why_build=False, workdir=None):
+	def _submit(self, method, options, datasets, jobs, caption=None, wait=True, why_build=False, workdir=None, concurrency=None):
 		"""
 		Submit job to server and conditionaly wait for completion.
 		"""
@@ -118,6 +118,8 @@ class Automata:
 			data.parent_pid = os.getpid()
 		if workdir:
 			data.workdir = workdir
+		if concurrency:
+			data.concurrency = concurrency
 		t0 = time.time()
 		self.job_retur = self._server_submit(data)
 		self.history.append((data, self.job_retur))
@@ -245,7 +247,7 @@ class Automata:
 	def list_workdirs(self):
 		return self._url_json('list_workdirs')
 
-	def call_method(self, method, options={}, datasets={}, jobs={}, record_in=None, record_as=None, why_build=False, caption=None, workdir=None, **kw):
+	def call_method(self, method, options={}, datasets={}, jobs={}, record_in=None, record_as=None, why_build=False, caption=None, workdir=None, concurrency=None, **kw):
 		if method not in self._method_info:
 			raise Exception('Unknown method %s' % (method,))
 		info = self._method_info[method]
@@ -260,7 +262,7 @@ class Automata:
 			if len(argmap[k]) != 1:
 				raise Exception('Keyword %s has several targets on method %s: %r' % (k, method, argmap[k],))
 			params[argmap[k][0]][k] = v
-		jid, res = self._submit(method, caption=caption, why_build=why_build, workdir=workdir, **params)
+		jid, res = self._submit(method, caption=caption, why_build=why_build, workdir=workdir, concurrency=concurrency, **params)
 		if why_build: # specified by caller
 			return res.why_build
 		if 'why_build' in res: # done by server anyway (because --flags why_build)
@@ -562,8 +564,8 @@ class Urd(object):
 		"""Build jobs in this workdir, None to restore default"""
 		self.workdir = workdir
 
-	def build(self, method, options={}, datasets={}, jobs={}, name=None, caption=None, why_build=False, workdir=None, **kw):
-		return self._a.call_method(method, options=options, datasets=datasets, jobs=jobs, record_as=name, caption=caption, why_build=why_build, workdir=workdir or self.workdir or self.default_workdir, **kw)
+	def build(self, method, options={}, datasets={}, jobs={}, name=None, caption=None, why_build=False, workdir=None, concurrency=None, **kw):
+		return self._a.call_method(method, options=options, datasets=datasets, jobs=jobs, record_as=name, caption=caption, why_build=why_build, workdir=workdir or self.workdir or self.default_workdir, concurrency=concurrency, **kw)
 
 	def build_chained(self, method, options={}, datasets={}, jobs={}, name=None, caption=None, why_build=False, workdir=None, **kw):
 		assert 'previous' not in set(datasets) | set(jobs) | set(kw), "Don't specify previous to build_chained"
