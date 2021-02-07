@@ -433,7 +433,7 @@ def _tsfix(ts):
 		return '%s+%d' % (ts, integer,)
 
 class Urd(object):
-	def __init__(self, a, info, user, password, horizon=None, default_workdir=None):
+	def __init__(self, a, info, user, password, horizon=None, default_workdir=None, concurrency_map={}):
 		self._a = a
 		if info.urd:
 			assert '://' in str(info.urd), 'Bad urd URL: %s' % (info.urd,)
@@ -446,6 +446,7 @@ class Urd(object):
 		self.joblist = a.jobs
 		self.workdir = None
 		self.default_workdir = default_workdir
+		self._concurrency_map = concurrency_map
 		auth = '%s:%s' % (user, password,)
 		if PY3:
 			auth = b64encode(auth.encode('utf-8')).decode('ascii')
@@ -565,7 +566,7 @@ class Urd(object):
 		self.workdir = workdir
 
 	def build(self, method, options={}, datasets={}, jobs={}, name=None, caption=None, why_build=False, workdir=None, concurrency=None, **kw):
-		return self._a.call_method(method, options=options, datasets=datasets, jobs=jobs, record_as=name, caption=caption, why_build=why_build, workdir=workdir or self.workdir or self.default_workdir, concurrency=concurrency, **kw)
+		return self._a.call_method(method, options=options, datasets=datasets, jobs=jobs, record_as=name, caption=caption, why_build=why_build, workdir=workdir or self.workdir or self.default_workdir, concurrency=concurrency or self._concurrency_map.get(method) or self._concurrency_map.get(None), **kw)
 
 	def build_chained(self, method, options={}, datasets={}, jobs={}, name=None, caption=None, why_build=False, workdir=None, **kw):
 		assert 'previous' not in set(datasets) | set(jobs) | set(kw), "Don't specify previous to build_chained"
@@ -685,7 +686,7 @@ def run_automata(options, cfg):
 			print("No $URD_AUTH or $USER in environment, using %r" % (user,), file=sys.stderr)
 		password = ''
 	info = a.info()
-	urd = Urd(a, info, user, password, options.horizon, options.workdir)
+	urd = Urd(a, info, user, password, options.horizon, options.workdir, options.concurrency_map)
 	if options.quick:
 		a.update_method_info()
 	else:
@@ -702,6 +703,7 @@ def main(argv, cfg):
 	)
 	parser.add_argument('-f', '--flags',    default='',          help="comma separated list of flags", )
 	parser.add_argument('-q', '--quick',    action='store_true', help="skip method updates and checking workdirs for new jobs", )
+	parser.add_argument('-c', '--concurrency', action='append',  metavar='SPEC', help="set max concurrency for methods, either method=N\nor just N to set for all other methods", )
 	parser.add_argument('-w', '--workdir',  default=None,        help="build in this workdir\nset_workdir() and workdir= override this.", )
 	parser.add_argument('-W', '--just_wait',action='store_true', help="just wait for running job, don't run any build script", )
 	parser.add_argument('-F', '--fullpath', action='store_true', help="print full path to jobdirs")
@@ -719,6 +721,18 @@ def main(argv, cfg):
 
 	options.verbose = {'no': False, 'status': True, 'dots': 'dots', 'log': 'log'}[options.verbose]
 	if options.quiet: options.verbose = False
+
+	concurrency_map = {}
+	for v in options.concurrency or ():
+		if v.isnumeric():
+			concurrency_map[None] = int(v)
+		else:
+			try:
+				method, v = v.split('=', 1)
+				concurrency_map[method] = int(v)
+			except ValueError:
+				raise Exception('Bad concurrency spec %r' % (v,))
+	options.concurrency_map = concurrency_map
 
 	try:
 		run_automata(options, cfg)
