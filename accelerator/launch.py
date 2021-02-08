@@ -73,12 +73,15 @@ def call_analysis(analysis_func, sliceno_, delayed_start, q, preserve_result, pa
 		os.dup2(output_fds[sliceno_], 2)
 		for fd in output_fds:
 			os.close(fd)
-		if delayed_start:
-			delayed_start.get()
-		slicename = 'analysis(%d)' % (sliceno_,)
-		statmsg._start(slicename, parent_pid, 't')
-		setproctitle(slicename)
 		os.close(_prof_fd)
+		slicename = 'analysis(%d)' % (sliceno_,)
+		setproctitle(slicename)
+		if delayed_start:
+			update = statmsg._start('waiting for concurrency limit (%d)' % (sliceno_,), parent_pid, True)
+			delayed_start.get()
+			update(slicename)
+		else:
+			statmsg._start(slicename, parent_pid, True)
 		kw['sliceno'] = g.sliceno = sliceno_
 		for dw in dataset._datasetwriters.values():
 			if dw._for_single_slice is None:

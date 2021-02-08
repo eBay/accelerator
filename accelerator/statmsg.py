@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2018-2020 Carl Drougge                       #
+# Modifications copyright (c) 2018-2021 Carl Drougge                       #
 # Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -112,8 +112,17 @@ def dummy_status(msg):
 	assert msg and isinstance(msg, str_types) and '\0' not in msg
 	yield lambda _: None
 
-def _start(msg, parent_pid, is_analysis=''):
-	_send('start', '%d\0%s\0%s\0%f' % (parent_pid, is_analysis, msg, time(),))
+def _start(msg, parent_pid, is_analysis=False):
+	global _cookie
+	if is_analysis:
+		_cookie += 1
+		analysis_cookie = str(_cookie)
+	else:
+		analysis_cookie = ''
+	_send('start', '%d\0%s\0%s\0%f' % (parent_pid, analysis_cookie, msg, time(),))
+	def update(msg):
+		_send('update', '%s\0\0%s' % (msg, analysis_cookie,))
+	return update
 
 def _end(pid=None):
 	_send('end', '', pid=pid)
@@ -214,7 +223,7 @@ def statmsg_sink(sock):
 					d = DotDict()
 					d.parent_pid = parent_pid
 					d.children   = {}
-					d.stack      = [(msg, t, None)]
+					d.stack      = [(msg, t, is_analysis or None)]
 					d.summary    = (t, msg, t,)
 					d.output     = None
 					if parent_pid in status_all:
