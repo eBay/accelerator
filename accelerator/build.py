@@ -54,7 +54,7 @@ class Automata:
 
 	method = '?' # fall-through case when we resume waiting for something
 
-	def __init__(self, server_url, verbose=False, flags=None, subjob_cookie=None, infoprints=False, print_full_jobpath=False):
+	def __init__(self, server_url, verbose=False, flags=None, subjob_cookie=None, infoprints=False, print_full_jobpath=False, concurrency_map={}):
 		self.url = server_url
 		self.subjob_cookie = subjob_cookie
 		self.history = []
@@ -77,6 +77,7 @@ class Automata:
 		else:
 			self.siginfo_check = lambda: False
 		self.print_full_jobpath = print_full_jobpath
+		self.concurrency_map = concurrency_map
 
 	def clear_record(self):
 		self.record = defaultdict(JobList)
@@ -120,6 +121,8 @@ class Automata:
 			data.workdir = workdir
 		if concurrency:
 			data.concurrency = concurrency
+		if self.concurrency_map:
+			data.concurrency_map = self.concurrency_map
 		t0 = time.time()
 		self.job_retur = self._server_submit(data)
 		self.history.append((data, self.job_retur))
@@ -433,7 +436,7 @@ def _tsfix(ts):
 		return '%s+%d' % (ts, integer,)
 
 class Urd(object):
-	def __init__(self, a, info, user, password, horizon=None, default_workdir=None, concurrency_map={}):
+	def __init__(self, a, info, user, password, horizon=None, default_workdir=None):
 		self._a = a
 		if info.urd:
 			assert '://' in str(info.urd), 'Bad urd URL: %s' % (info.urd,)
@@ -446,7 +449,6 @@ class Urd(object):
 		self.joblist = a.jobs
 		self.workdir = None
 		self.default_workdir = default_workdir
-		self._concurrency_map = concurrency_map
 		auth = '%s:%s' % (user, password,)
 		if PY3:
 			auth = b64encode(auth.encode('utf-8')).decode('ascii')
@@ -566,7 +568,7 @@ class Urd(object):
 		self.workdir = workdir
 
 	def build(self, method, options={}, datasets={}, jobs={}, name=None, caption=None, why_build=False, workdir=None, concurrency=None, **kw):
-		return self._a.call_method(method, options=options, datasets=datasets, jobs=jobs, record_as=name, caption=caption, why_build=why_build, workdir=workdir or self.workdir or self.default_workdir, concurrency=concurrency or self._concurrency_map.get(method) or self._concurrency_map.get(None), **kw)
+		return self._a.call_method(method, options=options, datasets=datasets, jobs=jobs, record_as=name, caption=caption, why_build=why_build, workdir=workdir or self.workdir or self.default_workdir, concurrency=concurrency, **kw)
 
 	def build_chained(self, method, options={}, datasets={}, jobs={}, name=None, caption=None, why_build=False, workdir=None, **kw):
 		assert 'previous' not in set(datasets) | set(jobs) | set(kw), "Don't specify previous to build_chained"
@@ -662,7 +664,7 @@ def find_automata(a, package, script):
 
 def run_automata(options, cfg):
 	g.running = 'build'
-	a = Automata(cfg.url, verbose=options.verbose, flags=options.flags.split(','), infoprints=True, print_full_jobpath=options.fullpath)
+	a = Automata(cfg.url, verbose=options.verbose, flags=options.flags.split(','), infoprints=True, print_full_jobpath=options.fullpath, concurrency_map=options.concurrency_map)
 
 	try:
 		a.wait(ignore_old_errors=not options.just_wait)
@@ -686,7 +688,7 @@ def run_automata(options, cfg):
 			print("No $URD_AUTH or $USER in environment, using %r" % (user,), file=sys.stderr)
 		password = ''
 	info = a.info()
-	urd = Urd(a, info, user, password, options.horizon, options.workdir, options.concurrency_map)
+	urd = Urd(a, info, user, password, options.horizon, options.workdir)
 	if options.quick:
 		a.update_method_info()
 	else:
@@ -725,7 +727,7 @@ def main(argv, cfg):
 	concurrency_map = {}
 	for v in options.concurrency or ():
 		if v.isnumeric():
-			concurrency_map[None] = int(v)
+			concurrency_map['-default-'] = int(v)
 		else:
 			try:
 				method, v = v.split('=', 1)

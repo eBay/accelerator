@@ -55,9 +55,9 @@ DEBUG_WRITE_JSON = False
 def gen_cookie(size=16):
 	return ''.join(random.choice(ascii_letters) for _ in range(size))
 
-# This contains cookie: {lock, last_error, last_time, workdir}
+# This contains cookie: {lock, last_error, last_time, workdir, concurrency_map}
 # for all jobs, main jobs have cookie None.
-job_tracking = {None: DotDict(lock=JLock(), last_error=None, last_time=0, workdir=None)}
+job_tracking = {None: DotDict(lock=JLock(), last_error=None, last_time=0, workdir=None, concurrency_map={})}
 
 
 # This needs .ctrl to work. It is set from main()
@@ -216,14 +216,17 @@ class XtdHandler(BaseWebHandler):
 									# This is not a race - all higher locks are locked too.
 									while passed_cookie in job_tracking:
 										passed_cookie = gen_cookie()
+									concurrency_map = dict(data.concurrency_map)
+									concurrency_map.update(setup.get('concurrency_map', ()))
 									job_tracking[passed_cookie] = DotDict(
 										lock=JLock(),
 										last_error=None,
 										last_time=0,
 										workdir=workdir,
+										concurrency_map=concurrency_map,
 									)
 									try:
-										self.ctrl.run_job(jobid, subjob_cookie=passed_cookie, parent_pid=setup.get('parent_pid', 0), concurrency=setup.get('concurrency'))
+										self.ctrl.run_job(jobid, subjob_cookie=passed_cookie, parent_pid=setup.get('parent_pid', 0), concurrency=setup.get('concurrency') or concurrency_map.get(setup.method) or concurrency_map.get('-default-'))
 										# update database since a new jobid was just created
 										job = self.ctrl.add_single_jobid(jobid)
 										with tlock:
