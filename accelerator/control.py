@@ -190,6 +190,8 @@ class Main:
 		prof.update(new_prof)
 		prof.total = 0
 		prof.total = sum(v for v in prof.values() if isinstance(v, (float, int)))
+		if concurrency:
+			prof.concurrency = concurrency
 		data = dict(
 			starttime=t0,
 			endtime=time.time(),
