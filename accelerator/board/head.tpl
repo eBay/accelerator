@@ -148,10 +148,28 @@
 			padding-left: 1em;
 		}
 		.result {
-			border-top: 2px solid var(--border2);
-			padding-top: 10px;
-			margin-bottom: 22px;
 			clear: both;
+			overflow: hidden;
+			animation: result 0.25s forwards linear;
+		}
+		@keyframes result {
+			0% {
+				transform: scale(0.5);
+				opacity: 0.2;
+				max-height: 1px;
+			}
+			99% {
+				max-height: var(--max-height);
+			}
+			100% {
+				transform: none;
+				opacity: 1;
+				max-height: none;
+				overflow: visible;
+				border-top: 2px solid var(--border2);
+				padding-top: 10px;
+				margin-bottom: 22px;
+			}
 		}
 		.result > input[type="submit"] {
 			float: right;
