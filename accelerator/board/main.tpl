@@ -114,7 +114,14 @@
 				prev = resultEl;
 			}
 			for (const el of Object.values(existing)) {
-				el.remove();
+				if (el.classList.contains('hidden')) {
+					el.remove();
+				} else {
+					el.addEventListener('animationend', function () {
+						el.remove();
+					});
+					el.classList.add('hidden');
+				}
 			}
 			setTimeout(update, 1500);
 		})
