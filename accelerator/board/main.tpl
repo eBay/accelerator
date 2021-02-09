@@ -16,6 +16,7 @@
 			<li><a target="_blank" href="/methods">methods</a></li>
 			<li><a target="_blank" href="/urd">urd</a></li>
 		</ul>
+		<input type="submit" value="show all" id="show-all" disabled>
 	</div>
 	<h1 id="header">ax board: {{ project }}</h1>
 	<div id="status">
@@ -28,6 +29,13 @@
 	const videoExts = new Set(['mp4', 'mov', 'mpg', 'mpeg', 'mkv', 'avi', 'webm']);
 	const waitingEl = document.getElementById('waiting');
 	const statusEl = document.querySelector('#status span');
+	const show_all = document.getElementById('show-all');
+	show_all.onclick = function() {
+		show_all.disabled = true;
+		for (const el of document.querySelectorAll('.result.hidden')) {
+			el.classList.remove('hidden');
+		}
+	}
 	const status = function () {
 		if (document.body.className === 'error') return;
 		fetch('/status?short', {headers: {Accept: 'text/plain'}})
@@ -105,7 +113,7 @@
 				hide.type = 'submit';
 				hide.value = 'hide';
 				hide.onclick = function () {
-					hide.disabled = true;
+					show_all.disabled = false;
 					resultEl.classList.add('hidden');
 				}
 				resultEl.appendChild(hide);

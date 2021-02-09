@@ -88,6 +88,9 @@
 		input[type="submit"] {
 			margin-bottom: 1em;
 		}
+		input:disabled {
+			opacity: 0.5;
+		}
 
 		a[href="/"] {
 			float: right;
@@ -197,6 +200,9 @@
 				padding: 0;
 				margin: 0;
 			}
+		}
+		#show-all {
+			float: right;
 		}
 		.clickme {
 			text-align: center;
