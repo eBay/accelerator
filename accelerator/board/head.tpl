@@ -153,6 +153,33 @@
 			margin-bottom: 22px;
 			clear: both;
 		}
+		.result > input[type="submit"] {
+			float: right;
+			margin-top: -3px;
+			margin-bottom: 3px;
+		}
+		.result > div {
+			clear: both;
+		}
+		.hidden {
+			overflow: hidden;
+			animation: hidden 0.3s forwards linear;
+		}
+		@keyframes hidden {
+			0% {
+				max-height: var(--max-height);
+			}
+			100% {
+				transform: scale(0.5);
+				opacity: 0.2;
+				max-height: 1px;
+				display: inline-table;
+				visibility: collapse;
+				border: 0;
+				padding: 0;
+				margin: 0;
+			}
+		}
 		.clickme {
 			text-align: center;
 			font-size: 120%;

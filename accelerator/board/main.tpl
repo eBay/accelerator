@@ -101,6 +101,14 @@
 				resultEl.appendChild(dateEl)
 				txt(')');
 				update_date(resultEl);
+				const hide = document.createElement('INPUT');
+				hide.type = 'submit';
+				hide.value = 'hide';
+				hide.onclick = function () {
+					hide.disabled = true;
+					resultEl.classList.add('hidden');
+				}
+				resultEl.appendChild(hide);
 				resultEl.appendChild(sizewrap(name, data));
 				prev.after(resultEl);
 				prev = resultEl;
