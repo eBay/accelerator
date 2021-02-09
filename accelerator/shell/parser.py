@@ -59,9 +59,11 @@ def split_tildes(n):
 	m = re.match(r'(.*?)([~^][~^\d]*)$', n)
 	if m:
 		n, tildes = m.groups()
-		return n, list(_groups(tildes))
+		lst = list(_groups(tildes))
 	else:
-		return n, []
+		lst = []
+	assert n, "empty job id"
+	return n, lst
 
 def method2job(cfg, method, count=0, start_from=None):
 	def get(count):
