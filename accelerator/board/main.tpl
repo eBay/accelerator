@@ -73,18 +73,17 @@
 			items.sort((a, b) => b[1].ts - a[1].ts);
 			let prev = waitingEl;
 			for (const [name, data] of items) {
-				let resultEl = existing[name];
-				if (resultEl) {
+				const oldEl = existing[name];
+				if (oldEl) {
 					delete existing[name];
-					if (resultEl.dataset.ts == data.ts) {
-						update_date(resultEl);
-						prev = resultEl;
+					if (oldEl.dataset.ts == data.ts) {
+						update_date(oldEl);
+						prev = oldEl;
 						continue;
 					}
-					while (resultEl.lastChild) resultEl.lastChild.remove();
-				} else {
-					resultEl = document.createElement('DIV');
-				};
+					remove(oldEl);
+				}
+				const resultEl = document.createElement('DIV');
 				const txt = text => resultEl.appendChild(document.createTextNode(text));
 				const a = function (text, ...parts) {
 					const a = document.createElement('A');
@@ -122,14 +121,7 @@
 				prev = resultEl;
 			}
 			for (const el of Object.values(existing)) {
-				if (el.classList.contains('hidden')) {
-					el.remove();
-				} else {
-					el.addEventListener('animationend', function () {
-						el.remove();
-					});
-					el.classList.add('hidden');
-				}
+				remove(el);
 			}
 			setTimeout(update, 1500);
 		})
@@ -145,6 +137,14 @@
 				setTimeout(() => update((try_num || 0) + 1), 1500);
 			}
 		});
+	};
+	const remove = function (el) {
+		if (el.classList.contains('hidden')) {
+			el.remove();
+		} else {
+			el.addEventListener('animationend', el.remove);
+			el.classList.add('hidden');
+		}
 	};
 	const sizewrap = function (name, data) {
 		if (data.size < 5000000) return load(name, data);
