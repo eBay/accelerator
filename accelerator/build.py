@@ -175,7 +175,7 @@ class Automata:
 			idle, now, status_stacks, current, last_time = self._server_idle(1)
 		if self.verbose == 'dots':
 			print('(%d)]' % (last_time,))
-		else:
+		elif self.verbose:
 			print('\r\033[K              %s' % (fmttime(last_time),))
 
 	def jobid(self, method):
