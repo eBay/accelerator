@@ -101,7 +101,8 @@ def main(argv, cfg):
 			job = name2job(cfg, path)
 			if args.just_output:
 				out = job.output()
-				print(out, end='' if out.endswith('\n') else '\n')
+				if out:
+					print(out, end='' if out.endswith('\n') else '\n')
 			elif args.just_path:
 				print(job.path)
 			else:
