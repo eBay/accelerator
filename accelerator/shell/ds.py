@@ -4,7 +4,7 @@
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
 # Modifications copyright (c) 2019-2020 Carl Drougge                       #
-# Modifications copyright (c) 2019-2020 Anders Berkeman                    #
+# Modifications copyright (c) 2019-2021 Anders Berkeman                    #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -172,9 +172,11 @@ def main(argv, cfg):
 			name2typ = {n: c.type + '+None' if c.none_support else c.type for n, c in ds.columns.items()}
 			len_n, len_t = colwidth((quote(n), name2typ[n]) for n, c in ds.columns.items())
 			template = "{2} {0:%d}  {1:%d} " % (len_n, len_t,)
+			chain = False
+			if args.chainedslices or args.chain:
+				chain = ds.chain()
 			for n, c in sorted(ds.columns.items()):
-				if args.chainedslices or args.chain:
-					chain = ds.chain()
+				if chain:
 					minval, maxval = chain.min(n), chain.max(n)
 				else:
 					minval, maxval = c.min, c.max
