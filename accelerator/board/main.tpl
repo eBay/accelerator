@@ -62,7 +62,7 @@
 		.then(res => {
 			const existing = {};
 			for (const el of document.querySelectorAll('.result')) {
-				existing[el.dataset.name] = el;
+				if (el.dataset.name) existing[el.dataset.name] = el;
 			};
 			const items = Object.entries(res);
 			if (items.length) {
@@ -142,8 +142,9 @@
 		if (el.classList.contains('hidden')) {
 			el.remove();
 		} else {
-			el.addEventListener('animationend', el.remove);
+			setTimeout(el.remove, 1400);
 			el.classList.add('hidden');
+			el.dataset.name = '';
 		}
 	};
 	const sizewrap = function (name, data) {
