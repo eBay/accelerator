@@ -1,6 +1,6 @@
 ############################################################################
 #                                                                          #
-# Copyright (c) 2019-2020 Carl Drougge                                     #
+# Copyright (c) 2019-2021 Carl Drougge                                     #
 # Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -132,6 +132,7 @@ def main(urd):
 	urd.build("test_dataset_column_names")
 	urd.build("test_dataset_merge")
 	urd.build("test_dataset_filter_columns")
+	urd.build("test_dataset_empty_colname")
 
 	print()
 	print("Testing csvimport with more difficult files")
