@@ -90,7 +90,7 @@ iskeyword = frozenset(kwlist).__contains__
 
 def _clean_name(n, seen_n):
 	n = ''.join(c if c.isalnum() else '_' for c in n)
-	if n[0].isdigit():
+	if not n or n[0].isdigit():
 		n = '_' + n
 	# .lower because filenames are based on these, and filesystem
 	# might not be case sensitive.
@@ -495,7 +495,7 @@ class Dataset(unicode):
 			datasets = [datasets]
 		datasets = [ds if isinstance(ds, Dataset) else Dataset(ds) for ds in datasets]
 		slices = len(datasets[0].lines)
-		if not columns:
+		if columns is None:
 			columns = datasets[0].columns
 		if isinstance(columns, str_types):
 			columns = [columns]
@@ -1115,7 +1115,6 @@ class DatasetWriter(object):
 			raise DatasetUsageError("Add all columns before setting slice")
 		colname = uni(colname)
 		coltype = uni(coltype)
-		assert colname
 		if colname in self.columns:
 			raise DatasetUsageError("Column %s already exists" % (colname,))
 		try:

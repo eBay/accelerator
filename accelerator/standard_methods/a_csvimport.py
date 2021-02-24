@@ -210,7 +210,6 @@ def prepare(job, slices):
 	if options.strip_labels:
 		labels = [x.strip() for x in labels]
 	labels = [options.rename.get(x, x) for x in labels]
-	assert '' not in labels, "Empty label for column %d" % (labels.index(''),)
 	assert len(labels) == len(set(labels)), "Duplicate labels: %r" % (labels,)
 
 	dw = job.datasetwriter(
