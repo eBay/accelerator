@@ -3,7 +3,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2018-2020 Carl Drougge                       #
+# Modifications copyright (c) 2018-2021 Carl Drougge                       #
 # Modifications copyright (c) 2019-2020 Anders Berkeman                    #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -373,12 +373,16 @@ class Dataset(unicode):
 		else:
 			return one_slice(sliceno)
 
-	def _iterator(self, sliceno, columns=None):
+	def _iterator(self, sliceno, columns=None, copy_mode=False):
 		res = []
 		not_found = []
 		for col in columns or sorted(self.columns):
 			if col in self.columns:
-				res.append(self._column_iterator(sliceno, col))
+				if copy_mode:
+					t = _copy_mode_overrides.get(self.columns[col].backing_type)
+					res.append(self._column_iterator(sliceno, col, _type=t))
+				else:
+					res.append(self._column_iterator(sliceno, col))
 			else:
 				not_found.append(col)
 		if not_found:
@@ -415,17 +419,17 @@ class Dataset(unicode):
 			chain.reverse()
 		return chain
 
-	def iterate_chain(self, sliceno, columns=None, length=-1, range=None, sloppy_range=False, reverse=False, hashlabel=None, stop_ds=None, pre_callback=None, post_callback=None, filters=None, translators=None, status_reporting=True, rehash=False, slice=None):
+	def iterate_chain(self, sliceno, columns=None, length=-1, range=None, sloppy_range=False, reverse=False, hashlabel=None, stop_ds=None, pre_callback=None, post_callback=None, filters=None, translators=None, status_reporting=True, rehash=False, slice=None, copy_mode=False):
 		"""Iterate a list of datasets. See .chain and .iterate_list for details."""
 		chain = self.chain(length, reverse, stop_ds)
-		return self.iterate_list(sliceno, columns, chain, range=range, sloppy_range=sloppy_range, hashlabel=hashlabel, pre_callback=pre_callback, post_callback=post_callback, filters=filters, translators=translators, status_reporting=status_reporting, rehash=rehash, slice=slice)
+		return self.iterate_list(sliceno, columns, chain, range=range, sloppy_range=sloppy_range, hashlabel=hashlabel, pre_callback=pre_callback, post_callback=post_callback, filters=filters, translators=translators, status_reporting=status_reporting, rehash=rehash, slice=slice, copy_mode=copy_mode)
 
-	def iterate(self, sliceno, columns=None, hashlabel=None, pre_callback=None, post_callback=None, filters=None, translators=None, status_reporting=True, rehash=False, slice=None):
+	def iterate(self, sliceno, columns=None, hashlabel=None, pre_callback=None, post_callback=None, filters=None, translators=None, status_reporting=True, rehash=False, slice=None, copy_mode=False):
 		"""Iterate just this dataset. See .iterate_list for details."""
-		return self.iterate_list(sliceno, columns, [self], hashlabel=hashlabel, pre_callback=pre_callback, post_callback=post_callback, filters=filters, translators=translators, status_reporting=status_reporting, rehash=rehash, slice=slice)
+		return self.iterate_list(sliceno, columns, [self], hashlabel=hashlabel, pre_callback=pre_callback, post_callback=post_callback, filters=filters, translators=translators, status_reporting=status_reporting, rehash=rehash, slice=slice, copy_mode=copy_mode)
 
 	@staticmethod
-	def iterate_list(sliceno, columns, datasets, range=None, sloppy_range=False, hashlabel=None, pre_callback=None, post_callback=None, filters=None, translators=None, status_reporting=True, rehash=False, slice=None):
+	def iterate_list(sliceno, columns, datasets, range=None, sloppy_range=False, hashlabel=None, pre_callback=None, post_callback=None, filters=None, translators=None, status_reporting=True, rehash=False, slice=None, copy_mode=False):
 		"""Iterator over the specified columns from datasets
 		(iterable of dataset-specifiers, or single dataset-specifier).
 		callbacks are called before and after each dataset is iterated.
@@ -489,6 +493,11 @@ class Dataset(unicode):
 		For convenience you can also pass slice=<some int> which is equivalent
 		to slice(<some int>, None). Note that this is not the same as
 		slice(<some int>), but more useful here.
+
+		copy_mode makes no promises about the returned types.
+		Use it together with copy_mode on a DatasetWriter for faster copying.
+		Not compatible with columns changing types across the list.
+		Also not compatible with filters or translators.
 		"""
 
 		if isinstance(datasets, str_types + (Dataset, dict)):
@@ -504,6 +513,13 @@ class Dataset(unicode):
 			if isinstance(columns, dict):
 				columns = sorted(columns)
 			want_tuple = True
+		if copy_mode:
+			assert not filters, "copy_mode is not compatible with filters"
+			assert not translators, "copy_mode is not compatible with translators"
+			need_types = {col: datasets[0].columns[col].type for col in columns}
+			for d in datasets:
+				for col, t in need_types.items():
+					assert d.columns[col].type == t, "%s column %s has type %s, not %s" % (d, col, d.columns[col].type, t,)
 		to_iter = []
 		if range:
 			if len(range) != 1:
@@ -615,6 +631,7 @@ class Dataset(unicode):
 			want_tuple=want_tuple,
 			range=range,
 			status_reporting=status_reporting,
+			copy_mode=copy_mode,
 		)
 		if sliceno == "roundrobin":
 			# We do our own status reporting
@@ -709,7 +726,7 @@ class Dataset(unicode):
 			yield update_status
 
 	@staticmethod
-	def _iterate_datasets(to_iter, columns, pre_callback, post_callback, filter_func, translation_func, translators, want_tuple, range, status_reporting):
+	def _iterate_datasets(to_iter, columns, pre_callback, post_callback, filter_func, translation_func, translators, want_tuple, range, status_reporting, copy_mode):
 		skip_ds = None
 		def argfixup(func, is_post):
 			if func:
@@ -763,7 +780,7 @@ class Dataset(unicode):
 						continue
 					except StopIteration:
 						return
-				it = d._iterator(None if rehash else sliceno, columns)
+				it = d._iterator(None if rehash else sliceno, columns, copy_mode=copy_mode)
 				for ix, trans in translators.items():
 					it[ix] = imap(trans, it[ix])
 				if want_tuple:
@@ -978,6 +995,8 @@ _datasets_written = []
 
 _nodefault = object()
 
+_copy_mode_overrides = dict.fromkeys(('unicode', 'ascii', 'json', 'pickle'), 'bytes')
+
 class DatasetWriter(object):
 	"""
 	Create in prepare, use in analysis. Or do the whole thing in
@@ -1036,11 +1055,14 @@ class DatasetWriter(object):
 	In this case you also need to call dw.set_lines(sliceno, count)
 	before finishing. You should also call
 	dw.set_minmax(sliceno, {colname: (min, max)}) if you can.
+
+	If you are just copying from another dataset you can set copy_mode
+	both here and in the iterator for that dataset for faster copying.
 	"""
 
 	_split = _split_dict = _split_list = _allwriters_ = None
 
-	def __new__(cls, columns={}, filename=None, hashlabel=None, hashlabel_override=False, caption=None, previous=None, name='default', parent=None, meta_only=False, for_single_slice=None):
+	def __new__(cls, columns={}, filename=None, hashlabel=None, hashlabel_override=False, caption=None, previous=None, name='default', parent=None, meta_only=False, for_single_slice=None, copy_mode=False):
 		"""columns can be {'name': 'type'} or {'name': ('type', none_support)}.
 		It can also be {'name': DatasetColumn} to simplify basing your dataset on another."""
 		name = _namechk(name)
@@ -1066,6 +1088,7 @@ class DatasetWriter(object):
 			obj.columns = {}
 			obj.meta_only = meta_only
 			obj._for_single_slice = for_single_slice
+			obj._copy_mode = copy_mode
 			obj._clean_names = {}
 			discard_columns = {k for k, v in columns.items() if v is None}
 			columns = {k: v for k, v in columns.items() if v is not None}
@@ -1182,6 +1205,8 @@ class DatasetWriter(object):
 			return
 		writers = {}
 		for colname, (coltype, default, none_support) in self.columns.items():
+			if self._copy_mode:
+				coltype = _copy_mode_overrides.get(coltype, coltype)
 			wt = typed_writer(coltype)
 			kw = {'none_support': none_support} if default is _nodefault else {'default': default, 'none_support': none_support}
 			fn = self.column_filename(colname, sliceno)
@@ -1439,9 +1464,9 @@ class DatasetChain(_ListTypePreserver):
 		"""If any dataset in the chain has None support for this column"""
 		return True in (ds.columns[column].none_support for ds in self if column in ds.columns)
 
-	def iterate(self, sliceno, columns=None, range=None, sloppy_range=False, hashlabel=None, pre_callback=None, post_callback=None, filters=None, translators=None, status_reporting=True, rehash=False, slice=None):
+	def iterate(self, sliceno, columns=None, range=None, sloppy_range=False, hashlabel=None, pre_callback=None, post_callback=None, filters=None, translators=None, status_reporting=True, rehash=False, slice=None, copy_mode=False):
 		"""Iterate the datasets in this chain. See Dataset.iterate_list for usage"""
-		return Dataset.iterate_list(sliceno, columns, self, range=range, sloppy_range=sloppy_range, hashlabel=hashlabel, pre_callback=pre_callback, post_callback=post_callback, filters=filters, translators=translators, status_reporting=status_reporting, rehash=rehash, slice=slice)
+		return Dataset.iterate_list(sliceno, columns, self, range=range, sloppy_range=sloppy_range, hashlabel=hashlabel, pre_callback=pre_callback, post_callback=post_callback, filters=filters, translators=translators, status_reporting=status_reporting, rehash=rehash, slice=slice, copy_mode=copy_mode)
 
 
 def range_check_function(bottom, top):
