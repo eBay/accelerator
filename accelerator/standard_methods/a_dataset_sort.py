@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2018-2020 Carl Drougge                       #
+# Modifications copyright (c) 2018-2021 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -43,7 +43,6 @@ from math import isnan
 from accelerator.compat import izip
 
 from accelerator.extras import OptionEnum, OptionString
-from accelerator.dataset import Dataset, DatasetWriter
 from accelerator.statmsg import status
 
 OrderEnum = OptionEnum('ascending descending')
@@ -124,15 +123,14 @@ def sort(columniter):
 		with status('Creating sort list'):
 			return sorted(range(len(lst)), key=lst.__getitem__, reverse=reverse), sort_extra
 
-def prepare(params):
+def prepare(job, params):
 	if options.trigger_column:
 		assert options.sort_across_slices, 'trigger_column is meaningless without sort_across_slices'
 		assert options.trigger_column in options.sort_columns, 'can only trigger on a column that is sorted on'
 	d = datasets.source
 	ds_list = d.chain(stop_ds={datasets.previous: 'source'})
 	if options.sort_across_slices:
-		columniter = partial(Dataset.iterate_list, None, datasets=ds_list)
-		sort_idx, sort_extra = sort(columniter)
+		sort_idx, sort_extra = sort(partial(ds_list.iterate, None))
 		total = len(sort_idx)
 		per_slice = [total // params.slices] * params.slices
 		extra = total % params.slices
@@ -194,23 +192,24 @@ def prepare(params):
 		filename = d.filename
 	else:
 		filename = None
-	dw = DatasetWriter(
+	dw = job.datasetwriter(
 		columns=d.columns,
 		caption=params.caption,
 		hashlabel=hashlabel,
 		filename=filename,
 		previous=datasets.previous,
+		copy_mode=True,
 	)
 	return dw, ds_list, sort_idx
 
 def analysis(sliceno, params, prepare_res):
 	dw, ds_list, sort_idx = prepare_res
 	if options.sort_across_slices:
-		columniter = partial(Dataset.iterate_list, None, datasets=ds_list)
 		sort_idx = sort_idx[sliceno]
+		columniter = partial(ds_list.iterate, None, copy_mode=True)
 	else:
-		columniter = partial(Dataset.iterate_list, sliceno, datasets=ds_list)
-		sort_idx, _ = sort(columniter)
+		sort_idx, _ = sort(partial(ds_list.iterate, sliceno))
+		columniter = partial(ds_list.iterate, sliceno, copy_mode=True)
 	for ix, column in enumerate(datasets.source.columns, 1):
 		colstat = '%r (%d/%d)' % (column, ix, len(datasets.source.columns),)
 		with status('Reading ' + colstat):
