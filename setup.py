@@ -2,7 +2,7 @@
 
 ############################################################################
 #                                                                          #
-# Copyright (c) 2019-2020 Carl Drougge                                     #
+# Copyright (c) 2019-2021 Carl Drougge                                     #
 # Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -131,7 +131,7 @@ setup(
 		'setproctitle>=1.1.8', # not actually required
 		'bottle>=0.12.7, <0.13',
 		'waitress>=1.0',
-		'configparser>=3.5.0; python_version<"3"',
+		'configparser>=3.5.0, <5.0; python_version<"3"',
 	],
 	python_requires=">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, <4",
 
