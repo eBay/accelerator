@@ -1,6 +1,6 @@
 ############################################################################
 #                                                                          #
-# Copyright (c) 2020 Carl Drougge                                          #
+# Copyright (c) 2020-2021 Carl Drougge                                     #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -46,6 +46,7 @@ def prepare(job):
 		caption=d.caption,
 		filename=d.filename,
 		previous=datasets.previous,
+		copy_mode=True,
 	)
 	if options.trigger_column:
 		assert options.trigger_column in datasets.source.columns, "Trigger column %r not in %s" % (options.trigger_column, datasets.source,)
@@ -64,7 +65,7 @@ def analysis(sliceno, prepare_res):
 		return
 	to_skip = sum(d.lines[:sliceno])
 	if to_skip:
-		it = d.iterate('roundrobin', slice=to_skip - bool(options.trigger_column))
+		it = d.iterate('roundrobin', slice=to_skip - bool(options.trigger_column), copy_mode=True)
 		if options.trigger_column:
 			trigger_v = next(it)[ix]
 			# keep skipping until trigger value changes
@@ -76,7 +77,7 @@ def analysis(sliceno, prepare_res):
 				if to_copy == 0:
 					return # no lines left for this slice
 	else:
-		it = d.iterate('roundrobin')
+		it = d.iterate('roundrobin', copy_mode=True)
 	# write the lines belonging here
 	# (zip so we don't have to count down to_copy manually)
 	for _, v in izip(range(to_copy), it):
