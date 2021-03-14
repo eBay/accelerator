@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2018-2020 Carl Drougge                       #
+# Modifications copyright (c) 2018-2021 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -71,6 +71,7 @@ def prepare(job, slices):
 				previous=previous,
 				name=name,
 				for_single_slice=sliceno,
+				copy_mode=True,
 			)
 			previous = dw
 		else:
@@ -97,6 +98,7 @@ def analysis(sliceno, prepare_res):
 		names,
 		stop_ds={datasets.previous: 'source'},
 		length=options.length,
+		copy_mode=True,
 	)
 	write = dws[sliceno].get_split_write_list()
 	for values in it:
