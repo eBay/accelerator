@@ -368,6 +368,9 @@ def run(workdir, jobid, slices, concurrency, result_directory, common_directory,
 		msg = fmt_tb(2)
 		print(msg)
 		data = [{g.running: msg}, None]
+		writeall(prof_fd, json.dumps(data).encode('utf-8'))
+	finally:
+		exitfunction()
 	writeall(prof_fd, json.dumps(data).encode('utf-8'))
 
 
