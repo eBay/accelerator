@@ -25,6 +25,8 @@ from accelerator.dataset import Dataset
 from accelerator.build import JobError
 
 from datetime import date, datetime, timedelta
+from time import time
+from sys import exit
 
 def main(urd):
 	assert urd.info.slices >= 3, "The tests don't work with less than 3 slices (you have %d)." % (urd.info.slices,)
@@ -110,6 +112,25 @@ def main(urd):
 		urd.finish("tests_urd")
 	assert urd.since("tests_urd", 0) == [str(ts).replace(' ', 'T') for ts in want]
 	urd.truncate("tests_urd", 0)
+
+	for how in ("exiting", "dying",):
+		print()
+		print("Verifying that an analysis process %s kills the job" % (how,))
+		time_before = time()
+		try:
+			job = urd.build("test_analysis_died", how=how)
+			print("test_analysis_died completed successfully (%s), that shouldn't happen" % (job,))
+			exit(1)
+		except JobError:
+			time_after = time()
+		time_to_die = time_after - time_before
+		if time_to_die > 13:
+			print("test_analysis_died took %d seconds to die, it should be faster" % (time_to_die,))
+			exit(1)
+		elif time_to_die > 2:
+			print("test_analysis_died took %d seconds to die, so death detection is slow, but works" % (time_to_die,))
+		else:
+			print("test_analysis_died took %.1f seconds to die, so death detection works" % (time_to_die,))
 
 	print()
 	print("Testing dataset creation, export, import")
