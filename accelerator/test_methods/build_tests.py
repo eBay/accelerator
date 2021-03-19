@@ -150,6 +150,14 @@ def main(urd):
 	reimp_csv_quoted = urd.build("csvimport", filename=csv_quoted.filename(csvname), quotes=True)
 	urd.build("test_compare_datasets", a=reimp_csv, b=reimp_csv_uncompressed)
 	urd.build("test_compare_datasets", a=reimp_csv, b=reimp_csv_quoted)
+
+	print()
+	print("Testing subjobs")
+	urd.build("test_subjobs_type", typed=ds, untyped=reimp_csv)
+	urd.build("test_subjobs_nesting")
+
+	print()
+	print("Testing datasets more")
 	urd.build("test_dataset_column_names")
 	urd.build("test_dataset_merge")
 	urd.build("test_dataset_filter_columns")
@@ -166,9 +174,7 @@ def main(urd):
 	urd.build("test_csvexport_separators")
 
 	print()
-	print("Testing subjobs and dataset typing")
-	urd.build("test_subjobs_type", typed=ds, untyped=reimp_csv)
-	urd.build("test_subjobs_nesting")
+	print("Testing dataset typing")
 	try:
 		# Test if numeric_comma is broken (presumably because no suitable locale
 		# was found, since there are not actually any commas in the source dataset.)
