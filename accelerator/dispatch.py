@@ -22,10 +22,9 @@ from __future__ import print_function
 from __future__ import division
 
 import os
-import time
 from signal import SIGTERM, SIGKILL
 
-from accelerator.compat import PY3
+from accelerator.compat import PY3, monotonic
 
 from accelerator.statmsg import children, statmsg_endwait
 from accelerator.build import JobError
@@ -79,7 +78,7 @@ def run(cmd, close_in_child, keep_in_child, with_pgrp=True):
 	os._exit()
 
 def launch(workdir, setup, config, Methods, active_workdirs, slices, concurrency, debug, server_url, subjob_cookie, parent_pid):
-	starttime = time.time()
+	starttime = monotonic()
 	jobid = setup.jobid
 	method = setup.method
 	if subjob_cookie:
@@ -112,7 +111,7 @@ def launch(workdir, setup, config, Methods, active_workdirs, slices, concurrency
 			os.killpg(child, SIGTERM) # give it a chance to exit gracefully
 			# The dying process won't have sent an end message, so it has
 			# the endwait time until we SIGKILL it.
-			print('%s| %s [%s]  failed!    (%5.1fs) |' % (print_prefix, jobid, method, time.time() -  starttime))
+			print('%s| %s [%s]  failed!    (%5.1fs) |' % (print_prefix, jobid, method, monotonic() - starttime))
 		# There is a race where stuff on the status socket has not arrived when
 		# the sending process exits. This is basically benign, but let's give
 		# it a chance to arrive to cut down on confusing warnings.
@@ -133,5 +132,5 @@ def launch(workdir, setup, config, Methods, active_workdirs, slices, concurrency
 			pass
 	if status:
 		raise JobError(jobid, method, status)
-	print('%s| %s [%s]  completed. (%5.1fs) |' % (print_prefix, jobid, method, time.time() -  starttime))
+	print('%s| %s [%s]  completed. (%5.1fs) |' % (print_prefix, jobid, method, monotonic() - starttime))
 	return data

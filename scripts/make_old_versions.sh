@@ -61,7 +61,7 @@ setup() {
 		"$PYTHON" -m venv py.$1
 	fi
 	# Use the oldest dependencies we claim to be able to.
-	./py.$1/bin/pip install "ujson==1.35" "setproctitle==1.1.8" "bottle==0.12.7" "waitress==1.0"
+	./py.$1/bin/pip install "ujson==1.35" "setproctitle==1.1.8" "bottle==0.12.7" "waitress==1.0" "monotonic==1.0"
 	git clone -s "$AXREPO" ax.$1
 	cd ax.$1
 	git checkout $2

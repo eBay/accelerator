@@ -42,6 +42,10 @@ if sys.version_info[0] == 2:
 	from urllib2 import urlopen, Request, URLError, HTTPError
 	from itertools import izip, izip_longest, imap, ifilter
 	from Queue import Queue, Full as QueueFull, Empty as QueueEmpty
+	try:
+		from monotonic import monotonic
+	except ImportError:
+		from time import time as monotonic
 	from types import NoneType
 	str_types = (str, unicode,)
 	int_types = (int, long,)
@@ -92,6 +96,7 @@ else:
 	imap = map
 	ifilter = filter
 	from queue import Queue, Full as QueueFull, Empty as QueueEmpty
+	from time import monotonic
 	NoneType = type(None)
 	str_types = (str,)
 	int_types = (int,)

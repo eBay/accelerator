@@ -38,14 +38,14 @@ from __future__ import division
 
 from contextlib import contextmanager
 from functools import partial
-from time import time, sleep
+from time import sleep
 from traceback import print_exc
 from threading import Lock
 from weakref import WeakValueDictionary
 import socket
 import os
 
-from accelerator.compat import str_types, iteritems
+from accelerator.compat import str_types, iteritems, monotonic
 
 from accelerator import g
 
@@ -83,7 +83,7 @@ def status(msg):
 	global _cookie
 	_cookie += 1
 	cookie = str(_cookie)
-	t = str(time())
+	t = str(monotonic())
 	typ = 'push'
 	# capture the PID here, because update might be called in a different process
 	pid = os.getpid()
@@ -119,7 +119,7 @@ def _start(msg, parent_pid, is_analysis=False):
 		analysis_cookie = str(_cookie)
 	else:
 		analysis_cookie = ''
-	_send('start', '%d\0%s\0%s\0%f' % (parent_pid, analysis_cookie, msg, time(),))
+	_send('start', '%d\0%s\0%s\0%f' % (parent_pid, analysis_cookie, msg, monotonic(),))
 	def update(msg):
 		_send('update', '%s\0\0%s' % (msg, analysis_cookie,))
 	return update
@@ -128,7 +128,7 @@ def _end(pid=None):
 	_send('end', '', pid=pid)
 
 def _output(pid, msg):
-	_send('output', '%f\0%s' % (time(), msg,), pid=pid)
+	_send('output', '%f\0%s' % (monotonic(), msg,), pid=pid)
 
 def _clear_output(pid):
 	_send('output', '', pid=pid)
@@ -158,13 +158,13 @@ def status_stacks_export():
 				current = (current[0], '%s %s' % (current[1], msg,), t,)
 	except Exception:
 		print_exc()
-		res.append((0, 0, 'ERROR', time()))
+		res.append((0, 0, 'ERROR', monotonic()))
 	return res, current
 
 def print_status_stacks(stacks=None):
 	if stacks == None:
 		stacks, _ = status_stacks_export()
-	report_t = time()
+	report_t = monotonic()
 	for pid, indent, msg, t in stacks:
 		if indent < 0:
 			print("%6d TAIL OF OUTPUT: (%.1f seconds ago)" % (pid, report_t - t,))

@@ -21,7 +21,6 @@
 from __future__ import print_function
 from __future__ import division
 
-import time
 import sys
 import os
 import json
@@ -123,25 +122,23 @@ class Automata:
 			data.concurrency = concurrency
 		if self.concurrency_map:
 			data.concurrency_map = self.concurrency_map
-		t0 = time.time()
 		self.job_retur = self._server_submit(data)
 		self.history.append((data, self.job_retur))
 		#
 		if wait and not self.job_retur.done:
-			self.wait(t0)
+			self.wait()
 		if self.monitor and not why_build:
 			self.monitor.done()
 		return self.jobid(method), self.job_retur
 
-	def wait(self, t0=None, ignore_old_errors=False):
+	def wait(self, ignore_old_errors=False):
 		idle, now, status_stacks, current, last_time = self._server_idle(0, ignore_errors=ignore_old_errors)
 		if idle:
 			return
-		if t0 is None:
-			if current:
-				t0 = current[0]
-			else:
-				t0 = now
+		if current:
+			t0 = current[0]
+		else:
+			t0 = now
 		waited = int(round(now - t0)) - 1
 		if self.verbose == 'dots':
 			print('[' + '.' * waited, end=' ')

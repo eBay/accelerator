@@ -43,7 +43,7 @@ Ns=""
 for CMD in "$@"; do
 	$CMD venv$N
 	# Use the oldest dependencies we claim to be able to.
-	./venv$N/bin/pip install "setproctitle==1.1.8" "bottle==0.12.7" "waitress==1.0"
+	./venv$N/bin/pip install "setproctitle==1.1.8" "bottle==0.12.7" "waitress==1.0" "monotonic==1.0"
 	Ns="$Ns $N"
 	N=$((N+1))
 done

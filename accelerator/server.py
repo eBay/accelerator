@@ -35,7 +35,7 @@ from string import ascii_letters
 import random
 import atexit
 
-from accelerator.compat import unicode, ArgumentParser
+from accelerator.compat import unicode, ArgumentParser, monotonic
 
 from accelerator.web import ThreadedHTTPServer, ThreadedUnixHTTPServer, BaseWebHandler
 
@@ -96,8 +96,8 @@ class XtdHandler(BaseWebHandler):
 				return
 			timeout = min(float(args.get('timeout', 0)), 128)
 			status = DotDict(idle=data.lock.acquire(False))
-			deadline = time.time() + timeout
-			while not status.idle and time.time() < deadline:
+			deadline = monotonic() + timeout
+			while not status.idle and monotonic() < deadline:
 				time.sleep(0.1)
 				status.idle = data.lock.acquire(False)
 			if status.idle:
@@ -107,7 +107,7 @@ class XtdHandler(BaseWebHandler):
 				data.lock.release()
 			elif path == ['status', 'full']:
 				status.status_stacks, status.current = status_stacks_export()
-			status.report_t = time.time()
+			status.report_t = monotonic()
 			self.do_response(200, "text/json", status)
 			return
 

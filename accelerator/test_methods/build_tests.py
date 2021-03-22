@@ -23,9 +23,9 @@ from __future__ import unicode_literals
 
 from accelerator.dataset import Dataset
 from accelerator.build import JobError
+from accelerator.compat import monotonic
 
 from datetime import date, datetime, timedelta
-from time import time
 from sys import exit
 
 def main(urd):
@@ -116,13 +116,13 @@ def main(urd):
 	for how in ("exiting", "dying",):
 		print()
 		print("Verifying that an analysis process %s kills the job" % (how,))
-		time_before = time()
+		time_before = monotonic()
 		try:
 			job = urd.build("test_analysis_died", how=how)
 			print("test_analysis_died completed successfully (%s), that shouldn't happen" % (job,))
 			exit(1)
 		except JobError:
-			time_after = time()
+			time_after = monotonic()
 		time_to_die = time_after - time_before
 		if time_to_die > 13:
 			print("test_analysis_died took %d seconds to die, it should be faster" % (time_to_die,))

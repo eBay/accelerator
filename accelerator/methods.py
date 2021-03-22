@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2018-2020 Carl Drougge                       #
+# Modifications copyright (c) 2018-2021 Carl Drougge                       #
 # Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -24,12 +24,11 @@ from __future__ import division
 import os
 import sys
 import datetime
-from time import time
 from collections import defaultdict
 from importlib import import_module
 
 from accelerator.compat import iteritems, itervalues, first_value
-from accelerator.compat import NoneType, unicode, long
+from accelerator.compat import NoneType, unicode, long, monotonic
 
 from accelerator.extras import DotDict, _OptionString, OptionEnum, OptionDefault, RequiredOption
 from accelerator.runner import new_runners
@@ -95,7 +94,7 @@ class Methods(object):
 class SubMethods(Methods):
 	def __init__(self, package_list, configfilename, server_config):
 		super(SubMethods, self).__init__(package_list, configfilename)
-		t0 = time()
+		t0 = monotonic()
 		per_runner = defaultdict(list)
 		for key, val in iteritems(self.db):
 			package = val['package']
@@ -147,7 +146,7 @@ class SubMethods(Methods):
 			print('\033[m')
 			raise MethodLoadException(failed)
 		print("Updated %d methods on %d runners in %.1f seconds" % (
-		      len(self.hash), len(per_runner), time() - t0,
+		      len(self.hash), len(per_runner), monotonic() - t0,
 		     ))
 
 	def params2optset(self, params):

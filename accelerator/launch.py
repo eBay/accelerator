@@ -27,12 +27,13 @@ import sys
 from collections import defaultdict
 from importlib import import_module
 from traceback import format_tb, format_exception_only
-from time import time, sleep
+from time import sleep
 import json
 import ctypes
 
 from accelerator.job import CurrentJob, WORKDIRS
-from accelerator.compat import pickle, iteritems, setproctitle, QueueEmpty, getarglist
+from accelerator.compat import pickle, iteritems, setproctitle, QueueEmpty
+from accelerator.compat import getarglist, monotonic
 from accelerator.extras import job_params, ResultIterMagic
 from accelerator.build import JobError
 from accelerator import g
@@ -127,12 +128,12 @@ def call_analysis(analysis_func, sliceno_, delayed_start, q, preserve_result, pa
 				dw_lens[name] = dw._lens
 				dw_minmax[name] = dw._minmax
 		c_fflush()
-		q.put((sliceno_, time(), saved_files, dw_lens, dw_minmax, None,))
+		q.put((sliceno_, monotonic(), saved_files, dw_lens, dw_minmax, None,))
 	except:
 		c_fflush()
 		msg = fmt_tb(1)
 		print(msg)
-		q.put((sliceno_, time(), {}, {}, {}, msg,))
+		q.put((sliceno_, monotonic(), {}, {}, {}, msg,))
 		sleep(5) # give launcher time to report error (and kill us)
 		exitfunction()
 
@@ -141,7 +142,7 @@ def fork_analysis(slices, concurrency, analysis_func, kw, preserve_result, outpu
 	import gc
 	q = Queue()
 	children = []
-	t = time()
+	t = monotonic()
 	pid = os.getpid()
 	if hasattr(gc, 'freeze'):
 		# See https://bugs.python.org/issue31558
@@ -303,7 +304,7 @@ def execute_process(workdir, jobid, slices, concurrency, result_directory, commo
 	if prepare_func is dummy:
 		prof['prepare'] = 0 # truthish!
 	else:
-		t = time()
+		t = monotonic()
 		switch_output()
 		g.running = 'prepare'
 		g.subjob_cookie = subjob_cookie
@@ -316,7 +317,7 @@ def execute_process(workdir, jobid, slices, concurrency, result_directory, commo
 					for name in sorted(to_finish, key=dw_sortnum):
 						dataset._datasetwriters[name].finish()
 		c_fflush()
-		prof['prepare'] = time() - t
+		prof['prepare'] = monotonic() - t
 	switch_output()
 	setproctitle('launch')
 	from accelerator.extras import saved_files
@@ -324,16 +325,16 @@ def execute_process(workdir, jobid, slices, concurrency, result_directory, commo
 		prof['per_slice'] = []
 		prof['analysis'] = 0
 	else:
-		t = time()
+		t = monotonic()
 		g.running = 'analysis'
 		g.subjob_cookie = None # subjobs are not allowed from analysis
 		with statmsg.status('Waiting for all slices to finish analysis') as update:
 			g.update_top_status = update
 			prof['per_slice'], files, g.analysis_res = fork_analysis(slices, concurrency, analysis_func, args_for(analysis_func), synthesis_needs_analysis, slaves)
 			del g.update_top_status
-		prof['analysis'] = time() - t
+		prof['analysis'] = monotonic() - t
 		saved_files.update(files)
-	t = time()
+	t = monotonic()
 	g.running = 'synthesis'
 	g.subjob_cookie = subjob_cookie
 	setproctitle(g.running)
@@ -351,7 +352,7 @@ def execute_process(workdir, jobid, slices, concurrency, result_directory, commo
 				fh.write(name)
 				fh.write(u'\n')
 	c_fflush()
-	t = time() - t
+	t = monotonic() - t
 	prof['synthesis'] = t
 
 	from accelerator.subjobs import _record
