@@ -25,7 +25,7 @@ import itertools
 import collections
 import functools
 
-from accelerator.job import Job
+from accelerator.job import Job, JobWithFile
 from accelerator.dataset import Dataset
 from accelerator.unixhttp import call, WaitressServer
 from accelerator.build import fmttime
@@ -70,6 +70,71 @@ class JSONEncoderWithSet(json.JSONEncoder):
 
 json_enc = JSONEncoderWithSet(indent=4, ensure_ascii=False).encode
 
+
+def ax_repr(o):
+	res = []
+	if isinstance(o, JobWithFile):
+		link = '/job/' + bottle.html_escape(o.job)
+		res.append('JobWithFile(<a href="%s">job=' % (link,))
+		res.append(ax_repr(o.job))
+		name = bottle.html_escape(o.name)
+		if o.sliced:
+			name += '.0'
+		res.append('</a>, <a href="%s/%s">name=' % (link, name,))
+		res.append(ax_repr(o.name))
+		res.append('</a>, sliced=%s, extra=%s' % (ax_repr(o.sliced), ax_repr(o.extra),))
+		res.append(')')
+	elif isinstance(o, (list, tuple)):
+		bra, ket = ('[', ']',) if isinstance(o, list) else ('(', ')',)
+		res.append(bra)
+		comma = ''
+		for v in o:
+			res.append(comma)
+			res.append(ax_repr(v))
+			comma = ', '
+		res.append(ket)
+	elif isinstance(o, dict):
+		res.append('{')
+		comma = ''
+		for k, v in o.items():
+			res.append(comma)
+			res.append(ax_repr(k))
+			res.append(': ')
+			res.append(ax_repr(v))
+			comma = ', '
+		res.append('}')
+	else:
+		res.append(bottle.html_escape(repr(o)))
+	return ''.join(res)
+
+def ax_link(v):
+	if isinstance(v, tuple):
+		return '(%s)' % (', '.join(ax_link(vv) for vv in v),)
+	elif isinstance(v, list):
+		return '[%s]' % (', '.join(ax_link(vv) for vv in v),)
+	elif v:
+		ev = bottle.html_escape(v)
+		if isinstance(v, Dataset):
+			job = bottle.html_escape(v.job)
+			name = bottle.html_escape(v.name)
+			return '<a href="/job/%s">%s</a>/<a href="/dataset/%s">%s</a>' % (job, job, ev, name,)
+		elif isinstance(v, Job):
+			return '<a href="/job/%s">%s</a>' % (ev, ev,)
+		else:
+			return ev
+	else:
+		return ''
+
+def template(tpl_name, **kw):
+	return bottle.template(
+		tpl_name,
+		ax_repr=ax_repr,
+		ax_link=ax_link,
+		template=template,
+		**kw
+	)
+
+
 def view(name, subkey=None):
 	def view_decorator(func):
 		@functools.wraps(func)
@@ -78,7 +143,7 @@ def view(name, subkey=None):
 			if isinstance(res, dict):
 				accept = get_best_accept('application/json', 'text/json', 'text/html')
 				if accept == 'text/html':
-					return bottle.template(name, **res)
+					return template(name, **res)
 				else:
 					bottle.response.content_type = accept + '; charset=UTF-8'
 					if callable(subkey):
@@ -223,7 +288,7 @@ def run(cfg, from_shell=False):
 				if len(members) == 1 and not name:
 					info = members[0]
 				else:
-					return bottle.template('job_method_list', members=members, job=job)
+					return template('job_method_list', members=members, job=job)
 			bottle.response.content_type = 'text/plain; charset=UTF-8'
 			return tar.extractfile(info).read()
 

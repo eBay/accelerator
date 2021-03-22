@@ -1,15 +1,20 @@
 % import json
 % include('head', title=ds)
+% def tdif(k, v):
+	% if v:
+		<tr><td>{{ k }}</td><td>{{ ! ax_link(v) }}</td></tr>
+	% end
+% end
 <body>
 	<a href="/">main</a>
 	<h1>{{ ds.job }}/{{ ds.name }}</h1>
 	<table>
-	% include('tdif', k='job', v=ds.job, prefix='job')
-	% include('tdif', k='method', v=ds.job.method, prefix=None)
-	% include('tdif', k='parent', v=ds.parent, prefix='dataset')
-	% include('tdif', k='filename', v=ds.filename)
-	% include('tdif', k='previous', v=ds.previous, prefix='dataset')
-	% include('tdif', k='hashlabel', v=ds.hashlabel)
+		% tdif('job', ds.job)
+		% tdif('method', ds.job.method)
+		% tdif('parent', ds.parent)
+		% tdif('filename', ds.filename)
+		% tdif('previous', ds.previous)
+		% tdif('hashlabel', ds.hashlabel)
 	</table>
 	<h2>columns:</h2>
 	<table id="columns" class="ds-table">

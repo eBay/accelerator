@@ -1,5 +1,22 @@
 % include('head', title=job)
 % from datetime import datetime
+% def paramspart(name):
+	% thing = params.get(name)
+	% if thing:
+		<h3>{{ name }}</h3>
+		<div class="box">
+			{
+			<table>
+			% for k, v in sorted(thing.items()):
+				<tr><td>{{ k }}</td><td>=</td><td>
+					{{ ! ax_link(v) }}
+				</td></tr>
+			% end
+			</table>
+			}
+		</div>
+	% end
+% end
 <body>
 	<a href="/">main</a>
 	<h1>{{ job }}</h1>
@@ -23,15 +40,15 @@
 					<tr><td>endtime</td><td>=</td><td>{{ datetime.fromtimestamp(params['endtime']) }}</td></tr>
 					% exectime = params['exectime']
 					% for k in sorted(exectime):
-						<tr><td>exectime.{{ k }}</td><td>=</td><td>{{ repr(exectime[k]) }}</td></tr>
+						<tr><td>exectime.{{ k }}</td><td>=</td><td>{{ ! ax_repr(exectime[k]) }}</td></tr>
 					% end
 				% end
 				% for k in sorted(set(params) - blacklist):
-					<tr><td>{{ k }}</td><td>=</td><td>{{ repr(params[k]) }}</td></tr>
+					<tr><td>{{ k }}</td><td>=</td><td>{{ ! ax_repr(params[k]) }}</td></tr>
 				% end
 				% versions = params['versions']
 				% for k in sorted(versions):
-					<tr><td>versions.{{ k }}</td><td>=</td><td>{{ repr(versions[k]) }}</td></tr>
+					<tr><td>versions.{{ k }}</td><td>=</td><td>{{ ! ax_repr(versions[k]) }}</td></tr>
 				% end
 			</table>
 		</div>
@@ -41,14 +58,14 @@
 				{
 				<table>
 				% for k, v in sorted(params.options.items()):
-					<tr><td>{{ k }}</td><td>=</td><td>{{ repr(v) }}</td></tr>
+					<tr><td>{{ k }}</td><td>=</td><td>{{ ! ax_repr(v) }}</td></tr>
 				% end
 				</table>
 				}
 			</div>
 		%end
-		% include('jobparamthing', thing=params.datasets, prefix='dataset')
-		% include('jobparamthing', thing=params.jobs, prefix='job')
+		% paramspart('datasets')
+		% paramspart('jobs')
 	</div>
 	% if datasets:
 		<h2>datasets</h2>
