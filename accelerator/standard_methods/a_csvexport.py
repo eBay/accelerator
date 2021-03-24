@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2018-2020 Carl Drougge                       #
+# Modifications copyright (c) 2018-2021 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -28,9 +28,10 @@ from os.path import exists
 from contextlib import contextmanager
 from json import JSONEncoder
 from functools import partial
+from itertools import chain
 import gzip
 
-from accelerator.compat import PY3, PY2, izip, imap
+from accelerator.compat import PY3, PY2, izip, imap, long
 from accelerator import OptionString, status
 
 
@@ -41,6 +42,7 @@ options = dict(
 	labelsonfirstline = True,
 	chain_source      = False, # everything in source is replaced by datasetchain(self, stop=from previous)
 	quote_fields      = '', # can be any string, but use '"' or "'"
+	none_as           = None, # A string or {label: string} to use for None-values. Default 'None' ('null' for json).
 	labels            = [], # empty means all labels in (first) dataset
 	sliced            = False, # one output file per slice, put %02d or similar in filename
 	compression       = 6,     # gzip level
@@ -60,15 +62,23 @@ def writer(fh):
 			write(line_sep)
 		yield wrapped_write
 
+format = dict(
+	ascii=None,
+	float32=repr,
+	float64=repr,
+	json=JSONEncoder(sort_keys=True, ensure_ascii=True, check_circular=False).encode,
+)
+
 if PY3:
 	enc = str
+	format['bytes'] = lambda s: s.decode('utf-8', errors='backslashreplace')
+	format['number'] = repr
+	format['unicode'] = None
 else:
 	enc = lambda s: s.encode('utf-8')
-
-def nonefix_u(s):
-	return u'None' if s is None else s
-def nonefix_b(s):
-	return b'None' if s is None else s
+	format['bytes'] = None
+	format['number'] = lambda n: str(n) if isinstance(n, long) else repr(n)
+	format['unicode'] = lambda s: s.encode('utf-8')
 
 def csvexport(sliceno, filename, labelsonfirstline):
 	d = datasets.source[0]
@@ -94,38 +104,36 @@ def csvexport(sliceno, filename, labelsonfirstline):
 		open_func = partial(open_func, mode='wb')
 	else:
 		open_func = partial(open_func, mode='xt', encoding='utf-8')
+	if isinstance(options.none_as, str):
+		default_none = options.none_as
+		none_dict = {}
+		none_set = True
+	else:
+		default_none = 'None'
+		none_dict = options.none_as or {}
+		none_set = bool(none_dict)
+		bad_none = set(none_dict) - set(options.labels)
+		assert not bad_none, 'Unknown labels in none_as: %r' % (bad_none,)
+	def column_iterator(d, label, first):
+		col = d.columns[label]
+		f = format.get(col.type, str)
+		it = d.iterate(sliceno, label, status_reporting=first)
+		if col.none_support and (none_set or col.type != 'json'):
+			none_as = none_dict.get(label, default_none)
+			if f:
+				it = (none_as if v is None else f(v) for v in it)
+			else:
+				it = (none_as if v is None else v for v in it)
+		elif f:
+			it = imap(f, it)
+		return it
+	def outer_iterator(label, first):
+		return chain.from_iterable(column_iterator(d, label, first) for d in datasets.source)
 	iters = []
 	first = True
-	dumps = JSONEncoder(
-		sort_keys=True,
-		ensure_ascii=True,
-		check_circular=False,
-	).encode
 	for label in options.labels:
-		it = d.iterate_list(sliceno, label, datasets.source, status_reporting=first)
+		iters.append(outer_iterator(label, first))
 		first = False
-		t = d.columns[label].type
-		if d.columns[label].none_support:
-			if t == 'bytes' or (PY2 and t == 'ascii'):
-				it = imap(nonefix_b, it)
-			elif t in ('ascii', 'unicode',):
-				it = imap(nonefix_u, it)
-		if t == 'unicode' and PY2:
-			it = imap(enc, it)
-		elif t == 'bytes' and PY3:
-			it = imap(lambda s: s.decode('utf-8', errors='backslashreplace'), it)
-		elif t in ('float32', 'float64',):
-			it = imap(repr, it)
-		elif t == 'number':
-			if PY2:
-				it = imap(lambda n: str(n) if isinstance(n, long) else repr(n), it)
-			else:
-				it = imap(repr, it)
-		elif t == 'json':
-			it = imap(dumps, it)
-		elif t not in ('unicode', 'ascii', 'bytes'):
-			it = imap(str, it)
-		iters.append(it)
 	it = izip(*iters)
 	with writer(open_func(filename)) as write:
 		q = options.quote_fields
