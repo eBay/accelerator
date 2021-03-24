@@ -162,10 +162,13 @@ def analysis(sliceno, job):
 def synthesis(job, slices):
 	if not options.sliced:
 		filename = '%d.gz' if options.filename.lower().endswith('.gz') else '%d.csv'
-		with job.open(options.filename, "wb") as outfh:
-			for sliceno in range(slices):
-				if exists(filename % sliceno):
-					with status("Assembling %s (%d/%d)" % (options.filename, sliceno, slices)):
+		def msg(sliceno):
+			return "Assembling %s (%d/%d)" % (options.filename, sliceno + 1, slices,)
+		with status(msg(0)) as update:
+			with job.open(options.filename, "wb") as outfh:
+				for sliceno in range(slices):
+					if exists(filename % sliceno):
+						update(msg(sliceno))
 						with open(filename % sliceno, "rb") as infh:
 							copyfileobj(infh, outfh)
 						unlink(filename % sliceno)
