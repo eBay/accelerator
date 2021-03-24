@@ -1,6 +1,6 @@
 ############################################################################
 #                                                                          #
-# Copyright (c) 2020 Carl Drougge                                          #
+# Copyright (c) 2020-2021 Carl Drougge                                     #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -26,7 +26,7 @@ Verify that all column types come out correctly in csvexport.
 
 from datetime import date, time, datetime
 
-from accelerator import subjobs
+from accelerator import subjobs, status
 from accelerator.gzwrite import _convfuncs
 from accelerator.compat import PY2
 
@@ -91,34 +91,70 @@ def synthesis(job):
 	)
 	ds = dw.finish()
 	sep = '\x1e'
-	exp = subjobs.build('csvexport', filename='test.csv', separator=sep, source=ds)
-	with exp.open('test.csv', 'r', encoding='utf-8') as fh:
-		def expect(*a):
-			want = sep.join(a) + '\n'
-			got = next(fh)
-			assert want == got, 'wanted %r, got %r' % (want, got,)
-		expect(*sorted(todo))
-		expect(
-			'a', '4294967295', '18364758544493064720', 'True', 'hello',
-			'(42+0j)', '(1e+100+1e-17j)',
-			'2020-06-23', '2020-06-23 12:13:14',
-			'1.0', '-inf', '-10', '-20',
-			'{"json": true}', '1203552815971897489538799',
-			'...' if PY2 else '(1+2j)', '12:13:14', 'bl\xe5',
-		)
-		expect(
-			'b', '0', '0', 'False', 'bye',
-			'(2-3j)', '(-7+0j)',
-			'1868-01-03', '1868-01-03 13:14:05',
-			'inf', 'nan', '0', '0',
-			'[false, null]', '42.18',
-			'...' if PY2 else "{'recursion': {...}}", '13:14:05', 'bl\xe4',
-		)
-		expect(
+	for sep, q, none_as, last_line in (
+		('\x1e', '', None, (
 			'None', '72', '64', 'None', 'None',
 			'None', 'None',
 			'None', 'None',
 			'None', 'None', 'None', 'None',
 			'null', 'None',
 			'None', 'None', 'None',
-		)
+		)),
+		('\x1e', 'a', '', (
+			'', '72', '64', '', '',
+			'', '',
+			'', '',
+			'', '', '', '',
+			'null', '',
+			'', '', '',
+		)),
+		('\x00', '0', None, (
+			'None', '72', '64', 'None', 'None',
+			'None', 'None',
+			'None', 'None',
+			'None', 'None', 'None', 'None',
+			'null', 'None',
+			'None', 'None', 'None',
+		)),
+		(':', '"', '"', (
+			'"', '72', '64', '"', '"',
+			'"', '"',
+			'"', '"',
+			'"', '"', '"', '"',
+			'null', '"',
+			'"', '"', '"',
+		)),
+		(':', '"', {'time': 'never', 'float32': '"0"'}, (
+			'None', '72', '64', 'None', 'None',
+			'None', 'None',
+			'None', 'None',
+			'"0"', 'None', 'None', 'None',
+			'null', 'None',
+			'None', 'never', 'None',
+		)),
+	):
+		with status("Checking with sep=%r, q=%r, none_as=%r" % (sep, q, none_as,)):
+			exp = subjobs.build('csvexport', filename='test.csv', separator=sep, source=ds, quote_fields=q, none_as=none_as)
+			with exp.open('test.csv', 'r', encoding='utf-8') as fh:
+				def expect(*a):
+					want = sep.join(q + v.replace(q, q + q) + q for v in a) + '\n'
+					got = next(fh)
+					assert want == got, 'wanted %r, got %r from %s (export of %s)' % (want, got, exp, ds,)
+				expect(*sorted(todo))
+				expect(
+					'a', '4294967295', '18364758544493064720', 'True', 'hello',
+					'(42+0j)', '(1e+100+1e-17j)',
+					'2020-06-23', '2020-06-23 12:13:14',
+					'1.0', '-inf', '-10', '-20',
+					'{"json": true}', '1203552815971897489538799',
+					'...' if PY2 else '(1+2j)', '12:13:14', 'bl\xe5',
+				)
+				expect(
+					'b', '0', '0', 'False', 'bye',
+					'(2-3j)', '(-7+0j)',
+					'1868-01-03', '1868-01-03 13:14:05',
+					'inf', 'nan', '0', '0',
+					'[false, null]', '42.18',
+					'...' if PY2 else "{'recursion': {...}}", '13:14:05', 'bl\xe4',
+				)
+				expect(*last_line)
