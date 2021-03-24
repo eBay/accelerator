@@ -32,11 +32,11 @@ from itertools import chain
 import gzip
 
 from accelerator.compat import PY3, PY2, izip, imap, long
-from accelerator import OptionString, status
+from accelerator import status
 
 
 options = dict(
-	filename          = OptionString, # .csv or .gz
+	filename          = 'result.csv', # .gz or with .gz. in it for compressed mode
 	separator         = ',',
 	line_separator    = '\n',
 	labelsonfirstline = True,
