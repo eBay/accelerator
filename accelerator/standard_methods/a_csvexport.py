@@ -44,7 +44,7 @@ options = dict(
 	quote_fields      = '', # can be any string, but use '"' or "'"
 	none_as           = None, # A string or {label: string} to use for None-values. Default 'None' ('null' for json).
 	labels            = [], # empty means all labels in (first) dataset
-	sliced            = False, # one output file per slice, put %02d or similar in filename
+	sliced            = False, # one output file per slice, you can put %02d or similar in filename (or get filename.%d)
 	compression       = 6,     # gzip level
 )
 
@@ -94,12 +94,10 @@ def csvexport(sliceno, filename, labelsonfirstline):
 		for src, stop in zip(datasets.source, prev_source):
 			lst.extend(src.chain(stop_ds=stop))
 		datasets.source = lst
-	if filename.lower().endswith('.gz'):
+	if options.filename.lower().endswith('.gz') or '.gz.' in options.filename.lower():
 		open_func = partial(gzip.open, compresslevel=options.compression)
-	elif filename.lower().endswith('.csv'):
-		open_func = open
 	else:
-		raise Exception("Filename should end with .gz for compressed or .csv for uncompressed")
+		open_func = open
 	if PY2:
 		open_func = partial(open_func, mode='wb')
 	else:
@@ -152,23 +150,26 @@ def csvexport(sliceno, filename, labelsonfirstline):
 
 def analysis(sliceno, job):
 	if options.sliced:
-		csvexport(sliceno, options.filename % (sliceno,), options.labelsonfirstline)
-		job.register_file(options.filename % (sliceno,))
+		if '%' in options.filename:
+			filename = options.filename % (sliceno,)
+		else:
+			filename = '%s.%d' % (options.filename, sliceno,)
+		csvexport(sliceno, filename, options.labelsonfirstline)
+		job.register_file(filename)
 	else:
 		labelsonfirstline = (sliceno == 0 and options.labelsonfirstline)
-		filename = '%d.gz' if options.filename.lower().endswith('.gz') else '%d.csv'
-		csvexport(sliceno, filename % (sliceno,), labelsonfirstline)
+		csvexport(sliceno, str(sliceno), labelsonfirstline)
 
 def synthesis(job, slices):
 	if not options.sliced:
-		filename = '%d.gz' if options.filename.lower().endswith('.gz') else '%d.csv'
 		def msg(sliceno):
 			return "Assembling %s (%d/%d)" % (options.filename, sliceno + 1, slices,)
 		with status(msg(0)) as update:
 			with job.open(options.filename, "wb") as outfh:
 				for sliceno in range(slices):
-					if exists(filename % sliceno):
+					filename = str(sliceno)
+					if exists(filename):
 						update(msg(sliceno))
-						with open(filename % sliceno, "rb") as infh:
+						with open(filename, "rb") as infh:
 							copyfileobj(infh, outfh)
-						unlink(filename % sliceno)
+						unlink(filename)
