@@ -172,6 +172,7 @@ def main(urd):
 	print("Testing csvexport with all column types, strange separators")
 	urd.build("test_csvexport_all_coltypes")
 	urd.build("test_csvexport_separators")
+	urd.build("test_csvexport_chains")
 
 	print()
 	print("Testing dataset typing")
