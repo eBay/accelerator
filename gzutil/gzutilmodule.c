@@ -1,6 +1,6 @@
 /**
  * Copyright (c) 2017 eBay Inc.
- * Modifications copyright (c) 2018-2020 Carl Drougge
+ * Modifications copyright (c) 2018-2021 Carl Drougge
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1500,6 +1500,16 @@ MK_MINMAX_SET(Time    , unfmt_time((*(uint64_t *)cmp_value) >> 32, *(uint64_t *)
 	if (!self->max_obj || (cmp_value > self->max_u.as_ ## T)) {                          	\
 		minmax_set(&self->max_obj, obj, &self->max_u, &cmp_value, sizeof(cmp_value));	\
 	}
+#define MINMAX_FLOAT(T, v, minmax_set)                                                       	\
+	T cmp_value = v;                                                                     	\
+	T min_value = self->min_u.as_ ## T;                                                  	\
+	T max_value = self->max_u.as_ ## T;                                                  	\
+	if (!self->min_obj || (cmp_value < min_value) || isnan(min_value)) {                 	\
+		minmax_set(&self->min_obj, obj, &self->min_u, &cmp_value, sizeof(cmp_value));	\
+	}                                                                                    	\
+	if (!self->max_obj || (cmp_value > max_value) || isnan(max_value)) {                 	\
+		minmax_set(&self->max_obj, obj, &self->max_u, &cmp_value, sizeof(cmp_value));	\
+	}
 #define MINMAX_DUMMY(T, v, minmax_set) /* Nothing */
 
 #define MKWRITER_C(tname, T, HT, conv, withnone, errchk, do_minmax, minmax_value, minmax_set, hash) \
@@ -1703,8 +1713,8 @@ static inline complex32 pyComplex_AsCComplex32(PyObject *obj)
 
 MKWRITER_C(GzWriteComplex64, complex64, complex64, PyComplex_AsCComplex  , 1, value.real == -1.0, MINMAX_DUMMY, , , hash_complex64);
 MKWRITER_C(GzWriteComplex32, complex32, complex32, pyComplex_AsCComplex32, 1, value.real == -1.0, MINMAX_DUMMY, , , hash_complex32);
-MKWRITER(GzWriteFloat64, double  , double  , PyFloat_AsDouble , 1, , minmax_set_Float64, hash_double );
-MKWRITER(GzWriteFloat32, float   , double  , PyFloat_AsDouble , 1, , minmax_set_Float32, hash_double );
+MKWRITER_C(GzWriteFloat64, double  , double  , PyFloat_AsDouble , 1, value == -1.0, MINMAX_FLOAT, , minmax_set_Float64, hash_double );
+MKWRITER_C(GzWriteFloat32, float   , double  , PyFloat_AsDouble , 1, value == -1.0, MINMAX_FLOAT, , minmax_set_Float32, hash_double );
 MKWRITER(GzWriteInt64  , int64_t , int64_t , pyLong_AsS64     , 1, , minmax_set_Int64  , hash_integer);
 MKWRITER(GzWriteInt32  , int32_t , int64_t , pyLong_AsS32     , 1, , minmax_set_Int32  , hash_integer);
 MKWRITER(GzWriteBits64 , uint64_t, uint64_t, pyLong_AsU64     , 0, , minmax_set_Bits64 , hash_integer);
@@ -1827,12 +1837,21 @@ err:
 
 static void gzwrite_obj_minmax(GzWrite *self, PyObject *obj)
 {
-	if (!self->min_obj || PyObject_RichCompareBool(obj, self->min_obj, Py_LT)) {
+	if (!self->min_obj || (PyFloat_Check(self->min_obj) && isnan(PyFloat_AS_DOUBLE(self->min_obj)))) {
+		Py_INCREF(obj);
+		Py_XDECREF(self->min_obj);
+		self->min_obj = obj;
+		Py_INCREF(obj);
+		Py_XDECREF(self->max_obj);
+		self->max_obj = obj;
+		return;
+	}
+	if (PyObject_RichCompareBool(obj, self->min_obj, Py_LT)) {
 		Py_INCREF(obj);
 		Py_XDECREF(self->min_obj);
 		self->min_obj = obj;
 	}
-	if (!self->max_obj || PyObject_RichCompareBool(obj, self->max_obj, Py_GT)) {
+	if (PyObject_RichCompareBool(obj, self->max_obj, Py_GT)) {
 		Py_INCREF(obj);
 		Py_XDECREF(self->max_obj);
 		self->max_obj = obj;
@@ -2030,8 +2049,8 @@ static const complex64 complex64_error = { -1.0, 0.0 };
 static const complex32 complex32_error = { -1.0, 0.0 };
 MKPARSED_C(Complex64, complex64, complex64, pyComplex_parse, PyComplex_AsCComplex  , 1, value.real == -1.0, complex64_error, MINMAX_DUMMY, , hash_double);
 MKPARSED_C(Complex32, complex32, complex32, pyComplex_parse, pyComplex_AsCComplex32, 1, value.real == -1.0, complex32_error, MINMAX_DUMMY, , hash_double);
-MKPARSED(Float64, double  , double  , PyNumber_Float, PyFloat_AsDouble , 1, minmax_set_Float64, hash_double);
-MKPARSED(Float32, float   , double  , PyNumber_Float, PyFloat_AsDouble , 1, minmax_set_Float32, hash_double);
+MKPARSED_C(Float64, double  , double  , PyNumber_Float, PyFloat_AsDouble , 1, value == -1.0, -1, MINMAX_FLOAT, minmax_set_Float64, hash_double);
+MKPARSED_C(Float32, float   , double  , PyNumber_Float, PyFloat_AsDouble , 1, value == -1.0, -1, MINMAX_FLOAT, minmax_set_Float32, hash_double);
 MKPARSED(Int64  , int64_t , int64_t , PyNumber_Int  , pyLong_AsS64     , 1, minmax_set_Int64  , hash_integer);
 MKPARSED(Int32  , int32_t , int64_t , PyNumber_Int  , pyLong_AsS32     , 1, minmax_set_Int32  , hash_integer);
 MKPARSED(Bits64 , uint64_t, uint64_t, PyNumber_Long , pyLong_AsU64     , 0, minmax_set_Bits64 , hash_integer);

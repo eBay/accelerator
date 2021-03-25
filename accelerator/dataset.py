@@ -31,6 +31,7 @@ from itertools import compress, islice
 from functools import partial
 from contextlib import contextmanager
 from operator import itemgetter
+from math import isnan
 
 from accelerator.compat import unicode, uni, ifilter, imap, iteritems
 from accelerator.compat import builtins, open, getarglist, izip, izip_longest
@@ -859,6 +860,13 @@ class Dataset(unicode):
 			res_max = a[1]
 			if res_max is None: res_max = b[1]
 			return [res_min, res_max]
+		def nanfix(cmp, a, b):
+			if isinstance(a, float) and isnan(a):
+				return b
+			elif isinstance(b, float) and isnan(b):
+				return a
+			else:
+				return cmp(a, b)
 		res = {}
 		for part in minmax.values():
 			for name, mm in part.items():
@@ -866,7 +874,7 @@ class Dataset(unicode):
 				if mm != (None, None):
 					omm = minmax_fixup(res.get(name, (None, None,)), mm)
 					mm = minmax_fixup(mm, omm)
-					res[name] = [min(mm[0], omm[0]), max(mm[1], omm[1])]
+					res[name] = [nanfix(min, mm[0], omm[0]), nanfix(max, mm[1], omm[1])]
 		return res
 
 	def _append(self, columns, filenames, minmax, filename, caption, previous, column_filter, name):
