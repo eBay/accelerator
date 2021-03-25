@@ -3,7 +3,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2019-2020 Carl Drougge                       #
+# Modifications copyright (c) 2019-2021 Carl Drougge                       #
 # Modifications copyright (c) 2019-2021 Anders Berkeman                    #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -156,7 +156,7 @@ def main(argv, cfg):
 						i = int(v)
 						if v == i:
 							return i
-					except OverflowError:
+					except (OverflowError, ValueError):
 						pass
 					return locale.format_string(format, v)
 				return s % (format_or_int(minval), format_or_int(maxval))
