@@ -42,6 +42,7 @@ options = dict(
 	labelsonfirstline = True,
 	chain_source      = False, # everything in source is replaced by datasetchain(self, stop=from previous)
 	quote_fields      = '', # can be any string, but use '"' or "'"
+	lazy_quotes       = True, # only quote field if value needs quoting
 	none_as           = None, # A string or {label: string} to use for None-values. Default 'None' ('null' for json).
 	labels            = [], # empty means all labels in (first) dataset
 	sliced            = False, # one output file per slice, you can put %02d or similar in filename (or get filename.%d)
@@ -112,6 +113,30 @@ def csvexport(sliceno, filename, labelsonfirstline):
 		none_set = bool(none_dict)
 		bad_none = set(none_dict) - set(options.labels)
 		assert not bad_none, 'Unknown labels in none_as: %r' % (bad_none,)
+	q = options.quote_fields
+	qq = q + q
+	sep = options.separator
+	def quote_always(v):
+		return q + v.replace(q, qq) + q
+	if q in '"\'':
+		# special case so both quotes will quote the other
+		def quote_if_needed(v):
+			if v and (v[0] in '"\'' or v[-1] in '"\'' or sep in v):
+				return q + v.replace(q, qq) + q
+			else:
+				return v
+	else:
+		def quote_if_needed(v):
+			if v.startswith(q) or v.endswith(q) or sep in v:
+				return q + v.replace(q, qq) + q
+			else:
+				return v
+	if not q:
+		quote_func = str
+	elif options.lazy_quotes and sep: # always quote if no separator
+		quote_func = quote_if_needed
+	else:
+		quote_func = quote_always
 	def column_iterator(d, label, first):
 		col = d.columns[label]
 		f = format.get(col.type, str)
@@ -124,6 +149,8 @@ def csvexport(sliceno, filename, labelsonfirstline):
 				it = (none_as if v is None else v for v in it)
 		elif f:
 			it = imap(f, it)
+		if q:
+			it = map(quote_func, it)
 		return it
 	def outer_iterator(label, first):
 		return chain.from_iterable(column_iterator(d, label, first) for d in datasets.source)
@@ -134,19 +161,10 @@ def csvexport(sliceno, filename, labelsonfirstline):
 		first = False
 	it = izip(*iters)
 	with writer(open_func(filename)) as write:
-		q = options.quote_fields
-		sep = options.separator
-		if q:
-			qq = q + q
-			if labelsonfirstline:
-				write(enc(sep.join(q + n.replace(q, qq) + q for n in options.labels)))
-			for data in it:
-				write(sep.join(q + n.replace(q, qq) + q for n in data))
-		else:
-			if labelsonfirstline:
-				write(enc(sep.join(options.labels)))
-			for data in it:
-				write(sep.join(data))
+		if labelsonfirstline:
+			write(enc(sep.join(map(quote_func, options.labels))))
+		for data in it:
+			write(sep.join(data))
 
 def analysis(sliceno, job):
 	if options.sliced:

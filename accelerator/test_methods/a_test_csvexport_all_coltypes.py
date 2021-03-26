@@ -134,7 +134,7 @@ def synthesis(job):
 		)),
 	):
 		with status("Checking with sep=%r, q=%r, none_as=%r" % (sep, q, none_as,)):
-			exp = subjobs.build('csvexport', filename='test.csv', separator=sep, source=ds, quote_fields=q, none_as=none_as)
+			exp = subjobs.build('csvexport', filename='test.csv', separator=sep, source=ds, quote_fields=q, none_as=none_as, lazy_quotes=False)
 			with exp.open('test.csv', 'r', encoding='utf-8') as fh:
 				def expect(*a):
 					want = sep.join(q + v.replace(q, q + q) + q for v in a) + '\n'

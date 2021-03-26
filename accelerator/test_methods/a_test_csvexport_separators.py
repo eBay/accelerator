@@ -1,6 +1,6 @@
 ############################################################################
 #                                                                          #
-# Copyright (c) 2020 Carl Drougge                                          #
+# Copyright (c) 2020-2021 Carl Drougge                                     #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -60,6 +60,7 @@ def synthesis(job):
 							separator=separator,
 							line_separator=line_separator,
 							quote_fields=quote,
+							lazy_quotes=False,
 							sliced=sliced,
 							source=ds,
 						)
