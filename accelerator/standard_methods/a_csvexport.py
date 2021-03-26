@@ -103,16 +103,22 @@ def csvexport(sliceno, filename, labelsonfirstline):
 		open_func = partial(open_func, mode='wb')
 	else:
 		open_func = partial(open_func, mode='xt', encoding='utf-8')
-	if isinstance(options.none_as, str):
-		default_none = options.none_as
-		none_dict = {}
-		none_set = True
-	else:
-		default_none = 'None'
-		none_dict = options.none_as or {}
-		none_set = bool(none_dict)
-		bad_none = set(none_dict) - set(options.labels)
-		assert not bad_none, 'Unknown labels in none_as: %r' % (bad_none,)
+	if options.none_as:
+		if isinstance(options.none_as, dict):
+			bad_none = set(options.none_as) - set(options.labels)
+			assert not bad_none, 'Unknown labels in none_as: %r' % (bad_none,)
+		else:
+			assert isinstance(options.none_as, str), "What did you pass as none_as?"
+	def resolve_none(label, col):
+		d = options.none_as or {}
+		if col.type in ('json', 'pickle',):
+			if isinstance(options.none_as, str):
+				return options.none_as
+			return d.get(label)
+		elif col.none_support:
+			if isinstance(options.none_as, str):
+				return options.none_as
+			return d.get(label, 'None')
 	q = options.quote_fields
 	qq = q + q
 	sep = options.separator
@@ -160,8 +166,9 @@ def csvexport(sliceno, filename, labelsonfirstline):
 		col = d.columns[label]
 		f = format.get(col.type, str)
 		it = d.iterate(sliceno, label, status_reporting=first)
-		if col.none_support and (none_set or col.type != 'json'):
-			none_as = quote_func(none_dict.get(label, default_none))
+		none_as = resolve_none(label, col)
+		if none_as is not None:
+			none_as = quote_func(none_as)
 			if needs_quoting(col.type):
 				if f:
 					it = (none_as if v is None else quote_func(f(v)) for v in it)
