@@ -137,20 +137,48 @@ def csvexport(sliceno, filename, labelsonfirstline):
 		quote_func = quote_if_needed
 	else:
 		quote_func = quote_always
+	def needs_quoting(typ):
+		if not q:
+			return False
+		if not options.lazy_quotes:
+			return True
+		# maybe we can skip quoting because values that need quoting are impossible?
+		if typ in ('int32', 'int64', 'bits32', 'bits64',):
+			possible = '0123456789-'
+		elif typ in ('float32', 'float64', 'number',):
+			possible = '0123456789-+einfa.'
+		else:
+			possible = False
+		if possible:
+			q_s = set(q)
+			sep_s = set(sep)
+			possible_s = set(possible)
+			if q_s - possible_s and sep_s - possible_s:
+				return False
+		return True
 	def column_iterator(d, label, first):
 		col = d.columns[label]
 		f = format.get(col.type, str)
 		it = d.iterate(sliceno, label, status_reporting=first)
 		if col.none_support and (none_set or col.type != 'json'):
-			none_as = none_dict.get(label, default_none)
-			if f:
-				it = (none_as if v is None else f(v) for v in it)
+			none_as = quote_func(none_dict.get(label, default_none))
+			if needs_quoting(col.type):
+				if f:
+					it = (none_as if v is None else quote_func(f(v)) for v in it)
+				else:
+					it = (none_as if v is None else quote_func(v) for v in it)
 			else:
-				it = (none_as if v is None else v for v in it)
+				if f:
+					it = (none_as if v is None else f(v) for v in it)
+				else:
+					it = (none_as if v is None else v for v in it)
 		elif f:
-			it = imap(f, it)
-		if q:
-			it = map(quote_func, it)
+			if needs_quoting(col.type):
+				it = (quote_func(f(v)) for v in it)
+			else:
+				it = imap(f, it)
+		elif needs_quoting(col.type):
+			it = imap(quote_func, it)
 		return it
 	def outer_iterator(label, first):
 		return chain.from_iterable(column_iterator(d, label, first) for d in datasets.source)
