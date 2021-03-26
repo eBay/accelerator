@@ -135,7 +135,7 @@ class ProgressMsg:
 	def __init__(self, lst):
 		self.filenames = [info.filename for _, info, _ in lst]
 		self.z = [info.file_size for _, info, _ in lst]
-		self.z_total = sum(self.z)
+		self.z_total = sum(self.z) or 1
 		self.z_so_far = 0
 		self.cnt_total = len(lst)
 		self.cnt_so_far = 0
