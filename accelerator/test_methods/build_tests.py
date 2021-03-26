@@ -174,6 +174,7 @@ def main(urd):
 	urd.build("test_csvexport_all_coltypes")
 	urd.build("test_csvexport_separators")
 	urd.build("test_csvexport_chains")
+	urd.build("test_csvexport_quoting")
 
 	print()
 	print("Testing dataset typing")
