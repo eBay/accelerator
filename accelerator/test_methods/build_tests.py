@@ -162,6 +162,7 @@ def main(urd):
 	urd.build("test_dataset_merge")
 	urd.build("test_dataset_filter_columns")
 	urd.build("test_dataset_empty_colname")
+	urd.build("test_dataset_nan")
 
 	print()
 	print("Testing csvimport with more difficult files")
