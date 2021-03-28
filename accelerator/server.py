@@ -436,12 +436,12 @@ def main(argv, config):
 	XtdHandler.ctrl = ctrl
 	job_tracking[None].workdir = ctrl.target_workdir
 
-	for n in ("project_directory", "result_directory", "input_directory", "urd_listen"):
-		if n == "urd_listen":
-			dispn = "urd"
-		else:
-			dispn = n.replace("_", " ")
-		print("%17s: %s" % (dispn, config.get(n),))
+	for n in ("project_directory", "result_directory", "input_directory", "board_listen", "urd_listen",):
+		v = config.get(n)
+		if n.endswith("_listen"):
+			n = n[:-7]
+		n = n.replace("_", " ")
+		print("%17s: %s" % (n, v,))
 	print()
 
 	print("Serving on %s\n" % (config.listen,), file=sys.stderr)
