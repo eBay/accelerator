@@ -37,11 +37,15 @@ def interpolate(s):
 	return _re_var.subn(lambda m: os.environ.get(m.group(1), m.group(2)), s)[0]
 
 
+class HostPortTuple(tuple):
+	def __str__(self):
+		return "http://%s:%d" % self
+
 def resolve_listen(listen):
 	if '/' not in listen and ':' in listen:
-		hostname, post = listen.rsplit(':', 1)
-		listen = (hostname or 'localhost', int(post),)
-		url = 'http://%s:%d' % (hostname, listen[1],)
+		hostname, port = listen.rsplit(':', 1)
+		listen = HostPortTuple((hostname or 'localhost', int(port),))
+		url = 'http://%s:%d' % listen
 	else:
 		url = None
 	return listen, url
