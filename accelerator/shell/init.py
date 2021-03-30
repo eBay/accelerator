@@ -98,6 +98,29 @@ def quote(v):
 		import shlex
 		return shlex.quote(v)
 
+
+def find_free_ports(low, high, count=3, hostname='localhost'):
+	import random
+	import socket
+	ports = list(range(low, high - count))
+	random.shuffle(ports)
+	res = {}
+	def free(port):
+		if port not in res:
+			s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			try:
+				s.bind((hostname, port))
+				res[port] = True
+			except socket.error:
+				res[port] = False
+			s.close()
+		return res[port]
+	for port in ports:
+		if all(free(port + n) for n in range(count)):
+			return port
+	raise Exception('Failed to find %d consecutive free TCP ports on %s in range(%d, %d)' % (count, hostname, low, high))
+
+
 def main(argv):
 	from os import makedirs, listdir, chdir
 	from os.path import exists, join, realpath
@@ -122,17 +145,27 @@ def main(argv):
 	parser.add_argument('--name', default='dev', help='name of method dir and workdir, default "dev"')
 	parser.add_argument('--input', default='# /some/path where you want import methods to look.', help='input directory')
 	parser.add_argument('--force', action='store_true', help='go ahead even though directory is not empty, or workdir exists with incompatible slice count')
+	parser.add_argument('--tcp', default=False, type=int, metavar='PORT', nargs='?', help='listen on TCP instead of unix sockets.\nspecify PORT to use range(PORT, PORT + 3).')
 	parser.add_argument('directory', default='.', help='project directory to create. default "."', metavar='DIR', nargs='?')
 	options = parser.parse_args(argv)
 
 	assert options.name
 	assert '/' not in options.name
 
-	listen = DotDict(
-		board='.socket.dir/board',
-		server='.socket.dir/server',
-		urd='.socket.dir/urd',
-	)
+	if options.tcp is False:
+		listen = DotDict(
+			board='.socket.dir/board',
+			server='.socket.dir/server',
+			urd='.socket.dir/urd',
+		)
+	else:
+		if options.tcp is None:
+			options.tcp = find_free_ports(0x3000, 0x8000)
+		listen = DotDict(
+			server='localhost:%d' % (options.tcp,),
+			board='localhost:%d' % (options.tcp + 1,),
+			urd='localhost:%d' % (options.tcp + 2,),
+		)
 
 	if not options.input.startswith('#'):
 		options.input = quote(realpath(options.input))
