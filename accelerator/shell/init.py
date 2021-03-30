@@ -68,11 +68,12 @@ method packages:
 	accelerator.standard_methods
 	accelerator.test_methods
 
-urd: local # can also be URL/socket to your urd
-
-# [host]:port or path where board will listen.
-# You can also start board separately with "ax board".
-board listen: .socket.dir/board
+# listen directives can be [host]:port or socket path.
+# urd can be prefixed with "local" to run it together with the server
+# (board is always local, you can also start it separately with "ax board")
+listen: {listen.server}
+board listen: {listen.board}
+urd: local {listen.urd}
 
 result directory: ./results
 input directory: {input}
@@ -104,6 +105,7 @@ def main(argv):
 	from argparse import RawDescriptionHelpFormatter
 	from accelerator.compat import ArgumentParser
 	from accelerator.error import UserError
+	from accelerator.extras import DotDict
 
 	parser = ArgumentParser(
 		prog=argv.pop(0),
@@ -125,6 +127,13 @@ def main(argv):
 
 	assert options.name
 	assert '/' not in options.name
+
+	listen = DotDict(
+		board='.socket.dir/board',
+		server='.socket.dir/server',
+		urd='.socket.dir/urd',
+	)
+
 	if not options.input.startswith('#'):
 		options.input = quote(realpath(options.input))
 	prefix = realpath(options.directory)
@@ -175,4 +184,5 @@ def main(argv):
 			major=version_info.major,
 			minor=version_info.minor,
 			micro=version_info.micro,
+			listen=DotDict({k: quote(v) for k, v in listen.items()}),
 		))
