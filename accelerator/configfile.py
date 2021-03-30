@@ -42,6 +42,10 @@ class HostPortTuple(tuple):
 		return "http://%s:%d" % self
 
 def resolve_listen(listen):
+	if listen.startswith('http://'):
+		tmp = listen[7:].rstrip('/')
+		if '/' not in tmp and ':' in tmp:
+			listen = tmp
 	if '/' not in listen and ':' in listen:
 		hostname, port = listen.rsplit(':', 1)
 		listen = HostPortTuple((hostname or 'localhost', int(port),))
