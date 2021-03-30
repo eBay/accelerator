@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2018-2020 Carl Drougge                       #
+# Modifications copyright (c) 2018-2021 Carl Drougge                       #
 # Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -564,12 +564,12 @@ def main(argv, cfg):
 
 	kw = dict(debug=False, reloader=False, quiet=args.quiet, server=WaitressServer)
 	listen = cfg.urd_listen
+	if not listen:
+		raise Exception('urd not configured in this project')
 	if isinstance(listen, tuple):
 		kw['host'], kw['port'] = listen
 	else:
 		from accelerator.server import check_socket
-		if listen == 'local':
-			listen = '.socket.dir/urd'
 		check_socket(listen)
 		kw['host'] = listen
 		kw['port'] = 0

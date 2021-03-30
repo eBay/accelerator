@@ -422,7 +422,7 @@ def main(argv, config):
 		server = ThreadedUnixHTTPServer(config.listen, XtdHandler)
 		os.umask(u)
 
-	if config.get('urd_listen') == 'local':
+	if config.get('urd_local'):
 		from accelerator import urd
 		t = DeadlyThread(target=urd.main, args=(['urd', '--quiet', '--allow-passwordless'], config), name='urd')
 		t.daemon = True
@@ -436,12 +436,17 @@ def main(argv, config):
 	XtdHandler.ctrl = ctrl
 	job_tracking[None].workdir = ctrl.target_workdir
 
-	for n in ("project_directory", "result_directory", "input_directory", "board_listen", "urd_listen",):
+	for n in ("project_directory", "result_directory", "input_directory",):
 		v = config.get(n)
-		if n.endswith("_listen"):
-			n = n[:-7]
 		n = n.replace("_", " ")
 		print("%17s: %s" % (n, v,))
+	for n in ("board", "urd",):
+		v = config.get(n + '_listen')
+		if v and not config.get(n + '_local', True):
+			extra = ' (remote)'
+		else:
+			extra = ''
+		print("%17s: %s%s" % (n, v, extra,))
 	print()
 
 	print("Serving on %s\n" % (config.listen,), file=sys.stderr)

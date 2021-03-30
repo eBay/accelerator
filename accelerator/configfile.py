@@ -50,14 +50,10 @@ def resolve_listen(listen):
 		url = None
 	return listen, url
 
-def fixup_listen(project_directory, listen, urd=False):
+def fixup_listen(project_directory, listen):
 	listen, url = listen
 	if not isinstance(listen, tuple):
-		if urd and listen == 'local':
-			dir = '.socket.dir/urd'
-		else:
-			dir = listen
-		socket = os.path.join(project_directory, dir)
+		socket = os.path.join(project_directory, listen)
 		url = 'unixhttp://' + quote_plus(os.path.realpath(socket))
 	return listen, url
 
@@ -97,12 +93,25 @@ def load_config(filename):
 		if path in (v[1] for v in cfg['workdirs']):
 			raise _E('Workdir path %r re-used' % (path,))
 
+	def resolve_urd(val):
+		if val[0] == 'local':
+			is_local = True
+			if len(val) == 1:
+				val = ['.socket.dir/urd']
+			else:
+				val = [val[1]]
+		else:
+			is_local = False
+		if len(val) != 1:
+			raise _E("urd only takes 'local' as the first optional argument (not %r)" % (is_local,))
+		return is_local, resolve_listen(val[0])
+
 	parsers = {
 		'slices': (['count'], int),
 		'workdirs': (['name', 'path'], parse_workdir),
 		'interpreters': (['name', 'path'], parse_interpreter),
 		'listen': (['path or [host]:port'], resolve_listen),
-		'urd': (['path or [host]:port'], resolve_listen),
+		'urd': (['["local"] and/or', '[path or [host]:port]'], resolve_urd), # special cased
 		'board listen': (['path or [host]:port'], resolve_listen),
 		'input directory': (['path'], fixpath),
 		'result directory': (['path'], fixpath),
@@ -142,11 +151,17 @@ def load_config(filename):
 	def everything(key, val):
 		if key in parsers:
 			args, p = parsers[key]
-			if len(val) != len(args):
+			if key == 'urd':
+				want_count = (1, 2)
+				want_count_str = "1 or 2"
+			else:
+				want_count = [len(args)]
+				want_count_str = str(want_count[0])
+			if len(val) not in want_count:
 				if len(args) == 1:
 					raise _E("%s takes a single value %s (maybe you meant to quote it?)" % (key, args[0]))
 				else:
-					raise _E("%s takes %d values (expected %s, got %r)" % (key, len(args), ' '.join(args), val))
+					raise _E("%s takes %s values (expected %s, got %r)" % (key, want_count_str, ' '.join(args), val))
 			if len(args) == 1:
 				val = val[0]
 			val = p(val)
@@ -202,9 +217,10 @@ def load_config(filename):
 		res.interpreters = dict(res.interpreters)
 		res.listen, res.url = fixup_listen(res.project_directory, res.listen)
 		if res.get('urd'):
-			res.urd_listen, res.urd = fixup_listen(res.project_directory, res.urd, True)
+			res.urd_local, listen = res.urd
+			res.urd_listen, res.urd = fixup_listen(res.project_directory, listen)
 		else:
-			res.urd_listen, res.urd = None, None
+			res.urd_local, res.urd_listen, res.urd = False, None, None
 		res.board_listen, _ = fixup_listen(res.project_directory, res.get('board_listen', ('.socket.dir/board', None)))
 	except _E as e:
 		if lineno[0] is None:
