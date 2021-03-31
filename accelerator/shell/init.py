@@ -69,8 +69,8 @@ method packages:
 	accelerator.test_methods
 
 # listen directives can be [host]:port or socket path.
-# urd can be prefixed with "local" to run it together with the server
-# (board is always local, you can also start it separately with "ax board")
+# urd should be prefixed with "local" to run it together with the server
+# or "remote" to not run it together with the server.
 listen: {listen.server}
 board listen: {listen.board}
 urd: local {listen.urd}

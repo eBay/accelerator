@@ -98,16 +98,15 @@ def load_config(filename):
 			raise _E('Workdir path %r re-used' % (path,))
 
 	def resolve_urd(val):
-		if val[0] == 'local':
-			is_local = True
+		orig_val = val
+		is_local = (val[0] == 'local')
+		if val[0] in ('local', 'remote'):
 			if len(val) == 1:
 				val = ['.socket.dir/urd']
 			else:
 				val = [val[1]]
-		else:
-			is_local = False
 		if len(val) != 1:
-			raise _E("urd only takes 'local' as the first optional argument (not %r)" % (is_local,))
+			raise _E("urd takes 1 or 2 values (expected %s, got %r)" % (' '.join(parsers['urd'][0]), orig_val))
 		return is_local, resolve_listen(val[0])
 
 	parsers = {
@@ -115,7 +114,7 @@ def load_config(filename):
 		'workdirs': (['name', 'path'], parse_workdir),
 		'interpreters': (['name', 'path'], parse_interpreter),
 		'listen': (['path or [host]:port'], resolve_listen),
-		'urd': (['["local"] and/or', '[path or [host]:port]'], resolve_urd), # special cased
+		'urd': (['["local" or "remote"] and/or', '[path or [host]:port]'], resolve_urd), # special cased
 		'board listen': (['path or [host]:port'], resolve_listen),
 		'input directory': (['path'], fixpath),
 		'result directory': (['path'], fixpath),
