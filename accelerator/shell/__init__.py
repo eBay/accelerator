@@ -207,13 +207,15 @@ def cmd_curl(argv):
 	argv = ['curl', '-sS'] + socket_opts + argv + [join(url_start, url_end)]
 	from subprocess import Popen, PIPE
 	import json
-	output, _ = Popen(argv, stdout=PIPE).communicate()
+	curl = Popen(argv, stdout=PIPE)
+	output, _ = curl.communicate()
 	try:
 		output = output.decode('utf-8')
 		output = json.dumps(json.loads(output), indent=4)
 	except Exception:
 		pass
 	print(output)
+	return curl.wait()
 cmd_curl.help = '''http request (with curl) to urd or the server'''
 
 def cmd_method(argv):
