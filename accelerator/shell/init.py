@@ -18,6 +18,10 @@
 ############################################################################
 
 
+from __future__ import print_function
+from __future__ import division
+
+
 a_example = r"""description = r'''
 This is just an example. It doesn't even try to do anything useful.
 
@@ -121,6 +125,29 @@ def find_free_ports(low, high, count=3, hostname='localhost'):
 	raise Exception('Failed to find %d consecutive free TCP ports on %s in range(%d, %d)' % (count, hostname, low, high))
 
 
+def git(method_dir):
+	from subprocess import check_call
+	from accelerator.compat import FileNotFoundError
+	from sys import stderr
+	from os.path import exists
+	if exists('.git'):
+		print('WARNING: .git already exists, skipping git init', file=stderr)
+		return
+	try:
+		check_call(['git', 'init', '--quiet'])
+	except FileNotFoundError:
+		print('WARNING: git appears to not be installed, skipping git init', file=stderr)
+		return
+	with open('.gitignore', 'w') as fh:
+		fh.write('/.socket.dir\n')
+		fh.write('/urd.db\n')
+		fh.write('/workdirs\n')
+		fh.write('/results\n')
+		fh.write('__pycache__\n')
+		fh.write('*.pyc\n')
+	check_call(['git', 'add', '--', 'accelerator.conf', '.gitignore', method_dir])
+
+
 def main(argv):
 	from os import makedirs, listdir, chdir
 	from os.path import exists, join, realpath
@@ -146,6 +173,7 @@ def main(argv):
 	parser.add_argument('--input', default='# /some/path where you want import methods to look.', help='input directory')
 	parser.add_argument('--force', action='store_true', help='go ahead even though directory is not empty, or workdir exists with incompatible slice count')
 	parser.add_argument('--tcp', default=False, type=int, metavar='PORT', nargs='?', help='listen on TCP instead of unix sockets.\nspecify PORT to use range(PORT, PORT + 3).')
+	parser.add_argument('--no-git', action='store_true', help='don\'t create git repository')
 	parser.add_argument('directory', default='.', help='project directory to create. default "."', metavar='DIR', nargs='?')
 	options = parser.parse_args(argv)
 
@@ -219,3 +247,5 @@ def main(argv):
 			micro=version_info.micro,
 			listen=DotDict({k: quote(v) for k, v in listen.items()}),
 		))
+	if not options.no_git:
+		git(method_dir)
