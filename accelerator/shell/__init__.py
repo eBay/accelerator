@@ -204,7 +204,7 @@ def cmd_curl(argv):
 			socket, url_start = url_start, ''
 		socket_opts = ['--unix-socket', unquote_plus(socket)]
 		url_start = join('http://.', url_start)
-	argv = ['curl', '-s'] + socket_opts + argv + [join(url_start, url_end)]
+	argv = ['curl', '-sS'] + socket_opts + argv + [join(url_start, url_end)]
 	from subprocess import Popen, PIPE
 	import json
 	output, _ = Popen(argv, stdout=PIPE).communicate()
