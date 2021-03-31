@@ -209,12 +209,13 @@ def cmd_curl(argv):
 	import json
 	curl = Popen(argv, stdout=PIPE)
 	output, _ = curl.communicate()
-	try:
-		output = output.decode('utf-8')
-		output = json.dumps(json.loads(output), indent=4)
-	except Exception:
-		pass
-	print(output)
+	if output:
+		try:
+			output = output.decode('utf-8')
+			output = json.dumps(json.loads(output), indent=4)
+		except Exception:
+			pass
+		print(output)
 	return curl.wait()
 cmd_curl.help = '''http request (with curl) to urd or the server'''
 
