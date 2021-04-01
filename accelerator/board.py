@@ -424,6 +424,14 @@ def run(cfg, from_shell=False):
 		d = call_u(key)
 		return dict(key=key, entry=d)
 
+	@bottle.error(500)
+	def error(e):
+		tpl = bottle.ERROR_PAGE_TEMPLATE
+		# awful hack: replace DEBUG with something that will be true,
+		# so that tracebacks are shown (without needing to turn debug on).
+		tpl = tpl.replace('DEBUG', '__version__')
+		return bottle.template(tpl, e=e)
+
 	bottle.TEMPLATE_PATH = [os.path.join(os.path.dirname(__file__), 'board')]
 	if from_shell:
 		kw = {'reloader': True}
