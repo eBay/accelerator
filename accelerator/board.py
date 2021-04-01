@@ -30,6 +30,7 @@ from accelerator.dataset import Dataset
 from accelerator.unixhttp import call, WaitressServer
 from accelerator.build import fmttime
 from accelerator.configfile import resolve_listen
+from accelerator.error import NoSuchWhateverError
 from accelerator.shell.workdir import job_data, workdir_jids
 from accelerator.compat import setproctitle, url_quote
 
@@ -427,9 +428,12 @@ def run(cfg, from_shell=False):
 	@bottle.error(500)
 	def error(e):
 		tpl = bottle.ERROR_PAGE_TEMPLATE
-		# awful hack: replace DEBUG with something that will be true,
-		# so that tracebacks are shown (without needing to turn debug on).
-		tpl = tpl.replace('DEBUG', '__version__')
+		if isinstance(e.exception, NoSuchWhateverError):
+			e.body = str(e.exception)
+		else:
+			# awful hack: replace DEBUG with something that will be true,
+			# so that tracebacks are shown (without needing to turn debug on).
+			tpl = tpl.replace('DEBUG', '__version__')
 		return bottle.template(tpl, e=e)
 
 	bottle.TEMPLATE_PATH = [os.path.join(os.path.dirname(__file__), 'board')]
