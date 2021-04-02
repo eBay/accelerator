@@ -118,6 +118,16 @@
 			width: 100%;
 			z-index: 1;
 		}
+		#ax-version {
+			pointer-events: none;
+			color: var(--fg-weak);
+			position: fixed;
+			top: 0;
+			right: 0;
+			border-left: 0.1em solid var(--border0);
+			border-bottom: 0.1em solid var(--border0);
+			padding: 0.2em 0.4em;
+		}
 		#status {
 			background: var(--bg1);
 			border: 2px solid var(--border1);
@@ -400,6 +410,7 @@
 	</style>
 </head>
 <body{{ ! get('bodyclass', '') and ' class="' + bodyclass + '"' }}>
+	<div id="ax-version">version {{ ax_version }}</div>
 % if title:
 	<a href="/" id="main-link">main</a>
 % end

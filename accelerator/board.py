@@ -33,6 +33,7 @@ from accelerator.configfile import resolve_listen
 from accelerator.error import NoSuchWhateverError
 from accelerator.shell.workdir import job_data, workdir_jids
 from accelerator.compat import setproctitle, url_quote
+from accelerator import __version__ as ax_version
 
 def get_job(jobid):
 	if jobid.endswith('-LATEST'):
@@ -131,6 +132,7 @@ def template(tpl_name, **kw):
 		tpl_name,
 		ax_repr=ax_repr,
 		ax_link=ax_link,
+		ax_version=ax_version,
 		template=template,
 		**kw
 	)
