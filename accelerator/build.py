@@ -24,6 +24,7 @@ from __future__ import division
 import sys
 import os
 import json
+import traceback
 from operator import itemgetter
 from collections import defaultdict
 from datetime import date
@@ -742,7 +743,33 @@ def main(argv, cfg):
 		# we built the job on.
 		# If it's a ServerError we just want the line and message.
 		print_minimal_traceback()
+	except Exception:
+		# For the rest we still don't want to see stuff from this
+		# file and earlier.
+		print_user_part_traceback()
 	return 1
+
+
+def print_user_part_traceback():
+	etype, e, tb = sys.exc_info()
+	fallback_tb = tb # everything if the skip logic fails
+	build_fn = __file__
+	if build_fn[-4:] in ('.pyc', '.pyo',):
+		# stupid python2
+		build_fn = build_fn[:-1]
+	# skip until this file
+	while tb is not None:
+		code = tb.tb_frame.f_code
+		if code.co_filename == build_fn:
+			break
+		tb = tb.tb_next
+	# skip until out of this file again
+	while tb is not None:
+		code = tb.tb_frame.f_code
+		if code.co_filename != build_fn:
+			break
+		tb = tb.tb_next
+	traceback.print_exception(etype, e, tb or fallback_tb)
 
 
 def print_minimal_traceback():
