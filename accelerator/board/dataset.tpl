@@ -1,11 +1,12 @@
+{{ ! template('head', title=ds) }}
+
 % import json
-% include('head', title=ds)
 % def tdif(k, v):
 	% if v:
 		<tr><td>{{ k }}</td><td>{{ ! ax_link(v) }}</td></tr>
 	% end
 % end
-<body>
+
 	<a href="/">main</a>
 	<h1>{{ ds.job }}/{{ ds.name }}</h1>
 	<table>

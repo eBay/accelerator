@@ -1,5 +1,5 @@
-% include('head', title='methods')
-<body>
+{{ ! template('head', title='methods') }}
+
 	<h1>methods</h1>
 	% for package, names in sorted(by_package.items()):
 		<h2>{{ package }}</h2>

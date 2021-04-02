@@ -1,5 +1,5 @@
-% include('head', title=key)
-<body>
+{{ ! template('head', title=key) }}
+
 	<h1>{{ key }}</h1>
 	<table class="urd-table">
 		% for thing in ('timestamp', 'user', 'build', 'caption',):

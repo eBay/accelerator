@@ -1,6 +1,7 @@
-% include('head', title='status')
+{{ ! template('head', title='status') }}
+
 % from datetime import datetime
-<body>
+
 	% if idle:
 		<p>idle</p>
 	% else:

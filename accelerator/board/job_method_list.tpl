@@ -1,5 +1,5 @@
-% include('head', title=job)
-<body>
+{{ ! template('head', title=job) }}
+
 	<a href="/">main</a>
 	<h1>{{ job }}/method.tar.gz</h1>
 	<ul>

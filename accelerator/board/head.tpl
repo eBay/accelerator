@@ -397,3 +397,4 @@
 		}
 	</style>
 </head>
+<body{{ ! get('bodyclass', '') and ' class="' + bodyclass + '"' }}>

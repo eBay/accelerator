@@ -1,5 +1,5 @@
-% include('head', title=key)
-<body>
+{{ ! template('head', title=key) }}
+
 	<h1>{{ key }}</h1>
 	<ul class="urdlist">
 	% for ts in timestamps:

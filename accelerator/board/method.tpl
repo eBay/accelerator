@@ -1,5 +1,5 @@
-% include('head', title=name)
-<body>
+{{ ! template('head', title=name) }}
+
 	<h1>{{ data.package }}.{{ name }}</h1>
 	% if data.description.text:
 		% for line in data.description.text.split('\n'):

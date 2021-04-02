@@ -1,7 +1,8 @@
-% include('head', title='last error')
+{{ ! template('head', title='last error') }}
+
 % from datetime import datetime
 % from accelerator.error import JobError
-<body>
+
 % if not get('time'):
 	<p>No error.</p>
 % else:

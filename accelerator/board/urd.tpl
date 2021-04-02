@@ -1,5 +1,5 @@
-% include('head', title='urd for ' + project)
-<body>
+{{ ! template('head', title='urd for ' + project) }}
+
 	<h1>urd for {{ project }}</h1>
 	<ul>
 	% for thing in lists:

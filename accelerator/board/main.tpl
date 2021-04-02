@@ -1,5 +1,5 @@
-% include('head', title='')
-<body>
+{{ ! template('head', title='') }}
+
 	<div id="bonus-info">
 		<table id="workdirs">
 			% for workdir in sorted(workdirs):

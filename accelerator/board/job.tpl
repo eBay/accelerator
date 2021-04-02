@@ -1,4 +1,5 @@
-% include('head', title=job)
+{{ ! template('head', title=job) }}
+
 % from datetime import datetime
 % def paramspart(name):
 	% thing = params.get(name)
@@ -17,7 +18,7 @@
 		</div>
 	% end
 % end
-<body>
+
 	<a href="/">main</a>
 	<h1>{{ job }}</h1>
 	% if aborted:
