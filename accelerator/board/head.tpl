@@ -49,6 +49,7 @@
 		body {
 			background: var(--bg0);
 			color: var(--fg0);
+			margin: 8px;
 		}
 		a:link { color: var(--fg-a); }
 		a:visited { color: var(--fg-a-v); }
@@ -138,19 +139,22 @@
 		}
 		#bonus-info {
 			float: right;
-			margin-bottom: 1em;
+			margin: 1.25em 0 1em 0;
 		}
 		#bonus-info ul {
 			list-style-type: none;
 			display: table;
-			margin: 0 1em 0 auto;
-			padding: 3px 0 5px 0;
+			margin: 0.4em 0;
+			padding: 0.4em 0;
+			text-align: right;
+			width: 100%;
+			border-top: 1px solid var(--border1);
+			border-bottom: 1px solid var(--border1);
 		}
 		#workdirs {
 			margin-left: auto;
 			margin-right: 0;
 			text-align: right;
-			border-bottom: 1px solid var(--border1);
 		}
 		#workdirs td {
 			padding-right: 1em;
@@ -347,7 +351,7 @@
 			right: 0;
 			border-left: 1px solid var(--border2);
 			border-bottom: 1px solid var(--border2);
-			padding: 1em;
+			padding: 2em 1em 1em 1em;
 		}
 		@media (max-width: 60em) {
 			.workdir > h1 {
@@ -356,6 +360,7 @@
 			.filter {
 				position: relative;
 				float: right;
+				margin: -8px -8px 0 0;
 			}
 		}
 		.filter h1 {
