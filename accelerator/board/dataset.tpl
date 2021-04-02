@@ -7,7 +7,6 @@
 	% end
 % end
 
-	<a href="/">main</a>
 	<h1>{{ ds.job }}/{{ ds.name }}</h1>
 	<table>
 		% tdif('job', ds.job)

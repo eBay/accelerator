@@ -1,6 +1,5 @@
 {{ ! template('head', title=job) }}
 
-	<a href="/">main</a>
 	<h1>{{ job }}/method.tar.gz</h1>
 	<ul>
 	% for info in members:

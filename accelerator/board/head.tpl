@@ -92,8 +92,10 @@
 			opacity: 0.5;
 		}
 
-		a[href="/"] {
-			float: right;
+		#main-link {
+			position: absolute;
+			top: 1.7em;
+			right: 0.4em;
 		}
 		.error, input:focus.error {
 			background: var(--bgerr);
@@ -398,3 +400,6 @@
 	</style>
 </head>
 <body{{ ! get('bodyclass', '') and ' class="' + bodyclass + '"' }}>
+% if title:
+	<a href="/" id="main-link">main</a>
+% end

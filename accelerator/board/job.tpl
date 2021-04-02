@@ -19,7 +19,6 @@
 	% end
 % end
 
-	<a href="/">main</a>
 	<h1>{{ job }}</h1>
 	% if aborted:
 		<div class="warning">WARNING: Job didn't finish, information may be incomplete.</div>
