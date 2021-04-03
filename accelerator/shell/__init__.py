@@ -1,6 +1,6 @@
 ############################################################################
 #                                                                          #
-# Copyright (c) 2019-2020 Carl Drougge                                     #
+# Copyright (c) 2019-2021 Carl Drougge                                     #
 # Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -362,7 +362,7 @@ def main():
 			print('Unknown command "%s"' % (args.command,), file=sys.stderr)
 		sys.exit(2)
 	config_fn = args.config
-	if args.command == 'init':
+	if args.command in ('init', 'version',):
 		config_fn = False
 	cmd = COMMANDS[args.command]
 	debug_cmd = getattr(cmd, 'is_debug', False)
