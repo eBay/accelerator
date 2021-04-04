@@ -79,44 +79,69 @@ cd /tmp
 rm -rf /tmp/wheels
 mkdir /tmp/wheels /tmp/wheels/fixed
 
-SLICES=12 # run the first test with a few extra slices
+build_one_wheel() {
+	set -euo pipefail
+	set -x
+	ACCELERATOR_BUILD_STATIC_ZLIB="$ZLIB_PREFIX/lib/libz.a" \
+	CPPFLAGS="-I$ZLIB_PREFIX/include" \
+	"/opt/python/$V/bin/pip" wheel "$SDIST" --no-deps -w /tmp/wheels/
+	auditwheel repair "$UNFIXED_NAME" -w /tmp/wheels/fixed/
+	"/opt/python/$V/bin/pip" install "$FIXED_NAME"
+}
 
+Vs=()
+
+# build all in parallel
+# error checking suffers, so we check that no ax is installed before
 for V in /opt/python/cp[23][5-9]-*; do
 	V="${V/\/opt\/python\//}"
 	case "$V" in
 		cp27-*|cp3[5-9]-*)
+			test -e "/opt/python/$V/bin/ax" && exit 1
 			UNFIXED_NAME="/tmp/wheels/$NAME-$V-linux_$AUDITWHEEL_ARCH.whl"
 			FIXED_NAME="/tmp/wheels/fixed/$NAME-$V-$AUDITWHEEL_PLAT.whl"
 			test -e "/out/wheelhouse/${FIXED_NAME/*\//}" && continue
 			rm -f "$UNFIXED_NAME" "$FIXED_NAME"
-			ACCELERATOR_BUILD_STATIC_ZLIB="$ZLIB_PREFIX/lib/libz.a" \
-			CPPFLAGS="-I$ZLIB_PREFIX/include" \
-			"/opt/python/$V/bin/pip" wheel "$SDIST" --no-deps -w /tmp/wheels/
-			auditwheel repair "$UNFIXED_NAME" -w /tmp/wheels/fixed/
-			"/opt/python/$V/bin/pip" install "$FIXED_NAME"
-			rm -rf "/tmp/ax test"
-			TEST_NAME="${V/*-/}"
-			if [[ "$V" =~ cp3.* ]]; then
-				TEST_NAME="Ⅲ $TEST_NAME"
-			else
-				TEST_NAME="2 $TEST_NAME"
-			fi
-			"/opt/python/$V/bin/ax" init --slices "$SLICES" --name "$TEST_NAME" "/tmp/ax test"
-			"/opt/python/$V/bin/ax" --config "/tmp/ax test/accelerator.conf" server &
-			sleep 1
-			"/opt/python/$V/bin/ax" --config "/tmp/ax test/accelerator.conf" run tests
-			rm -rf "/tmp/ax test"
-			# verify that we can still read old datasets
-			for SRCDIR in /prepare/old.cp27-cp27mu /prepare/old.cp37-cp37m; do
-				PATH="/opt/python/$V/bin:$PATH" /accelerator/scripts/check_old_versions.sh "$SRCDIR"
-			done
-			# The wheel passed the tests, copy it to the wheelhouse (later).
-			BUILT+=("$FIXED_NAME")
-			SLICES=3 # run all other tests with the lowest (and fastest) allowed for tests
+			build_one_wheel "$UNFIXED_NAME" "$FIXED_NAME" &
+			Vs+=("$V")
 			;;
 		*)
 			;;
 	esac
+done
+
+wait # for all builds to finish
+
+for V in "${Vs[@]}"; do
+	if [ ! -e "/opt/python/$V/bin/ax" ]; then
+		echo "build failed on (at least) $V"
+		exit 1
+	fi
+done
+
+
+SLICES=12 # run the first test with a few extra slices
+
+for V in "${Vs[@]}"; do
+	rm -rf "/tmp/ax test"
+	TEST_NAME="${V/*-/}"
+	if [[ "$V" =~ cp3.* ]]; then
+		TEST_NAME="Ⅲ $TEST_NAME"
+	else
+		TEST_NAME="2 $TEST_NAME"
+	fi
+	"/opt/python/$V/bin/ax" init --slices "$SLICES" --name "$TEST_NAME" "/tmp/ax test"
+	"/opt/python/$V/bin/ax" --config "/tmp/ax test/accelerator.conf" server &
+	sleep 1
+	"/opt/python/$V/bin/ax" --config "/tmp/ax test/accelerator.conf" run tests
+	rm -rf "/tmp/ax test"
+	# verify that we can still read old datasets
+	for SRCDIR in /prepare/old.cp27-cp27mu /prepare/old.cp37-cp37m; do
+		PATH="/opt/python/$V/bin:$PATH" /accelerator/scripts/check_old_versions.sh "$SRCDIR"
+	done
+	# The wheel passed the tests, copy it to the wheelhouse (later).
+	BUILT+=("/tmp/wheels/fixed/$NAME-$V-$AUDITWHEEL_PLAT.whl")
+	SLICES=3 # run all other tests with the lowest (and fastest) allowed for tests
 done
 
 
