@@ -37,23 +37,26 @@ esac
 VERSION="$1"
 NAME="accelerator-${VERSION//.0/.}"
 
-BUILT=$'\n\nBuilt the following files:'
+BUILT=()
 
 /accelerator/scripts/build_prepare.sh
 
 
+SDIST="/out/wheelhouse/$NAME.tar.gz"
 if [ "$#" = "1" ]; then
-	test -e /out/wheelhouse/"$NAME".tar.gz || exit 1
+	test -e "$SDIST" || exit 1
+	BUILT_SDIST=""
 else
-	test -e /out/wheelhouse/"$NAME".tar.gz && exit 1
+	test -e "$SDIST" && exit 1
 	cd /tmp
 	rm -rf accelerator
 	git clone -s /accelerator
 	cd accelerator
 	git checkout "$2"
 	ACCELERATOR_BUILD_VERSION="$VERSION" ACCELERATOR_BUILD="$ACCELERATOR_BUILD" /opt/python/cp38-cp38/bin/python3 ./setup.py sdist
-	cp dist/"$NAME".tar.gz /out/wheelhouse/
-	BUILT="$BUILT"$'\n'"$NAME.tar.gz"
+	cp -p "dist/$NAME.tar.gz" /tmp/
+	SDIST="/tmp/$NAME.tar.gz"
+	BUILT_SDIST="$SDIST"
 	cd ..
 	rm -rf accelerator
 fi
@@ -88,7 +91,7 @@ for V in /opt/python/cp[23][5-9]-*; do
 			rm -f "$UNFIXED_NAME" "$FIXED_NAME"
 			ACCELERATOR_BUILD_STATIC_ZLIB="$ZLIB_PREFIX/lib/libz.a" \
 			CPPFLAGS="-I$ZLIB_PREFIX/include" \
-			"/opt/python/$V/bin/pip" wheel /out/wheelhouse/"$NAME".tar.gz --no-deps -w /tmp/wheels/
+			"/opt/python/$V/bin/pip" wheel "$SDIST" --no-deps -w /tmp/wheels/
 			auditwheel repair "$UNFIXED_NAME" -w /tmp/wheels/fixed/
 			"/opt/python/$V/bin/pip" install "$FIXED_NAME"
 			rm -rf "/tmp/ax test"
@@ -102,14 +105,13 @@ for V in /opt/python/cp[23][5-9]-*; do
 			"/opt/python/$V/bin/ax" --config "/tmp/ax test/accelerator.conf" server &
 			sleep 1
 			"/opt/python/$V/bin/ax" --config "/tmp/ax test/accelerator.conf" run tests
-			# The wheel passed the tests, copy it to the wheelhouse.
-			cp -p "$FIXED_NAME" /out/wheelhouse/
-			BUILT="$BUILT"$'\n'"${FIXED_NAME/*\//}"
 			rm -rf "/tmp/ax test"
 			# verify that we can still read old datasets
 			for SRCDIR in /prepare/old.cp27-cp27mu /prepare/old.cp37-cp37m; do
 				PATH="/opt/python/$V/bin:$PATH" /accelerator/scripts/check_old_versions.sh "$SRCDIR"
 			done
+			# The wheel passed the tests, copy it to the wheelhouse (later).
+			BUILT+=("$FIXED_NAME")
 			SLICES=3 # run all other tests with the lowest (and fastest) allowed for tests
 			;;
 		*)
@@ -131,5 +133,21 @@ done
 	/opt/python/cp39-cp39/bin
 
 
+# finally copy everything to /out/wheelhouse
+for N in "${BUILT[@]}"; do
+	cp -p "$N" /out/wheelhouse/
+done
+if [ -n "$BUILT_SDIST" ]; then
+	cp -p "$BUILT_SDIST" /out/wheelhouse/
+	BUILT+=("$BUILT_SDIST")
+fi
+
+
 set +x
-echo "$BUILT"
+
+echo
+echo
+echo "Built the following files:"
+for N in "${BUILT[@]}"; do
+	echo "${N/*\//}"
+done
