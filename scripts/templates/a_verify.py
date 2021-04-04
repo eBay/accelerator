@@ -35,7 +35,14 @@ def analysis(sliceno):
 	if jobs.source.load()['py_version'] > 2 and sys.version_info[0] > 2:
 		assert list(jobs.source.dataset('pickle').iterate(sliceno, 'p')) == [{'sliceno': sliceno}]
 
-def synthesis():
+def synthesis(job):
 	p = jobs.source.params
 	assert p.versions.accelerator == accelerator.__version__
-	assert p.versions.python_path.endswith('/venv%d/bin/python' % (options.n,))
+	with job.open_input('proj/accelerator.conf') as fh:
+		for line in fh:
+			if line.startswith('interpreters: p%d ' % (options.n,)):
+				path = line.split(' ', 2)[2].strip()[1:-1]
+				break
+		else:
+			raise Exception('Failed to find interpreter #%d in accelerator.conf' % (options.n,))
+	assert p.versions.python_path == path

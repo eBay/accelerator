@@ -24,14 +24,14 @@ absolute() {
 
 set -eux
 
-SCRIPT="`absolute "$0"`"
-TEMPLATES="`dirname "$SCRIPT"`/templates"
+SCRIPT="$(absolute "$0")"
+TEMPLATES="$(dirname "$SCRIPT")/templates"
 
-SRCDIR="`absolute "$1"`"
+SRCDIR="$(absolute "$1")"
 test -d "$SRCDIR" || exit 1
 
 SERVER_PID=""
-trap 'test -n "$SERVER_PID" && kill $SERVER_PID' exit
+trap 'test -n "$SERVER_PID" && kill $SERVER_PID' EXIT
 
 BASEDIR=/tmp/ax.check_old_versions.$$
 ax init --slices 3 $BASEDIR
@@ -40,7 +40,7 @@ cd $BASEDIR
 
 echo workdirs: >>accelerator.conf
 for V in v1 v2 v2b v3; do
-	echo "	$V $SRCDIR/$V/workdirs/$V" >>accelerator.conf
+	echo "	$V $SRCDIR/$V" >>accelerator.conf
 done
 
 cp "$TEMPLATES/build_check_old_versions.py" dev/build.py
@@ -55,7 +55,7 @@ kill $SERVER_PID
 SERVER_PID=""
 sleep 0.2
 rm -r $BASEDIR
-set +xe
+set +x
 
 echo
 echo OK

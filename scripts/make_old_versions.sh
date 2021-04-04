@@ -29,23 +29,25 @@ absolute() {
 
 PYTHON="$1"
 AXREPO="$2"
-BASEDIR="$3"
+OUTDIR="$3"
 VIRTUALENV="$4"
 
 set -eux
 
 test -x "$PYTHON" || exit 1
 test -d "$AXREPO" || exit 1
-test -d "$BASEDIR" || exit 1
+test -d "$OUTDIR" || exit 1
 
-SCRIPT="`absolute "$0"`"
-TEMPLATES="`dirname "$SCRIPT"`/templates"
+SCRIPT="$(absolute "$0")"
+TEMPLATES="$(dirname "$SCRIPT")/templates"
 
-AXREPO="`absolute "$AXREPO"`"
+AXREPO="$(absolute "$AXREPO")"
 
 SERVER_PID=""
-trap 'test -n "$SERVER_PID" && kill $SERVER_PID' exit
+trap 'test -n "$SERVER_PID" && kill $SERVER_PID' EXIT
 
+BASEDIR=/tmp/make_old_versions.$$
+mkdir $BASEDIR
 cd $BASEDIR
 
 cat >a.csv <<END
@@ -56,24 +58,27 @@ END
 
 setup() {
 	if [ -n "$VIRTUALENV" ]; then
-		"$VIRTUALENV" -p "$PYTHON" py.$1
+		"$VIRTUALENV" -p "$PYTHON" --system-site-packages "py.$1"
 	else
-		"$PYTHON" -m venv py.$1
+		"$PYTHON" -m venv --system-site-packages "py.$1"
 	fi
 	# Use the oldest dependencies we claim to be able to.
-	./py.$1/bin/pip install "ujson==1.35" "setproctitle==1.1.8" "bottle==0.12.7" "waitress==1.0" "monotonic==1.0"
-	git clone -s "$AXREPO" ax.$1
-	cd ax.$1
-	git checkout $2
-	../py.$1/bin/python ./setup.py install
+	"./py.$1/bin/pip" install "ujson==1.35" "setproctitle==1.1.8" "bottle==0.12.7" "waitress==1.0"
+	git clone -s "$AXREPO" "ax.$1"
+	cd "ax.$1"
+	git checkout "$2"
+	"../py.$1/bin/python" ./setup.py install
 	cd ..
-	rm -rf ax.$1
-	mkdir $1
-	cd $1
+	rm -rf "ax.$1"
+	rm -rf "$OUTDIR/$1"
+	mkdir "$OUTDIR/$1"
+	mkdir "$1"
+	cd "$1"
+	mkdir workdirs
+	ln -s "$OUTDIR/$1" workdirs/
 	# work around a python2 bug in old init versions by pre-creating slices.conf
-	mkdir -p workdirs/$1
-	echo 3 > workdirs/$1/$1-slices.conf
-	../py.$1/bin/$3 init --force --slices 3 --name $1 $4
+	echo 3 > "workdirs/$1/$1-slices.conf"
+	"../py.$1/bin/$3" init --force --slices 3 --name "$1" $4
 	case "$1" in
 		v1|v2)
 			HASHPART=rehash
@@ -82,11 +87,11 @@ setup() {
 			HASHPART=hashpart
 			;;
 	esac
-	sed s/\\\$HASHPART/$HASHPART/g >$1/build.py <"$TEMPLATES/build_make_old_versions.py"
-	../py.$1/bin/$3 $5 &
+	sed "s/\\\$HASHPART/$HASHPART/g" >"$1/build.py" <"$TEMPLATES/build_make_old_versions.py"
+	"../py.$1/bin/$3" "$5" &
 	SERVER_PID=$!
 	sleep 1
-	../py.$1/bin/$3 run
+	"../py.$1/bin/$3" run
 	kill $SERVER_PID
 	SERVER_PID=""
 	cd ..
@@ -97,9 +102,11 @@ setup v2 1363e5d94e08bdc16c5d3f3a6a7cb49501272f1a bd "--input .. --prefix ." dae
 setup v2b 2020.2.14.dev1 ax "--input .." server
 setup v3 2020.10.1.dev1 ax "--input .." server
 
+sleep 0.2
+rm -rf $BASEDIR
+
 set +x
 
-sleep 0.2
 echo
 echo OK
 echo

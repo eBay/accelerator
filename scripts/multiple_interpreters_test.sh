@@ -4,11 +4,11 @@
 # One method is run on each, and then the first one is used to
 # verify that the data produced is what is expected.
 
-if [ $# -lt 3 ]; then
-	echo "Usage: $0 path-to-ax-repo venv-command venv-command [...]"
-	echo '(Reasonable venv-commands might be "python3.5 -m venv", "virtualenv-2.7", ...)'
-	echo "All venvs will be used to run test jobs."
-	echo "The first venv will be used to run the server and final verification."
+if [ $# -lt 2 ]; then
+	echo "Usage: $0 path-to-python-dir path-to-python-dir [...]"
+	echo "(That is, paths to directories with \"python\" and \"ax\" in them, probably \"/path/to/venv/bin\".)"
+	echo "All python versions will be used to run test jobs."
+	echo "The first python version will be used to run the server and final verification."
 	exit 1
 fi
 
@@ -26,64 +26,52 @@ absolute() {
 
 set -eux
 
-SCRIPT="`absolute "$0"`"
-TEMPLATES="`dirname "$SCRIPT"`/templates"
+SCRIPT="$(absolute "$0")"
+TEMPLATES="$(dirname "$SCRIPT")/templates"
 
-AXREPO="`absolute "$1"`"
-shift
-
-test -d "$AXREPO" || exit 1
+for P in "$@"; do
+	for B in python ax; do
+		if [ ! -e "$P/$B" ]; then
+			echo "Missing \"$B\" command in $P"
+			exit 1
+		fi
+	done
+done
 
 BASEDIR=/tmp/ax.multiple_interpreters_test.$$
 mkdir $BASEDIR
 cd $BASEDIR
 
-N=0
-Ns=""
-for CMD in "$@"; do
-	$CMD venv$N
-	# Use the oldest dependencies we claim to be able to.
-	./venv$N/bin/pip install "setproctitle==1.1.8" "bottle==0.12.7" "waitress==1.0" "monotonic==1.0"
-	Ns="$Ns $N"
-	N=$((N+1))
-done
-
-git clone -s "$AXREPO" ax
-cd ax
-for N in $Ns; do
-	../venv$N/bin/python ./setup.py install
-done
-cd ..
-rm -rf ax
-
-./venv0/bin/ax init proj
+"$1/ax" init proj --input .
 cd proj
-sed s/\\\$N/$N/g >dev/build.py <"$TEMPLATES/build_multiple_interpreters.py"
+sed s/\\\$N/$#/g >dev/build.py <"$TEMPLATES/build_multiple_interpreters.py"
 echo verify >dev/methods.conf
 cp "$TEMPLATES/a_verify.py" dev/
 
-for N in $Ns; do
-	echo "interpreters: venv$N ../venv$N/bin/python" >>accelerator.conf
-	echo "method packages: venv$N" >>accelerator.conf
-	mkdir venv$N
-	touch venv$N/__init__.py
-	echo venv$N venv$N >venv$N/methods.conf
-	cp "$TEMPLATES/a_venvN.py" venv$N/a_venv$N.py
+N=0
+for P in "$@"; do
+	echo "interpreters: p$N \"$P/python\"" >>accelerator.conf
+	echo "method packages: p$N" >>accelerator.conf
+	mkdir "p$N"
+	touch "p$N/__init__.py"
+	echo "multiple$N p$N" >p$N/methods.conf
+	cp "$TEMPLATES/a_multipleN.py" p$N/a_multiple$N.py
+	N=$((N+1))
 done
 
 
 SERVER_PID=""
-trap 'test -n "$SERVER_PID" && kill $SERVER_PID' exit
+trap 'test -n "$SERVER_PID" && kill $SERVER_PID' EXIT
 
-../venv0/bin/ax server &
+"$1/ax" server &
 SERVER_PID=$!
 sleep 1
-../venv0/bin/ax run
+"$1/ax" run
 kill $SERVER_PID
 SERVER_PID=""
 sleep 0.2
 rm -r $BASEDIR
-set +xe
+set +x
 
 echo
 echo OK

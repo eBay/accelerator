@@ -1,7 +1,13 @@
 #!/bin/bash
 # This is for running in a manylinux2010 docker image, so /bin/bash is fine.
-# docker run --rm -v /some/where:/out:rw -v /path/to/accelerator:/accelerator:ro --tmpfs /tmp:exec,size=1G quay.io/pypa/manylinux2010_x86_64:2021-02-06-c17986e /accelerator/scripts/build_wheels.sh 20xx.xx.xx.dev1 [commit/tag/branch]
-# (builds sdist if you specify a commit, needs sdist to already be in wheelhouse otherwise)
+#
+# docker run -it --rm -v /some/where:/out:rw -v /path/to/accelerator:/accelerator:ro --tmpfs /tmp:exec,size=1G quay.io/pypa/manylinux2010_x86_64:2021-02-06-c17986e /accelerator/scripts/build_wheels.sh 20xx.xx.xx.dev1 [commit/tag/branch]
+#
+# or preferably:
+# docker run --rm --network none -v /some/where:/out:rw -v /path/to/accelerator:/accelerator:ro --tmpfs /tmp:exec,size=1G YOUR_DOCKER_IMAGE_YOU_HAVE_RUN_build_prepare.sh /accelerator/scripts/build_wheels.sh 20xx.xx.xx.dev1 [commit/tag/branch]
+#
+# builds sdist if you specify a commit, needs sdist to already be in wheelhouse otherwise
+# if you run it in an image where you have already run build_prepare.sh you can run it with --network none
 
 set -euo pipefail
 
@@ -29,9 +35,12 @@ case "$1" in
 		;;
 esac
 VERSION="$1"
-NAME="accelerator-$(echo "$1" | sed s/\\.0/./g)"
+NAME="accelerator-${VERSION//.0/.}"
 
 BUILT=$'\n\nBuilt the following files:'
+
+/accelerator/scripts/build_prepare.sh
+
 
 if [ "$#" = "1" ]; then
 	test -e /out/wheelhouse/"$NAME".tar.gz || exit 1
@@ -41,7 +50,7 @@ else
 	rm -rf accelerator
 	git clone -s /accelerator
 	cd accelerator
-	git checkout $2
+	git checkout "$2"
 	ACCELERATOR_BUILD_VERSION="$VERSION" ACCELERATOR_BUILD="$ACCELERATOR_BUILD" /opt/python/cp38-cp38/bin/python3 ./setup.py sdist
 	cp dist/"$NAME".tar.gz /out/wheelhouse/
 	BUILT="$BUILT"$'\n'"$NAME.tar.gz"
@@ -52,36 +61,12 @@ fi
 
 MANYLINUX_VERSION="${AUDITWHEEL_PLAT/%_*}"
 AUDITWHEEL_ARCH="${AUDITWHEEL_PLAT/${MANYLINUX_VERSION}_}"
-ZLIB_PREFIX="/out/zlib-ng-$AUDITWHEEL_PLAT"
+ZLIB_PREFIX="/prepare/zlib-ng"
 
 if [ "$MANYLINUX_VERSION" = "manylinux2010" ]; then
 		# The 2010 wheels are in our case 1-compatible
 		AUDITWHEEL_PLAT="manylinux1_$AUDITWHEEL_ARCH"
 fi
-
-# So you can provide a pre-built zlib-ng if you want.
-if [ ! -e "$ZLIB_PREFIX/lib/libz.a" ]; then
-	cd /tmp
-	rm -rf zlib-ng
-	git clone https://github.com/zlib-ng/zlib-ng.git
-	cd zlib-ng
-	git checkout 5fe25907ea1da498a75e4b842b9d97ca27acf1ed # 2.0.2
-	CFLAGS="-fPIC -fvisibility=hidden" ./configure --zlib-compat --static --prefix="$ZLIB_PREFIX"
-	make install
-	BUILT="$BUILT"$'\n'"$ZLIB_PREFIX/..."
-	cd ..
-	rm -rf zlib-ng
-fi
-
-
-# Test running 2.7 and 3.5 under a 3.8 server
-/opt/python/cp27-cp27mu/bin/pip install virtualenv
-ACCELERATOR_BUILD_STATIC_ZLIB="$ZLIB_PREFIX/lib/libz.a" \
-CPPFLAGS="-I$ZLIB_PREFIX/include" \
-/accelerator/scripts/multiple_interpreters_test.sh /accelerator \
-"/opt/python/cp38-cp38/bin/python -m venv" \
-/opt/python/cp27-cp27mu/bin/virtualenv \
-"/opt/python/cp35-cp35m/bin/python -m venv"
 
 
 # The numeric_comma test needs a locale which uses numeric comma.
@@ -93,7 +78,8 @@ mkdir /tmp/wheels /tmp/wheels/fixed
 
 SLICES=12 # run the first test with a few extra slices
 
-for V in $(ls /opt/python/); do
+for V in /opt/python/cp[23][5-9]-*; do
+	V="${V/\/opt\/python\//}"
 	case "$V" in
 		cp27-*|cp3[5-9]-*)
 			UNFIXED_NAME="/tmp/wheels/$NAME-$V-linux_$AUDITWHEEL_ARCH.whl"
@@ -120,6 +106,10 @@ for V in $(ls /opt/python/); do
 			cp -p "$FIXED_NAME" /out/wheelhouse/
 			BUILT="$BUILT"$'\n'"${FIXED_NAME/*\//}"
 			rm -rf "/tmp/ax test"
+			# verify that we can still read old datasets
+			for SRCDIR in /prepare/old.cp27-cp27mu /prepare/old.cp37-cp37m; do
+				PATH="/opt/python/$V/bin:$PATH" /accelerator/scripts/check_old_versions.sh "$SRCDIR"
+			done
 			SLICES=3 # run all other tests with the lowest (and fastest) allowed for tests
 			;;
 		*)
@@ -127,20 +117,19 @@ for V in $(ls /opt/python/); do
 	esac
 done
 
-# Test that we can still read old job versions, from both cp27 and cp35.
-# (Don't use ACCELERATOR_BUILD_STATIC_ZLIB, because these old versions don't understand it.)
-/opt/python/cp38-cp38/bin/pip install /out/wheelhouse/$NAME-cp38-cp38-$AUDITWHEEL_PLAT.whl
-VE=/opt/python/cp27-cp27mu/bin/virtualenv
-for V in cp27-cp27mu cp35-cp35m; do
-	mkdir /tmp/version_test_$V
-	CPPFLAGS="-I$ZLIB_PREFIX/include" \
-	LDFLAGS="-L$ZLIB_PREFIX/lib" \
-	USER="DUMMY" \
-	/accelerator/scripts/make_old_versions.sh /opt/python/$V/bin/python /accelerator /tmp/version_test_$V/ $VE
-	PATH="/opt/python/cp38-cp38/bin:$PATH" /accelerator/scripts/check_old_versions.sh /tmp/version_test_$V/
-	rm -r /tmp/version_test_$V
-	VE=""
-done
+
+# Test running 2.7 and 3.5 under a 3.8 server
+/accelerator/scripts/multiple_interpreters_test.sh \
+	/opt/python/cp38-cp38/bin \
+	/opt/python/cp27-cp27mu/bin \
+	/opt/python/cp35-cp35m/bin
+
+# Test running 3.6 and 3.9 under a 2.7 server
+/accelerator/scripts/multiple_interpreters_test.sh \
+	/opt/python/cp27-cp27m/bin \
+	/opt/python/cp36-cp36m/bin \
+	/opt/python/cp39-cp39/bin
+
 
 set +x
 echo "$BUILT"
