@@ -65,7 +65,7 @@ if [ ! -e "$ZLIB_PREFIX/lib/libz.a" ]; then
 	rm -rf zlib-ng
 	git clone https://github.com/zlib-ng/zlib-ng.git
 	cd zlib-ng
-	git checkout 8832d7db7241194fa68509c96c092f3cf527ccce
+	git checkout 5fe25907ea1da498a75e4b842b9d97ca27acf1ed # 2.0.2
 	CFLAGS="-fPIC -fvisibility=hidden" ./configure --zlib-compat --static --prefix="$ZLIB_PREFIX"
 	make install
 	BUILT="$BUILT"$'\n'"$ZLIB_PREFIX/..."
