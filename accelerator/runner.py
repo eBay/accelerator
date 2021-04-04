@@ -503,7 +503,11 @@ def new_runners(config, used_versions):
 			runners[k] = exe2r[py_exe]
 		else:
 			sock_p, sock_c = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM)
-			cmd = [py_exe, __file__, str(sock_c.fileno()), sys.path[0]]
+			runner_fn = __file__
+			if runner_fn[-4:] in ('.pyc', '.pyo',):
+				# workaround for python 2 server running python 3 methods
+				runner_fn = runner_fn[:-1]
+			cmd = [py_exe, runner_fn, str(sock_c.fileno()), sys.path[0]]
 			pid = run(cmd, [sock_p.fileno()], [sock_c.fileno()], False)
 			sock_c.close()
 			runners[k] = Runner(pid=pid, sock=sock_p, python=py_exe)
