@@ -120,28 +120,50 @@ for V in "${Vs[@]}"; do
 done
 
 
-SLICES=12 # run the first test with a few extra slices
-
-for V in "${Vs[@]}"; do
-	rm -rf "/tmp/ax test"
+test_one() {
+	set -euo pipefail
+	set -x
+	V="$1"
+	SLICES="$2"
+	TEST_DIR="/tmp/ax test.$V.$SLICES"
+	rm -rf "$TEST_DIR"
 	TEST_NAME="${V/*-/}"
 	if [[ "$V" =~ cp3.* ]]; then
 		TEST_NAME="Ⅲ $TEST_NAME"
 	else
 		TEST_NAME="2 $TEST_NAME"
 	fi
-	"/opt/python/$V/bin/ax" init --slices "$SLICES" --name "$TEST_NAME" "/tmp/ax test"
-	"/opt/python/$V/bin/ax" --config "/tmp/ax test/accelerator.conf" server &
+	"/opt/python/$V/bin/ax" init --slices "$SLICES" --name "$TEST_NAME" "$TEST_DIR"
+	"/opt/python/$V/bin/ax" --config "$TEST_DIR/accelerator.conf" server &
+	SERVER_PID=$!
 	sleep 1
-	"/opt/python/$V/bin/ax" --config "/tmp/ax test/accelerator.conf" run tests
-	rm -rf "/tmp/ax test"
+	"/opt/python/$V/bin/ax" --config "$TEST_DIR/accelerator.conf" run tests
+	kill "$SERVER_PID"
+	rm -rf "$TEST_DIR"
 	# verify that we can still read old datasets
 	for SRCDIR in /prepare/old.cp27-cp27mu /prepare/old.cp37-cp37m; do
 		PATH="/opt/python/$V/bin:$PATH" /accelerator/scripts/check_old_versions.sh "$SRCDIR"
 	done
+	touch "/tmp/ax.$V.OK"
+}
+
+SLICES=7 # run the first test with a few extra slices
+
+for V in "${Vs[@]}"; do
+	rm -f "/tmp/ax.$V.OK"
+	test_one "$V" "$SLICES" &
+	SLICES=3 # run all other tests with the lowest (and fastest) allowed for tests
+done
+
+wait # for all tests to finish
+
+for V in "${Vs[@]}"; do
+	if [ ! -e "/tmp/ax.$V.OK" ]; then
+		echo "Tests failed on $V"
+		exit 1
+	fi
 	# The wheel passed the tests, copy it to the wheelhouse (later).
 	BUILT+=("/tmp/wheels/fixed/$NAME-$V-$AUDITWHEEL_PLAT.whl")
-	SLICES=3 # run all other tests with the lowest (and fastest) allowed for tests
 done
 
 
