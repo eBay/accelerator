@@ -1,6 +1,6 @@
 #!/bin/bash
 # This is for running in a manylinux2010 docker image, so /bin/bash is fine.
-# docker run --rm -v /some/where:/out:rw -v /path/to/accelerator:/accelerator:ro --tmpfs /tmp:exec,size=1G quay.io/pypa/manylinux2010_x86_64 /accelerator/scripts/build_wheels.sh 20xx.xx.xx.dev1 [commit/tag/branch]
+# docker run --rm -v /some/where:/out:rw -v /path/to/accelerator:/accelerator:ro --tmpfs /tmp:exec,size=1G quay.io/pypa/manylinux2010_x86_64:2021-02-06-c17986e /accelerator/scripts/build_wheels.sh 20xx.xx.xx.dev1 [commit/tag/branch]
 # (builds sdist if you specify a commit, needs sdist to already be in wheelhouse otherwise)
 
 set -euo pipefail
