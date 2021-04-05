@@ -152,7 +152,7 @@ def main(argv):
 	from os import makedirs, listdir, chdir
 	from os.path import exists, join, realpath
 	from sys import version_info
-	from argparse import RawDescriptionHelpFormatter
+	from argparse import RawTextHelpFormatter
 	from accelerator.compat import ArgumentParser
 	from accelerator.error import UserError
 	from accelerator.extras import DotDict
@@ -166,13 +166,13 @@ def main(argv):
 			both the method directory and workdir will be named <NAME>,
 			"dev" by default.
 		'''.replace('\t', ''),
-		formatter_class=RawDescriptionHelpFormatter,
+		formatter_class=RawTextHelpFormatter,
 	)
 	parser.add_argument('--slices', default=None, type=int, help='override slice count detection')
 	parser.add_argument('--name', default='dev', help='name of method dir and workdir, default "dev"')
 	parser.add_argument('--input', default='# /some/path where you want import methods to look.', help='input directory')
-	parser.add_argument('--force', action='store_true', help='go ahead even though directory is not empty, or workdir exists with incompatible slice count')
-	parser.add_argument('--tcp', default=False, type=int, metavar='PORT', nargs='?', help='listen on TCP instead of unix sockets.\nspecify PORT to use range(PORT, PORT + 3).')
+	parser.add_argument('--force', action='store_true', help='go ahead even though directory is not empty, or workdir\nexists with incompatible slice count')
+	parser.add_argument('--tcp', default=False, metavar='HOST/PORT', nargs='?', help='listen on TCP instead of unix sockets.\nspecify HOST (can be IP) to listen on that host\nspecify PORT to use range(PORT, PORT + 3)\nspecify both as HOST:PORT')
 	parser.add_argument('--no-git', action='store_true', help='don\'t create git repository')
 	parser.add_argument('directory', default='.', help='project directory to create. default "."', metavar='DIR', nargs='?')
 	options = parser.parse_args(argv)
@@ -187,12 +187,23 @@ def main(argv):
 			urd='.socket.dir/urd',
 		)
 	else:
-		if options.tcp is None:
-			options.tcp = find_free_ports(0x3000, 0x8000)
+		hostport = options.tcp or ''
+		if hostport.endswith(']'): # ipv6
+			host, port = hostport, None
+		elif ':' in hostport:
+			host, port = hostport.rsplit(':', 1)
+		elif hostport.isdigit():
+			host, port = '', hostport
+		else:
+			host, port = hostport, None
+		if port:
+			port = int(port)
+		else:
+			port = find_free_ports(0x3000, 0x8000)
 		listen = DotDict(
-			server='localhost:%d' % (options.tcp,),
-			board='localhost:%d' % (options.tcp + 1,),
-			urd='localhost:%d' % (options.tcp + 2,),
+			server='%s:%d' % (host, port,),
+			board='%s:%d' % (host, port + 1,),
+			urd='%s:%d' % (host, port + 2,),
 		)
 
 	if not options.input.startswith('#'):
