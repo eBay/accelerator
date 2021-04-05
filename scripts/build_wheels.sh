@@ -133,7 +133,7 @@ test_one() {
 	else
 		TEST_NAME="2 $TEST_NAME"
 	fi
-	"/opt/python/$V/bin/ax" init --slices "$SLICES" --name "$TEST_NAME" "$TEST_DIR"
+	"/opt/python/$V/bin/ax" init --slices "$SLICES" --name "$TEST_NAME" "$TEST_DIR" $3
 	"/opt/python/$V/bin/ax" --config "$TEST_DIR/accelerator.conf" server &
 	SERVER_PID=$!
 	sleep 1
@@ -147,12 +147,17 @@ test_one() {
 	touch "/tmp/ax.$V.OK"
 }
 
-SLICES=7 # run the first test with a few extra slices
-
 for V in "${Vs[@]}"; do
 	rm -f "/tmp/ax.$V.OK"
-	test_one "$V" "$SLICES" &
-	SLICES=3 # run all other tests with the lowest (and fastest) allowed for tests
+	if [ "$V" = "cp27-cp27m" -o "$V" = "cp38-cp38" ]; then
+		# run one test per major python version with extra slices and TCP
+		# (must specify localhost IP for some docker reason)
+		test_one "$V" 7 "--tcp 127.0.0.1" &
+	else
+		# run the other tests with the lowest (and fastest) number of slices
+		# the tests work with, over the default unix sockets
+		test_one "$V" 3 "" &
+	fi
 done
 
 wait # for all tests to finish
