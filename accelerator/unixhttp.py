@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2019-2020 Carl Drougge                       #
+# Modifications copyright (c) 2019-2021 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -88,7 +88,8 @@ def call(url, data=None, fmt=json_decode, headers={}, server_name='server'):
 						exit(1)
 				if PY3:
 					resp = resp.decode('utf-8')
-				# It seems inconsistent if we get HTTPError or not.
+				# It is inconsistent if we get HTTPError or not.
+				# It seems we do when using TCP sockets, but not when using unix sockets.
 				if r.getcode() >= 400:
 					raise HTTPError(url, r.getcode(), resp, {}, None)
 				return fmt(resp)
@@ -103,7 +104,11 @@ def call(url, data=None, fmt=json_decode, headers={}, server_name='server'):
 					raise UrdPermissionError()
 				if e.code == 409:
 					raise UrdConflictError()
-			elif e.code != 503 and resp:
+			if resp is None and e.fp:
+				resp = e.fp.read()
+				if PY3:
+					resp = resp.decode('utf-8')
+			if server_name == 'server' and e.code != 503 and resp:
 				return fmt(resp)
 			msg = '%s says %d: %s' % (server_name, e.code, resp,)
 		except URLError:
