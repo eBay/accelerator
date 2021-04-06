@@ -4,7 +4,7 @@
 <div class="filter">
 	<h1>Filter</h1>
 	<table>
-		<tr><td>Method</td><td><input type="text" id="f-method" disabled></td></tr>
+		<tr><td>Method</td><td><input type="text" id="f-method" autocapitalize="off" disabled></td></tr>
 		<tr>
 			<td>State</td>
 			<td>
