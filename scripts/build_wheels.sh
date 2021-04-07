@@ -153,19 +153,29 @@ for V in "${Vs[@]}"; do
 	if [ "$V" = "cp27-cp27m" -o "$V" = "cp38-cp38" ]; then
 		# run one test per major python version with extra slices and TCP
 		# (must specify localhost IP for some docker reason)
-		test_one "$V" 7 "--tcp 127.0.0.1" &
+		SLICES=7
+		EXTRA="--tcp 127.0.0.1"
 	else
 		# run the other tests with the lowest (and fastest) number of slices
 		# the tests work with, over the default unix sockets
-		test_one "$V" 3 "" &
+		SLICES=3
+		EXTRA=""
 	fi
+	test_one "$V" "$SLICES" "$EXTRA" 2>&1 | tee "/tmp/output.$V" &
 done
 
 wait # for all tests to finish
 
 for V in "${Vs[@]}"; do
 	if [ ! -e "/tmp/ax.$V.OK" ]; then
-		echo "Tests failed on $V"
+		set +x
+		echo
+		echo "*** Tests failed on $V ***"
+		echo "tail of output (/tmp/output.$V):"
+		echo
+		tail -64 "/tmp/output.$V"
+		echo
+		echo "*** Tests failed on $V ***"
 		exit 1
 	fi
 	# The wheel passed the tests, copy it to the wheelhouse (later).
