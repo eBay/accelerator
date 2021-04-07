@@ -68,6 +68,7 @@ def main(argv, cfg):
 	parser.add_argument('-q', '--suppress_errors', action='store_true', help='silently ignores bad input datasets/jobids')
 	parser.add_argument('-s', '--slices', action='store_true', help='list relative number of lines per slice in sorted order')
 	parser.add_argument('-S', '--chainedslices', action='store_true', help='same as -s but for full chain')
+	parser.add_argument('-w', '--location', action='store_true', help='show where (ds/filename) each column is stored')
 	parser.add_argument("dataset", nargs='+', help='the job part of the dataset name can be specified in the same ways as for "ax job". you can use ds~ or ds~N to follow the chain N steps backwards, or ^ to follow .parent. this requires specifying the ds-name, so wd-1~ will not do this, but wd-1/default~ will.')
 	args = parser.parse_intermixed_args(argv)
 	args.chain = args.chain or args.non_empty_chain
@@ -171,7 +172,11 @@ def main(argv, cfg):
 			print("    Columns:")
 			name2typ = {n: c.type + '+None' if c.none_support else c.type for n, c in ds.columns.items()}
 			len_n, len_t = colwidth((quote(n), name2typ[n]) for n, c in ds.columns.items())
-			template = "{2} {0:%d}  {1:%d} " % (len_n, len_t,)
+			if args.location:
+				len_l = max(len(c.location) for c in ds.columns.values())
+				template = '        {2} {0:%d}  {1:%d}  {4:%d}  {3}' % (len_n, len_t, len_l,)
+			else:
+				template = '        {2} {0:%d}  {1:%d}  {3}' % (len_n, len_t,)
 			chain = False
 			if args.chainedslices or args.chain:
 				chain = ds.chain()
@@ -181,7 +186,7 @@ def main(argv, cfg):
 				else:
 					minval, maxval = c.min, c.max
 				hashdot = "\x1b[1m*\x1b[m" if n == ds.hashlabel else " "
-				print(' ' * 8 + template.format(quote(n), name2typ[n], hashdot), prettyminmax(minval, maxval))
+				print(template.format(quote(n), name2typ[n], hashdot, prettyminmax(minval, maxval), c.location).rstrip())
 			print("    {0:n} columns".format(len(ds.columns)))
 		print("    {0:n} lines".format(sum(ds.lines)))
 
