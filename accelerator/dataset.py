@@ -977,23 +977,6 @@ class Dataset(unicode):
 		if not os.path.exists(self.name):
 			os.mkdir(self.name)
 		blob.save(self._data, self._name('pickle'), temp=False, _hidden=True)
-		with self.job.open(self._name('txt'), 'w', encoding='utf-8') as fh:
-			nl = False
-			if self.hashlabel:
-				fh.write('hashlabel %s\n' % (self.hashlabel,))
-				nl = True
-			if self.previous:
-				fh.write('previous %s\n' % (self.previous,))
-				nl = True
-			if nl:
-				fh.write('\n')
-			col_list = sorted((k, c.type, c.location,) for k, c in self.columns.items())
-			lens = tuple(max(minlen, max(len(t[i]) for t in col_list)) for i, minlen in ((0, 4), (1, 4), (2, 8)))
-			template = '%%%ds  %%%ds  %%-%ds\n' % lens
-			fh.write(template % ('name', 'type', 'location'))
-			fh.write(template % tuple('=' * l for l in lens))
-			for t in col_list:
-				fh.write(template % t)
 
 	def _name(self, thing):
 		return '%s/dataset.%s' % (self.name, thing,)
