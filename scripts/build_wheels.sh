@@ -1,5 +1,6 @@
 #!/bin/bash
 # This is for running in a manylinux2010 docker image, so /bin/bash is fine.
+# (or manylinux2014 on non-x86 platforms)
 #
 # docker run -it --rm -v /some/where:/out:rw -v /path/to/accelerator:/accelerator:ro --tmpfs /tmp:exec,size=1G quay.io/pypa/manylinux2010_x86_64:2021-02-06-c17986e /accelerator/scripts/build_wheels.sh 20xx.xx.xx.dev1 [commit/tag/branch]
 #
@@ -141,7 +142,7 @@ test_one() {
 	kill "$SERVER_PID"
 	rm -rf "$TEST_DIR"
 	# verify that we can still read old datasets
-	for SRCDIR in /prepare/old.cp27-cp27mu /prepare/old.cp37-cp37m; do
+	for SRCDIR in /prepare/old.*; do
 		PATH="/opt/python/$V/bin:$PATH" /accelerator/scripts/check_old_versions.sh "$SRCDIR"
 	done
 	touch "/tmp/ax.$V.OK"
@@ -172,17 +173,25 @@ for V in "${Vs[@]}"; do
 done
 
 
-# Test running 2.7 and 3.5 under a 3.8 server
-/accelerator/scripts/multiple_interpreters_test.sh \
-	/opt/python/cp38-cp38/bin \
-	/opt/python/cp27-cp27mu/bin \
-	/opt/python/cp35-cp35m/bin
+if [ "$MANYLINUX_VERSION" = "manylinux2010" ]; then
+	# Test running 2.7 and 3.5 under a 3.8 server
+	/accelerator/scripts/multiple_interpreters_test.sh \
+		/opt/python/cp38-cp38/bin \
+		/opt/python/cp27-cp27mu/bin \
+		/opt/python/cp35-cp35m/bin
 
-# Test running 3.6 and 3.9 under a 2.7 server
-/accelerator/scripts/multiple_interpreters_test.sh \
-	/opt/python/cp27-cp27m/bin \
-	/opt/python/cp36-cp36m/bin \
-	/opt/python/cp39-cp39/bin
+	# Test running 3.6 and 3.9 under a 2.7 server
+	/accelerator/scripts/multiple_interpreters_test.sh \
+		/opt/python/cp27-cp27m/bin \
+		/opt/python/cp36-cp36m/bin \
+		/opt/python/cp39-cp39/bin
+else
+	# Test running 3.9 and 3.5 under a 3.8 server
+	/accelerator/scripts/multiple_interpreters_test.sh \
+		/opt/python/cp38-cp38/bin \
+		/opt/python/cp39-cp39/bin \
+		/opt/python/cp35-cp35m/bin
+fi
 
 
 # finally copy everything to /out/wheelhouse

@@ -1,5 +1,6 @@
 #!/bin/bash
 # This is for running in a manylinux2010 docker image, so /bin/bash is fine.
+# (or manylinux2014 on non-x86 platforms)
 #
 # docker run -it -v /path/to/accelerator:/accelerator:ro --tmpfs /tmp:exec,size=1G quay.io/pypa/manylinux2010_x86_64:2021-02-06-c17986e /accelerator/scripts/build_prepare.sh
 #
@@ -12,8 +13,15 @@ set -x
 test -d /accelerator/.git || exit 1
 test -d /accelerator/accelerator || exit 1
 
-if [ ! -e /opt/python/cp27-cp27mu ]; then
-	echo "Needs python 2.7, run in manylinux2010_$AUDITWHEEL_ARCH:2021-02-06-c17986e or earlier"
+if [ "$AUDITWHEEL_ARCH" = "x86_64" -o "$AUDITWHEEL_ARCH" = "i686" ]; then
+	if [ ! -e /opt/python/cp27-cp27mu ]; then
+		echo "Needs python 2.7, run in manylinux2010_$AUDITWHEEL_ARCH:2021-02-06-c17986e or earlier"
+		exit 1
+	fi
+fi
+
+if [ ! -e /opt/python/cp35-cp35m ]; then
+	echo "Needs python 3.5, your manylinux container must be too new"
 	exit 1
 fi
 
@@ -60,11 +68,13 @@ done
 # (Don't use ACCELERATOR_BUILD_STATIC_ZLIB, because these old versions don't understand it.)
 VE=/opt/python/cp27-cp27mu/bin/virtualenv
 for V in cp27-cp27mu cp37-cp37m; do
-	mkdir "/prepare/old.$V"
-	CPPFLAGS="-I$ZLIB_PREFIX/include" \
-	LDFLAGS="-L$ZLIB_PREFIX/lib" \
-	USER="DUMMY" \
-	/accelerator/scripts/make_old_versions.sh /opt/python/$V/bin/python /accelerator "/prepare/old.$V" $VE
+	if [ -e "/opt/python/$V/bin/python" ]; then
+		mkdir "/prepare/old.$V"
+		CPPFLAGS="-I$ZLIB_PREFIX/include" \
+		LDFLAGS="-L$ZLIB_PREFIX/lib" \
+		USER="DUMMY" \
+		/accelerator/scripts/make_old_versions.sh "/opt/python/$V/bin/python" /accelerator "/prepare/old.$V" $VE
+	fi
 	VE=""
 done
 
