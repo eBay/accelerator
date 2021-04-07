@@ -231,6 +231,7 @@ def main(urd):
 	print()
 	print("Test output handling")
 	urd.build("test_output")
+	urd.build("test_output_on_error")
 
 	print()
 	print("Test datetime types in options")
