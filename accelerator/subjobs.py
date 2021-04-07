@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2019-2020 Carl Drougge                       #
+# Modifications copyright (c) 2019-2021 Carl Drougge                       #
 # Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -58,7 +58,7 @@ def build(method, options={}, datasets={}, jobs={}, name=None, caption=None, **k
 	except ServerError as e:
 		raise ServerError(e.args[0])
 	except JobError as e:
-		raise JobError(e.jobid, e.method, e.status)
+		raise JobError(e.job, e.method, e.status)
 	for d in _a.job_retur.jobs.values():
 		if d.link not in _record:
 			_record[d.link] = bool(d.make)

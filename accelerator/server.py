@@ -233,7 +233,7 @@ class XtdHandler(BaseWebHandler):
 											link2job[jobid]['make'] = 'DONE'
 											link2job[jobid]['total_time'] = job.total
 									except JobError as e:
-										error.append([e.jobid, e.method, e.status])
+										error.append([e.job, e.method, e.status])
 										with tlock:
 											link2job[jobid]['make'] = 'FAIL'
 										return

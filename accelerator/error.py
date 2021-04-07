@@ -1,6 +1,6 @@
 ############################################################################
 #                                                                          #
-# Copyright (c) 2019-2020 Carl Drougge                                     #
+# Copyright (c) 2019-2021 Carl Drougge                                     #
 # Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -67,14 +67,14 @@ class DatasetUsageError(DatasetError):
 	pass
 
 class JobError(AcceleratorError):
-	def __init__(self, jobid, method, status):
-		AcceleratorError.__init__(self, "Failed to build %s (%s)" % (jobid, method,))
-		self.jobid = jobid
+	def __init__(self, job, method, status):
+		AcceleratorError.__init__(self, "Failed to build %s (%s)" % (job, method,))
+		self.job = job
 		self.method = method
 		self.status = status
 
 	def format_msg(self):
-		res = ["%s (%s):" % (self.jobid, self.method,)]
+		res = ["%s (%s):" % (self.job, self.method,)]
 		for component, msg in self.status.items():
 			res.append("  %s:" % (component,))
 			res.append("    %s" % (msg.replace("\n", "\n    "),))

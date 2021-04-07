@@ -198,7 +198,7 @@ class Automata:
 			if not ignore_errors:
 				print("\nFailed to build jobs:", file=sys.stderr)
 				for jobid, method, status in self._url_json('last_error', path[-1]).last_error:
-					e = JobError(jobid, method, status)
+					e = JobError(Job(jobid, method), method, status)
 					print(e.format_msg(), file=sys.stderr)
 				raise e
 		return resp.idle, resp.report_t, resp.get('status_stacks'), resp.get('current'), resp.get('last_time')
@@ -788,6 +788,6 @@ def print_minimal_traceback():
 	lineno = last_interesting.tb_lineno
 	filename = last_interesting.tb_frame.f_code.co_filename
 	if isinstance(e, JobError):
-		print("Failed to build job %s on %s line %d" % (e.jobid, filename, lineno,))
+		print("Failed to build job %s on %s line %d" % (e.job, filename, lineno,))
 	else:
 		print("Server returned error on %s line %d:\n%s" % (filename, lineno, e.args[0]))
