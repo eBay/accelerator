@@ -1,6 +1,6 @@
 ############################################################################
 #                                                                          #
-# Copyright (c) 2019-2020 Carl Drougge                                     #
+# Copyright (c) 2019-2021 Carl Drougge                                     #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -177,6 +177,7 @@ def reader(fd2pid, names, masters, slaves, process_name, basedir, is_main):
 			if missed[0]:
 				# Give it a little time, then give up.
 				sleep(0.03)
+				missed[0] = False
 				try_print()
 	if not output_happened and not is_main:
 		os.chdir('..')
