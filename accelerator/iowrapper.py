@@ -73,17 +73,27 @@ def setup(slices, include_prepare, include_analysis):
 
 
 def run_reader(fd2pid, names, masters, slaves, process_name='iowrapper.reader', basedir='OUTPUT', is_main=False):
-	args = (fd2pid, names, masters, slaves, process_name, basedir, is_main,)
+	syncpipe_r, syncpipe_w = os.pipe()
+	args = (fd2pid, names, masters, slaves, process_name, basedir, is_main, syncpipe_r, syncpipe_w,)
 	p = Process(target=reader, args=args, name=process_name)
 	p.start()
 	if not is_main:
 		os.close(int(os.environ['BD_TERM_FD']))
 		del os.environ['BD_TERM_FD']
+	os.close(syncpipe_w)
+	# wait until reader is in a separate process group, so we don't kill it later
+	os.read(syncpipe_r, 1)
+	os.close(syncpipe_r)
 
 
 MAX_OUTPUT = 640
 
-def reader(fd2pid, names, masters, slaves, process_name, basedir, is_main):
+def reader(fd2pid, names, masters, slaves, process_name, basedir, is_main, syncpipe_r, syncpipe_w):
+	# don't get killed when we kill the job (will exit on EOF, so no output is lost)
+	os.setpgrp()
+	# we are safe now, the main process can continue
+	os.close(syncpipe_w)
+	os.close(syncpipe_r)
 	signal.signal(signal.SIGTERM, signal.SIG_IGN)
 	signal.signal(signal.SIGINT, signal.SIG_IGN)
 	setproctitle(process_name)
