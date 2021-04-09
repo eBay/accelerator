@@ -72,9 +72,9 @@ def setup(slices, include_prepare, include_analysis):
 	return fd2pid, names, masters, slaves
 
 
-def run_reader(fd2pid, names, masters, slaves, process_name='iowrapper.reader', basedir='OUTPUT', is_main=False):
+def run_reader(fd2pid, names, masters, slaves, process_name='iowrapper.reader', basedir='OUTPUT', is_main=False, q=None):
 	syncpipe_r, syncpipe_w = os.pipe()
-	args = (fd2pid, names, masters, slaves, process_name, basedir, is_main, syncpipe_r, syncpipe_w,)
+	args = (fd2pid, names, masters, slaves, process_name, basedir, is_main, syncpipe_r, syncpipe_w, q)
 	p = Process(target=reader, args=args, name=process_name)
 	p.start()
 	if not is_main:
@@ -88,7 +88,7 @@ def run_reader(fd2pid, names, masters, slaves, process_name='iowrapper.reader', 
 
 MAX_OUTPUT = 640
 
-def reader(fd2pid, names, masters, slaves, process_name, basedir, is_main, syncpipe_r, syncpipe_w):
+def reader(fd2pid, names, masters, slaves, process_name, basedir, is_main, syncpipe_r, syncpipe_w, q):
 	# don't get killed when we kill the job (will exit on EOF, so no output is lost)
 	os.setpgrp()
 	# we are safe now, the main process can continue
@@ -100,6 +100,8 @@ def reader(fd2pid, names, masters, slaves, process_name, basedir, is_main, syncp
 	out_fd = int(os.environ['BD_TERM_FD'])
 	for fd in slaves:
 		os.close(fd)
+	if q:
+		q.make_writer()
 	fd2fd = {}
 	if not is_main:
 		os.chdir(basedir)
@@ -161,6 +163,10 @@ def reader(fd2pid, names, masters, slaves, process_name, basedir, is_main, syncp
 						outputs[fd] = (outputs[fd] + data[-MAX_OUTPUT:])[-MAX_OUTPUT:]
 						statmsg._output(fd2pid[fd], outputs[fd].decode('utf-8', 'replace'))
 				else:
+					if q:
+						# let fork_analysis know it's time to wake up
+						# (in case the process died badly and didn't put anything in q)
+						q.try_notify()
 					if fd in fd2fd:
 						os.close(fd2fd[fd])
 						del fd2fd[fd]

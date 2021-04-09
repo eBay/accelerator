@@ -163,3 +163,12 @@ class LockFreeQueue:
 							except OSError:
 								pass
 					break
+
+	def try_notify(self):
+		pid = os.getpid()
+		msg = struct.pack('<HII', 6, pid, 2) + b'N.' # pickled None
+		try:
+			os.write(self.w, msg)
+			return True
+		except OSError:
+			return False

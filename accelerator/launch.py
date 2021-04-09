@@ -144,10 +144,9 @@ def call_analysis(analysis_func, sliceno_, delayed_start, q, preserve_result, pa
 		sleep(5) # give launcher time to report error (and kill us)
 		exitfunction()
 
-def fork_analysis(slices, concurrency, analysis_func, kw, preserve_result, output_fds):
+def fork_analysis(slices, concurrency, analysis_func, kw, preserve_result, output_fds, q):
 	from multiprocessing import Process
 	import gc
-	q = LockFreeQueue()
 	children = []
 	t = monotonic()
 	pid = os.getpid()
@@ -185,10 +184,16 @@ def fork_analysis(slices, concurrency, analysis_func, kw, preserve_result, outpu
 					raise Exception("%s terminated with exitcode %d" % (p.name, p.exitcode,))
 		children = still_alive
 		# If a process dies badly we may never get a message here.
+		# (iowrapper tries to tell us though.)
 		# No need to handle that very quickly though, 10 seconds is fine.
 		# (Typically this is caused by running out of memory.)
 		try:
-			s_no, s_t, s_temp_files, s_dw_lens, s_dw_minmax, s_tb = q.get(timeout=10)
+			msg = q.get(timeout=10)
+			if not msg:
+				# Notification from iowrapper, so we wake up (quickly) even if
+				# the process died badly (e.g. from running out of memory).
+				continue
+			s_no, s_t, s_temp_files, s_dw_lens, s_dw_minmax, s_tb = msg
 		except QueueEmpty:
 			if not children:
 				# No children left, so they must have all sent their messages.
@@ -297,7 +302,11 @@ def execute_process(workdir, jobid, slices, concurrency, result_directory, commo
 		os.dup2(fd, 1)
 		os.dup2(fd, 2)
 		os.close(fd)
-	iowrapper.run_reader(fd2pid, names, masters, slaves)
+	if analysis_func is dummy:
+		q = None
+	else:
+		q = LockFreeQueue()
+	iowrapper.run_reader(fd2pid, names, masters, slaves, q=q)
 	for fd in masters:
 		os.close(fd)
 
@@ -346,7 +355,7 @@ def execute_process(workdir, jobid, slices, concurrency, result_directory, commo
 		g.subjob_cookie = None # subjobs are not allowed from analysis
 		with statmsg.status('Waiting for all slices to finish analysis') as update:
 			g.update_top_status = update
-			prof['per_slice'], files, g.analysis_res = fork_analysis(slices, concurrency, analysis_func, args_for(analysis_func), synthesis_needs_analysis, slaves)
+			prof['per_slice'], files, g.analysis_res = fork_analysis(slices, concurrency, analysis_func, args_for(analysis_func), synthesis_needs_analysis, slaves, q)
 			del g.update_top_status
 		prof['analysis'] = monotonic() - t
 		saved_files.update(files)
