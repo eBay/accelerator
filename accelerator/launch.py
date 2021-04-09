@@ -36,6 +36,7 @@ from accelerator.compat import pickle, iteritems, setproctitle, QueueEmpty
 from accelerator.compat import getarglist, monotonic
 from accelerator.extras import job_params, ResultIterMagic
 from accelerator.build import JobError
+from accelerator.lockfree_queue import LockFreeQueue
 from accelerator import g
 from accelerator import blob
 from accelerator import statmsg
@@ -65,6 +66,7 @@ def writeall(fd, data):
 
 def call_analysis(analysis_func, sliceno_, delayed_start, q, preserve_result, parent_pid, output_fds, **kw):
 	try:
+		q.make_writer()
 		# tell iowrapper our PID, so our output goes to the right status stack.
 		# (the pty is not quite a transparent transport ('\n' transforms into
 		# '\r\n'), so we use a fairly human readable encoding.)
@@ -129,18 +131,20 @@ def call_analysis(analysis_func, sliceno_, delayed_start, q, preserve_result, pa
 				dw_minmax[name] = dw._minmax
 		c_fflush()
 		q.put((sliceno_, monotonic(), saved_files, dw_lens, dw_minmax, None,))
+		q.close()
 	except:
 		c_fflush()
 		msg = fmt_tb(1)
 		print(msg)
 		q.put((sliceno_, monotonic(), {}, {}, {}, msg,))
+		q.close()
 		sleep(5) # give launcher time to report error (and kill us)
 		exitfunction()
 
 def fork_analysis(slices, concurrency, analysis_func, kw, preserve_result, output_fds):
 	from multiprocessing import Process, Queue
 	import gc
-	q = Queue()
+	q = LockFreeQueue()
 	children = []
 	t = monotonic()
 	pid = os.getpid()
@@ -159,6 +163,7 @@ def fork_analysis(slices, concurrency, analysis_func, kw, preserve_result, outpu
 		children.append(p)
 	for fd in output_fds:
 		os.close(fd)
+	q.make_reader()
 	per_slice = []
 	temp_files = {}
 	no_children_no_messages = False
@@ -200,6 +205,7 @@ def fork_analysis(slices, concurrency, analysis_func, kw, preserve_result, outpu
 		for name, minmax in s_dw_minmax.items():
 			dataset._datasetwriters[name]._minmax.update(minmax)
 	g.update_top_status("Waiting for all slices to finish cleanup")
+	q.close()
 	for p in children:
 		p.join()
 	if preserve_result:
