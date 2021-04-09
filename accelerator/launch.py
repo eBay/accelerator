@@ -80,9 +80,12 @@ def call_analysis(analysis_func, sliceno_, delayed_start, q, preserve_result, pa
 		slicename = 'analysis(%d)' % (sliceno_,)
 		setproctitle(slicename)
 		if delayed_start:
+			os.close(delayed_start[1])
 			update = statmsg._start('waiting for concurrency limit (%d)' % (sliceno_,), parent_pid, True)
-			delayed_start.get()
+			if os.read(delayed_start[0], 1) != b'a':
+				raise Exception('bad delayed_start, giving up')
 			update(slicename)
+			os.close(delayed_start[0])
 		else:
 			statmsg._start(slicename, parent_pid, True)
 		kw['sliceno'] = g.sliceno = sliceno_
@@ -142,7 +145,7 @@ def call_analysis(analysis_func, sliceno_, delayed_start, q, preserve_result, pa
 		exitfunction()
 
 def fork_analysis(slices, concurrency, analysis_func, kw, preserve_result, output_fds):
-	from multiprocessing import Process, Queue
+	from multiprocessing import Process
 	import gc
 	q = LockFreeQueue()
 	children = []
@@ -153,16 +156,20 @@ def fork_analysis(slices, concurrency, analysis_func, kw, preserve_result, outpu
 		# (Though we keep the gc disabled by default.)
 		gc.freeze()
 	delayed_start = False
+	delayed_start_todo = 0
 	for i in range(slices):
 		if i == concurrency:
 			assert concurrency != 0
 			# The rest will wait on this queue
-			delayed_start = Queue()
+			delayed_start = os.pipe()
+			delayed_start_todo = slices - i
 		p = Process(target=call_analysis, args=(analysis_func, i, delayed_start, q, preserve_result, pid, output_fds), kwargs=kw, name='analysis-%d' % (i,))
 		p.start()
 		children.append(p)
 	for fd in output_fds:
 		os.close(fd)
+	if delayed_start:
+		os.close(delayed_start[0])
 	q.make_reader()
 	per_slice = []
 	temp_files = {}
@@ -195,9 +202,10 @@ def fork_analysis(slices, concurrency, analysis_func, kw, preserve_result, outpu
 			data = [{'analysis(%d)' % (s_no,): s_tb}, None]
 			writeall(_prof_fd, json.dumps(data).encode('utf-8'))
 			exitfunction()
-		if delayed_start:
+		if delayed_start_todo:
 			# Another analysis is allowed to run now
-			delayed_start.put(None)
+			os.write(delayed_start[1], b'a')
+			delayed_start_todo -= 1
 		per_slice.append((s_no, s_t))
 		temp_files.update(s_temp_files)
 		for name, lens in s_dw_lens.items():
@@ -206,6 +214,8 @@ def fork_analysis(slices, concurrency, analysis_func, kw, preserve_result, outpu
 			dataset._datasetwriters[name]._minmax.update(minmax)
 	g.update_top_status("Waiting for all slices to finish cleanup")
 	q.close()
+	if delayed_start:
+		os.close(delayed_start[1])
 	for p in children:
 		p.join()
 	if preserve_result:
