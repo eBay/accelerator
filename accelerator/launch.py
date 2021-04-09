@@ -394,4 +394,4 @@ def run(workdir, jobid, slices, concurrency, result_directory, common_directory,
 def exitfunction():
 	if not g_allesgut:
 		print('LAUNCH:  The deathening!')
-		os.killpg(os.getpgid(0), signal.SIGTERM)
+		os.killpg(os.getpgid(0), signal.SIGKILL)
