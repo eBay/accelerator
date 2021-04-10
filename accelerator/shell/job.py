@@ -23,6 +23,7 @@ from __future__ import unicode_literals
 from traceback import print_exc
 from datetime import datetime
 import errno
+from argparse import RawTextHelpFormatter
 
 from accelerator.compat import ArgumentParser
 from accelerator.setupfile import encode_setup
@@ -81,16 +82,27 @@ def show(url, job, show_output):
 
 def main(argv, cfg):
 	descr = 'show setup.json, dataset list, etc for jobs'
-	parser = ArgumentParser(prog=argv.pop(0), description=descr)
+	parser = ArgumentParser(
+		prog=argv.pop(0),
+		description=descr,
+		formatter_class=RawTextHelpFormatter,
+	)
 	group = parser.add_mutually_exclusive_group()
 	group.add_argument('-o', '--output', action='store_true', help='show job output')
 	group.add_argument('-O', '--just-output', action='store_true', help='show only job output')
 	group.add_argument('-P', '--just-path', action='store_true', help='show only job path')
 	parser.add_argument(
 		'jobid',
-		nargs='+', metavar='jobid/path/method',
-		help='method shows the latest (current) job with that method\n' +
-		     '(i.e. the latest finished job with current source code)\n' +
+		nargs='+', metavar='jobid/jobspec',
+		help='jobid is just a jobid.\n' +
+		     'you can also use path, method or :urdlist:[entry].\n' +
+		     'path is to a jobdir (with setup.json in it).\n' +
+		     'method is the latest (current) job with that method (i.e\n' +
+		     'the latest finished job with current source code).\n' +
+		     ':urdlist:[entry] looks up jobs in urd. entry defaults to\n' +
+		     '-1. anything that looks like a number will be used as a\n' +
+		     'number, anything else as a name (with standard joblist\n' +
+		     'resolution rules).\n' +
 		     'you can use spec~ or spec~N to go back N current jobs\n' +
 		     'with that method or spec^ or spec^N to follow .previous'
 	)

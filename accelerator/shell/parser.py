@@ -24,7 +24,7 @@
 from __future__ import division, print_function
 
 from os.path import join, exists, realpath, split
-from os import readlink
+from os import readlink, environ
 import re
 
 from accelerator.job import WORKDIRS
@@ -101,6 +101,32 @@ def name2job(cfg, n):
 	return job
 
 def _name2job(cfg, n):
+	if n.startswith(':'):
+		# resolve through urd
+		assert cfg.urd, 'No urd configured'
+		a = n[1:].split(':', 1)
+		if len(a) == 1:
+			raise JobNotFound('looks like a partial :urdlist:[entry] spec')
+		entry = a[1] or '-1'
+		try:
+			entry = int(entry, 10)
+		except ValueError:
+			pass
+		path = a[0].split('/')
+		if len(path) < 3:
+			path.insert(0, environ.get('USER', 'NO-USER'))
+		if len(path) < 3:
+			path.append('latest')
+		path = '/'.join(map(url_quote, path))
+		urdres = call(cfg.urd + '/' + path, server_name='urd')
+		if not urdres:
+			raise JobNotFound('urd list %s not found' % (path,))
+		from accelerator.build import JobList
+		joblist = JobList(Job(e[1], e[0]) for e in urdres.joblist)
+		res = joblist.get(entry)
+		if not res:
+			raise JobNotFound('%r not found in %s' % (entry, path,))
+		return res
 	if re.match(r'[^/]+-\d+$', n):
 		# Looks like a jobid
 		return Job(n)
