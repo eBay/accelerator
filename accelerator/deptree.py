@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2019-2020 Carl Drougge                       #
+# Modifications copyright (c) 2019-2021 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -36,40 +36,18 @@ _date_types = (datetime, date, time, timedelta)
 class DepTree:
 
 	def __init__(self, methods, setup):
-		tree = methods.new_deptree(setup.method)
 		self.methods = methods
-		self.top_method = setup.method
-		self.tree = tree
-		self.add_flags({'make' : False, 'link' : False, })
-		seen = set()
-		for method, data in iteritems(self.tree):
-			seen.add(method)
-			data['params'] = {method: setup.params[method]}
-		unmatched = {method: params for method, params in iteritems(setup.params) if method not in seen}
-		if unmatched:
-			from accelerator.extras import json_encode
-			print("DepTree Warning:  Unmatched options remain:", json_encode(unmatched, as_str=True))
-		def collect(method):
-			# All methods that method depend on
-			for child in tree[method]['dep']:
-				yield child
-				for method in collect(child):
-					yield method
-		# This probably updates some with the same data several times,
-		# but this is cheap (key: dictref updates, nothing more.)
-		for method, data in iteritems(self.tree):
-			for submethod in set(collect(method)):
-				data['params'].update(tree[submethod]['params'])
+		m = self.top_method = setup.method
+		self.tree = {m: {
+			'method': m,
+			'params': {m: setup.params[m]},
+			'make': False,
+			'link': False,
+			'uid': 0,
+		}}
 		self._fix_options(False)
 		self._fix_jobids('jobs')
 		self._fix_jobids('datasets')
-
-	def add_flags(self, flags):
-		uid = 0
-		for x, y in self.tree.items():
-			y.update(flags)
-			y.update({'uid' : uid, })
-			uid += 1
 
 	def get_reqlist(self):
 		for method, data in self.tree.items():
@@ -233,25 +211,7 @@ class DepTree:
 		item['total_time'] = job.total
 
 	def propagate_make(self):
-		self._recursive_propagate_make(self.top_method)
-
-	def _recursive_propagate_make(self, node):
-		for child in self.tree[node]['dep']:
-			self._recursive_propagate_make(child)
-		self.tree[node]['make'] = (
-			True in [self.tree[x]['make'] for x in self.tree[node]['dep'] if x]) or (
-			not self.tree[node]['link'])
+		self.tree[self.top_method]['make'] = not self.tree[self.top_method]['link']
 
 	def get_sorted_joblist(self):
-		return sorted(self.tree.values(), key = lambda x : x['level'])
-
-	def get_link(self, node):
-		return self.tree[node]['link']
-
-
-	def debugprint(self):
-		for x, y in sorted(self.tree.items(), key = lambda x: -int(x[1]['level'])):
-			print(' %15s' % x, end=' ')
-			for k in y:
-				print('%5s=%5s' % (k, y[k]), end=' ')
-		print()
+		return list(self.tree.values())

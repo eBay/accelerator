@@ -64,30 +64,6 @@ class Methods(object):
 			for x in tmp.values():
 				x['package'] = os.path.basename(package)
 			self.db.update(tmp)
-		# build dependency tree for all methods
-		self.deptree = {}
-		for method in self.db:
-			self.deptree[method] = self._build_dep_tree(method, tree={})
-		self.link = {k: v.get('link') for k, v in iteritems(self.db)}
-
-	def _build_dep_tree(self, method, tree={}):
-		if method not in self.db:
-			raise Exception("Method %r doesn't exist" % method)
-		dependencies = self.db[method].get('dep', [])
-		tree.setdefault(method, {'dep' : dependencies, 'level' : -1, 'method' : method})
-		if not dependencies:
-			tree[method]['level'] = 0
-		else:
-			for dep in dependencies:
-				self._build_dep_tree(dep, tree=tree)
-				tree[method]['level'] = max(
-					tree[method]['level'],
-					tree[dep]['level']+1,
-				)
-		return tree
-
-	def new_deptree(self, top_method):
-		return self._build_dep_tree(top_method, tree={})
 
 
 # Collect information on methods
