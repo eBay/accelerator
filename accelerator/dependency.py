@@ -102,10 +102,13 @@ def initialise_jobs(setup, target_WorkSpace, DataBase, Methods, verbose=False):
 			x['link'] = jid
 		for data in newjoblist:
 			method = Methods.db[data['method']]
+			params = data['params'][data['method']]
 			new_setup = setupfile.generate(
 				caption=setup.caption,
 				method=data['method'],
-				params=data['params'],
+				options=params['options'],
+				datasets=params['datasets'],
+				jobs=params['jobs'],
 				package=method['package'],
 				description=Methods.descriptions[data['method']],
 			)
@@ -113,11 +116,7 @@ def initialise_jobs(setup, target_WorkSpace, DataBase, Methods, verbose=False):
 			new_setup.seed = randint(0, 2**63 - 1)
 			new_setup.jobid = data['link']
 			new_setup.slices = target_WorkSpace.slices
-			typing = {}
-			for method in data['params']:
-				m_typing = Methods.typing[method]
-				if m_typing:
-					typing[method] = m_typing
+			typing = Methods.typing[data['method']]
 			if typing:
 				new_setup['_typing'] = typing
 			setupfile.save_setup(data['link'], new_setup)

@@ -55,8 +55,7 @@ def _typelistnone(v, t):
 def _job_params(jobid):
 	from accelerator.setupfile import load_setup
 	d = load_setup(jobid)
-	for method, tl in iteritems(d.get('_typing', {})):
-		_apply_typing(d.options, tl)
+	_apply_typing(d.options, d.get('_typing', ()))
 	return d
 
 def job_params(jobid=None, default_empty=False):

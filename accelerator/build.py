@@ -112,8 +112,7 @@ class Automata:
 			self.monitor.submit(method)
 		if not caption:
 			caption = ''
-		params = {method: dict(options=options, datasets=datasets, jobs=jobs,)}
-		data = setupfile.generate(caption, method, params, why_build=why_build)
+		data = setupfile.generate(caption, method, options, datasets, jobs, why_build=why_build)
 		if self.subjob_cookie:
 			data.subjob_cookie = self.subjob_cookie
 			data.parent_pid = os.getpid()

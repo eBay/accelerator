@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2019-2020 Carl Drougge                       #
+# Modifications copyright (c) 2019-2021 Carl Drougge                       #
 # Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -25,12 +25,12 @@ from collections import OrderedDict
 from json import dumps
 from datetime import datetime, date, time, timedelta
 
-from accelerator.compat import iteritems, unicode, long, PY3
+from accelerator.compat import iteritems, unicode, long, PY3, PY2, uni
 
 from accelerator.extras import DotDict, json_load, json_save, json_encode
 from accelerator.job import Job
 
-def generate(caption, method, params, package=None, description=None, why_build=False):
+def generate(caption, method, options=None, datasets=None, jobs=None, package=None, description=None, why_build=False):
 	data = DotDict()
 	data.caption = caption
 	data.method  = method
@@ -44,7 +44,9 @@ def generate(caption, method, params, package=None, description=None, why_build=
 			data.versions.accelerator = description['accelerator_version']
 	if why_build:
 		data.why_build = why_build
-	data.params = params
+	data.options = options or DotDict()
+	data.datasets = datasets or DotDict()
+	data.jobs = jobs or DotDict()
 	return data
 
 def load_setup(jobid):
@@ -64,11 +66,7 @@ def load_setup(jobid):
 		if python_path:
 			d.versions.python_path = python_path
 		version = 3
-	if version == 3:
-		if '_typing' in d:
-			d['_typing'] = {d.method: d['_typing']}
-		d.params = {d.method: DotDict({k: d[k] for k in ('options', 'datasets', 'jobs')})}
-	else:
+	if version != 3:
 		raise Exception("Don't know how to load setup.json version %d (in %s)" % (d.version, jobid,))
 	return d
 
@@ -109,6 +107,8 @@ def encode_setup(data, sort_keys=True, as_str=False):
 			return [1970, 1, 1, src.hour, src.minute, src.second, src.microsecond]
 		elif isinstance(src, timedelta):
 			return src.total_seconds()
+		elif PY2 and isinstance(src, bytes):
+			return uni(src)
 		else:
 			assert isinstance(src, (str, unicode, int, float, long, bool)) or src is None, type(src)
 			return src
@@ -161,9 +161,5 @@ def _encode_with_compact(data, compact_keys, extra_indent=0, separator='\n', spe
 def save_setup(jobid, data):
 	data = dict(data)
 	data['version'] = 3
-	data.update(data['params'][data['method']])
-	del data['params']
-	if '_typing' in data:
-		data['_typing'] = data['_typing'][data['method']]
 	filename = Job(jobid).filename('setup.json')
 	json_save(data, filename, _encoder=encode_setup)

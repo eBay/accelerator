@@ -38,9 +38,14 @@ class DepTree:
 	def __init__(self, methods, setup):
 		self.methods = methods
 		m = self.top_method = setup.method
+		params = {
+			'options': setup.options,
+			'datasets': setup.datasets,
+			'jobs': setup.jobs,
+		}
 		self.tree = {m: {
 			'method': m,
-			'params': {m: setup.params[m]},
+			'params': {m: params},
 			'make': False,
 			'link': False,
 			'uid': 0,
