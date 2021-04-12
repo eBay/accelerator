@@ -37,40 +37,35 @@ class DepTree:
 
 	def __init__(self, methods, setup):
 		self.methods = methods
-		m = self.top_method = setup.method
-		params = {
+		m = self.method = setup.method
+		self.params = {
 			'options': setup.options,
 			'datasets': setup.datasets,
 			'jobs': setup.jobs,
 		}
-		self.tree = {m: {
+		self.item = {
 			'method': m,
-			'params': {m: params},
+			'params': {m: self.params},
 			'make': False,
 			'link': False,
 			'uid': 0,
-		}}
+		}
 		self._fix_options(False)
 		self._fix_jobids('jobs')
 		self._fix_jobids('datasets')
 
 	def get_reqlist(self):
-		for method, data in self.tree.items():
-			full_params = {}
-			for submethod, given_params in iteritems(data['params']):
-				params = {k: dict(v) for k, v in iteritems(self.methods.params[submethod].defaults)}
-				for k, v in iteritems(given_params):
-					params[k].update(v)
-				full_params[submethod] = params
-			yield method, data['uid'], self.methods.params2optset(full_params)
+		params = {k: dict(v) for k, v in iteritems(self.methods.params[self.method].defaults)}
+		for k, v in iteritems(self.params):
+			params[k].update(v)
+		return [(self.method, 0, self.methods.params2optset({self.method: params}))]
 
 	def fill_in_default_options(self):
 		self._fix_options(True)
 
 	def _fix_jobids(self, key):
-		for method, data in iteritems(self.tree):
-			method_params = data['params'][method]
-			data = method_params[key]
+			method = self.method
+			data = self.params[key]
 			method_wants = self.methods.params[method][key]
 			res = {}
 			for jobid_name in method_wants:
@@ -91,14 +86,13 @@ class DepTree:
 				else:
 					raise OptionException('%s item of unknown type %s on %s: %s' % (key, type(jobid_name), method, repr(jobid_name),))
 				res[jobid_name] = value
-			method_params[key] = res
+			self.params[key] = res
 			spill = set(data) - set(res)
 			if spill:
 				raise OptionException('Unknown %s on %s: %s' % (key, method, ', '.join(sorted(spill)),))
 
 	def _fix_options(self, fill_in):
-		for method, data in iteritems(self.tree):
-			data = data['params'][method]
+			method = self.method
 			options = self.methods.params[method].options
 			res_options = {}
 			def typefuzz(t):
@@ -185,7 +179,7 @@ class DepTree:
 					v = [convert(dv, vv) for dv, vv in zip(default_v, v)]
 					return JobWithFile(*v)
 				raise OptionException('Failed to convert option %s of %s to %s on method %s' % (k, type(v), type(default_v), method,))
-			for k, v in iteritems(data['options']):
+			for k, v in iteritems(self.params['options']):
 				if k in options:
 					try:
 						res_options[k] = convert(options[k], v)
@@ -203,20 +197,14 @@ class DepTree:
 					raise OptionException('Missing required options {%s} on method %s' % (', '.join(sorted(missing_required)), method,))
 				defaults = self.methods.params[method].defaults
 				res_options.update({k: defaults.options[k] for k in missing})
-			data['options'] = res_options
-
-	def get_item_by_uid(self, uid):
-		for v in itervalues(self.tree):
-			if v['uid'] == uid:
-				return v
+			self.params['options'] = res_options
 
 	def set_link(self, uid, job):
-		item = self.get_item_by_uid(uid)
-		item['link'] = job.id
-		item['total_time'] = job.total
+		self.item['link'] = job.id
+		self.item['total_time'] = job.total
 
 	def propagate_make(self):
-		self.tree[self.top_method]['make'] = not self.tree[self.top_method]['link']
+		self.item['make'] = not self.item['link']
 
 	def get_sorted_joblist(self):
-		return list(self.tree.values())
+		return [self.item]
