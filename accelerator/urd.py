@@ -541,7 +541,7 @@ def jsonify(callback):
 def main(argv, cfg):
 	global authdict, allow_passwordless, db
 
-	parser = ArgumentParser(prog=argv.pop(0) + ' urd')
+	parser = ArgumentParser(prog=argv.pop(0))
 	parser.add_argument('--path', type=str, default='urd.db',
 		help='database directory (can be relative to project directory) (default: urd.db)',
 	)
