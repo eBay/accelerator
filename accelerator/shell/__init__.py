@@ -174,49 +174,8 @@ def cmd_urd_server(argv):
 cmd_urd_server.help = '''run the urd server'''
 
 def cmd_curl(argv):
-	prog = argv.pop(0)
-	if argv and argv[0] in ('server', 'urd',):
-		which = argv.pop(0)
-	else:
-		which = 'urd'
-	if '--help' in argv or '-h' in argv or not argv:
-		from os import environ
-		fh = sys.stdout if argv else sys.stderr
-		print('usage: %s [server|urd] [curl options] path' % (prog,), file=fh)
-		print('%s server talks to the server, %s urd talks to urd (default)' % (prog, prog,), file=fh)
-		print(file=fh)
-		print('examples:', file=fh)
-		print('  %s %s/example/latest' % (prog, environ['USER'],), file=fh)
-		print('  %s server status' % (prog,), file=fh)
-		return
-	url_end = argv.pop()
-	socket_opts = []
-	if which == 'urd':
-		url_start = cfg.urd
-	else: # server
-		url_start = cfg.url
-	if url_start.startswith('unixhttp://'):
-		from accelerator.compat import unquote_plus
-		url_start = url_start.split('://', 1)[1]
-		if '/' in url_start:
-			socket, url_start = url_start.split('/', 1)
-		else:
-			socket, url_start = url_start, ''
-		socket_opts = ['--unix-socket', unquote_plus(socket)]
-		url_start = join('http://.', url_start)
-	argv = ['curl', '-sS'] + socket_opts + argv + [join(url_start, url_end)]
-	from subprocess import Popen, PIPE
-	import json
-	curl = Popen(argv, stdout=PIPE)
-	output, _ = curl.communicate()
-	if output:
-		try:
-			output = output.decode('utf-8')
-			output = json.dumps(json.loads(output), indent=4)
-		except Exception:
-			pass
-		print(output)
-	return curl.wait()
+	from accelerator.shell.curl import main
+	return main(argv, cfg)
 cmd_curl.help = '''http request (with curl) to urd or the server'''
 
 def cmd_method(argv):
