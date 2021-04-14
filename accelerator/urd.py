@@ -422,7 +422,11 @@ def auth(user, passphrase):
 
 @route('/<user>/<build>/since/<timestamp>')
 def since(user, build, timestamp):
-	return db.since(user + '/' + build, timestamp)
+	key = user + '/' + build
+	res = db.since(key, timestamp)
+	if 'captions' in request.query:
+		res = [(ts, (db.get(key, ts) or {}).get('caption', ''),) for ts in res]
+	return res
 
 @route('/<user>/<build>/latest')
 def latest(user, build):

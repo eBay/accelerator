@@ -72,7 +72,8 @@ def main(argv, cfg):
 		if len(path) < 3 - bool(since):
 			path.insert(0, user)
 		if since:
-			path.extend(since)
+			path.append(since[0])
+			path.append(since[1] + '?captions')
 		elif len(path) < 3:
 			path.append('latest')
 		return path
@@ -86,22 +87,27 @@ def main(argv, cfg):
 def fmt(res):
 	if not res:
 		return ''
+	def fmt_caption(path, caption):
+		return template % (path, caption,) if caption else path
 	if isinstance(res, list):
-		return '\n'.join(res)
+		if isinstance(res[0], list):
+			tlen = max(len(ts) for ts, _ in res)
+			template = '%%-%ds : %%s' % (tlen,)
+			return '\n'.join(fmt_caption(*item) for item in res)
+		else:
+			return '\n'.join(res)
 	if res['deps']:
 		deps = sorted(
 			('%s/%s' % (k, v['timestamp'],), v['caption'],)
 			for k, v in res['deps'].items()
 		)
-		def fmt_dep(path, caption):
-			return template % (path, caption,) if caption else path
 		if len(deps) > 1:
 			plen = max(len(path) for path, _ in deps)
 			template = '%%-%ds : %%s' % (plen,)
-			deps = '\n           '.join(fmt_dep(*dep) for dep in deps)
+			deps = '\n           '.join(fmt_caption(*dep) for dep in deps)
 		else:
 			template = '%s : %s'
-			deps = fmt_dep(*deps[0])
+			deps = fmt_caption(*deps[0])
 	else:
 		deps = ''
 	joblist = JobList(Job(j, m) for m, j in res['joblist'])
