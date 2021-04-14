@@ -254,21 +254,21 @@ def cmd_version(argv):
 		print(ax_version)
 cmd_version.help = '''show installed accelerator version'''
 
-COMMANDS = dict(
-	ds=cmd_ds,
-	grep=cmd_grep,
-	run=cmd_run,
-	abort=cmd_abort,
-	server=cmd_server,
-	init=cmd_init,
-	urd=cmd_urd,
-	curl=cmd_curl,
-	method=cmd_method,
-	workdir=cmd_workdir,
-	board=cmd_board,
-	job=cmd_job,
-	version=cmd_version,
-)
+COMMANDS = {
+	'abort': cmd_abort,
+	'board': cmd_board,
+	'curl': cmd_curl,
+	'ds': cmd_ds,
+	'grep': cmd_grep,
+	'init': cmd_init,
+	'job': cmd_job,
+	'method': cmd_method,
+	'run': cmd_run,
+	'server': cmd_server,
+	'urd': cmd_urd,
+	'version': cmd_version,
+	'workdir': cmd_workdir,
+}
 
 def split_args(argv):
 	prev = None
