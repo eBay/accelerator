@@ -90,6 +90,21 @@ def job_up(job, count):
 		job = prev
 	return job
 
+def urd_call_w_tildes(cfg, path, tildes):
+	res = call(cfg.urd + '/' + path, server_name='urd')
+	if tildes:
+		up = sum(count for char, count in tildes if char == '^')
+		down = sum(count for char, count in tildes if char == '~')
+		tildes = down - up
+		if tildes:
+			key = res.user + '/' + res.build
+			timestamps = call(cfg.urd + '/' + key + '/since/0', server_name='urd')
+			pos = timestamps.index(res.timestamp) + tildes
+			if pos < 0 or pos >= len(timestamps):
+				return None
+			res = call(cfg.urd + '/' + key + '/' + timestamps[pos], server_name='urd')
+	return res
+
 def name2job(cfg, n):
 	n, tildes = split_tildes(n)
 	job = _name2job(cfg, n)
@@ -112,15 +127,16 @@ def _name2job(cfg, n):
 			entry = int(entry, 10)
 		except ValueError:
 			pass
-		path = a[0].split('/')
+		path, tildes = split_tildes(a[0])
+		path = path.split('/')
 		if len(path) < 3:
 			path.insert(0, environ.get('USER', 'NO-USER'))
 		if len(path) < 3:
 			path.append('latest')
 		path = '/'.join(map(url_quote, path))
-		urdres = call(cfg.urd + '/' + path, server_name='urd')
+		urdres = urd_call_w_tildes(cfg, path, tildes)
 		if not urdres:
-			raise JobNotFound('urd list %s not found' % (path,))
+			raise JobNotFound('urd list %r not found' % (a[0],))
 		from accelerator.build import JobList
 		joblist = JobList(Job(e[1], e[0]) for e in urdres.joblist)
 		res = joblist.get(entry)

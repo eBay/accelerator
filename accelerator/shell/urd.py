@@ -22,9 +22,10 @@ from __future__ import unicode_literals
 
 import sys
 from os import environ
-from os.path import join
 from accelerator.build import JobList
 from accelerator.job import Job
+from accelerator.shell.parser import split_tildes, urd_call_w_tildes
+from accelerator.compat import url_quote
 
 
 def main(argv, cfg):
@@ -48,15 +49,12 @@ def main(argv, cfg):
 		print('  "%s :foo/bar/first:" is "%s foo/bar/first"' % (prog, prog,), file=fh)
 		print('  "%s example/" is "%s %s/example/since/0"' % (prog, prog, user,), file=fh)
 		return not argv
-	def call(*path):
-		from accelerator.unixhttp import call
-		return call(join(cfg.urd, *path), server_name='urd')
 	def resolve_path_part(path):
 		if not path:
 			return []
 		if path == '/':
 			return ['list']
-		path = path.split('/')
+		path = [url_quote(el) for el in path.split('/')]
 		if path[-1] == '':
 			path.pop()
 			since = ['since', '0']
@@ -73,7 +71,7 @@ def main(argv, cfg):
 		elif len(path) < 3:
 			path.append('latest')
 		return path
-	def resolve(path):
+	def urd_get(path):
 		if path.startswith(':'):
 			a = path[1:].split(':', 1)
 			if len(a) == 1:
@@ -84,18 +82,21 @@ def main(argv, cfg):
 				entry = int(a[1], 10)
 			except ValueError:
 				entry = a[1] or None
+			path, tildes = split_tildes(path)
 		else:
-			entry = None
+			entry = tildes = None
 		path = resolve_path_part(path)
+		if len(path) != 3 and tildes:
+			print("path %r isn't walkable (~^)" % ('/'.join(path),), file=sys.stderr)
+			return None, None
 		if len(path) != 3 and entry is not None:
 			print("path %r doesn't take an entry (%r)" % ('/'.join(path), entry,), file=sys.stderr)
 			return None, None
-		return path, entry
+		return urd_call_w_tildes(cfg, '/'.join(path), tildes), entry
 	for path in argv:
-		path, entry = resolve(path)
-		if not path:
+		res, entry = urd_get(path)
+		if not res:
 			continue
-		res = call(*path)
 		print(fmt(res, entry))
 
 def fmt(res, entry):
