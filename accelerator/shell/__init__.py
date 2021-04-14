@@ -168,10 +168,10 @@ def cmd_init(argv):
 	main(argv)
 cmd_init.help = '''create a project directory'''
 
-def cmd_urd(argv):
+def cmd_urd_server(argv):
 	from accelerator.urd import main
 	main(argv, cfg)
-cmd_urd.help = '''run the urd server'''
+cmd_urd_server.help = '''run the urd server'''
 
 def cmd_curl(argv):
 	prog = argv.pop(0)
@@ -265,7 +265,7 @@ COMMANDS = {
 	'method': cmd_method,
 	'run': cmd_run,
 	'server': cmd_server,
-	'urd': cmd_urd,
+	'urd-server': cmd_urd_server,
 	'version': cmd_version,
 	'workdir': cmd_workdir,
 }
