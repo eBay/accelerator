@@ -23,7 +23,8 @@ from __future__ import unicode_literals
 import sys
 from os import environ
 from os.path import join
-import json
+from accelerator.build import JobList
+from accelerator.job import Job
 
 
 def main(argv, cfg):
@@ -63,4 +64,31 @@ def main(argv, cfg):
 		if not path:
 			continue
 		res = call(*path)
-		print(json.dumps(res, indent=4))
+		print(fmt(res))
+
+def fmt(res):
+	if not res:
+		return ''
+	if res['deps']:
+		deps = sorted(
+			('%s/%s' % (k, v['timestamp'],), v['caption'],)
+			for k, v in res['deps'].items()
+		)
+		def fmt_dep(path, caption):
+			return template % (path, caption,) if caption else path
+		if len(deps) > 1:
+			plen = max(len(path) for path, _ in deps)
+			template = '%%-%ds : %%s' % (plen,)
+			deps = '\n           '.join(fmt_dep(*dep) for dep in deps)
+		else:
+			template = '%s : %s'
+			deps = fmt_dep(*deps[0])
+	else:
+		deps = ''
+	joblist = JobList(Job(j, m) for m, j in res['joblist'])
+	return "timestamp: %s\ncaption  : %s\ndeps     : %s\n%s" % (
+		res['timestamp'],
+		res['caption'],
+		deps,
+		joblist.pretty,
+	)
