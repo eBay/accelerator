@@ -37,12 +37,15 @@ def main(argv, cfg):
 		print('path is an optionally shortened path to an urd list, using the', file=fh)
 		print('same rules as :urdlist: job-specifiers. You can put :: around', file=fh)
 		print('the path here too, if you want.', file=fh)
+		print('use "path/since/ts" or just "path/" to list timestamps', file=fh)
+		print('use "/" to list all lists', file=fh)
 		print(file=fh)
 		print('examples:', file=fh)
 		print('  "%s example" is "%s %s/example/latest"' % (prog, prog, user,), file=fh)
 		print('  "%s :example:" is also "%s %s/example/latest"' % (prog, prog, user,), file=fh)
 		print('  "%s example/2021-04-14" is "%s %s/example/2021-04-14"' % (prog, prog, user,), file=fh)
 		print('  "%s :foo/bar/first:" is "%s foo/bar/first"' % (prog, prog,), file=fh)
+		print('  "%s example/" is "%s %s/example/since/0"' % (prog, prog, user,), file=fh)
 		return not argv
 	def call(*path):
 		from accelerator.unixhttp import call
@@ -53,10 +56,24 @@ def main(argv, cfg):
 				print('%r should either end with : or not start with :' % (path,), file=sys.stderr)
 				return None
 			path = path[1:-1]
+		if not path:
+			return None
+		if path == '/':
+			return ['list']
 		path = path.split('/')
-		if len(path) < 3:
+		if path[-1] == '':
+			path.pop()
+			since = ['since', '0']
+		elif len(path) > 2 and path[-2] == 'since':
+			since = path[-2:]
+			path = path[:-2]
+		else:
+			since = None
+		if len(path) < 3 - bool(since):
 			path.insert(0, user)
-		if len(path) < 3:
+		if since:
+			path.extend(since)
+		elif len(path) < 3:
 			path.append('latest')
 		return path
 	for path in argv:
@@ -69,6 +86,8 @@ def main(argv, cfg):
 def fmt(res):
 	if not res:
 		return ''
+	if isinstance(res, list):
+		return '\n'.join(res)
 	if res['deps']:
 		deps = sorted(
 			('%s/%s' % (k, v['timestamp'],), v['caption'],)
