@@ -36,7 +36,8 @@ def main(argv, cfg):
 		print(file=fh)
 		print('path is an optionally shortened path to an urd list, using the', file=fh)
 		print('same rules as :urdlist: job-specifiers. You can put :: around', file=fh)
-		print('the path here too, if you want.', file=fh)
+		print('the path here too, if you want. if you use a complete :urdlist:entry', file=fh)
+		print('specifier you get just the jobid.', file=fh)
 		print('use "path/since/ts" or just "path/" to list timestamps', file=fh)
 		print('use "/" to list all lists', file=fh)
 		print(file=fh)
@@ -50,14 +51,9 @@ def main(argv, cfg):
 	def call(*path):
 		from accelerator.unixhttp import call
 		return call(join(cfg.urd, *path), server_name='urd')
-	def resolve(path):
-		if path.startswith(':'):
-			if not path.endswith(':'):
-				print('%r should either end with : or not start with :' % (path,), file=sys.stderr)
-				return None
-			path = path[1:-1]
+	def resolve_path_part(path):
 		if not path:
-			return None
+			return []
 		if path == '/':
 			return ['list']
 		path = path.split('/')
@@ -77,14 +73,32 @@ def main(argv, cfg):
 		elif len(path) < 3:
 			path.append('latest')
 		return path
+	def resolve(path):
+		if path.startswith(':'):
+			a = path[1:].split(':', 1)
+			if len(a) == 1:
+				print('%r should have two or no :' % (path,), file=sys.stderr)
+				return None, None
+			path = a[0]
+			try:
+				entry = int(a[1], 10)
+			except ValueError:
+				entry = a[1] or None
+		else:
+			entry = None
+		path = resolve_path_part(path)
+		if len(path) != 3 and entry is not None:
+			print("path %r doesn't take an entry (%r)" % ('/'.join(path), entry,), file=sys.stderr)
+			return None, None
+		return path, entry
 	for path in argv:
-		path = resolve(path)
+		path, entry = resolve(path)
 		if not path:
 			continue
 		res = call(*path)
-		print(fmt(res))
+		print(fmt(res, entry))
 
-def fmt(res):
+def fmt(res, entry):
 	if not res:
 		return ''
 	def fmt_caption(path, caption):
@@ -96,6 +110,9 @@ def fmt(res):
 			return '\n'.join(fmt_caption(*item) for item in res)
 		else:
 			return '\n'.join(res)
+	joblist = JobList(Job(j, m) for m, j in res['joblist'])
+	if entry:
+		return joblist.get(entry, '')
 	if res['deps']:
 		deps = sorted(
 			('%s/%s' % (k, v['timestamp'],), v['caption'],)
@@ -110,7 +127,6 @@ def fmt(res):
 			deps = fmt_caption(*deps[0])
 	else:
 		deps = ''
-	joblist = JobList(Job(j, m) for m, j in res['joblist'])
 	return "timestamp: %s\ncaption  : %s\ndeps     : %s\n%s" % (
 		res['timestamp'],
 		res['caption'],
