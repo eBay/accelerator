@@ -168,6 +168,11 @@ def cmd_init(argv):
 	main(argv)
 cmd_init.help = '''create a project directory'''
 
+def cmd_urd(argv):
+	from accelerator.shell.urd import main
+	return main(argv, cfg)
+cmd_urd.help = '''inspect urd contents'''
+
 def cmd_urd_server(argv):
 	from accelerator.urd import main
 	main(argv, cfg)
@@ -224,6 +229,7 @@ COMMANDS = {
 	'method': cmd_method,
 	'run': cmd_run,
 	'server': cmd_server,
+	'urd': cmd_urd,
 	'urd-server': cmd_urd_server,
 	'version': cmd_version,
 	'workdir': cmd_workdir,
