@@ -373,13 +373,13 @@ def main(argv, config):
 	r1 = min(r1, r2, 1024)
 	resource.setrlimit(resource.RLIMIT_NOFILE, (r1, r2))
 
-	# Start the board in a separate process so it can't interfere.
+	# Start the board-server in a separate process so it can't interfere.
 	# Even if it dies we don't care.
 	try:
 		if not isinstance(config.board_listen, tuple):
 			# Don't bother if something is already listening.
 			check_socket(config.board_listen)
-		Process(target=board.run, args=(config,), name='board').start()
+		Process(target=board.run, args=(config,), name='board-server').start()
 	except Exception:
 		pass
 

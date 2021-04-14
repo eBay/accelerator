@@ -236,10 +236,10 @@ def cmd_job(argv):
 cmd_job.help = '''information about a job'''
 cmd_job.is_debug = True
 
-def cmd_board(argv):
+def cmd_board_server(argv):
 	from accelerator.board import main
 	main(argv, cfg)
-cmd_board.help = '''runs a webserver for displaying results'''
+cmd_board_server.help = '''runs a webserver for displaying results'''
 
 def cmd_version(argv):
 	from accelerator import __version__ as ax_version
@@ -256,7 +256,7 @@ cmd_version.help = '''show installed accelerator version'''
 
 COMMANDS = {
 	'abort': cmd_abort,
-	'board': cmd_board,
+	'board-server': cmd_board_server,
 	'curl': cmd_curl,
 	'ds': cmd_ds,
 	'grep': cmd_grep,

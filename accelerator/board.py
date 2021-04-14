@@ -219,7 +219,7 @@ def main(argv, cfg):
 
 def run(cfg, from_shell=False):
 	project = os.path.split(cfg.project_directory)[1]
-	setproctitle('ax board for %s on %s' % (project, cfg.board_listen,))
+	setproctitle('ax board-server for %s on %s' % (project, cfg.board_listen,))
 
 	def call_s(*path):
 		return call(os.path.join(cfg.url, *map(url_quote, path)))
