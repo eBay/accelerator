@@ -99,10 +99,9 @@ def main(argv, cfg):
 		     'path is to a jobdir (with setup.json in it).\n' +
 		     'method is the latest (current) job with that method (i.e\n' +
 		     'the latest finished job with current source code).\n' +
-		     ':urdlist:[entry] looks up jobs in urd. entry defaults to\n' +
-		     '-1. anything that looks like a number will be used as a\n' +
-		     'number, anything else as a name (with standard joblist\n' +
-		     'resolution rules).\n' +
+		     ':urdlist:[entry] looks up jobs in urd. details are in the\n' +
+		     'urd help, except here entry defaults to -1 and you can\'t\n' +
+		     'list things (no .../ or .../since/x).\n' +
 		     'you can use spec~ or spec~N to go back N current jobs\n' +
 		     'with that method or spec^ or spec^N to follow .previous'
 	)
