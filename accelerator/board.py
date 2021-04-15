@@ -32,7 +32,7 @@ from accelerator.build import fmttime
 from accelerator.configfile import resolve_listen
 from accelerator.error import NoSuchWhateverError
 from accelerator.shell.workdir import job_data, workdir_jids
-from accelerator.compat import setproctitle, url_quote
+from accelerator.compat import setproctitle, url_quote, urlencode
 from accelerator import __version__ as ax_version
 
 def get_job(jobid):
@@ -224,8 +224,11 @@ def run(cfg, from_shell=False):
 	def call_s(*path):
 		return call(os.path.join(cfg.url, *map(url_quote, path)))
 
-	def call_u(*path):
-		return call(os.path.join(cfg.urd, *map(url_quote, path)), server_name='urd')
+	def call_u(*path, **kw):
+		url = os.path.join(cfg.urd, *map(url_quote, path))
+		if kw:
+			url = url + '?' + urlencode(kw)
+		return call(url, server_name='urd')
 
 	@bottle.get('/')
 	@view('main')
@@ -417,7 +420,7 @@ def run(cfg, from_shell=False):
 		key = user + '/' + build
 		return dict(
 			key=key,
-			timestamps=call_u(key, 'since/0'),
+			timestamps=call_u(key, 'since/0', captions=1),
 		)
 
 	@bottle.get('/urd/<user>/<build>/<ts>')
