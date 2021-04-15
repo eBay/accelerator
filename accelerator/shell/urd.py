@@ -31,7 +31,7 @@ from accelerator.compat import url_quote
 def main(argv, cfg):
 	prog = argv.pop(0)
 	user = environ.get('USER', 'NO-USER')
-	if '--help' in argv or '-h' in argv or not argv:
+	if '--help' in argv or '-h' in argv:
 		fh = sys.stdout if argv else sys.stderr
 		print('usage: %s path [path [...]]' % (prog,), file=fh)
 		print(file=fh)
@@ -40,7 +40,7 @@ def main(argv, cfg):
 		print('(and three elements are the whole thing, user/list/timestamp.)', file=fh)
 		print(file=fh)
 		print('use "path/since/ts" or just "path/" to list timestamps', file=fh)
-		print('use "/" to list all lists', file=fh)
+		print('use "/" (or nothing) to list all lists', file=fh)
 		print(file=fh)
 		print('you can also use :urdlist:[entry] job specifiers. urdlist follows the same', file=fh)
 		print('path rules as above, entry is an optional argument to joblist.get() printing', file=fh)
@@ -101,7 +101,7 @@ def main(argv, cfg):
 			print("path %r doesn't take an entry (%r)" % ('/'.join(path), entry,), file=sys.stderr)
 			return None, None
 		return urd_call_w_tildes(cfg, '/'.join(path), tildes), entry
-	for path in argv:
+	for path in argv or ('/',):
 		res, entry = urd_get(path)
 		if not res:
 			continue
