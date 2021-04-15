@@ -88,7 +88,7 @@ else:
 	import builtins
 	FileNotFoundError = builtins.FileNotFoundError
 	import pickle
-	from urllib.parse import quote as url_quote, quote_plus, unquote_plus
+	from urllib.parse import quote as url_quote, quote_plus, unquote_plus, urlencode
 	from urllib.request import urlopen, Request
 	from urllib.error import URLError, HTTPError
 	izip = zip
@@ -110,9 +110,6 @@ else:
 		return iter(d.values())
 	def iteritems(d):
 		return iter(d.items())
-	def urlencode(query):
-		from urllib.parse import urlencode
-		return urlencode(query).encode('utf-8')
 	def getarglist(func):
 		from inspect import getfullargspec
 		return getfullargspec(func).args

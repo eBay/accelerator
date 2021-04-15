@@ -204,7 +204,7 @@ class Automata:
 
 	def _server_submit(self, json):
 		# submit json to server
-		postdata = urlencode({'json': setupfile.encode_setup(json)})
+		postdata = urlencode({'json': setupfile.encode_setup(json)}).encode('utf-8')
 		res = self._url_json('submit', data=postdata)
 		if 'error' in res:
 			raise ServerError('Submit failed: ' + res.error)
