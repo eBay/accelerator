@@ -108,6 +108,21 @@
 				resultEl.appendChild(dateEl)
 				txt(')');
 				update_date(resultEl);
+				const size = document.createElement('INPUT');
+				size.type = 'submit';
+				size.value = 'big';
+				size.onclick = function () {
+					const el = resultEl.querySelector('div');
+					if (el.className) {
+						size.value = 'big';
+						el.className = '';
+					} else {
+						size.value = 'small';
+						el.className = 'big';
+						el.scrollIntoView({behavior: 'smooth', block: 'end'});
+					}
+				};
+				resultEl.appendChild(size);
 				const hide = document.createElement('INPUT');
 				hide.type = 'submit';
 				hide.value = 'hide';
@@ -158,10 +173,16 @@
 		return clickEl;
 	};
 	const togglefull = function (event) {
-		if (event.target.className) {
-			event.target.className = '';
-		} else {
-			event.target.className = 'full';
+		const img = event.target;
+		const el = img.parentNode;
+		const size = el.parentNode.querySelector('input');
+		if (img.naturalHeight > img.height) {
+			el.className = 'full';
+			size.value = 'small';
+			img.scrollIntoView({behavior: 'smooth'});
+		} else if (el.className) {
+			el.className = '';
+			size.value = 'big';
 		}
 	};
 	const name2ext = function (name) {

@@ -192,8 +192,8 @@
 		}
 		.result > input[type="submit"] {
 			float: right;
-			margin-top: -3px;
-			margin-bottom: 3px;
+			margin: -3px 0 3px 0.5em;
+			min-width: 6em;
 		}
 		.result > div {
 			clear: both;
@@ -238,8 +238,14 @@
 			display: block;
 			max-height: var(--max-height);
 		}
-		img.full {
+		.result > div.full > img {
 			max-height: inherit;
+		}
+		.result > div.big > * {
+			max-height: 95vh;
+		}
+		.result > div.big > embed, .result > div.big > video {
+			height: 95vh;
 		}
 		form {
 			display: inline;
