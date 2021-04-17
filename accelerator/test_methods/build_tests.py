@@ -136,6 +136,8 @@ def main(urd):
 	print("Testing dataset creation, export, import")
 	source = urd.build("test_datasetwriter")
 	urd.build("test_datasetwriter_verify", source=source)
+	source = urd.build("test_datasetwriter_copy", source=source)
+	urd.build("test_datasetwriter_verify", source=source)
 	urd.build("test_datasetwriter_parent")
 	urd.build("test_dataset_in_prepare")
 	ds = Dataset(source, "passed")
