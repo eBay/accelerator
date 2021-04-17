@@ -986,6 +986,18 @@ _nodefault = object()
 
 _copy_mode_overrides = dict.fromkeys(('unicode', 'ascii', 'json', 'pickle'), 'bytes')
 
+# short non-colliding filenames safe for any filesystem
+def _fngen():
+	from itertools import cycle
+	chars = cycle('abcdefghijklmnopqrstuvwxyz0123456789_')
+	prefixgen = _fngen()
+	prefix = ""
+	while True:
+		c = next(chars)
+		yield prefix + c
+		if c == '_':
+			prefix = next(prefixgen)
+
 class DatasetWriter(object):
 	"""
 	Create in prepare, use in analysis. Or do the whole thing in
@@ -1081,6 +1093,8 @@ class DatasetWriter(object):
 			obj._for_single_slice = for_single_slice
 			obj._copy_mode = copy_mode
 			obj._clean_names = {}
+			obj._filenames = {}
+			obj._fngen = _fngen()
 			discard_columns = {k for k, v in columns.items() if v is None}
 			columns = {k: v for k, v in columns.items() if v is not None}
 			if parent:
@@ -1148,6 +1162,7 @@ class DatasetWriter(object):
 			self._clean_names[colname] = self._pcolumns[colname].name
 		else:
 			self._clean_names[colname] = _clean_name(colname, self._seen_n)
+		self._filenames[colname] = next(self._fngen)
 
 	# These will be overwritten by set_slice
 	def write(self, *a, **kw):
@@ -1180,7 +1195,7 @@ class DatasetWriter(object):
 	def column_filename(self, colname, sliceno=None):
 		if sliceno is None:
 			sliceno = self.sliceno
-		return '%s/%d.%s' % (self.name, sliceno, self._clean_names[colname],)
+		return '%s/%d.%s' % (self.name, sliceno, self._filenames[colname],)
 
 	def enable_hash_discard(self):
 		"""Make the write functions silently discard data that does not
@@ -1387,7 +1402,7 @@ class DatasetWriter(object):
 			raise DatasetUsageError("Not all slices written, missing %r" % (set(range(slices)) - set(self._lens),))
 		args = dict(
 			columns={k: (v[0].split(':')[-1], v[2]) for k, v in self.columns.items()},
-			filenames=self._clean_names,
+			filenames=self._filenames,
 			lines=self._lens,
 			minmax=self._minmax,
 			filename=self.filename,
