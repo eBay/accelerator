@@ -69,7 +69,6 @@ iskeyword = frozenset(kwlist).__contains__
 #     backing_type = "type", # something that exists in type2iter (v2 used type for this)
 #                              (as the support for v2 has been removed, backing_type will
 #                              always be the same as type. until something changes again.)
-#     name = "name", # a clean version of the column name, valid in the filesystem and as a python identifier.
 #     location = something, # where the data for this column lives
 #         in version 2 and 3 this is "jobid/path/to/file" if .offsets else "jobid/path/with/%s/for/sliceno"
 #     min = minimum value in this dataset or None
@@ -115,9 +114,12 @@ def _dsid(t):
 
 # If we want to add fields to later versions, using a versioned name will
 # allow still loading the old versions without messing with the constructor.
-_DatasetColumn_3_1 = namedtuple('_DatasetColumn_3_1', 'type backing_type name location min max offsets none_support')
-DatasetColumn = _DatasetColumn_3_1
+_DatasetColumn_3_2 = namedtuple('_DatasetColumn_3_2', 'type backing_type location min max offsets none_support')
+DatasetColumn = _DatasetColumn_3_2
 # It's probably usually best to generate the new type so the rest of the code needs no special handling.
+class _DatasetColumn_3_1(object):
+	def __new__(cls, type, backing_type, name, location, min, max, offsets, none_support):
+		return _DatasetColumn_3_2(type, backing_type, location, min, max, offsets, none_support)
 class _DatasetColumn_3_0(object):
 	def __new__(cls, type, backing_type, name, location, min, max, offsets):
 		none_support = not backing_type.startswith('bits')
@@ -907,7 +909,6 @@ class Dataset(unicode):
 			self._data.columns[n] = DatasetColumn(
 				type=t,
 				backing_type=t,
-				name=filenames[n],
 				location='%s/%s/%%s.%s' % (job, self.name, filenames[n]),
 				min=mm[0],
 				max=mm[1],
