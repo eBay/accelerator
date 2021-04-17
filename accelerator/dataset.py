@@ -1092,7 +1092,6 @@ class DatasetWriter(object):
 			obj.meta_only = meta_only
 			obj._for_single_slice = for_single_slice
 			obj._copy_mode = copy_mode
-			obj._clean_names = {}
 			obj._filenames = {}
 			obj._fngen = _fngen()
 			discard_columns = {k for k, v in columns.items() if v is None}
@@ -1109,15 +1108,11 @@ class DatasetWriter(object):
 				unknown_discards = discard_columns - set(parent_cols)
 				if unknown_discards:
 					raise DatasetUsageError("Can't discard non-existant columns %r" % (unknown_discards,))
-				obj._pcolumns = {k: v for k, v in parent_cols.items() if k not in discard_columns}
-				obj._seen_n = set(c.name for c in obj._pcolumns.values())
-				obj._column_filter = set(obj._pcolumns)
+				obj._column_filter = set(parent_cols) - discard_columns
 			else:
 				if discard_columns:
 					raise DatasetUsageError("Can't discard columns without a parent")
 				obj.parent = None
-				obj._pcolumns = {}
-				obj._seen_n = set()
 			obj._started = False
 			obj._lens = {}
 			obj._minmax = {}
@@ -1158,10 +1153,6 @@ class DatasetWriter(object):
 			raise DatasetUsageError("%s columns can't have None support" % (coltype,))
 		self.columns[colname] = (coltype, default, none_support)
 		self._order.append(colname)
-		if colname in self._pcolumns:
-			self._clean_names[colname] = self._pcolumns[colname].name
-		else:
-			self._clean_names[colname] = _clean_name(colname, self._seen_n)
 		self._filenames[colname] = next(self._fngen)
 
 	# These will be overwritten by set_slice
