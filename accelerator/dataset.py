@@ -1013,7 +1013,9 @@ class DatasetWriter(object):
 	If you want support for None values in a column you can pass
 	none_support=True to dw.add, or {colname: (coltype, True)} to the
 	constructor. If you pass a DatasetColumn (from ds.columns[name]) you
-	will inherit both type and None-support of that column.
+	will inherit both type and None-support of that column. In dw.add the
+	none_support argument takes precedence over (tuple/DatasetColumn in)
+	the coltype argument.
 
 	If you set hashlabel you can use dw.hashcheck(v) to check if v
 	belongs in this slice. You can also call enable_hash_discard
@@ -1111,22 +1113,27 @@ class DatasetWriter(object):
 			for k, v in sorted(columns.items()):
 				if v is None:
 					continue
-				if isinstance(v, tuple):
-					if hasattr(v, 'type'):
-						obj.add(k, v.type, none_support=v.none_support)
-					else:
-						obj.add(k, v[0], none_support=v[1])
-				else:
-					obj.add(k, v)
+				obj.add(k, v)
 			_datasetwriters[name] = obj
 			return obj
 
-	def add(self, colname, coltype, default=_nodefault, none_support=False):
+	def add(self, colname, coltype, default=_nodefault, none_support=_nodefault):
 		from accelerator.g import running
 		if running != self._running:
 			raise DatasetUsageError("Add all columns in the same step as creation")
 		if self._started:
 			raise DatasetUsageError("Add all columns before setting slice")
+		if isinstance(coltype, tuple):
+			if hasattr(coltype, 'type'):
+				coltype, none_support_fb = coltype.type, coltype.none_support
+			else:
+				coltype, none_support_fb = coltype
+		else:
+			none_support_fb = False
+		if none_support is _nodefault:
+			none_support = none_support_fb
+		else:
+			none_support = bool(none_support)
 		colname = uni(colname)
 		coltype = uni(coltype)
 		if colname in self.columns:
