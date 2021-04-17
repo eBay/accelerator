@@ -93,11 +93,9 @@ def _clean_name(n, seen_n):
 	n = ''.join(c if c.isalnum() else '_' for c in n)
 	if not n or n[0].isdigit():
 		n = '_' + n
-	# .lower because filenames are based on these, and filesystem
-	# might not be case sensitive.
-	while n.lower() in seen_n or iskeyword(n):
+	while n in seen_n or iskeyword(n):
 		n += '_'
-	seen_n.add(n.lower())
+	seen_n.add(n)
 	return n
 
 def _dsid(t):
@@ -1098,7 +1096,7 @@ class DatasetWriter(object):
 				if unknown_discards:
 					raise DatasetUsageError("Can't discard non-existant columns %r" % (unknown_discards,))
 				obj._pcolumns = {k: v for k, v in parent_cols.items() if k not in discard_columns}
-				obj._seen_n = set(c.name.lower() for c in obj._pcolumns.values())
+				obj._seen_n = set(c.name for c in obj._pcolumns.values())
 				obj._column_filter = set(obj._pcolumns)
 			else:
 				if discard_columns:

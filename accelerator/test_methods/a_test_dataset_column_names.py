@@ -65,13 +65,13 @@ def synthesis(prepare_res, slices):
 		"print_*", # becomes print___ because print__ is taken.
 		"print_",  # becomes print____ because all shorter are taken.
 		"normal",  # no collision.
-		"Normal",  # becomes Normal_ because these comparisons are case insensitive.
+		"Normal",  # no collision.
 		"print@",  # re-uses print__ from the parent dataset.
 	]
 	dw = mk_dw("child", in_child, parent=parent)
 	w = dw.get_split_write()
-	w(print__="print@ 1", print___="print_* 1", print____="print_ 1", normal="normal 1", Normal_="Normal 1")
-	w(print__="print@ 2", print___="print_* 2", print____="print_ 2", normal="normal 2", Normal_="Normal 2")
+	w(print__="print@ 1", print___="print_* 1", print____="print_ 1", normal="normal 1", Normal="Normal 1")
+	w(print__="print@ 2", print___="print_* 2", print____="print_ 2", normal="normal 2", Normal="Normal 2")
 	child = dw.finish()
 	for colname in in_parent + in_child:
 		data = set(child.iterate(None, colname))
