@@ -1,6 +1,6 @@
 ############################################################################
 #                                                                          #
-# Copyright (c) 2019 Carl Drougge                                          #
+# Copyright (c) 2019, 2021 Carl Drougge                                    #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -62,16 +62,16 @@ def synthesis(prepare_res, slices):
 	w(_="- 2", a_b="a b 2", _42="42 2", print_="print 2", None_="None 2", print__="Will be overwritten 2")
 	parent = dw.finish()
 	in_child = [ # order still matters
-		"print_*", # becomes print___ because print__ is taken.
-		"print_",  # becomes print____ because all shorter are taken.
+		"print_*", # becomes print__ (no collision).
+		"print_",  # no collision.
 		"normal",  # no collision.
 		"Normal",  # no collision.
-		"print@",  # re-uses print__ from the parent dataset.
+		"print@",  # becomes print___ because all shorter are taken.
 	]
 	dw = mk_dw("child", in_child, parent=parent)
 	w = dw.get_split_write()
-	w(print__="print@ 1", print___="print_* 1", print____="print_ 1", normal="normal 1", Normal="Normal 1")
-	w(print__="print@ 2", print___="print_* 2", print____="print_ 2", normal="normal 2", Normal="Normal 2")
+	w(print___="print@ 1", print__="print_* 1", print_="print_ 1", normal="normal 1", Normal="Normal 1")
+	w(print___="print@ 2", print__="print_* 2", print_="print_ 2", normal="normal 2", Normal="Normal 2")
 	child = dw.finish()
 	for colname in in_parent + in_child:
 		data = set(child.iterate(None, colname))

@@ -1238,8 +1238,8 @@ class DatasetWriter(object):
 					w(values[k])
 			self.write_dict = write_dict
 			hix = -1
-		names = [self._clean_names[n] for n in self._order]
-		used_names = set(names)
+		used_names = set()
+		names = [_clean_name(n, used_names) for n in self._order]
 		w_names = [_clean_name('w%d' % (ix,), used_names) for ix in range(len(w_l))]
 		w_d = dict(zip(w_names, w_l))
 		errcls = _clean_name('DatasetUsageError', used_names)
@@ -1293,7 +1293,8 @@ class DatasetWriter(object):
 			raise DatasetUsageError("Don't use both a split writer and set_slice")
 		if self.parent and self.parent.hashlabel and not self.hashlabel:
 			raise DatasetUsageError("Can't use a split writer on hashed dataset when not writing the hash column.")
-		names = [self._clean_names[n] for n in self._order]
+		used_names = set()
+		names = [_clean_name(n, used_names) for n in self._order]
 		def key(t):
 			return self._order.index(t[0])
 		def d2l(d):
@@ -1303,7 +1304,6 @@ class DatasetWriter(object):
 		f_dict = ['def split_dict(d):']
 		from accelerator.g import slices
 		hl = self.hashlabel
-		used_names = set(names)
 		name_w_l = _clean_name('w_l', used_names)
 		name_hsh = _clean_name('hsh', used_names)
 		name_cyc = _clean_name('cyc', used_names)
@@ -1315,8 +1315,9 @@ class DatasetWriter(object):
 		if hl:
 			w_d[name_hsh] = self._allwriters[0][hl].hash
 			prefix = '%s = %s[%s(' % (name_w_l, name_writers, name_hsh,)
-			f_____.append('%s%s) %% %d]' % (prefix, self._clean_names[hl], slices,))
-			f_list.append('%sv[%d]) %% %d]' % (prefix, self._order.index(hl), slices,))
+			hix = self._order.index(hl)
+			f_____.append('%s%s) %% %d]' % (prefix, names[hix], slices,))
+			f_list.append('%sv[%d]) %% %d]' % (prefix, hix, slices,))
 			f_dict.append('%sd[%r]) %% %d]' % (prefix, hl, slices,))
 		else:
 			from itertools import cycle
