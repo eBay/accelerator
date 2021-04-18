@@ -328,7 +328,7 @@ class Dataset(unicode):
 		hashlabels = {self.hashlabel, other.hashlabel}
 		hashlabels.discard(None)
 		if len(hashlabels) > 1:
-			raise DatasetUsageError("Hashlabel mismatch, %s has %s, %s has %s" % (self, self.hashlabel, other, other.hashlabel,))
+			raise DatasetUsageError("Hashlabel mismatch, %s has %r, %s has %r" % (self, self.hashlabel, other, other.hashlabel,))
 		new_ds._data.columns.update(other._data.columns)
 		if not allow_unrelated:
 			def parents(ds, tips):
@@ -592,14 +592,14 @@ class Dataset(unicode):
 					continue
 				if range_bottom is not None and c.max < range_bottom:
 					continue
-			if hashlabel and d.hashlabel != hashlabel:
+			if hashlabel is not None and d.hashlabel != hashlabel:
 				if not rehash:
-					raise DatasetUsageError("%s has hashlabel %s, not %s" % (d, d.hashlabel, hashlabel,))
+					raise DatasetUsageError("%s has hashlabel %r, not %r" % (d, d.hashlabel, hashlabel,))
 				if hashlabel not in d.columns:
-					raise DatasetUsageError("Can't rehash %s on non-existant column %s" % (d, hashlabel,))
+					raise DatasetUsageError("Can't rehash %s on non-existant column %r" % (d, hashlabel,))
 				rehash_on = hashlabel
 			else:
-				rehash_on = False
+				rehash_on = None
 			if sliceno is None:
 				if slice_first:
 					for first_slice in builtins.range(slices):
@@ -610,7 +610,7 @@ class Dataset(unicode):
 					first_slice = 0
 				for ix in builtins.range(first_slice, slices):
 					# Ignore rehashing - order is generally not guaranteed with sliceno=None
-					to_iter.append((d, ix, False,))
+					to_iter.append((d, ix, None,))
 			else:
 				to_iter.append((d, sliceno, rehash_on,))
 			slice_first = False
@@ -711,7 +711,7 @@ class Dataset(unicode):
 			return
 		from accelerator.statmsg import status
 		def fmt_dsname(d, sliceno, rehash):
-			if rehash:
+			if rehash is not None:
 				return d + ':REHASH'
 			else:
 				return '%s:%s' % (d, sliceno)
@@ -781,14 +781,14 @@ class Dataset(unicode):
 						continue
 					except StopIteration:
 						return
-				it = d._iterator(None if rehash else sliceno, columns, copy_mode=copy_mode)
+				it = d._iterator(None if rehash is not None else sliceno, columns, copy_mode=copy_mode)
 				for ix, trans in translators.items():
 					it[ix] = imap(trans, it[ix])
 				if want_tuple:
 					it = izip(*it)
 				else:
 					it = it[0]
-				if rehash:
+				if rehash is not None:
 					it = d._hashfilter(sliceno, rehash, it)
 				if translation_func:
 					it = imap(translation_func, it)
@@ -798,7 +798,7 @@ class Dataset(unicode):
 						if has_range_column:
 							it = ifilter(range_f, it)
 						else:
-							if rehash:
+							if rehash is not None:
 								filter_it = d._hashfilter(sliceno, rehash, d._column_iterator(None, range_k))
 							else:
 								filter_it = d._column_iterator(sliceno, range_k)
@@ -821,10 +821,10 @@ class Dataset(unicode):
 	def new(columns, filenames, lines, minmax={}, filename=None, hashlabel=None, caption=None, previous=None, name='default'):
 		"""columns = {"colname": "type"}, lines = [n, ...] or {sliceno: n}"""
 		columns = {uni(k): (uni(v[0]), bool(v[1])) if isinstance(v, tuple) else (uni(v), False) for k, v in columns.items()}
-		if hashlabel:
+		if hashlabel is not None:
 			hashlabel = uni(hashlabel)
 			if hashlabel not in columns:
-				raise DatasetUsageError("Hashlabel (%s) does not exist" % (hashlabel,))
+				raise DatasetUsageError("Hashlabel (%r) does not exist" % (hashlabel,))
 		res = Dataset(_new_dataset_marker, name)
 		res._data.lines = list(Dataset._linefixup(lines))
 		res._data.hashlabel = hashlabel
@@ -846,8 +846,8 @@ class Dataset(unicode):
 		hashlabel = uni(hashlabel)
 		if hashlabel_override:
 			self._data.hashlabel = hashlabel
-		elif hashlabel and self.hashlabel != hashlabel:
-			raise DatasetUsageError("Hashlabel mismatch %s != %s" % (self.hashlabel, hashlabel,))
+		elif hashlabel is not None and self.hashlabel != hashlabel:
+			raise DatasetUsageError("Hashlabel mismatch %r != %r" % (self.hashlabel, hashlabel,))
 		if self._linefixup(lines) != self.lines:
 			raise DatasetUsageError("New columns don't have the same number of lines as parent columns")
 		columns = {uni(k): (uni(v[0]), bool(v[1])) if isinstance(v, tuple) else (uni(v), False) for k, v in columns.items()}
@@ -1100,9 +1100,9 @@ class DatasetWriter(object):
 			if parent:
 				obj.parent = Dataset(parent)
 				if not hashlabel_override:
-					if obj.hashlabel:
+					if obj.hashlabel is not None:
 						if obj.hashlabel != obj.parent.hashlabel:
-							raise DatasetUsageError("Hashlabel mismatch %s != %s" % (obj.hashlabel, obj.parent.hashlabel,))
+							raise DatasetUsageError("Hashlabel mismatch %r != %r" % (obj.hashlabel, obj.parent.hashlabel,))
 					elif obj.parent.hashlabel in columns:
 						obj.hashlabel = obj.parent.hashlabel
 				parent_cols = obj.parent.columns
@@ -1192,7 +1192,7 @@ class DatasetWriter(object):
 	def enable_hash_discard(self):
 		"""Make the write functions silently discard data that does not
 		hash to the current slice."""
-		if not self.hashlabel:
+		if self.hashlabel is None:
 			raise DatasetUsageError("Can't enable hash discard without hashlabel")
 		if self._started != 1:
 			raise DatasetUsageError("Call enable_hash_discard after set_slice")
@@ -1201,8 +1201,8 @@ class DatasetWriter(object):
 	def _mkwriters(self, sliceno, filtered=True):
 		if not self.columns:
 			raise DatasetUsageError("No columns in dataset")
-		if self.hashlabel and self.hashlabel not in self.columns:
-			raise DatasetUsageError("Hashed column (%s) missing" % (self.hashlabel,))
+		if self.hashlabel is not None and self.hashlabel not in self.columns:
+			raise DatasetUsageError("Hashed column (%r) missing" % (self.hashlabel,))
 		self._started = 2 - filtered
 		if self.meta_only:
 			return
@@ -1227,7 +1227,7 @@ class DatasetWriter(object):
 		w_l = [self.writers[c].write for c in self._order]
 		w = {k: w.write for k, w in self.writers.items()}
 		wrong_slice_msg = "Attempted to write data for wrong slice"
-		if hl:
+		if hl is not None:
 			hw = w.pop(hl)
 			w_i = w.items()
 			def write_dict(values):
@@ -1257,14 +1257,14 @@ class DatasetWriter(object):
 			f.append(' %s(%s)' % (w_names[0], names[0],))
 			f_list.append(' %s(values[0])' % (w_names[0],))
 		else:
-			if hl:
+			if hl is not None:
 				f.append(' if %s(%s):' % (w_names[hix], names[hix],))
 				f_list.append(' if %s(values[%d]):' % (w_names[hix], hix,))
 			for ix in range(len(names)):
 				if ix != hix:
 					f.append('  %s(%s)' % (w_names[ix], names[ix],))
 					f_list.append('  %s(values[%d])' % (w_names[ix], ix,))
-			if hl and not discard:
+			if hl is not None and not discard:
 				f.append(' else: raise %s(%r)' % (errcls, wrong_slice_msg,))
 				f_list.append(' else: raise %s(%r)' % (errcls, wrong_slice_msg,))
 		eval(compile('\n'.join(f), '<DatasetWriter generated write>', 'exec'), w_d)
@@ -1298,7 +1298,7 @@ class DatasetWriter(object):
 				raise DatasetUsageError("Only use a split writer in analysis together with for_single_slice")
 		if self._started == 1:
 			raise DatasetUsageError("Don't use both a split writer and set_slice")
-		if self.parent and self.parent.hashlabel and not self.hashlabel:
+		if self.parent and self.parent.hashlabel is not None and self.hashlabel is None:
 			raise DatasetUsageError("Can't use a split writer on hashed dataset when not writing the hash column.")
 		used_names = set()
 		names = [_clean_name(n, used_names) for n in self._order]
@@ -1319,7 +1319,7 @@ class DatasetWriter(object):
 		w_d = {}
 		w_d[name_writers] = [d2l(d) for d in self._allwriters]
 		w_d[name_next] = next
-		if hl:
+		if hl is not None:
 			w_d[name_hsh] = self._allwriters[0][hl].hash
 			prefix = '%s = %s[%s(' % (name_w_l, name_writers, name_hsh,)
 			hix = self._order.index(hl)

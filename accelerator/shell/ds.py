@@ -36,7 +36,7 @@ MINMAXWIDTH = 13 # minimum number of characters reserved for min/max values
 COLUMNS, LINES = terminal_size()
 
 def quote(x):
-	if (x is None) or ({' ', '"', "'"} & set(x)):
+	if not x or ({' ', '"', "'"} & set(x)):
 		return repr(x)
 	else:
 		return x
@@ -131,7 +131,7 @@ def main(argv, cfg):
 			print("    Filename:", quote(ds.filename))
 		if ds.previous:
 			print("    Previous:", quote(ds.previous))
-		if ds.hashlabel:
+		if ds.hashlabel is not None:
 			print("    Hashlabel:", quote(ds.hashlabel))
 
 		def prettyminmax(minval, maxval):
