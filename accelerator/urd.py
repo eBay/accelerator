@@ -420,9 +420,16 @@ class DB:
 def auth(user, passphrase):
 	return authdict.get(user) == passphrase or (allow_passwordless and user not in authdict)
 
+def timestamp404(timestamp):
+	try:
+		return TimeStamp(timestamp)
+	except AssertionError as e:
+		raise bottle.HTTPError(404, str(e))
+
 @route('/<user>/<build>/since/<timestamp>')
 def since(user, build, timestamp):
 	key = user + '/' + build
+	timestamp = timestamp404(timestamp)
 	res = db.since(key, timestamp)
 	if 'captions' in request.query:
 		res = [(ts, (db.get(key, ts) or {}).get('caption', ''),) for ts in res]
@@ -461,10 +468,10 @@ def single(user, build, timestamp):
 			else:
 				cmpfunc = operator.gt
 				timestamp = timestamp[1:]
-		timestamp = TimeStamp(timestamp)
+		timestamp = timestamp404(timestamp)
 		return db.limited_endpoint(key, timestamp, cmpfunc, minmaxfunc)
 	else:
-		timestamp = TimeStamp(timestamp)
+		timestamp = timestamp404(timestamp)
 		return db.get(key, timestamp)
 
 
@@ -486,6 +493,7 @@ def add():
 def truncate(user, build, timestamp):
 	if user != request.auth[0]:
 		abort(401, "Error:  user does not match authentication!")
+	timestamp = timestamp404(timestamp)
 	return db.truncate(user + '/' + build, timestamp)
 
 
