@@ -73,6 +73,7 @@ class WaitressServer(bottle.ServerAdapter):
 def call(url, data=None, fmt=json_decode, headers={}, server_name='server'):
 	if data is not None and not isinstance(data, bytes):
 		data = json_encode(data)
+	err = None
 	req = Request(url, data=data, headers=headers)
 	for attempt in (1, 2, 3, 4, 5):
 		resp = None
@@ -99,18 +100,19 @@ def call(url, data=None, fmt=json_decode, headers={}, server_name='server'):
 				except Exception:
 					pass
 		except HTTPError as e:
-			if server_name == 'urd':
-				if e.code == 401:
-					raise UrdPermissionError()
-				if e.code == 409:
-					raise UrdConflictError()
 			if resp is None and e.fp:
 				resp = e.fp.read()
 				if PY3:
 					resp = resp.decode('utf-8')
+			msg = '%s says %d: %s' % (server_name, e.code, resp,)
+			if server_name == 'urd' and 400 <= e.code < 500:
+				if e.code == 401:
+					err = UrdPermissionError()
+				if e.code == 409:
+					err = UrdConflictError()
+				break
 			if server_name == 'server' and e.code != 503 and resp:
 				return fmt(resp)
-			msg = '%s says %d: %s' % (server_name, e.code, resp,)
 		except URLError:
 			# Don't say anything the first times, because the output
 			# tests get messed up if this happens during them.
@@ -126,7 +128,10 @@ def call(url, data=None, fmt=json_decode, headers={}, server_name='server'):
 			time.sleep(attempt / 15)
 			if msg:
 				print('Retrying (%d/4).' % (attempt,), file=sys.stderr)
-	print('Giving up.', file=sys.stderr)
+	else:
+		print('Giving up.', file=sys.stderr)
+	if err:
+		raise err
 	if server_name == 'urd':
 		raise UrdError(msg)
 	else:
