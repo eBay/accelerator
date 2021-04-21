@@ -25,6 +25,7 @@ from os import environ
 from accelerator.build import JobList
 from accelerator.job import Job
 from accelerator.shell.parser import split_tildes, urd_call_w_tildes
+from accelerator.error import UrdError
 from accelerator.compat import url_quote
 
 
@@ -100,7 +101,12 @@ def main(argv, cfg):
 		if len(path) != 3 and entry is not None:
 			print("path %r doesn't take an entry (%r)" % ('/'.join(path), entry,), file=sys.stderr)
 			return None, None
-		return urd_call_w_tildes(cfg, '/'.join(path), tildes), entry
+		try:
+			res = urd_call_w_tildes(cfg, '/'.join(path), tildes)
+		except UrdError as e:
+			print(e, file=sys.stderr)
+			res = None
+		return res, entry
 	for path in argv or ('/',):
 		res, entry = urd_get(path)
 		if not res:

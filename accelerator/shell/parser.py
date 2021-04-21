@@ -29,7 +29,7 @@ import re
 
 from accelerator.job import WORKDIRS
 from accelerator.job import Job
-from accelerator.error import NoSuchJobError, NoSuchDatasetError, NoSuchWorkdirError
+from accelerator.error import NoSuchJobError, NoSuchDatasetError, NoSuchWorkdirError, UrdError
 from accelerator.unixhttp import call
 from accelerator.compat import url_quote
 
@@ -134,7 +134,10 @@ def _name2job(cfg, n):
 		if len(path) < 3:
 			path.append('latest')
 		path = '/'.join(map(url_quote, path))
-		urdres = urd_call_w_tildes(cfg, path, tildes)
+		try:
+			urdres = urd_call_w_tildes(cfg, path, tildes)
+		except UrdError:
+			urdres = None
 		if not urdres:
 			raise JobNotFound('urd list %r not found' % (a[0],))
 		from accelerator.build import JobList
