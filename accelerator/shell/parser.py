@@ -23,6 +23,7 @@
 
 from __future__ import division, print_function
 
+import sys
 from os.path import join, exists, realpath, split
 from os import readlink, environ
 import re
@@ -91,18 +92,18 @@ def job_up(job, count):
 	return job
 
 def urd_call_w_tildes(cfg, path, tildes):
-	res = call(cfg.urd + '/' + path, server_name='urd')
+	res = call(cfg.urd + '/' + path, server_name='urd', retries=0, quiet=True)
 	if tildes:
 		up = sum(count for char, count in tildes if char == '^')
 		down = sum(count for char, count in tildes if char == '~')
 		tildes = down - up
 		if tildes:
 			key = res.user + '/' + res.build
-			timestamps = call(cfg.urd + '/' + key + '/since/0', server_name='urd')
+			timestamps = call(cfg.urd + '/' + key + '/since/0', server_name='urd', retries=0, quiet=True)
 			pos = timestamps.index(res.timestamp) + tildes
 			if pos < 0 or pos >= len(timestamps):
 				return None
-			res = call(cfg.urd + '/' + key + '/' + timestamps[pos], server_name='urd')
+			res = call(cfg.urd + '/' + key + '/' + timestamps[pos], server_name='urd', retries=0, quiet=True)
 	return res
 
 def name2job(cfg, n):
@@ -136,7 +137,8 @@ def _name2job(cfg, n):
 		path = '/'.join(map(url_quote, path))
 		try:
 			urdres = urd_call_w_tildes(cfg, path, tildes)
-		except UrdError:
+		except UrdError as e:
+			print(e, file=sys.stderr)
 			urdres = None
 		if not urdres:
 			raise JobNotFound('urd list %r not found' % (a[0],))

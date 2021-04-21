@@ -70,12 +70,12 @@ class WaitressServer(bottle.ServerAdapter):
 		server.run()
 
 
-def call(url, data=None, fmt=json_decode, headers={}, server_name='server'):
+def call(url, data=None, fmt=json_decode, headers={}, server_name='server', retries=4, quiet=False):
 	if data is not None and not isinstance(data, bytes):
 		data = json_encode(data)
 	err = None
 	req = Request(url, data=data, headers=headers)
-	for attempt in (1, 2, 3, 4, 5):
+	for attempt in range(1, retries + 2):
 		resp = None
 		try:
 			r = urlopen(req)
@@ -116,20 +116,21 @@ def call(url, data=None, fmt=json_decode, headers={}, server_name='server'):
 		except URLError:
 			# Don't say anything the first times, because the output
 			# tests get messed up if this happens during them.
-			if attempt < 3:
+			if attempt < retries - 1:
 				msg = None
 			else:
 				msg = 'error contacting ' + server_name
 		except ValueError as e:
 			msg = 'Bad data from %s, %s: %s' % (server_name, type(e).__name__, e,)
-		if msg:
+		if msg and not quiet:
 			print(msg, file=sys.stderr)
-		if attempt < 5:
+		if attempt < retries + 1:
 			time.sleep(attempt / 15)
-			if msg:
-				print('Retrying (%d/4).' % (attempt,), file=sys.stderr)
+			if msg and not quiet:
+				print('Retrying (%d/%d).' % (attempt, retries,), file=sys.stderr)
 	else:
-		print('Giving up.', file=sys.stderr)
+		if not quiet:
+			print('Giving up.', file=sys.stderr)
 	if err:
 		raise err
 	if server_name == 'urd':
