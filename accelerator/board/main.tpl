@@ -131,7 +131,7 @@
 					resultEl.classList.add('hidden');
 				}
 				resultEl.appendChild(hide);
-				resultEl.appendChild(sizewrap(name, data));
+				resultEl.appendChild(sizewrap(name, data, size));
 				prev.after(resultEl);
 				prev = resultEl;
 			}
@@ -162,13 +162,15 @@
 			el.dataset.name = '';
 		}
 	};
-	const sizewrap = function (name, data) {
+	const sizewrap = function (name, data, size) {
 		if (data.size < 5000000) return load(name, data);
+		size.disabled = true;
 		const clickEl = document.createElement('DIV');
 		clickEl.className = 'clickme';
 		clickEl.innerText = 'Click to load ' + data.size + ' bytes';
 		clickEl.onclick = function () {
 			clickEl.parentNode.replaceChild(load(name, data), clickEl);
+			size.disabled = false;
 		};
 		return clickEl;
 	};
