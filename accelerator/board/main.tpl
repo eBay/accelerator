@@ -111,17 +111,7 @@
 				const size = document.createElement('INPUT');
 				size.type = 'submit';
 				size.value = 'big';
-				size.onclick = function () {
-					const el = resultEl.querySelector('div');
-					if (el.className) {
-						size.value = 'big';
-						el.className = '';
-					} else {
-						size.value = 'small';
-						el.className = 'big';
-						el.scrollIntoView({behavior: 'smooth', block: 'end'});
-					}
-				};
+				size.disabled = true;
 				resultEl.appendChild(size);
 				const hide = document.createElement('INPUT');
 				hide.type = 'submit';
@@ -163,29 +153,14 @@
 		}
 	};
 	const sizewrap = function (name, data, size) {
-		if (data.size < 5000000) return load(name, data);
-		size.disabled = true;
+		if (data.size < 5000000) return load(name, data, size);
 		const clickEl = document.createElement('DIV');
 		clickEl.className = 'clickme';
 		clickEl.innerText = 'Click to load ' + data.size + ' bytes';
 		clickEl.onclick = function () {
-			clickEl.parentNode.replaceChild(load(name, data), clickEl);
-			size.disabled = false;
+			clickEl.parentNode.replaceChild(load(name, data, size), clickEl);
 		};
 		return clickEl;
-	};
-	const togglefull = function (event) {
-		const img = event.target;
-		const el = img.parentNode;
-		const size = el.parentNode.querySelector('input');
-		if (img.naturalHeight > img.height) {
-			el.className = 'full';
-			size.value = 'small';
-			img.scrollIntoView({behavior: 'smooth'});
-		} else if (el.className) {
-			el.className = '';
-			size.value = 'big';
-		}
 	};
 	const name2ext = function (name) {
 		const parts = name.split('.');
@@ -195,7 +170,7 @@
 		}
 		return ext;
 	}
-	const load = function (name, data) {
+	const load = function (name, data, size) {
 		const fileUrl = '/results/' + encodeURIComponent(name) + '?ts=' + data.ts;
 		const ext = name2ext(name);
 		const container = document.createElement('DIV');
@@ -209,9 +184,41 @@
 		};
 		let fileEl;
 		let stdhandling = false;
+		size.disabled = false;
+		size.onclick = function () {
+			if (container.className) {
+				size.value = 'big';
+				container.className = '';
+			} else {
+				size.value = 'small';
+				container.className = 'big';
+				container.scrollIntoView({behavior: 'smooth', block: 'end'});
+			}
+		};
 		if (imageExts.has(ext)) {
 			fileEl = document.createElement('IMG');
-			fileEl.onclick = togglefull;
+			fileEl.onclick = function () {
+				if (fileEl.naturalHeight > fileEl.height) {
+					if (container.className) {
+						container.className = 'full';
+						size.value = 'small';
+						fileEl.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+					} else {
+						container.className = 'big';
+						container.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+						if (fileEl.naturalHeight > fileEl.height) {
+							size.value = 'bigger';
+						} else {
+							size.value = 'small';
+						}
+					}
+				} else {
+					size.value = 'big';
+					container.className = '';
+					fileEl.className = '';
+				}
+			};
+			size.onclick = fileEl.onclick;
 			stdhandling = true;
 		} else if (videoExts.has(ext)) {
 			fileEl = document.createElement('VIDEO');
