@@ -278,9 +278,9 @@ def printdesc(name, description, columns):
 					break
 				description = '%s %s' % (description, part,)
 			description += ' ...'
-		print('  %s: %s' % (name, description,))
+		print('  \x1b[1m%s\x1b[m: %s' % (name, description,))
 	else:
-		print('  %s' % (name,))
+		print('  \x1b[1m%s\x1b[m' % (name,))
 
 def main():
 	# As of python 3.8 the default start_method is 'spawn' on macOS.
