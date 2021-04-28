@@ -1,6 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2020 Carl Drougge                                          #
+# Modifications copyright (c) 2021 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -22,6 +23,7 @@ from __future__ import unicode_literals
 
 from accelerator.compat import terminal_size
 from accelerator.unixhttp import call
+from accelerator.shell import printdesc
 from collections import defaultdict
 
 def main(argv, cfg):
@@ -92,18 +94,4 @@ def main(argv, cfg):
 		for package, names in sorted(by_package.items()):
 			print('%s:' % (package,))
 			for name in names:
-				max_len = columns - 4 - len(name)
-				description = methods[name].description.text.split('\n')[0]
-				if description and max_len > 10:
-					if len(description) > max_len:
-						max_len -= 4
-						parts = description.split()
-						description = ''
-						for part in parts:
-							if len(description) + len(part) + 1 > max_len:
-								break
-							description = '%s %s' % (description, part,)
-						description += ' ...'
-					print('  %s: %s' % (name, description,))
-				else:
-					print('  %s' % (name,))
+				printdesc(name, methods[name].description.text.split('\n')[0], columns)

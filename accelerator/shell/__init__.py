@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2019-2021 Carl Drougge                                     #
-# Modifications copyright (c) 2020 Anders Berkeman                         #
+# Modifications copyright (c) 2020-2021 Anders Berkeman                    #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -265,6 +265,22 @@ def parse_user_config():
 		if 'alias' in cfg:
 			return cfg['alias']
 	return None
+
+def printdesc(name, description, columns):
+	max_len = columns - 4 - len(name)
+	if description and max_len > 10:
+		if len(description) > max_len:
+			max_len -= 4
+			parts = description.split()
+			description = ''
+			for part in parts:
+				if len(description) + len(part) + 1 > max_len:
+					break
+				description = '%s %s' % (description, part,)
+			description += ' ...'
+		print('  %s: %s' % (name, description,))
+	else:
+		print('  %s' % (name,))
 
 def main():
 	# As of python 3.8 the default start_method is 'spawn' on macOS.
