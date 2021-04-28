@@ -163,6 +163,11 @@ def cmd_server(argv):
 		print(e)
 cmd_server.help = '''run the main server'''
 
+def cmd_script(argv):
+	from accelerator.shell.script import main
+	return main(argv, cfg)
+cmd_script.help = '''information about build scripts'''
+
 def cmd_init(argv):
 	from accelerator.shell.init import main
 	main(argv)
@@ -229,6 +234,7 @@ COMMANDS = {
 	'method': cmd_method,
 	'run': cmd_run,
 	'server': cmd_server,
+	'script': cmd_script,
 	'urd': cmd_urd,
 	'urd-server': cmd_urd_server,
 	'version': cmd_version,
