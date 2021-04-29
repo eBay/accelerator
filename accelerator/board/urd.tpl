@@ -1,7 +1,7 @@
 {{ ! template('head', title='urd for ' + project) }}
 
 	<h1>urd for {{ project }}</h1>
-	<ul>
+	<ul class="urdlist">
 	% for thing in lists:
 		<li>
 			<a href="/urd/{{ thing }}">{{ thing }}</a>

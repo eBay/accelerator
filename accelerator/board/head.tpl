@@ -334,6 +334,10 @@
 			color: var(--fg-weak);
 		}
 
+		ul.urdlist > li > a:first-child {
+			margin-right: 1em;
+		}
+
 		table.job-table {
 			border-spacing: 0 2px;
 			clear: both;
