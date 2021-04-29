@@ -65,7 +65,7 @@ class WaitressServer(bottle.ServerAdapter):
 		if self.port:
 			kw = dict(host=self.host, port=self.port)
 		else:
-			kw = dict(unix_socket=self.host)
+			kw = dict(unix_socket=self.host, unix_socket_perms='777')
 		server = create_server(handler, threads=12, **kw)
 		server.run()
 
