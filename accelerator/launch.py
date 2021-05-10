@@ -384,7 +384,7 @@ def execute_process(workdir, jobid, slices, concurrency, result_directory, commo
 	return None, (prof, saved_files, _record)
 
 
-def run(workdir, jobid, slices, concurrency, result_directory, common_directory, input_directory, index=None, workdirs=None, server_url=None, subjob_cookie=None, parent_pid=0, prof_fd=-1):
+def run(workdir, jobid, slices, concurrency, result_directory, common_directory, input_directory, index=None, workdirs=None, server_url=None, subjob_cookie=None, parent_pid=0, prof_fd=-1, debuggable=False):
 	global g_allesgut, _prof_fd
 	_prof_fd = prof_fd
 	try:

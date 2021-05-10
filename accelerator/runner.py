@@ -328,7 +328,8 @@ def launch_start(data):
 		child = os.fork()
 		if not child: # we are the child
 			try:
-				os.setpgrp() # this pgrp is killed if the job fails
+				if not data['debuggable']:
+					os.setpgrp() # this pgrp is killed if the job fails
 				os.close(prof_r)
 				keep = [
 					prof_w,
@@ -508,7 +509,7 @@ def new_runners(config, used_versions):
 				# workaround for python 2 server running python 3 methods
 				runner_fn = runner_fn[:-1]
 			cmd = [py_exe, runner_fn, str(sock_c.fileno()), sys.path[0]]
-			pid = run(cmd, [sock_p.fileno()], [sock_c.fileno()])
+			pid = run(cmd, [sock_p.fileno()], [sock_c.fileno()], no_stdin=not config.debuggable)
 			sock_c.close()
 			runners[k] = Runner(pid=pid, sock=sock_p, python=py_exe)
 			exe2r[py_exe] = runners[k]

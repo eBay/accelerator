@@ -357,7 +357,10 @@ def main(argv, config):
 
 	parser = ArgumentParser(prog=argv.pop(0))
 	parser.add_argument('--debug', action='store_true')
+	parser.add_argument('--debuggable', action='store_true', help='make breakpoint() work in methods. note that this makes a failing method kill the whole server.')
 	options = parser.parse_args(argv)
+
+	config.debuggable = options.debuggable
 
 	# all forks belong to the same happy family
 	try:

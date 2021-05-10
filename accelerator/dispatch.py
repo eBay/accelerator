@@ -54,7 +54,7 @@ def close_fds(keep):
 		except OSError:
 			pass
 
-def run(cmd, close_in_child, keep_in_child):
+def run(cmd, close_in_child, keep_in_child, no_stdin=True):
 	child = os.fork()
 	if child:
 		return child
@@ -64,10 +64,11 @@ def run(cmd, close_in_child, keep_in_child):
 	keep_in_child.add(int(os.getenv('BD_STATUS_FD')))
 	keep_in_child.add(int(os.getenv('BD_TERM_FD')))
 	close_fds(keep_in_child)
-	# unreadable stdin - less risk of stuck jobs
-	devnull = os.open('/dev/null', os.O_RDONLY)
-	os.dup2(devnull, 0)
-	os.close(devnull)
+	if no_stdin:
+		# unreadable stdin - less risk of stuck jobs
+		devnull = os.open('/dev/null', os.O_RDONLY)
+		os.dup2(devnull, 0)
+		os.close(devnull)
 	if PY3:
 		keep_in_child.update([1, 2])
 		for fd in keep_in_child:
@@ -96,6 +97,7 @@ def launch(workdir, setup, config, Methods, active_workdirs, slices, concurrency
 		server_url=server_url,
 		subjob_cookie=subjob_cookie,
 		parent_pid=parent_pid,
+		debuggable=config.debuggable,
 	)
 	from accelerator.runner import runners
 	runner = runners[Methods.db[method].version]
