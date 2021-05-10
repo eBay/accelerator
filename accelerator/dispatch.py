@@ -54,12 +54,10 @@ def close_fds(keep):
 		except OSError:
 			pass
 
-def run(cmd, close_in_child, keep_in_child, with_pgrp=True):
+def run(cmd, close_in_child, keep_in_child):
 	child = os.fork()
 	if child:
 		return child
-	if with_pgrp:
-		os.setpgrp() # this pgrp is killed if the job fails
 	for fd in close_in_child:
 		os.close(fd)
 	keep_in_child = set(keep_in_child)

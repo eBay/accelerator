@@ -508,7 +508,7 @@ def new_runners(config, used_versions):
 				# workaround for python 2 server running python 3 methods
 				runner_fn = runner_fn[:-1]
 			cmd = [py_exe, runner_fn, str(sock_c.fileno()), sys.path[0]]
-			pid = run(cmd, [sock_p.fileno()], [sock_c.fileno()], False)
+			pid = run(cmd, [sock_p.fileno()], [sock_c.fileno()])
 			sock_c.close()
 			runners[k] = Runner(pid=pid, sock=sock_p, python=py_exe)
 			exe2r[py_exe] = runners[k]
