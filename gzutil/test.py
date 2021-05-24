@@ -54,7 +54,7 @@ if version_info > (3, 6, 0):
 	tm1 = tm1.replace(fold=1)
 
 def forstrings(name):
-	return name.endswith("Lines") or name in ("Bytes", "Ascii", "Unicode")
+	return name in ("Bytes", "Ascii", "Unicode")
 def can_minmax(name):
 	return 'Complex' not in name and not forstrings(name)
 
@@ -69,9 +69,6 @@ for name, data, bad_cnt, res_data in (
 	("Complex64"     , ["0", float, 0   , 4.2+1e42j, inf, ninf, complex(inf, ninf), None], 2, [0+0j, 4.2+1e42j, inf, ninf, complex(inf, ninf), None]),
 	("Complex32"     , ["0", float, l(0), 4.2+1e42j, inf, ninf, complex(inf, ninf), None], 2, [0+0j, complex(4.199999809265137, inf), inf, ninf, complex(inf, ninf), None]),
 	("Bool"          , ["0", bool, 0.0, True, False, 0, l(1), None], 2, [False, True, False, False, True, None]),
-	("BytesLines"    , [42, str, b"\n", u"a", b"a", b"foo bar baz", None], 4, [b"a", b"foo bar baz", None]),
-	("AsciiLines"    , [42, str, b"\n", u"foo\xe4", b"foo\xe4", u"a", b"foo bar baz", None], 5, [str("a"), str("foo bar baz"), None]),
-	("UnicodeLines"  , [42, str, u"\n", b"a", u"a", u"foo bar baz", None], 4, [u"a", u"foo bar baz", None]),
 	("Bytes"         , [42, str, u"a", b"\n", b"\0", b"", None, b"long" * 1000, b"a\r", b"a\r\n", b"a\nb\0c"], 3, [b"\n", b"\0", b"", None, b"long" * 1000, b"a\r", b"a\r\n", b"a\nb\0c"]),
 	("Ascii"         , [42, str, u"foo\xe4", u"a", b"\n", b"\0", b"", None, b"long" * 1000, b"a\r", b"a\r\n", u"a\nb\0c"], 3, [str("a"), str("\n"), str("\0"), str(""), None, str("long" * 1000), str("a\r"), str("a\r\n"), str("a\nb\0c")]),
 	("Unicode"         , [42, str, b"a", u"foo\xe4", u"\n", u"\0", u"", None, u"long" * 1000, u"a\r", "a\r\n", "a\nb\0c"], 3, [u"foo\xe4", u"\n", u"\0", u"", None, u"long" * 1000, u"a\r", u"a\r\n", u"a\nb\0c"]),
@@ -238,7 +235,6 @@ for name, data, bad_cnt, res_data in (
 print("Empty and None values in stringlike types")
 for name, value in (
 	("Bytes", b""), ("Ascii", ""), ("Unicode", ""),
-	("BytesLines", b""), ("AsciiLines", ""), ("UnicodeLines", ""),
 ):
 	with getattr(gzutil, "GzWrite" + name)(TMP_FN) as fh:
 		fh.write(value)
@@ -256,17 +252,17 @@ for v in (None, "", b"", 0, 0.0, False,):
 	assert gzutil.hash(v) == 0, "%r doesn't hash to 0" % (v,)
 print("Hash testing, strings")
 for v in ("", "a", "0", "foo", "a slightly longer string", "\0", "a\0b",):
-	l_u = gzutil.GzWriteUnicodeLines.hash(v)
-	l_a = gzutil.GzWriteAsciiLines.hash(v)
-	l_b = gzutil.GzWriteBytesLines.hash(v.encode("utf-8"))
+	l_u = gzutil.GzWriteUnicode.hash(v)
+	l_a = gzutil.GzWriteAscii.hash(v)
+	l_b = gzutil.GzWriteBytes.hash(v.encode("utf-8"))
 	u = gzutil.GzWriteUnicode.hash(v)
 	a = gzutil.GzWriteAscii.hash(v)
 	b = gzutil.GzWriteBytes.hash(v.encode("utf-8"))
 	assert u == l_u == a == l_a == b == l_b, "%r doesn't hash the same" % (v,)
 assert gzutil.hash(b"\xe4") != gzutil.hash("\xe4"), "Unicode hash fail"
-assert gzutil.GzWriteBytesLines.hash(b"\xe4") != gzutil.GzWriteUnicodeLines.hash("\xe4"), "Unicode hash fail"
+assert gzutil.GzWriteBytes.hash(b"\xe4") != gzutil.GzWriteUnicode.hash("\xe4"), "Unicode hash fail"
 try:
-	gzutil.GzWriteAsciiLines.hash(b"\xe4")
+	gzutil.GzWriteAscii.hash(b"\xe4")
 	raise Exception("Ascii.hash accepted non-ascii")
 except ValueError:
 	pass
@@ -274,52 +270,6 @@ print("Hash testing, numbers")
 for v in (0, 1, 2, 9007199254740991, -42):
 	assert gzutil.GzWriteInt64.hash(v) == gzutil.GzWriteFloat64.hash(float(v)), "%d doesn't hash the same" % (v,)
 	assert gzutil.GzWriteInt64.hash(v) == gzutil.GzWriteNumber.hash(v), "%d doesn't hash the same" % (v,)
-
-print("BOM test")
-def test_read_bom(num, prefix=""):
-	with gzutil.GzBytesLines(TMP_FN) as fh:
-		data = list(fh)
-		assert data == [prefix.encode("utf-8") + b"\xef\xbb\xbfa", b"\xef\xbb\xbfb"], (num, data)
-	with gzutil.GzBytesLines(TMP_FN, strip_bom=True) as fh:
-		data = list(fh)
-		assert data == [prefix.encode("utf-8") + b"a", b"\xef\xbb\xbfb"], (num, data)
-	with gzutil.GzUnicodeLines(TMP_FN) as fh:
-		data = list(fh)
-		assert data == [prefix + "\ufeffa", "\ufeffb"], (num, data)
-	with gzutil.GzUnicodeLines(TMP_FN, strip_bom=True) as fh:
-		data = list(fh)
-		assert data == [prefix + "a", "\ufeffb"], (num, data)
-	with gzutil.GzUnicodeLines(TMP_FN, "latin-1") as fh:
-		data = list(fh)
-		assert data == [prefix.encode("utf-8").decode("latin-1") + u"\xef\xbb\xbfa", u"\xef\xbb\xbfb"], (num, data)
-	with gzutil.GzUnicodeLines(TMP_FN, "latin-1", strip_bom=True) as fh:
-		data = list(fh)
-		assert data == [prefix.encode("utf-8").decode("latin-1") + u"a", u"\xef\xbb\xbfb"], (num, data)
-	with gzutil.GzUnicodeLines(TMP_FN, "ascii", "ignore") as fh:
-		data = list(fh)
-		assert data == ["a", "b"], (num, data)
-	if version_info[0] > 2:
-		with gzutil.GzAsciiLines(TMP_FN) as fh:
-			try:
-				next(fh)
-				raise Exception("GzAsciiLines allowed non-ascii in python3")
-			except ValueError:
-				pass
-
-with open(TMP_FN, "wb") as fh:
-	fh.write(b"\xef\xbb\xbfa\n\xef\xbb\xbfb")
-test_read_bom(0)
-with gzutil.GzWriteUnicodeLines(TMP_FN, write_bom=True) as fh:
-	fh.write("a")
-	fh.write("\ufeffb")
-test_read_bom(1)
-with gzutil.GzWriteUnicodeLines(TMP_FN, write_bom=True) as fh:
-	fh.write("\ufeffa")
-	fh.write("\ufeffb")
-test_read_bom(2, "\ufeff")
-with gzutil.GzWriteUnicodeLines(TMP_FN) as fh:
-	fh.write("a")
-assert next(gzutil.GzBytesLines(TMP_FN)) == b"a", "GzWriteUnicodeLines writes BOM when not requested"
 
 print("Append test")
 # And finally verify appending works as expected.
@@ -330,38 +280,8 @@ with gzutil.GzWriteInt64(TMP_FN, mode="a") as fh:
 with gzutil.GzInt64(TMP_FN) as fh:
 	assert list(fh) == [42, 18]
 
-print("Untyped writer test")
-with gzutil.GzWrite(TMP_FN) as fh:
-	class SubString(bytes): pass
-	for v in (b"apa", "beta", 42, None, SubString(b"\n"), b"foo"):
-		try:
-			fh.write(v)
-			assert isinstance(v, bytes), "GzWrite accepted %r" % (type(v),)
-		except ValueError:
-			assert not isinstance(v, bytes), "GzWrite doesn't accept %r" % (type(v),)
-			pass
-with gzutil.GzAsciiLines(TMP_FN) as fh:
-	res = list(fh)
-	assert res == ["apa", "foo"], "Failed to read back GzWrite written stuff: %r" % (res,)
-
-print("Line boundary test")
-Z = 128 * 1024 # the internal buffer size in gzutil
-a = [
-	"x" * (Z - 2) + "a",         # \n at end of buffer
-	"X" * (Z - 1) + "A",         # \n at start of 2nd buffer
-	"y" * (Z - 4) + "b",         # leave one char in 1st buffer
-	"Y" * (Z * 2 - 1) + "B",     # \n at start of 3rd buffer
-	"12345" * Z + "z" * (Z - 1), # \n at end of 6th buffer
-	"Z",
-]
-with gzutil.GzWriteAsciiLines(TMP_FN) as fh:
-	for v in a:
-		fh.write(v)
-with gzutil.GzAsciiLines(TMP_FN) as fh:
-	b = list(fh)
-assert a == b, b
-
 print("Number boundary test")
+Z = 128 * 1024 # the internal buffer size in gzutil
 with gzutil.GzWriteNumber(TMP_FN) as fh:
 	todo = Z - 100
 	while todo > 0:
