@@ -64,16 +64,11 @@
 // Up to +-(2**1007 - 1). Don't increase this.
 #define GZNUMBER_MAX_BYTES 127
 
-#define BOM_STR "\xef\xbb\xbf"
-
 #define err1(v) if (v) goto err
 
 typedef struct gzread {
 	PyObject_HEAD
 	char *name;
-	char *encoding;
-	char *errors;
-	PyObject *(*decodefunc)(const char *, Py_ssize_t, const char *);
 	PyObject *hashfilter;
 	PyObject *callback;
 	PY_LONG_LONG want_count;
@@ -87,7 +82,7 @@ typedef struct gzread {
 	int pos, len;
 	unsigned int sliceno;
 	unsigned int slices;
-	char buf[Z + 1];
+	char buf[Z];
 } GzRead;
 
 #define FREE(p) do { PyMem_Free(p); (p) = 0; } while (0)
@@ -95,8 +90,6 @@ typedef struct gzread {
 static int gzread_close_(GzRead *self)
 {
 	FREE(self->name);
-	FREE(self->errors);
-	FREE(self->encoding);
 	Py_CLEAR(self->hashfilter);
 	self->count = 0;
 	self->want_count = -1;
@@ -131,10 +124,6 @@ static int gzread_close_(GzRead *self)
 
 // Stupid forward declarations
 static int gzread_read_(GzRead *self, int itemsize);
-static PyTypeObject GzBytesLines_Type;
-static PyTypeObject GzAsciiLines_Type;
-static PyTypeObject GzUnicodeLines_Type;
-static PyTypeObject GzWriteUnicodeLines_Type;
 static PyTypeObject GzNumber_Type;
 static PyTypeObject GzDateTime_Type;
 static PyTypeObject GzDate_Type;
@@ -227,7 +216,6 @@ static int gzread_init(PyObject *self_, PyObject *args, PyObject *kwds)
 	int res = -1;
 	GzRead *self = (GzRead *)self_;
 	char *name = 0;
-	int strip_bom = 0;
 	int fd = -1;
 	PY_LONG_LONG seek = 0;
 	PyObject *hashfilter = 0;
@@ -236,20 +224,8 @@ static int gzread_init(PyObject *self_, PyObject *args, PyObject *kwds)
 	PY_LONG_LONG callback_offset = 0;
 	gzread_close_(self);
 	self->error = 0;
-	if (self_->ob_type == &GzBytesLines_Type) {
-		static char *kwlist[] = {"name", "strip_bom", "seek", "want_count", "hashfilter", "callback", "callback_interval", "callback_offset", "fd", 0};
-		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|iLLOOLLi", kwlist, Py_FileSystemDefaultEncoding, &name, &strip_bom, &seek, &self->want_count, &hashfilter, &callback, &callback_interval, &callback_offset, &fd)) return -1;
-	} else if (self_->ob_type == &GzUnicodeLines_Type) {
-		static char *kwlist[] = {"name", "encoding", "errors", "strip_bom", "seek", "want_count", "hashfilter", "callback", "callback_interval", "callback_offset", "fd", 0};
-		char *errors = 0;
-		char *encoding = 0;
-		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|etetiLLOOLLi", kwlist, Py_FileSystemDefaultEncoding, &name, "ascii", &encoding, "ascii", &errors, &strip_bom, &seek, &self->want_count, &hashfilter, &callback, &callback_interval, &callback_offset, &fd)) return -1;
-		self->errors = errors;
-		self->encoding = encoding;
-	} else {
-		static char *kwlist[] = {"name", "seek", "want_count", "hashfilter", "callback", "callback_interval", "callback_offset", "fd", 0};
-		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|LLOOLLi", kwlist, Py_FileSystemDefaultEncoding, &name, &seek, &self->want_count, &hashfilter, &callback, &callback_interval, &callback_offset, &fd)) return -1;
-	}
+	static char *kwlist[] = {"name", "seek", "want_count", "hashfilter", "callback", "callback_interval", "callback_offset", "fd", 0};
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|LLOOLLi", kwlist, Py_FileSystemDefaultEncoding, &name, &seek, &self->want_count, &hashfilter, &callback, &callback_interval, &callback_offset, &fd)) return -1;
 	self->name = name;
 	if (callback && callback != Py_None) {
 		if (!PyCallable_Check(callback)) {
@@ -294,42 +270,7 @@ static int gzread_init(PyObject *self_, PyObject *args, PyObject *kwds)
 	}
 	gzbuffer(self->fh, buf_kb * 1024);
 	self->pos = self->len = 0;
-	if (self_->ob_type == &GzAsciiLines_Type) {
-		self->decodefunc = PyUnicode_DecodeASCII;
-	}
-	if (self_->ob_type == &GzUnicodeLines_Type) {
-		if (self->encoding) {
-			PyObject *decoder = PyCodec_Decoder(self->encoding);
-			err1(!decoder);
-			self->decodefunc = 0;
-			PyObject *test_decoder;
-			test_decoder = PyCodec_Decoder("utf-8");
-			if (decoder == test_decoder) self->decodefunc = PyUnicode_DecodeUTF8;
-			Py_XDECREF(test_decoder);
-			test_decoder = PyCodec_Decoder("latin-1");
-			if (decoder == test_decoder) self->decodefunc = PyUnicode_DecodeLatin1;
-			Py_XDECREF(test_decoder);
-			test_decoder = PyCodec_Decoder("ascii");
-			if (decoder == test_decoder) self->decodefunc = PyUnicode_DecodeASCII;
-			Py_XDECREF(test_decoder);
-			Py_DECREF(decoder);
-			if (!self->decodefunc) {
-				PyErr_Format(PyExc_LookupError, "Unsupported encoding '%s'", self->encoding);
-				goto err;
-			}
-		} else {
-			self->decodefunc = PyUnicode_DecodeUTF8;
-			self->encoding = PyMem_Malloc(6);
-			strcpy(self->encoding, "utf-8");
-		}
-	}
 	err1(parse_hashfilter(hashfilter, &self->hashfilter, &self->sliceno, &self->slices, &self->spread_None));
-	gzread_read_(self, 8);
-	if (strip_bom) {
-		if (self->len >= 3 && !memcmp(self->buf, BOM_STR, 3)) {
-			self->pos = 3;
-		}
-	}
 	res = 0;
 err:
 	if (fd >= 0) close(fd);
@@ -389,7 +330,6 @@ static int gzread_read_(GzRead *self, int itemsize)
 		}
 		return 1;
 	}
-	self->buf[self->len] = 0;
 	self->pos = 0;
 	return 0;
 }
@@ -478,86 +418,6 @@ static inline int do_callback(GzRead *self)
 		}                                            	\
 	}                                                    	\
 } while(0)
-
-static inline PyObject *mkBytes(GzRead *self, const char *ptr, int len)
-{
-	if (len == 1 && *ptr == 0) {
-		HC_RETURN_NONE;
-	}
-	if (len && ptr[len - 1] == '\r') len--;
-	HC_CHECK(hash(ptr, len));
-	return PyBytes_FromStringAndSize(ptr, len);
-}
-static inline PyObject *mkUnicode(GzRead *self, const char *ptr, int len)
-{
-	if (len == 1 && *ptr == 0) {
-		HC_RETURN_NONE;
-	}
-	if (len && ptr[len - 1] == '\r') len--;
-	HC_CHECK(hash(ptr, len));
-	return self->decodefunc(ptr, len, self->errors);
-}
-
-#define MKLINEITER(name, typename) \
-	static PyObject *name ## _iternext(GzRead *self)                                 	\
-	{                                                                                	\
-		ITERPROLOGUE(typename);                                                  	\
-		char *ptr = self->buf + self->pos;                                       	\
-		char *end = memchr(ptr, '\n', self->len - self->pos);                    	\
-		if (!end) {                                                              	\
-			int linelen = self->len - self->pos;                             	\
-			char line[Z + linelen];                                          	\
-			memcpy(line, self->buf + self->pos, linelen);                    	\
-			if (gzread_read_(self, SIZE_ ## typename)) {                     	\
-				if (self->error) return 0;                                      \
-				return mk ## typename(self, line, linelen);              	\
-			}                                                                	\
-			end = memchr(self->buf, '\n', self->len);                        	\
-			if (!end) {                                                      	\
-				size_t longlen = linelen + self->len;                    	\
-				char *longbuf = malloc(longlen);                         	\
-				if (!longbuf) return PyErr_NoMemory();                   	\
-				memcpy(longbuf, line, linelen);                          	\
-				memcpy(longbuf + linelen, self->buf, self->len);         	\
-				while (1) {                                              	\
-					if (gzread_read_(self, SIZE_ ## typename)) break;	\
-					int copylen = self->len;                         	\
-					char *end = memchr(self->buf, '\n', copylen);    	\
-					if (end) copylen = end - self->buf;              	\
-					char *tmp = realloc(longbuf, longlen + copylen); 	\
-					if (!tmp) {                                      	\
-						free(longbuf);                           	\
-						return PyErr_NoMemory();                 	\
-					}                                                	\
-					longbuf = tmp;                                   	\
-					memcpy(longbuf + longlen, self->buf, copylen);   	\
-					longlen += copylen;                              	\
-					self->pos = copylen + 1;                         	\
-					if (end) break;                                  	\
-				}                                                        	\
-				if (self->error) {                                              \
-					free(longbuf);                                          \
-					return 0;                                               \
-				}                                                               \
-				PyObject *res = mk ## typename(self, longbuf, longlen);  	\
-				free(longbuf);                                           	\
-				return res;                                              	\
-			}                                                                	\
-			self->pos = end - self->buf + 1;                                 	\
-			memcpy(line + linelen, self->buf, self->pos - 1);                	\
-			return mk ## typename(self, line, linelen + self->pos - 1);      	\
-		}                                                                        	\
-		int linelen = end - ptr;                                                 	\
-		self->pos += linelen + 1;                                                	\
-		return mk ## typename(self, ptr, linelen);                               	\
-	}
-MKLINEITER(GzBytesLines  , Bytes);
-#if PY_MAJOR_VERSION < 3
-#  define GzAsciiLines_iternext GzBytesLines_iternext
-#else
-#  define GzAsciiLines_iternext GzUnicodeLines_iternext
-#endif
-MKLINEITER(GzUnicodeLines, Unicode);
 
 #define MKmkBlob(name, decoder) \
 	static inline PyObject *mkblob ## name(GzRead *self, const char *ptr, int len)   	\
@@ -897,19 +757,9 @@ static PyMemberDef r_default_members[] = {
 	{"hashfilter", T_OBJECT_EX, offsetof(GzRead, hashfilter ), READONLY},
 	{0}
 };
-static PyMemberDef r_unicode_members[] = {
-	{"name"      , T_STRING   , offsetof(GzRead, name       ), READONLY},
-	{"hashfilter", T_OBJECT_EX, offsetof(GzRead, hashfilter ), READONLY},
-	{"encoding"  , T_STRING   , offsetof(GzRead, encoding   ), READONLY},
-	{"errors"    , T_STRING   , offsetof(GzRead, errors     ), READONLY},
-	{0}
-};
 MKTYPE(GzBytes, r_default_members);
 MKTYPE(GzAscii, r_default_members);
 MKTYPE(GzUnicode, r_default_members);
-MKTYPE(GzBytesLines, r_default_members);
-MKTYPE(GzAsciiLines, r_default_members);
-MKTYPE(GzUnicodeLines, r_unicode_members);
 MKTYPE(GzNumber, r_default_members);
 MKTYPE(GzComplex64, r_default_members);
 MKTYPE(GzComplex32, r_default_members);
@@ -1064,39 +914,6 @@ err:
 	return -1;
 }
 
-static int gzwrite_init_GzWriteLines(PyObject *self_, PyObject *args, PyObject *kwds)
-{
-	GzWrite *self = (GzWrite *)self_;
-	char *name = 0;
-	const char *mode = 0;
-	PyObject *hashfilter = 0;
-	int write_bom = 0;
-	gzwrite_close_(self);
-	if (self_->ob_type == &GzWriteUnicodeLines_Type) {
-		static char *kwlist[] = {"name", "mode", "hashfilter", "none_support", "write_bom", 0};
-		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|sOii", kwlist, Py_FileSystemDefaultEncoding, &name, &mode, &hashfilter, &self->none_support, &write_bom)) return -1;
-	} else {
-		static char *kwlist[] = {"name", "mode", "hashfilter", "none_support", 0};
-		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|sOi", kwlist, Py_FileSystemDefaultEncoding, &name, &mode, &hashfilter, &self->none_support)) return -1;
-	}
-	self->name = name;
-	err1(parse_hashfilter(hashfilter, &self->hashfilter, &self->sliceno, &self->slices, &self->spread_None));
-	err1(mode_fixup(mode, self->mode));
-	self->closed = 0;
-	self->count = 0;
-	self->len = 0;
-	if (write_bom) {
-		memcpy(self->buf, BOM_STR, 3);
-		self->len = 3;
-	}
-	return 0;
-err:
-	return -1;
-}
-#define gzwrite_init_GzWriteBytesLines   gzwrite_init_GzWriteLines
-#define gzwrite_init_GzWriteAsciiLines   gzwrite_init_GzWriteLines
-#define gzwrite_init_GzWriteUnicodeLines gzwrite_init_GzWriteLines
-
 static int gzwrite_init_GzWriteBlob(PyObject *self_, PyObject *args, PyObject *kwds)
 {
 	GzWrite *self = (GzWrite *)self_;
@@ -1187,57 +1004,6 @@ static PyObject *gzwrite_write_GzWrite(GzWrite *self, PyObject *obj)
 	if (!actually_write) Py_RETURN_TRUE;                                          	\
 } while (0)
 
-#define WRITELINEPROLOGUE(checktype, errname) \
-	if (obj == Py_None) {                                                         	\
-		WRITE_NONE_SLICE_CHECK;                                               	\
-		self->count++;                                                        	\
-		return gzwrite_write_(self, "\x00\n", 2);                             	\
-	}                                                                             	\
-	if (checktype) {                                                              	\
-		PyErr_Format(PyExc_TypeError,                                         	\
-		             "For your protection, only " errname                     	\
-		             " objects are accepted (line %llu)",                     	\
-		             (unsigned long long) self->count + 1);                   	\
-		return 0;                                                             	\
-	}
-#define WRITELINEDO(cleanup) \
-	if (len == 1 && *data == 0) {                                                 	\
-		cleanup;                                                              	\
-		PyErr_Format(PyExc_ValueError,                                        	\
-		             "Value becomes None-marker (line %llu)",                 	\
-		             (unsigned long long) self->count + 1);                   	\
-		return 0;                                                             	\
-	}                                                                             	\
-	if (memchr(data, '\n', len)) {                                                	\
-		cleanup;                                                              	\
-		PyErr_Format(PyExc_ValueError,                                        	\
-		             "Value must not contain \\n (line %llu)",                	\
-		             (unsigned long long) self->count + 1);                   	\
-		return 0;                                                             	\
-	}                                                                             	\
-	if (data[len - 1] == '\r') {                                                  	\
-		cleanup;                                                              	\
-		PyErr_Format(PyExc_ValueError,                                        	\
-		             "Value must not end with \\r (line %llu)",               	\
-		             (unsigned long long) self->count + 1);                   	\
-		return 0;                                                             	\
-	}                                                                             	\
-	if (self->slices) {                                                           	\
-		if (hash(data, len) % self->slices != self->sliceno) {                	\
-			cleanup;                                                      	\
-			Py_RETURN_FALSE;                                              	\
-		}                                                                     	\
-	}                                                                             	\
-	if (!actually_write) {                                                        	\
-		cleanup;                                                              	\
-		Py_RETURN_TRUE;                                                       	\
-	}                                                                             	\
-	PyObject *ret = gzwrite_write_(self, data, len);                              	\
-	cleanup;                                                                      	\
-	if (!ret) return 0;                                                           	\
-	Py_DECREF(ret);                                                               	\
-	self->count++;                                                                	\
-	return gzwrite_write_(self, "\n", 1);
 #define ASCIIVERIFY(cleanup) \
 	const unsigned char * const data_ = (unsigned char *)data;                    	\
 	for (Py_ssize_t i = 0; i < len; i++) {                                        	\
@@ -1255,69 +1021,48 @@ static PyObject *gzwrite_write_GzWrite(GzWrite *self, PyObject *obj)
 			return 0;                                                     	\
 		}                                                                     	\
 	}
-#define ASCIILINEDO(cleanup) \
-	ASCIIVERIFY(cleanup);                                                         	\
-	WRITELINEDO(cleanup);
 #define ASCIIHASHDO(cleanup) \
 	ASCIIVERIFY(cleanup);                                                         	\
-	HASHLINEDO(cleanup);
+	HASHBLOBDO(cleanup);
 
 #if PY_MAJOR_VERSION < 3
-#  define UNICODELINE(WRITEMACRO) \
+#  define UNICODEBLOB(WRITEMACRO) \
 	PyObject *strobj = PyUnicode_AsUTF8String(obj);              	\
 	if (!strobj) return 0;                                       	\
 	const char *data = PyBytes_AS_STRING(strobj);                	\
 	const Py_ssize_t len = PyBytes_GET_SIZE(strobj);             	\
 	WRITEMACRO(Py_DECREF(strobj));
 #else
-#  define UNICODELINE(WRITEMACRO) \
+#  define UNICODEBLOB(WRITEMACRO) \
 	Py_ssize_t len;                                              	\
 	const char *data = PyUnicode_AsUTF8AndSize(obj, &len);       	\
 	if (!data) return 0;                                         	\
 	WRITEMACRO((void)data);
 #endif
 
-#define HASHLINEPROLOGUE(checktype, errname) \
+#define HASHBLOBPROLOGUE(checktype, errname) \
 	if (obj == Py_None) return PyInt_FromLong(0);                                         	\
 	if (checktype) {                                                                      	\
 		PyErr_SetString(PyExc_TypeError,                                              	\
 		                "For your protection, only " errname " objects are accepted");	\
 		return 0;                                                                     	\
 	}
-#define HASHLINEDO(cleanup) \
+#define HASHBLOBDO(cleanup) \
 	PyObject *res = pyInt_FromU64(hash(data, len));              	\
 	cleanup;                                                     	\
 	return res;
 
-static PyObject *gzwrite_C_GzWriteBytesLines(GzWrite *self, PyObject *obj, int actually_write)
+static PyObject *gzwrite_hash_GzWriteBytes(PyObject *dummy, PyObject *obj)
 {
-	WRITELINEPROLOGUE(!PyBytes_Check(obj), BYTES_NAME);
+	HASHBLOBPROLOGUE(!PyBytes_Check(obj), BYTES_NAME);
 	const Py_ssize_t len = PyBytes_GET_SIZE(obj);
 	const char *data = PyBytes_AS_STRING(obj);
-	WRITELINEDO((void)data);
-}
-static PyObject *gzwrite_hash_GzWriteBytesLines(PyObject *dummy, PyObject *obj)
-{
-	HASHLINEPROLOGUE(!PyBytes_Check(obj), BYTES_NAME);
-	const Py_ssize_t len = PyBytes_GET_SIZE(obj);
-	const char *data = PyBytes_AS_STRING(obj);
-	HASHLINEDO((void)data);
+	HASHBLOBDO((void)data);
 }
 
-static PyObject *gzwrite_C_GzWriteAsciiLines(GzWrite *self, PyObject *obj, int actually_write)
+static PyObject *gzwrite_hash_GzWriteAscii(PyObject *dummy, PyObject *obj)
 {
-	WRITELINEPROLOGUE(!PyBytes_Check(obj) && !PyUnicode_Check(obj), EITHER_NAME);
-	if (PyBytes_Check(obj)) {
-		const Py_ssize_t len = PyBytes_GET_SIZE(obj);
-		const char *data = PyBytes_AS_STRING(obj);
-		ASCIILINEDO((void)data);
-	} else { // Must be Unicode
-		UNICODELINE(ASCIILINEDO);
-	}
-}
-static PyObject *gzwrite_hash_GzWriteAsciiLines(PyObject *dummy, PyObject *obj)
-{
-	HASHLINEPROLOGUE(!PyBytes_Check(obj) && !PyUnicode_Check(obj), EITHER_NAME);
+	HASHBLOBPROLOGUE(!PyBytes_Check(obj) && !PyUnicode_Check(obj), EITHER_NAME);
 	Py_ssize_t len;
 	const char *data;
 	if (PyBytes_Check(obj)) {
@@ -1325,38 +1070,15 @@ static PyObject *gzwrite_hash_GzWriteAsciiLines(PyObject *dummy, PyObject *obj)
 		data = PyBytes_AS_STRING(obj);
 		ASCIIHASHDO((void)data);
 	} else { // Must be Unicode
-		UNICODELINE(ASCIIHASHDO);
+		UNICODEBLOB(ASCIIHASHDO);
 	}
 }
 
-static PyObject *gzwrite_C_GzWriteUnicodeLines(GzWrite *self, PyObject *obj, int actually_write)
+static PyObject *gzwrite_hash_GzWriteUnicode(PyObject *dummy, PyObject *obj)
 {
-	WRITELINEPROLOGUE(!PyUnicode_Check(obj), UNICODE_NAME);
-	UNICODELINE(WRITELINEDO);
+	HASHBLOBPROLOGUE(!PyUnicode_Check(obj), UNICODE_NAME);
+	UNICODEBLOB(HASHBLOBDO);
 }
-static PyObject *gzwrite_hash_GzWriteUnicodeLines(PyObject *dummy, PyObject *obj)
-{
-	HASHLINEPROLOGUE(!PyUnicode_Check(obj), UNICODE_NAME);
-	UNICODELINE(HASHLINEDO);
-}
-
-#define MKWLINE(name)                                                                               	\
-	static PyObject *gzwrite_write_GzWrite ## name ## Lines(GzWrite *self, PyObject *obj)       	\
-	{                                                                                           	\
-		return gzwrite_C_GzWrite ## name ## Lines(self, obj, 1);                            	\
-	}                                                                                           	\
-	static PyObject *gzwrite_hashcheck_GzWrite ## name ## Lines(GzWrite *self, PyObject *obj)   	\
-	{                                                                                           	\
-		if (!self->slices) {                                                                	\
-			PyErr_SetString(PyExc_ValueError, "No hashfilter set");                     	\
-			return 0;                                                                   	\
-		}                                                                                   	\
-		return gzwrite_C_GzWrite ## name ## Lines(self, obj, 0);                            	\
-	}
-MKWLINE(Bytes);
-MKWLINE(Ascii);
-MKWLINE(Unicode);
-
 
 #define WRITEBLOBPROLOGUE(checktype, errname) \
 	if (obj == Py_None) {                                                         	\
@@ -1430,22 +1152,15 @@ static PyObject *gzwrite_C_GzWriteAscii(GzWrite *self, PyObject *obj, int actual
 		const char *data = PyBytes_AS_STRING(obj);
 		ASCIIBLOBDO((void)data);
 	} else { // Must be Unicode
-		// Reusing UNICODELINE is fine
-		UNICODELINE(ASCIIBLOBDO);
+		UNICODEBLOB(ASCIIBLOBDO);
 	}
 }
 
 static PyObject *gzwrite_C_GzWriteUnicode(GzWrite *self, PyObject *obj, int actually_write)
 {
 	WRITEBLOBPROLOGUE(!PyUnicode_Check(obj), UNICODE_NAME);
-	// Reusing UNICODELINE is fine
-	UNICODELINE(WRITEBLOBDO);
+	UNICODEBLOB(WRITEBLOBDO);
 }
-
-// Hashing can reuse the line versions
-#define gzwrite_hash_GzWriteBytes   gzwrite_hash_GzWriteBytesLines
-#define gzwrite_hash_GzWriteAscii   gzwrite_hash_GzWriteAsciiLines
-#define gzwrite_hash_GzWriteUnicode gzwrite_hash_GzWriteUnicodeLines
 
 #define MKWBLOB(name)                                                                               	\
 	static PyObject *gzwrite_write_GzWrite ## name (GzWrite *self, PyObject *obj)               	\
@@ -2133,9 +1848,6 @@ MKWTYPE_i(GzWrite, GzWrite_methods, 0);
 MKWTYPE(GzWriteBytes);
 MKWTYPE(GzWriteAscii);
 MKWTYPE(GzWriteUnicode);
-MKWTYPE(GzWriteBytesLines);
-MKWTYPE(GzWriteAsciiLines);
-MKWTYPE(GzWriteUnicodeLines);
 MKWTYPE(GzWriteComplex64);
 MKWTYPE(GzWriteComplex32);
 MKWTYPE(GzWriteFloat64);
@@ -2163,8 +1875,8 @@ MKWTYPE(GzWriteParsedBits32);
 static PyObject *generic_hash(PyObject *dummy, PyObject *obj)
 {
 	if (obj == Py_None)        return PyInt_FromLong(0);
-	if (PyBytes_Check(obj))    return gzwrite_hash_GzWriteBytesLines(0, obj);
-	if (PyUnicode_Check(obj))  return gzwrite_hash_GzWriteUnicodeLines(0, obj);
+	if (PyBytes_Check(obj))    return gzwrite_hash_GzWriteBytes(0, obj);
+	if (PyUnicode_Check(obj))  return gzwrite_hash_GzWriteUnicode(0, obj);
 	if (PyFloat_Check(obj))    return gzwrite_hash_GzWriteFloat64(0, obj);
 	if (PyBool_Check(obj))     return gzwrite_hash_GzWriteBool(0, obj);
 	if (Integer_Check(obj)) {
@@ -2268,21 +1980,9 @@ __attribute__ ((visibility("default"))) PyMODINIT_FUNC INITFUNC(void)
 	PyObject *m = Py_InitModule3("gzutil", module_methods, NULL);
 #endif
 	if (!m) return INITERR;
-	// "Ascii" is Bytes-like in py2, Unicode-like in py3.
-	// (Either way you can write both types (with suitable contents) to it.)
-#if PY_MAJOR_VERSION >= 3
-	GzAsciiLines_Type.tp_base = &GzUnicodeLines_Type;
-	GzWriteAsciiLines_Type.tp_base = &GzWriteUnicodeLines_Type;
-#else
-	GzAsciiLines_Type.tp_base = &GzBytesLines_Type;
-	GzWriteAsciiLines_Type.tp_base = &GzWriteBytesLines_Type;
-#endif
 	INIT(GzBytes);
 	INIT(GzUnicode);
 	INIT(GzAscii);
-	INIT(GzBytesLines);
-	INIT(GzUnicodeLines);
-	INIT(GzAsciiLines);
 	INIT(GzNumber);
 	INIT(GzComplex64);
 	INIT(GzComplex32);
@@ -2300,9 +2000,6 @@ __attribute__ ((visibility("default"))) PyMODINIT_FUNC INITFUNC(void)
 	INIT(GzWriteBytes);
 	INIT(GzWriteUnicode);
 	INIT(GzWriteAscii);
-	INIT(GzWriteBytesLines);
-	INIT(GzWriteUnicodeLines);
-	INIT(GzWriteAsciiLines);
 	INIT(GzWriteNumber);
 	INIT(GzWriteComplex64);
 	INIT(GzWriteComplex32);
