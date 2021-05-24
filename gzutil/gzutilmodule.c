@@ -896,24 +896,6 @@ bad:
 	return 1;
 }
 
-static int gzwrite_init_GzWrite(PyObject *self_, PyObject *args, PyObject *kwds)
-{
-	static char *kwlist[] = {"name", "mode", 0};
-	GzWrite *self = (GzWrite *)self_;
-	char *name = 0;
-	const char *mode = 0;
-	gzwrite_close_(self);
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|s", kwlist, Py_FileSystemDefaultEncoding, &name, &mode)) return -1;
-	self->name = name;
-	err1(mode_fixup(mode, self->mode));
-	self->closed = 0;
-	self->count = 0;
-	self->len = 0;
-	return 0;
-err:
-	return -1;
-}
-
 static int gzwrite_init_GzWriteBlob(PyObject *self_, PyObject *args, PyObject *kwds)
 {
 	GzWrite *self = (GzWrite *)self_;
@@ -974,17 +956,6 @@ static PyObject *gzwrite_write_(GzWrite *self, const char *data, Py_ssize_t len)
 	memcpy(self->buf + self->len, data, len);
 	self->len += len;
 	Py_RETURN_TRUE;
-}
-
-static PyObject *gzwrite_write_GzWrite(GzWrite *self, PyObject *obj)
-{
-	if (!PyBytes_Check(obj)) {
-		PyErr_SetString(PyExc_ValueError, "Only " BYTES_NAME " can be written");
-		return 0;
-	}
-	const Py_ssize_t len = PyBytes_GET_SIZE(obj);
-	const char *data = PyBytes_AS_STRING(obj);
-	return gzwrite_write_(self, data, len);
 }
 
 #define WRITE_NONE_SLICE_CHECK do {                                                   	\
@@ -1836,15 +1807,6 @@ static PyMemberDef w_default_members[] = {
 		{0}                                                                           	\
 	};                                                                                    	\
 	MKWTYPE_i(name, name ## _methods, w_default_members);
-static PyMethodDef GzWrite_methods[] = {
-	{"__enter__", (PyCFunction)gzwrite_self, METH_NOARGS,  NULL},
-	{"__exit__",  (PyCFunction)gzany_exit, METH_VARARGS, NULL},
-	{"write",     (PyCFunction)gzwrite_write_GzWrite, METH_O, NULL},
-	{"flush",     (PyCFunction)gzwrite_flush, METH_NOARGS, NULL},
-	{"close",     (PyCFunction)gzwrite_close, METH_NOARGS, NULL},
-	{0}
-};
-MKWTYPE_i(GzWrite, GzWrite_methods, 0);
 MKWTYPE(GzWriteBytes);
 MKWTYPE(GzWriteAscii);
 MKWTYPE(GzWriteUnicode);
@@ -1996,7 +1958,6 @@ __attribute__ ((visibility("default"))) PyMODINIT_FUNC INITFUNC(void)
 	INIT(GzDateTime);
 	INIT(GzDate);
 	INIT(GzTime);
-	INIT(GzWrite);
 	INIT(GzWriteBytes);
 	INIT(GzWriteUnicode);
 	INIT(GzWriteAscii);

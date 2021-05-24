@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2018-2020 Carl Drougge                       #
+# Modifications copyright (c) 2018-2021 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -22,8 +22,6 @@ from __future__ import division
 
 from accelerator import gzutil
 from accelerator.compat import str_types, PY3
-
-GzWrite = gzutil.GzWrite
 
 _convfuncs = {
 	'number'   : gzutil.GzWriteNumber,
