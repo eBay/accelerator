@@ -1983,9 +1983,6 @@ __attribute__ ((visibility("default"))) PyMODINIT_FUNC INITFUNC(void)
 	INIT(GzWriteParsedInt32);
 	INIT(GzWriteParsedBits64);
 	INIT(GzWriteParsedBits32);
-	PyObject *c_hash = PyCapsule_New((void *)hash, "gzutil._C_hash", 0);
-	if (!c_hash) return INITERR;
-	PyModule_AddObject(m, "_C_hash", c_hash);
 #if PY_MAJOR_VERSION >= 3
 	return m;
 #endif
