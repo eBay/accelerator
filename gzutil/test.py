@@ -3,7 +3,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2018-2020 Carl Drougge                       #
+# Modifications copyright (c) 2018-2021 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -374,11 +374,11 @@ with gzutil.GzWriteNumber(TMP_FN) as fh:
 with gzutil.GzNumber(TMP_FN) as fh:
 	assert want == list(fh)
 
-print("Number max_count large end test")
+print("Number want_count large end test")
 with gzutil.GzWriteNumber(TMP_FN) as fh:
 	fh.write(2 ** 1000)
 	fh.write(7)
-with gzutil.GzNumber(TMP_FN, max_count=1) as fh:
+with gzutil.GzNumber(TMP_FN, want_count=1) as fh:
 	assert [2 ** 1000] == list(fh)
 
 print("Large ascii strings (with a size between blocks)")
@@ -398,7 +398,7 @@ def callback(num_lines):
 	cb_count += 1
 	if cb_interval > 1:
 		assert num_lines in good_num_lines or num_lines == 1000 + cb_offset
-for cb_interval, max_count, expected_cb_count in (
+for cb_interval, want_count, expected_cb_count in (
 	(300, -1, (3,)),
 	(250, 300, (1,)),
 	(250, 200, (0,)),
@@ -409,10 +409,10 @@ for cb_interval, max_count, expected_cb_count in (
 ):
 	for cb_offset in (0, 50000000, -10000):
 		cb_count = 0
-		good_num_lines = range(cb_interval + cb_offset, (1000 if max_count == -1 else max_count) + cb_offset, cb_interval)
-		with gzutil.GzNumber(TMP_FN, max_count=max_count, callback=callback, callback_interval=cb_interval, callback_offset=cb_offset) as fh:
+		good_num_lines = range(cb_interval + cb_offset, (1000 if want_count == -1 else want_count) + cb_offset, cb_interval)
+		with gzutil.GzNumber(TMP_FN, want_count=want_count, callback=callback, callback_interval=cb_interval, callback_offset=cb_offset) as fh:
 			lst = list(fh)
-			assert len(lst) == 1000 if max_count == -1 else max_count
+			assert len(lst) == 1000 if want_count == -1 else want_count
 		assert cb_count in expected_cb_count
 def callback2(num_lines):
 	raise StopIteration
