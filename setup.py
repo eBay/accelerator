@@ -106,7 +106,7 @@ def mk_ext(name, *sources):
 		**kw
 	)
 
-gzutilmodule = mk_ext('accelerator.gzutil', 'gzutil/siphash24.c', 'gzutil/gzutilmodule.c')
+dsutilmodule = mk_ext('accelerator._dsutil', 'dsutil/siphash24.c', 'dsutil/dsutilmodule.c')
 
 def method_mod(name):
 	code = import_module('accelerator.standard_methods.' + name).c_module_code
@@ -136,7 +136,7 @@ setup(
 	],
 	python_requires=">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, <4",
 
-	ext_modules=[gzutilmodule, dataset_typemodule, csvimportmodule],
+	ext_modules=[dsutilmodule, dataset_typemodule, csvimportmodule],
 
 	package_data={
 		'': ['*.txt', 'methods.conf', 'board/*.tpl'],

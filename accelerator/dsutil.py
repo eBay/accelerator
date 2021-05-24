@@ -20,54 +20,54 @@
 from __future__ import print_function
 from __future__ import division
 
-from accelerator import gzutil
+from accelerator import _dsutil
 from accelerator.compat import str_types, PY3
 
 _convfuncs = {
-	'number'   : gzutil.GzWriteNumber,
-	'complex64': gzutil.GzWriteComplex64,
-	'complex32': gzutil.GzWriteComplex32,
-	'float64'  : gzutil.GzWriteFloat64,
-	'float32'  : gzutil.GzWriteFloat32,
-	'int64'    : gzutil.GzWriteInt64,
-	'int32'    : gzutil.GzWriteInt32,
-	'bits64'   : gzutil.GzWriteBits64,
-	'bits32'   : gzutil.GzWriteBits32,
-	'bool'     : gzutil.GzWriteBool,
-	'datetime' : gzutil.GzWriteDateTime,
-	'date'     : gzutil.GzWriteDate,
-	'time'     : gzutil.GzWriteTime,
-	'bytes'    : gzutil.GzWriteBytes,
-	'ascii'    : gzutil.GzWriteAscii,
-	'unicode'  : gzutil.GzWriteUnicode,
-	'parsed:number'   : gzutil.GzWriteParsedNumber,
-	'parsed:complex64': gzutil.GzWriteParsedComplex64,
-	'parsed:complex32': gzutil.GzWriteParsedComplex32,
-	'parsed:float64'  : gzutil.GzWriteParsedFloat64,
-	'parsed:float32'  : gzutil.GzWriteParsedFloat32,
-	'parsed:int64'    : gzutil.GzWriteParsedInt64,
-	'parsed:int32'    : gzutil.GzWriteParsedInt32,
-	'parsed:bits64'   : gzutil.GzWriteParsedBits64,
-	'parsed:bits32'   : gzutil.GzWriteParsedBits32,
+	'number'   : _dsutil.GzWriteNumber,
+	'complex64': _dsutil.GzWriteComplex64,
+	'complex32': _dsutil.GzWriteComplex32,
+	'float64'  : _dsutil.GzWriteFloat64,
+	'float32'  : _dsutil.GzWriteFloat32,
+	'int64'    : _dsutil.GzWriteInt64,
+	'int32'    : _dsutil.GzWriteInt32,
+	'bits64'   : _dsutil.GzWriteBits64,
+	'bits32'   : _dsutil.GzWriteBits32,
+	'bool'     : _dsutil.GzWriteBool,
+	'datetime' : _dsutil.GzWriteDateTime,
+	'date'     : _dsutil.GzWriteDate,
+	'time'     : _dsutil.GzWriteTime,
+	'bytes'    : _dsutil.GzWriteBytes,
+	'ascii'    : _dsutil.GzWriteAscii,
+	'unicode'  : _dsutil.GzWriteUnicode,
+	'parsed:number'   : _dsutil.GzWriteParsedNumber,
+	'parsed:complex64': _dsutil.GzWriteParsedComplex64,
+	'parsed:complex32': _dsutil.GzWriteParsedComplex32,
+	'parsed:float64'  : _dsutil.GzWriteParsedFloat64,
+	'parsed:float32'  : _dsutil.GzWriteParsedFloat32,
+	'parsed:int64'    : _dsutil.GzWriteParsedInt64,
+	'parsed:int32'    : _dsutil.GzWriteParsedInt32,
+	'parsed:bits64'   : _dsutil.GzWriteParsedBits64,
+	'parsed:bits32'   : _dsutil.GzWriteParsedBits32,
 }
 
 _type2iter = {
-	'number'  : gzutil.GzNumber,
-	'complex64': gzutil.GzComplex64,
-	'complex32': gzutil.GzComplex32,
-	'float64' : gzutil.GzFloat64,
-	'float32' : gzutil.GzFloat32,
-	'int64'   : gzutil.GzInt64,
-	'int32'   : gzutil.GzInt32,
-	'bits64'  : gzutil.GzBits64,
-	'bits32'  : gzutil.GzBits32,
-	'bool'    : gzutil.GzBool,
-	'datetime': gzutil.GzDateTime,
-	'date'    : gzutil.GzDate,
-	'time'    : gzutil.GzTime,
-	'bytes'   : gzutil.GzBytes,
-	'ascii'   : gzutil.GzAscii,
-	'unicode' : gzutil.GzUnicode,
+	'number'  : _dsutil.GzNumber,
+	'complex64': _dsutil.GzComplex64,
+	'complex32': _dsutil.GzComplex32,
+	'float64' : _dsutil.GzFloat64,
+	'float32' : _dsutil.GzFloat32,
+	'int64'   : _dsutil.GzInt64,
+	'int32'   : _dsutil.GzInt32,
+	'bits64'  : _dsutil.GzBits64,
+	'bits32'  : _dsutil.GzBits32,
+	'bool'    : _dsutil.GzBool,
+	'datetime': _dsutil.GzDateTime,
+	'date'    : _dsutil.GzDate,
+	'time'    : _dsutil.GzTime,
+	'bytes'   : _dsutil.GzBytes,
+	'ascii'   : _dsutil.GzAscii,
+	'unicode' : _dsutil.GzUnicode,
 }
 
 def typed_writer(typename):
@@ -86,10 +86,10 @@ class GzWriteJson(object):
 	def __init__(self, *a, **kw):
 		assert 'default' not in kw, "default not supported for Json, sorry"
 		if PY3:
-			self.fh = gzutil.GzWriteUnicode(*a, **kw)
+			self.fh = _dsutil.GzWriteUnicode(*a, **kw)
 			self.encode = JSONEncoder(ensure_ascii=False, separators=(',', ':')).encode
 		else:
-			self.fh = gzutil.GzWriteBytes(*a, **kw)
+			self.fh = _dsutil.GzWriteBytes(*a, **kw)
 			self.encode = JSONEncoder(ensure_ascii=True, separators=(',', ':')).encode
 	def write(self, o):
 		self.fh.write(self.encode(o))
@@ -116,9 +116,9 @@ _convfuncs['parsed:json'] = GzWriteParsedJson
 class GzJson(object):
 	def __init__(self, *a, **kw):
 		if PY3:
-			self.fh = gzutil.GzUnicode(*a, **kw)
+			self.fh = _dsutil.GzUnicode(*a, **kw)
 		else:
-			self.fh = gzutil.GzBytes(*a, **kw)
+			self.fh = _dsutil.GzBytes(*a, **kw)
 		self.decode = JSONDecoder().decode
 	def __next__(self):
 		return self.decode(next(self.fh))
@@ -139,7 +139,7 @@ class GzWritePickle(object):
 	def __init__(self, *a, **kw):
 		assert PY3, "Pickle columns require python 3, sorry"
 		assert 'default' not in kw, "default not supported for Pickle, sorry"
-		self.fh = gzutil.GzWriteBytes(*a, **kw)
+		self.fh = _dsutil.GzWriteBytes(*a, **kw)
 	def write(self, o):
 		self.fh.write(pickle_dumps(o, 4))
 	@property
@@ -156,7 +156,7 @@ _convfuncs['pickle'] = GzWritePickle
 class GzPickle(object):
 	def __init__(self, *a, **kw):
 		assert PY3, "Pickle columns require python 3, sorry"
-		self.fh = gzutil.GzBytes(*a, **kw)
+		self.fh = _dsutil.GzBytes(*a, **kw)
 	def __next__(self):
 		return pickle_loads(next(self.fh))
 	next = __next__

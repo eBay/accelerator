@@ -1,6 +1,6 @@
 ############################################################################
 #                                                                          #
-# Copyright (c) 2020 Carl Drougge                                          #
+# Copyright (c) 2020-2021 Carl Drougge                                     #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -18,9 +18,9 @@
 
 try:
 	# setup.py needs to import some things, let's not break that.
-	# When adding types to gzutil switch this to one of those
+	# When adding types to _dsutil switch this to one of those
 	# (to make building with a previous version installed work).
-	from .gzutil import GzComplex64
+	from ._dsutil import GzComplex64
 	del GzComplex64
 	before_install = False
 except ImportError:
