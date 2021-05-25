@@ -20,8 +20,8 @@ try:
 	# setup.py needs to import some things, let's not break that.
 	# When adding types to _dsutil switch this to one of those
 	# (to make building with a previous version installed work).
-	from ._dsutil import GzComplex64
-	del GzComplex64
+	from ._dsutil import ReadComplex64
+	del ReadComplex64
 	before_install = False
 except ImportError:
 	before_install = True

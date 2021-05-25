@@ -124,11 +124,11 @@ static int gzread_close_(GzRead *self)
 
 // Stupid forward declarations
 static int gzread_read_(GzRead *self, int itemsize);
-static PyTypeObject GzNumber_Type;
-static PyTypeObject GzDateTime_Type;
-static PyTypeObject GzDate_Type;
-static PyTypeObject GzTime_Type;
-static PyTypeObject GzBool_Type;
+static PyTypeObject ReadNumber_Type;
+static PyTypeObject ReadDateTime_Type;
+static PyTypeObject ReadDate_Type;
+static PyTypeObject ReadTime_Type;
+static PyTypeObject ReadBool_Type;
 
 typedef Py_complex complex64;
 typedef struct {
@@ -509,9 +509,9 @@ fferror:                                                                        
 		PyErr_SetString(PyExc_ValueError, "File format error");                  	\
 		return 0;                                                                	\
 	}
-MKBLOBITER(GzBytes  , Bytes);
-MKBLOBITER(GzAscii  , Ascii);
-MKBLOBITER(GzUnicode, Unicode);
+MKBLOBITER(ReadBytes  , Bytes);
+MKBLOBITER(ReadAscii  , Ascii);
+MKBLOBITER(ReadUnicode, Unicode);
 
 
 // These are signaling NaNs with extra DEADness in the significand
@@ -559,17 +559,17 @@ static PyObject *pyComplex_From32(complex32 v)
 	return PyComplex_FromDoubles(v.real, v.imag);
 }
 
-MKITER(GzComplex64, complex64, PyComplex_FromCComplex, hash_complex64, complex64, 1)
-MKITER(GzComplex32, complex32, pyComplex_From32      , hash_complex32, complex32, 1)
-MKITER(GzFloat64, double  , PyFloat_FromDouble     , hash_double , double  , 1)
-MKITER(GzFloat32, float   , PyFloat_FromDouble     , hash_double , double  , 1)
-MKITER(GzInt64  , int64_t , pyInt_FromS64          , hash_int64  , int64_t , 1)
-MKITER(GzInt32  , int32_t , pyInt_FromS32          , hash_int64  , int64_t , 1)
-MKITER(GzBits64 , uint64_t, pyInt_FromU64          , hash_uint64 , uint64_t, 0)
-MKITER(GzBits32 , uint32_t, pyInt_FromU32          , hash_uint64 , uint64_t, 0)
-MKITER(GzBool   , uint8_t , PyBool_FromLong        , hash_bool   , uint8_t , 1)
+MKITER(ReadComplex64, complex64, PyComplex_FromCComplex, hash_complex64, complex64, 1)
+MKITER(ReadComplex32, complex32, pyComplex_From32      , hash_complex32, complex32, 1)
+MKITER(ReadFloat64  , double   , PyFloat_FromDouble    , hash_double   , double   , 1)
+MKITER(ReadFloat32  , float    , PyFloat_FromDouble    , hash_double   , double   , 1)
+MKITER(ReadInt64    , int64_t  , pyInt_FromS64         , hash_int64    , int64_t  , 1)
+MKITER(ReadInt32    , int32_t  , pyInt_FromS32         , hash_int64    , int64_t  , 1)
+MKITER(ReadBits64   , uint64_t , pyInt_FromU64         , hash_uint64   , uint64_t , 0)
+MKITER(ReadBits32   , uint32_t , pyInt_FromU32         , hash_uint64   , uint64_t , 0)
+MKITER(ReadBool     , uint8_t  , PyBool_FromLong       , hash_bool     , uint8_t  , 1)
 
-static PyObject *GzNumber_iternext(GzRead *self)
+static PyObject *ReadNumber_iternext(GzRead *self)
 {
 	ITERPROLOGUE(Number);
 	int is_float = 0;
@@ -635,7 +635,7 @@ static inline PyObject *unfmt_datetime(const uint32_t i0, const uint32_t i1)
 #endif
 }
 
-static PyObject *GzDateTime_iternext(GzRead *self)
+static PyObject *ReadDateTime_iternext(GzRead *self)
 {
 	ITERPROLOGUE(DateTime);
 	/* Z is a multiple of 8, so this never overruns. */
@@ -656,7 +656,7 @@ static inline PyObject *unfmt_date(const uint32_t i0)
 	return PyDate_FromDate(Y, m, d);
 }
 
-static PyObject *GzDate_iternext(GzRead *self)
+static PyObject *ReadDate_iternext(GzRead *self)
 {
 	ITERPROLOGUE(Date);
 	/* Z is a multiple of 4, so this never overruns. */
@@ -683,7 +683,7 @@ static inline PyObject *unfmt_time(const uint32_t i0, const uint32_t i1)
 #endif
 }
 
-static PyObject *GzTime_iternext(GzRead *self)
+static PyObject *ReadTime_iternext(GzRead *self)
 {
 	ITERPROLOGUE(Time);
 	/* Z is a multiple of 8, so this never overruns. */
@@ -710,7 +710,7 @@ static PyMethodDef gzread_methods[] = {
 	{NULL, NULL, 0, NULL}
 };
 
-#define MKTYPE(name, members)                                        	\
+#define MKTYPE(name)                                                 	\
 	static PyTypeObject name ## _Type = {                        	\
 		PyVarObject_HEAD_INIT(NULL, 0)                       	\
 		#name,                          /*tp_name          */	\
@@ -740,7 +740,7 @@ static PyMethodDef gzread_methods[] = {
 		(getiterfunc)gzread_self,       /*tp_iter          */	\
 		(iternextfunc)name ## _iternext,/*tp_iternext      */	\
 		gzread_methods,                 /*tp_methods       */	\
-		members,                        /*tp_members       */	\
+		r_default_members,              /*tp_members       */	\
 		0,                              /*tp_getset        */	\
 		0,                              /*tp_base          */	\
 		0,                              /*tp_dict          */	\
@@ -758,22 +758,22 @@ static PyMemberDef r_default_members[] = {
 	{"hashfilter", T_OBJECT_EX, offsetof(GzRead, hashfilter ), READONLY},
 	{0}
 };
-MKTYPE(GzBytes, r_default_members);
-MKTYPE(GzAscii, r_default_members);
-MKTYPE(GzUnicode, r_default_members);
-MKTYPE(GzNumber, r_default_members);
-MKTYPE(GzComplex64, r_default_members);
-MKTYPE(GzComplex32, r_default_members);
-MKTYPE(GzFloat64, r_default_members);
-MKTYPE(GzFloat32, r_default_members);
-MKTYPE(GzInt64, r_default_members);
-MKTYPE(GzInt32, r_default_members);
-MKTYPE(GzBits64, r_default_members);
-MKTYPE(GzBits32, r_default_members);
-MKTYPE(GzBool, r_default_members);
-MKTYPE(GzDateTime, r_default_members);
-MKTYPE(GzDate, r_default_members);
-MKTYPE(GzTime, r_default_members);
+MKTYPE(ReadBytes);
+MKTYPE(ReadAscii);
+MKTYPE(ReadUnicode);
+MKTYPE(ReadNumber);
+MKTYPE(ReadComplex64);
+MKTYPE(ReadComplex32);
+MKTYPE(ReadFloat64);
+MKTYPE(ReadFloat32);
+MKTYPE(ReadInt64);
+MKTYPE(ReadInt32);
+MKTYPE(ReadBits64);
+MKTYPE(ReadBits32);
+MKTYPE(ReadBool);
+MKTYPE(ReadDateTime);
+MKTYPE(ReadDate);
+MKTYPE(ReadTime);
 
 
 typedef union {
@@ -897,7 +897,7 @@ bad:
 	return 1;
 }
 
-static int gzwrite_init_GzWriteBlob(PyObject *self_, PyObject *args, PyObject *kwds)
+static int gzwrite_init_WriteBlob(PyObject *self_, PyObject *args, PyObject *kwds)
 {
 	GzWrite *self = (GzWrite *)self_;
 	char *name = 0;
@@ -917,9 +917,9 @@ err:
 	return -1;
 }
 
-#define gzwrite_init_GzWriteBytes   gzwrite_init_GzWriteBlob
-#define gzwrite_init_GzWriteAscii   gzwrite_init_GzWriteBlob
-#define gzwrite_init_GzWriteUnicode gzwrite_init_GzWriteBlob
+#define gzwrite_init_WriteBytes   gzwrite_init_WriteBlob
+#define gzwrite_init_WriteAscii   gzwrite_init_WriteBlob
+#define gzwrite_init_WriteUnicode gzwrite_init_WriteBlob
 
 static void gzwrite_dealloc(GzWrite *self)
 {
@@ -1024,7 +1024,7 @@ static PyObject *gzwrite_write_(GzWrite *self, const char *data, Py_ssize_t len)
 	cleanup;                                                     	\
 	return res;
 
-static PyObject *gzwrite_hash_GzWriteBytes(PyObject *dummy, PyObject *obj)
+static PyObject *gzwrite_hash_WriteBytes(PyObject *dummy, PyObject *obj)
 {
 	HASHBLOBPROLOGUE(!PyBytes_Check(obj), BYTES_NAME);
 	const Py_ssize_t len = PyBytes_GET_SIZE(obj);
@@ -1032,7 +1032,7 @@ static PyObject *gzwrite_hash_GzWriteBytes(PyObject *dummy, PyObject *obj)
 	HASHBLOBDO((void)data);
 }
 
-static PyObject *gzwrite_hash_GzWriteAscii(PyObject *dummy, PyObject *obj)
+static PyObject *gzwrite_hash_WriteAscii(PyObject *dummy, PyObject *obj)
 {
 	HASHBLOBPROLOGUE(!PyBytes_Check(obj) && !PyUnicode_Check(obj), EITHER_NAME);
 	Py_ssize_t len;
@@ -1046,7 +1046,7 @@ static PyObject *gzwrite_hash_GzWriteAscii(PyObject *dummy, PyObject *obj)
 	}
 }
 
-static PyObject *gzwrite_hash_GzWriteUnicode(PyObject *dummy, PyObject *obj)
+static PyObject *gzwrite_hash_WriteUnicode(PyObject *dummy, PyObject *obj)
 {
 	HASHBLOBPROLOGUE(!PyUnicode_Check(obj), UNICODE_NAME);
 	UNICODEBLOB(HASHBLOBDO);
@@ -1108,7 +1108,7 @@ static PyObject *gzwrite_hash_GzWriteUnicode(PyObject *dummy, PyObject *obj)
 	ASCIIVERIFY(cleanup);                                                         	\
 	WRITEBLOBDO(cleanup);
 
-static PyObject *gzwrite_C_GzWriteBytes(GzWrite *self, PyObject *obj, int actually_write)
+static PyObject *gzwrite_C_WriteBytes(GzWrite *self, PyObject *obj, int actually_write)
 {
 	WRITEBLOBPROLOGUE(!PyBytes_Check(obj), BYTES_NAME);
 	const Py_ssize_t len = PyBytes_GET_SIZE(obj);
@@ -1116,7 +1116,7 @@ static PyObject *gzwrite_C_GzWriteBytes(GzWrite *self, PyObject *obj, int actual
 	WRITEBLOBDO((void)data);
 }
 
-static PyObject *gzwrite_C_GzWriteAscii(GzWrite *self, PyObject *obj, int actually_write)
+static PyObject *gzwrite_C_WriteAscii(GzWrite *self, PyObject *obj, int actually_write)
 {
 	WRITEBLOBPROLOGUE(!PyBytes_Check(obj) && !PyUnicode_Check(obj), EITHER_NAME);
 	if (PyBytes_Check(obj)) {
@@ -1128,24 +1128,24 @@ static PyObject *gzwrite_C_GzWriteAscii(GzWrite *self, PyObject *obj, int actual
 	}
 }
 
-static PyObject *gzwrite_C_GzWriteUnicode(GzWrite *self, PyObject *obj, int actually_write)
+static PyObject *gzwrite_C_WriteUnicode(GzWrite *self, PyObject *obj, int actually_write)
 {
 	WRITEBLOBPROLOGUE(!PyUnicode_Check(obj), UNICODE_NAME);
 	UNICODEBLOB(WRITEBLOBDO);
 }
 
 #define MKWBLOB(name)                                                                               	\
-	static PyObject *gzwrite_write_GzWrite ## name (GzWrite *self, PyObject *obj)               	\
+	static PyObject *gzwrite_write_Write ## name (GzWrite *self, PyObject *obj)                 	\
 	{                                                                                           	\
-		return gzwrite_C_GzWrite ## name (self, obj, 1);                                    	\
+		return gzwrite_C_Write ## name (self, obj, 1);                                      	\
 	}                                                                                           	\
-	static PyObject *gzwrite_hashcheck_GzWrite ## name (GzWrite *self, PyObject *obj)           	\
+	static PyObject *gzwrite_hashcheck_Write ## name (GzWrite *self, PyObject *obj)             	\
 	{                                                                                           	\
 		if (!self->slices) {                                                                	\
 			PyErr_SetString(PyExc_ValueError, "No hashfilter set");                     	\
 			return 0;                                                                   	\
 		}                                                                                   	\
-		return gzwrite_C_GzWrite ## name (self, obj, 0);                                    	\
+		return gzwrite_C_Write ## name (self, obj, 0);                                      	\
 	}
 MKWBLOB(Bytes);
 MKWBLOB(Ascii);
@@ -1398,15 +1398,15 @@ static inline complex32 pyComplex_AsCComplex32(PyObject *obj)
 	return v;
 }
 
-MKWRITER_C(GzWriteComplex64, complex64, complex64, PyComplex_AsCComplex  , 1, value.real == -1.0, MINMAX_DUMMY, , , hash_complex64);
-MKWRITER_C(GzWriteComplex32, complex32, complex32, pyComplex_AsCComplex32, 1, value.real == -1.0, MINMAX_DUMMY, , , hash_complex32);
-MKWRITER_C(GzWriteFloat64, double  , double  , PyFloat_AsDouble , 1, value == -1.0, MINMAX_FLOAT, , minmax_set_Float64, hash_double );
-MKWRITER_C(GzWriteFloat32, float   , double  , PyFloat_AsDouble , 1, value == -1.0, MINMAX_FLOAT, , minmax_set_Float32, hash_double );
-MKWRITER(GzWriteInt64  , int64_t , int64_t , pyLong_AsS64     , 1, , minmax_set_Int64  , hash_int64  );
-MKWRITER(GzWriteInt32  , int32_t , int64_t , pyLong_AsS32     , 1, , minmax_set_Int32  , hash_int64  );
-MKWRITER(GzWriteBits64 , uint64_t, uint64_t, pyLong_AsU64     , 0, , minmax_set_Bits64 , hash_uint64 );
-MKWRITER(GzWriteBits32 , uint32_t, uint64_t, pyLong_AsU32     , 0, , minmax_set_Bits32 , hash_uint64 );
-MKWRITER(GzWriteBool   , uint8_t , uint8_t , pyLong_AsBool    , 1, , minmax_set_Bool   , hash_bool   );
+MKWRITER_C(WriteComplex64, complex64, complex64, PyComplex_AsCComplex  , 1, value.real == -1.0, MINMAX_DUMMY, ,                   , hash_complex64);
+MKWRITER_C(WriteComplex32, complex32, complex32, pyComplex_AsCComplex32, 1, value.real == -1.0, MINMAX_DUMMY, ,                   , hash_complex32);
+MKWRITER_C(WriteFloat64  , double   , double   , PyFloat_AsDouble      , 1, value == -1.0     , MINMAX_FLOAT, , minmax_set_Float64, hash_double   );
+MKWRITER_C(WriteFloat32  , float    , double   , PyFloat_AsDouble      , 1, value == -1.0     , MINMAX_FLOAT, , minmax_set_Float32, hash_double   );
+MKWRITER(WriteInt64      , int64_t  , int64_t  , pyLong_AsS64          , 1,                                   , minmax_set_Int64  , hash_int64    );
+MKWRITER(WriteInt32      , int32_t  , int64_t  , pyLong_AsS32          , 1,                                   , minmax_set_Int32  , hash_int64    );
+MKWRITER(WriteBits64     , uint64_t , uint64_t , pyLong_AsU64          , 0,                                   , minmax_set_Bits64 , hash_uint64   );
+MKWRITER(WriteBits32     , uint32_t , uint64_t , pyLong_AsU32          , 0,                                   , minmax_set_Bits32 , hash_uint64   );
+MKWRITER(WriteBool       , uint8_t  , uint8_t  , pyLong_AsBool         , 1,                                   , minmax_set_Bool   , hash_bool     );
 static uint64_t fmt_datetime(PyObject *dt)
 {
 	if (!PyDateTime_Check(dt)) {
@@ -1457,11 +1457,11 @@ static uint64_t fmt_time(PyObject *dt)
 #endif
 	return r.res;
 }
-MKWRITER(GzWriteDateTime, uint64_t, uint64_t, fmt_datetime, 1, minmax_value_datetime, minmax_set_DateTime, hash_datetime);
-MKWRITER(GzWriteDate    , uint32_t, uint32_t, fmt_date,     1,                      , minmax_set_Date    , hash_32bits);
-MKWRITER(GzWriteTime    , uint64_t, uint64_t, fmt_time,     1, minmax_value_datetime, minmax_set_Time    , hash_datetime);
+MKWRITER(WriteDateTime, uint64_t, uint64_t, fmt_datetime, 1, minmax_value_datetime, minmax_set_DateTime, hash_datetime);
+MKWRITER(WriteDate    , uint32_t, uint32_t, fmt_date,     1,                      , minmax_set_Date    , hash_32bits  );
+MKWRITER(WriteTime    , uint64_t, uint64_t, fmt_time,     1, minmax_value_datetime, minmax_set_Time    , hash_datetime);
 
-static int gzwrite_GzWriteNumber_serialize_Long(PyObject *obj, char *buf, const char *msg)
+static int gzwrite_WriteNumber_serialize_Long(PyObject *obj, char *buf, const char *msg)
 {
 	PyErr_Clear();
 	const size_t len_bits = _PyLong_NumBits(obj);
@@ -1480,7 +1480,7 @@ static int gzwrite_GzWriteNumber_serialize_Long(PyObject *obj, char *buf, const 
 	return _PyLong_AsByteArray(lobj, ptr, len_bytes, 1, 1) < 0;
 }
 
-static int gzwrite_init_GzWriteNumber(PyObject *self_, PyObject *args, PyObject *kwds)
+static int gzwrite_init_WriteNumber(PyObject *self_, PyObject *args, PyObject *kwds)
 {
 	static char *kwlist[] = {"name", "mode", "default", "hashfilter", "none_support", 0};
 	GzWrite *self = (GzWrite *)self_;
@@ -1508,7 +1508,7 @@ static int gzwrite_init_GzWriteNumber(PyObject *self_, PyObject *args, PyObject 
 			}
 			if (PyLong_Check(self->default_obj)) {
 				char buf[GZNUMBER_MAX_BYTES];
-				err1(gzwrite_GzWriteNumber_serialize_Long(self->default_obj, buf, "Bad default value:"));
+				err1(gzwrite_WriteNumber_serialize_Long(self->default_obj, buf, "Bad default value:"));
 			}
 		}
 	}
@@ -1545,7 +1545,7 @@ static void gzwrite_obj_minmax(GzWrite *self, PyObject *obj)
 	}
 }
 
-static PyObject *gzwrite_C_GzWriteNumber(GzWrite *self, PyObject *obj, int actually_write, int first)
+static PyObject *gzwrite_C_WriteNumber(GzWrite *self, PyObject *obj, int actually_write, int first)
 {
 	if (obj == Py_None) {
 		WRITE_NONE_SLICE_CHECK;
@@ -1568,7 +1568,7 @@ static PyObject *gzwrite_C_GzWriteNumber(GzWrite *self, PyObject *obj, int actua
 	}
 	if (first && !Integer_Check(obj)) {
 		if (first && self->default_obj) {
-			return gzwrite_C_GzWriteNumber(self, self->default_obj, actually_write, 0);
+			return gzwrite_C_WriteNumber(self, self->default_obj, actually_write, 0);
 		}
 		PyErr_SetString(PyExc_ValueError, "Only integers/floats accepted");
 		return 0;
@@ -1587,10 +1587,10 @@ static PyObject *gzwrite_C_GzWriteNumber(GzWrite *self, PyObject *obj, int actua
 		self->count++;
 		return gzwrite_write_(self, buf, 9);
 	}
-	if (gzwrite_GzWriteNumber_serialize_Long(obj, buf, "Value")) {
+	if (gzwrite_WriteNumber_serialize_Long(obj, buf, "Value")) {
 		if (first && self->default_obj) {
 			PyErr_Clear();
-			return gzwrite_C_GzWriteNumber(self, self->default_obj, actually_write, 0);
+			return gzwrite_C_WriteNumber(self, self->default_obj, actually_write, 0);
 		} else {
 			return 0;
 		}
@@ -1604,19 +1604,19 @@ static PyObject *gzwrite_C_GzWriteNumber(GzWrite *self, PyObject *obj, int actua
 	self->count++;
 	return gzwrite_write_(self, buf, buf[0] + 1);
 }
-static PyObject *gzwrite_write_GzWriteNumber(GzWrite *self, PyObject *obj)
+static PyObject *gzwrite_write_WriteNumber(GzWrite *self, PyObject *obj)
 {
-	return gzwrite_C_GzWriteNumber(self, obj, 1, 1);
+	return gzwrite_C_WriteNumber(self, obj, 1, 1);
 }
-static PyObject *gzwrite_hashcheck_GzWriteNumber(GzWrite *self, PyObject *obj)
+static PyObject *gzwrite_hashcheck_WriteNumber(GzWrite *self, PyObject *obj)
 {
 	if (!self->slices) {
 		PyErr_SetString(PyExc_ValueError, "No hashfilter set");
 		return 0;
 	}
-	return gzwrite_C_GzWriteNumber(self, obj, 0, 1);
+	return gzwrite_C_WriteNumber(self, obj, 0, 1);
 }
-static PyObject *gzwrite_hash_GzWriteNumber(PyObject *dummy, PyObject *obj)
+static PyObject *gzwrite_hash_WriteNumber(PyObject *dummy, PyObject *obj)
 {
 	if (obj == Py_None) {
 		return PyInt_FromLong(0);
@@ -1635,14 +1635,14 @@ static PyObject *gzwrite_hash_GzWriteNumber(PyObject *dummy, PyObject *obj)
 			h = hash_int64(&value);
 		} else {
 			char buf[GZNUMBER_MAX_BYTES];
-			if (gzwrite_GzWriteNumber_serialize_Long(obj, buf, "Value")) return 0;
+			if (gzwrite_WriteNumber_serialize_Long(obj, buf, "Value")) return 0;
 			h = hash(buf + 1, buf[0]);
 		}
 		return pyInt_FromU64(h);
 	}
 }
 
-static int gzwrite_init_GzWriteParsedNumber(PyObject *self_, PyObject *args, PyObject *kwds)
+static int gzwrite_init_WriteParsedNumber(PyObject *self_, PyObject *args, PyObject *kwds)
 {
 	static char *kwlist[] = {"name", "mode", "default", "hashfilter", "none_support", 0};
 	PyObject *name = 0;
@@ -1675,7 +1675,7 @@ static int gzwrite_init_GzWriteParsedNumber(PyObject *self_, PyObject *args, PyO
 	if (default_obj) err1(PyDict_SetItemString(new_kwds, "default", default_obj));
 	if (hashfilter) err1(PyDict_SetItemString(new_kwds, "hashfilter", hashfilter));
 	if (none_support) err1(PyDict_SetItemString(new_kwds, "none_support", none_support));
-	res = gzwrite_init_GzWriteNumber(self_, new_args, new_kwds);
+	res = gzwrite_init_WriteNumber(self_, new_args, new_kwds);
 err:
 	Py_XDECREF(new_kwds);
 	Py_XDECREF(new_args);
@@ -1684,10 +1684,10 @@ err:
 }
 
 #define MKPARSEDNUMBERWRAPPER(name, selftype) \
-	static PyObject *gzwrite_ ## name ## _GzWriteParsedNumber(selftype *self, PyObject *obj)   	\
+	static PyObject *gzwrite_ ## name ## _WriteParsedNumber(selftype *self, PyObject *obj)     	\
 	{                                                                                          	\
 		if (PyFloat_Check(obj) || PyLong_Check(obj) || obj == Py_None) {                   	\
-			return gzwrite_ ## name ## _GzWriteNumber(self, obj);                      	\
+			return gzwrite_ ## name ## _WriteNumber(self, obj);                        	\
 		}                                                                                  	\
 		PyObject *tmp = PyNumber_Int(obj);                                                 	\
 		if (!tmp) {                                                                        	\
@@ -1700,7 +1700,7 @@ err:
 				Py_INCREF(tmp);                                                    	\
 			}                                                                          	\
 		}                                                                                  	\
-		PyObject *res = gzwrite_ ## name ## _GzWriteNumber(self, tmp);                     	\
+		PyObject *res = gzwrite_ ## name ## _WriteNumber(self, tmp);                       	\
 		Py_DECREF(tmp);                                                                    	\
 		return res;                                                                        	\
 	}
@@ -1717,7 +1717,7 @@ MKPARSEDNUMBERWRAPPER(hash, PyObject)
 		Py_DECREF(parsed);                                   	\
 		return res;                                          	\
 	}                                                            	\
-	MKWRITER_C(GzWriteParsed ## name, T, HT, parse ## name, withnone, errchk, do_minmax, , minmax_set, hash)
+	MKWRITER_C(WriteParsed ## name, T, HT, parse ## name, withnone, errchk, do_minmax, , minmax_set, hash)
 #define MKPARSED(name, T, HT, inner, conv, withnone, minmax_set, hash)	\
 	MKPARSED_C(name, T, HT, inner, conv, withnone, value == (T)-1, -1, MINMAX_STD, minmax_set, hash)
 
@@ -1808,47 +1808,47 @@ static PyMemberDef w_default_members[] = {
 		{0}                                                                           	\
 	};                                                                                    	\
 	MKWTYPE_i(name, name ## _methods, w_default_members);
-MKWTYPE(GzWriteBytes);
-MKWTYPE(GzWriteAscii);
-MKWTYPE(GzWriteUnicode);
-MKWTYPE(GzWriteComplex64);
-MKWTYPE(GzWriteComplex32);
-MKWTYPE(GzWriteFloat64);
-MKWTYPE(GzWriteFloat32);
-MKWTYPE(GzWriteNumber);
-MKWTYPE(GzWriteInt64);
-MKWTYPE(GzWriteInt32);
-MKWTYPE(GzWriteBits64);
-MKWTYPE(GzWriteBits32);
-MKWTYPE(GzWriteBool);
-MKWTYPE(GzWriteDateTime);
-MKWTYPE(GzWriteDate);
-MKWTYPE(GzWriteTime);
+MKWTYPE(WriteBytes);
+MKWTYPE(WriteAscii);
+MKWTYPE(WriteUnicode);
+MKWTYPE(WriteComplex64);
+MKWTYPE(WriteComplex32);
+MKWTYPE(WriteFloat64);
+MKWTYPE(WriteFloat32);
+MKWTYPE(WriteNumber);
+MKWTYPE(WriteInt64);
+MKWTYPE(WriteInt32);
+MKWTYPE(WriteBits64);
+MKWTYPE(WriteBits32);
+MKWTYPE(WriteBool);
+MKWTYPE(WriteDateTime);
+MKWTYPE(WriteDate);
+MKWTYPE(WriteTime);
 
-MKWTYPE(GzWriteParsedNumber);
-MKWTYPE(GzWriteParsedComplex64);
-MKWTYPE(GzWriteParsedComplex32);
-MKWTYPE(GzWriteParsedFloat64);
-MKWTYPE(GzWriteParsedFloat32);
-MKWTYPE(GzWriteParsedInt64);
-MKWTYPE(GzWriteParsedInt32);
-MKWTYPE(GzWriteParsedBits64);
-MKWTYPE(GzWriteParsedBits32);
+MKWTYPE(WriteParsedNumber);
+MKWTYPE(WriteParsedComplex64);
+MKWTYPE(WriteParsedComplex32);
+MKWTYPE(WriteParsedFloat64);
+MKWTYPE(WriteParsedFloat32);
+MKWTYPE(WriteParsedInt64);
+MKWTYPE(WriteParsedInt32);
+MKWTYPE(WriteParsedBits64);
+MKWTYPE(WriteParsedBits32);
 
 static PyObject *generic_hash(PyObject *dummy, PyObject *obj)
 {
 	if (obj == Py_None)        return PyInt_FromLong(0);
-	if (PyBytes_Check(obj))    return gzwrite_hash_GzWriteBytes(0, obj);
-	if (PyUnicode_Check(obj))  return gzwrite_hash_GzWriteUnicode(0, obj);
-	if (PyFloat_Check(obj))    return gzwrite_hash_GzWriteFloat64(0, obj);
-	if (PyBool_Check(obj))     return gzwrite_hash_GzWriteBool(0, obj);
+	if (PyBytes_Check(obj))    return gzwrite_hash_WriteBytes(0, obj);
+	if (PyUnicode_Check(obj))  return gzwrite_hash_WriteUnicode(0, obj);
+	if (PyFloat_Check(obj))    return gzwrite_hash_WriteFloat64(0, obj);
+	if (PyBool_Check(obj))     return gzwrite_hash_WriteBool(0, obj);
 	if (Integer_Check(obj)) {
-		return gzwrite_hash_GzWriteNumber(0, obj);
+		return gzwrite_hash_WriteNumber(0, obj);
 	}
-	if (PyDateTime_Check(obj)) return gzwrite_hash_GzWriteDateTime(0, obj);
-	if (PyDate_Check(obj))     return gzwrite_hash_GzWriteDate(0, obj);
-	if (PyTime_Check(obj))     return gzwrite_hash_GzWriteTime(0, obj);
-	if (PyComplex_Check(obj))  return gzwrite_hash_GzWriteComplex64(0, obj);
+	if (PyDateTime_Check(obj)) return gzwrite_hash_WriteDateTime(0, obj);
+	if (PyDate_Check(obj))     return gzwrite_hash_WriteDate(0, obj);
+	if (PyTime_Check(obj))     return gzwrite_hash_WriteTime(0, obj);
+	if (PyComplex_Check(obj))  return gzwrite_hash_WriteComplex64(0, obj);
 	PyErr_Format(PyExc_ValueError, "Unknown type %s", obj->ob_type->tp_name);
 	return 0;
 }
@@ -1943,47 +1943,47 @@ __attribute__ ((visibility("default"))) PyMODINIT_FUNC INITFUNC(void)
 	PyObject *m = Py_InitModule3("_dsutil", module_methods, NULL);
 #endif
 	if (!m) return INITERR;
-	INIT(GzBytes);
-	INIT(GzUnicode);
-	INIT(GzAscii);
-	INIT(GzNumber);
-	INIT(GzComplex64);
-	INIT(GzComplex32);
-	INIT(GzFloat64);
-	INIT(GzFloat32);
-	INIT(GzInt64);
-	INIT(GzInt32);
-	INIT(GzBits64);
-	INIT(GzBits32);
-	INIT(GzBool);
-	INIT(GzDateTime);
-	INIT(GzDate);
-	INIT(GzTime);
-	INIT(GzWriteBytes);
-	INIT(GzWriteUnicode);
-	INIT(GzWriteAscii);
-	INIT(GzWriteNumber);
-	INIT(GzWriteComplex64);
-	INIT(GzWriteComplex32);
-	INIT(GzWriteFloat64);
-	INIT(GzWriteFloat32);
-	INIT(GzWriteInt64);
-	INIT(GzWriteInt32);
-	INIT(GzWriteBits64);
-	INIT(GzWriteBits32);
-	INIT(GzWriteBool);
-	INIT(GzWriteDateTime);
-	INIT(GzWriteDate);
-	INIT(GzWriteTime);
-	INIT(GzWriteParsedNumber);
-	INIT(GzWriteParsedComplex64);
-	INIT(GzWriteParsedComplex32);
-	INIT(GzWriteParsedFloat64);
-	INIT(GzWriteParsedFloat32);
-	INIT(GzWriteParsedInt64);
-	INIT(GzWriteParsedInt32);
-	INIT(GzWriteParsedBits64);
-	INIT(GzWriteParsedBits32);
+	INIT(ReadBytes);
+	INIT(ReadUnicode);
+	INIT(ReadAscii);
+	INIT(ReadNumber);
+	INIT(ReadComplex64);
+	INIT(ReadComplex32);
+	INIT(ReadFloat64);
+	INIT(ReadFloat32);
+	INIT(ReadInt64);
+	INIT(ReadInt32);
+	INIT(ReadBits64);
+	INIT(ReadBits32);
+	INIT(ReadBool);
+	INIT(ReadDateTime);
+	INIT(ReadDate);
+	INIT(ReadTime);
+	INIT(WriteBytes);
+	INIT(WriteUnicode);
+	INIT(WriteAscii);
+	INIT(WriteNumber);
+	INIT(WriteComplex64);
+	INIT(WriteComplex32);
+	INIT(WriteFloat64);
+	INIT(WriteFloat32);
+	INIT(WriteInt64);
+	INIT(WriteInt32);
+	INIT(WriteBits64);
+	INIT(WriteBits32);
+	INIT(WriteBool);
+	INIT(WriteDateTime);
+	INIT(WriteDate);
+	INIT(WriteTime);
+	INIT(WriteParsedNumber);
+	INIT(WriteParsedComplex64);
+	INIT(WriteParsedComplex32);
+	INIT(WriteParsedFloat64);
+	INIT(WriteParsedFloat32);
+	INIT(WriteParsedInt64);
+	INIT(WriteParsedInt32);
+	INIT(WriteParsedBits64);
+	INIT(WriteParsedBits32);
 #if PY_MAJOR_VERSION >= 3
 	return m;
 #endif

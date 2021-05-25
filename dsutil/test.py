@@ -84,9 +84,9 @@ for name, data, bad_cnt, res_data in (
 	("ParsedBits32"  , [int, "", None, l(-5), -5, 0.1, "2147483648", "2147483647", l(0x80000000), 1], 5, [0, 0x80000000, 0x7fffffff, 0x80000000, 1]),
 ):
 	print(name)
-	r_name = "Gz" + name[6:] if name.startswith("Parsed") else "Gz" + name
+	r_name = "Read" + name[6:] if name.startswith("Parsed") else "Read" + name
 	r_typ = getattr(_dsutil, r_name)
-	w_typ = getattr(_dsutil, "GzWrite" + name)
+	w_typ = getattr(_dsutil, "Write" + name)
 	none_support = ("Bits" not in name)
 	# verify that failures in init are handled reasonably.
 	for typ in (r_typ, w_typ,):
@@ -236,15 +236,15 @@ print("Empty and None values in stringlike types")
 for name, value in (
 	("Bytes", b""), ("Ascii", ""), ("Unicode", ""),
 ):
-	with getattr(_dsutil, "GzWrite" + name)(TMP_FN) as fh:
+	with getattr(_dsutil, "Write" + name)(TMP_FN) as fh:
 		fh.write(value)
 		fh.write(value)
-	with getattr(_dsutil, "Gz" + name)(TMP_FN) as fh:
+	with getattr(_dsutil, "Read" + name)(TMP_FN) as fh:
 		assert list(fh) == [value, value], name + " fails with just empty strings"
-	with getattr(_dsutil, "GzWrite" + name)(TMP_FN, none_support=True) as fh:
+	with getattr(_dsutil, "Write" + name)(TMP_FN, none_support=True) as fh:
 		fh.write(None)
 		fh.write(None)
-	with getattr(_dsutil, "Gz" + name)(TMP_FN) as fh:
+	with getattr(_dsutil, "Read" + name)(TMP_FN) as fh:
 		assert list(fh) == [None, None], name + " fails with just Nones"
 
 print("Hash testing, false things")
@@ -252,37 +252,37 @@ for v in (None, "", b"", 0, 0.0, False,):
 	assert _dsutil.hash(v) == 0, "%r doesn't hash to 0" % (v,)
 print("Hash testing, strings")
 for v in ("", "a", "0", "foo", "a slightly longer string", "\0", "a\0b",):
-	l_u = _dsutil.GzWriteUnicode.hash(v)
-	l_a = _dsutil.GzWriteAscii.hash(v)
-	l_b = _dsutil.GzWriteBytes.hash(v.encode("utf-8"))
-	u = _dsutil.GzWriteUnicode.hash(v)
-	a = _dsutil.GzWriteAscii.hash(v)
-	b = _dsutil.GzWriteBytes.hash(v.encode("utf-8"))
+	l_u = _dsutil.WriteUnicode.hash(v)
+	l_a = _dsutil.WriteAscii.hash(v)
+	l_b = _dsutil.WriteBytes.hash(v.encode("utf-8"))
+	u = _dsutil.WriteUnicode.hash(v)
+	a = _dsutil.WriteAscii.hash(v)
+	b = _dsutil.WriteBytes.hash(v.encode("utf-8"))
 	assert u == l_u == a == l_a == b == l_b, "%r doesn't hash the same" % (v,)
 assert _dsutil.hash(b"\xe4") != _dsutil.hash("\xe4"), "Unicode hash fail"
-assert _dsutil.GzWriteBytes.hash(b"\xe4") != _dsutil.GzWriteUnicode.hash("\xe4"), "Unicode hash fail"
+assert _dsutil.WriteBytes.hash(b"\xe4") != _dsutil.WriteUnicode.hash("\xe4"), "Unicode hash fail"
 try:
-	_dsutil.GzWriteAscii.hash(b"\xe4")
+	_dsutil.WriteAscii.hash(b"\xe4")
 	raise Exception("Ascii.hash accepted non-ascii")
 except ValueError:
 	pass
 print("Hash testing, numbers")
 for v in (0, 1, 2, 9007199254740991, -42):
-	assert _dsutil.GzWriteInt64.hash(v) == _dsutil.GzWriteFloat64.hash(float(v)), "%d doesn't hash the same" % (v,)
-	assert _dsutil.GzWriteInt64.hash(v) == _dsutil.GzWriteNumber.hash(v), "%d doesn't hash the same" % (v,)
+	assert _dsutil.WriteInt64.hash(v) == _dsutil.WriteFloat64.hash(float(v)), "%d doesn't hash the same" % (v,)
+	assert _dsutil.WriteInt64.hash(v) == _dsutil.WriteNumber.hash(v), "%d doesn't hash the same" % (v,)
 
 print("Append test")
 # And finally verify appending works as expected.
-with _dsutil.GzWriteInt64(TMP_FN) as fh:
+with _dsutil.WriteInt64(TMP_FN) as fh:
 	fh.write(42)
-with _dsutil.GzWriteInt64(TMP_FN, mode="a") as fh:
+with _dsutil.WriteInt64(TMP_FN, mode="a") as fh:
 	fh.write(18)
-with _dsutil.GzInt64(TMP_FN) as fh:
+with _dsutil.ReadInt64(TMP_FN) as fh:
 	assert list(fh) == [42, 18]
 
 print("Number boundary test")
 Z = 128 * 1024 # the internal buffer size in _dsutil
-with _dsutil.GzWriteNumber(TMP_FN) as fh:
+with _dsutil.WriteNumber(TMP_FN) as fh:
 	todo = Z - 100
 	while todo > 0:
 		fh.write(42)
@@ -291,26 +291,26 @@ with _dsutil.GzWriteNumber(TMP_FN) as fh:
 	v = 0x2e6465726f6220657261206577202c6567617373656d20676e6f6c207974746572702061207369207374696220646e6173756f6874206120796c6c6175746341203f7468676972202c6c6c657720736120746867696d206577202c65726568206567617373656d2074726f68732061206576616820732774656c20796548
 	want = [42] * fh.count + [v]
 	fh.write(v)
-with _dsutil.GzNumber(TMP_FN) as fh:
+with _dsutil.ReadNumber(TMP_FN) as fh:
 	assert want == list(fh)
 
 print("Number want_count large end test")
-with _dsutil.GzWriteNumber(TMP_FN) as fh:
+with _dsutil.WriteNumber(TMP_FN) as fh:
 	fh.write(2 ** 1000)
 	fh.write(7)
-with _dsutil.GzNumber(TMP_FN, want_count=1) as fh:
+with _dsutil.ReadNumber(TMP_FN, want_count=1) as fh:
 	assert [2 ** 1000] == list(fh)
 
 print("Large ascii strings (with a size between blocks)")
 data = ["a" * (128 * 1024 - 6), "b" * (128 * 1024 - 6), "c" * (2090 * 1024), "d"]
-with _dsutil.GzWriteAscii(TMP_FN) as fh:
+with _dsutil.WriteAscii(TMP_FN) as fh:
 	for v in data:
 		fh.write(v)
-with _dsutil.GzAscii(TMP_FN) as fh:
+with _dsutil.ReadAscii(TMP_FN) as fh:
 	assert data == list(fh)
 
 print("Callback tests")
-with _dsutil.GzWriteNumber(TMP_FN) as fh:
+with _dsutil.WriteNumber(TMP_FN) as fh:
 	for n in range(1000):
 		fh.write(n)
 def callback(num_lines):
@@ -330,18 +330,18 @@ for cb_interval, want_count, expected_cb_count in (
 	for cb_offset in (0, 50000000, -10000):
 		cb_count = 0
 		good_num_lines = range(cb_interval + cb_offset, (1000 if want_count == -1 else want_count) + cb_offset, cb_interval)
-		with _dsutil.GzNumber(TMP_FN, want_count=want_count, callback=callback, callback_interval=cb_interval, callback_offset=cb_offset) as fh:
+		with _dsutil.ReadNumber(TMP_FN, want_count=want_count, callback=callback, callback_interval=cb_interval, callback_offset=cb_offset) as fh:
 			lst = list(fh)
 			assert len(lst) == 1000 if want_count == -1 else want_count
 		assert cb_count in expected_cb_count
 def callback2(num_lines):
 	raise StopIteration
-with _dsutil.GzNumber(TMP_FN, callback=callback2, callback_interval=1) as fh:
+with _dsutil.ReadNumber(TMP_FN, callback=callback2, callback_interval=1) as fh:
 	lst = list(fh)
 	assert lst == [0]
 def callback3(num_lines):
 	1 / 0
-with _dsutil.GzNumber(TMP_FN, callback=callback3, callback_interval=1) as fh:
+with _dsutil.ReadNumber(TMP_FN, callback=callback3, callback_interval=1) as fh:
 	good = False
 	try:
 		lst = list(fh)
