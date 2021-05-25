@@ -66,7 +66,7 @@
 
 #define err1(v) if (v) goto err
 
-typedef struct gzread {
+typedef struct read {
 	PyObject_HEAD
 	char *name;
 	PyObject *hashfilter;
@@ -83,11 +83,11 @@ typedef struct gzread {
 	unsigned int sliceno;
 	unsigned int slices;
 	char buf[Z];
-} GzRead;
+} Read;
 
 #define FREE(p) do { PyMem_Free(p); (p) = 0; } while (0)
 
-static int gzread_close_(GzRead *self)
+static int gzread_close_(Read *self)
 {
 	FREE(self->name);
 	Py_CLEAR(self->hashfilter);
@@ -123,7 +123,7 @@ static int gzread_close_(GzRead *self)
 #endif
 
 // Stupid forward declarations
-static int gzread_read_(GzRead *self, int itemsize);
+static int gzread_read_(Read *self, int itemsize);
 static PyTypeObject ReadNumber_Type;
 static PyTypeObject ReadDateTime_Type;
 static PyTypeObject ReadDate_Type;
@@ -215,7 +215,7 @@ static int parse_hashfilter(PyObject *hashfilter, PyObject **r_hashfilter, unsig
 static int gzread_init(PyObject *self_, PyObject *args, PyObject *kwds)
 {
 	int res = -1;
-	GzRead *self = (GzRead *)self_;
+	Read *self = (Read *)self_;
 	char *name = 0;
 	int fd = -1;
 	PY_LONG_LONG seek = 0;
@@ -282,7 +282,7 @@ err:
 	return res;
 }
 
-static void gzread_dealloc(GzRead *self)
+static void gzread_dealloc(Read *self)
 {
 	gzread_close_(self);
 	PyObject_Del(self);
@@ -294,20 +294,20 @@ static PyObject *err_closed(void)
 	return 0;
 }
 
-static PyObject *gzread_close(GzRead *self)
+static PyObject *gzread_close(Read *self)
 {
 	if (gzread_close_(self)) return err_closed();
 	Py_RETURN_NONE;
 }
 
-static PyObject *gzread_self(GzRead *self)
+static PyObject *gzread_self(Read *self)
 {
 	if (!self->fh) return err_closed();
 	Py_INCREF(self);
 	return (PyObject *)self;
 }
 
-static int gzread_read_(GzRead *self, int itemsize)
+static int gzread_read_(Read *self, int itemsize)
 {
 	if (!self->error) {
 		unsigned len = Z;
@@ -353,7 +353,7 @@ static int gzread_read_(GzRead *self, int itemsize)
 #define SIZE_uint32_t 4
 #define SIZE_uint8_t  1
 
-static inline int do_callback(GzRead *self)
+static inline int do_callback(Read *self)
 {
 	PyObject *res = PyObject_CallFunction(self->callback, "L", self->count + self->callback_offset);
 	if (res) {
@@ -421,7 +421,7 @@ static inline int do_callback(GzRead *self)
 } while(0)
 
 #define MKmkBlob(name, decoder) \
-	static inline PyObject *mkblob ## name(GzRead *self, const char *ptr, int len)   	\
+	static inline PyObject *mkblob ## name(Read *self, const char *ptr, int len)     	\
 	{                                                                                	\
 		HC_CHECK(hash(ptr, len));                                                	\
 		return decoder;                                                          	\
@@ -435,7 +435,7 @@ MKmkBlob(Unicode, PyUnicode_DecodeUTF8(ptr, len, 0))
 #endif
 
 #define MKBLOBITER(name, typename) \
-	static PyObject *name ## _iternext(GzRead *self)                                 	\
+	static PyObject *name ## _iternext(Read *self)                                   	\
 	{                                                                                	\
 		ITERPROLOGUE(typename);                                                  	\
 		uint32_t size = ((uint8_t *)self->buf)[self->pos];                       	\
@@ -536,7 +536,7 @@ static const uint32_t noneval_uint32_t = 0;
 static const uint8_t noneval_uint8_t = 255;
 
 #define MKITER(name, T, conv, hash, HT, withnone)                            	\
-	static PyObject * name ## _iternext(GzRead *self)                    	\
+	static PyObject * name ## _iternext(Read *self)                      	\
 	{                                                                    	\
 		ITERPROLOGUE(T);                                             	\
 		/* Z is a multiple of sizeof(T), so this never overruns. */  	\
@@ -569,7 +569,7 @@ MKITER(ReadBits64   , uint64_t , pyInt_FromU64         , hash_uint64   , uint64_
 MKITER(ReadBits32   , uint32_t , pyInt_FromU32         , hash_uint64   , uint64_t , 0)
 MKITER(ReadBool     , uint8_t  , PyBool_FromLong       , hash_bool     , uint8_t  , 1)
 
-static PyObject *ReadNumber_iternext(GzRead *self)
+static PyObject *ReadNumber_iternext(Read *self)
 {
 	ITERPROLOGUE(Number);
 	int is_float = 0;
@@ -635,7 +635,7 @@ static inline PyObject *unfmt_datetime(const uint32_t i0, const uint32_t i1)
 #endif
 }
 
-static PyObject *ReadDateTime_iternext(GzRead *self)
+static PyObject *ReadDateTime_iternext(Read *self)
 {
 	ITERPROLOGUE(DateTime);
 	/* Z is a multiple of 8, so this never overruns. */
@@ -656,7 +656,7 @@ static inline PyObject *unfmt_date(const uint32_t i0)
 	return PyDate_FromDate(Y, m, d);
 }
 
-static PyObject *ReadDate_iternext(GzRead *self)
+static PyObject *ReadDate_iternext(Read *self)
 {
 	ITERPROLOGUE(Date);
 	/* Z is a multiple of 4, so this never overruns. */
@@ -683,7 +683,7 @@ static inline PyObject *unfmt_time(const uint32_t i0, const uint32_t i1)
 #endif
 }
 
-static PyObject *ReadTime_iternext(GzRead *self)
+static PyObject *ReadTime_iternext(Read *self)
 {
 	ITERPROLOGUE(Time);
 	/* Z is a multiple of 8, so this never overruns. */
@@ -714,7 +714,7 @@ static PyMethodDef gzread_methods[] = {
 	static PyTypeObject name ## _Type = {                        	\
 		PyVarObject_HEAD_INIT(NULL, 0)                       	\
 		#name,                          /*tp_name          */	\
-		sizeof(GzRead),                 /*tp_basicsize     */	\
+		sizeof(Read),                   /*tp_basicsize     */	\
 		0,                              /*tp_itemsize      */	\
 		(destructor)gzread_dealloc,     /*tp_dealloc       */	\
 		0,                              /*tp_print         */	\
@@ -754,8 +754,8 @@ static PyMethodDef gzread_methods[] = {
 		0,                              /*tp_is_gc         */	\
 	}
 static PyMemberDef r_default_members[] = {
-	{"name"      , T_STRING   , offsetof(GzRead, name       ), READONLY},
-	{"hashfilter", T_OBJECT_EX, offsetof(GzRead, hashfilter ), READONLY},
+	{"name"      , T_STRING   , offsetof(Read, name       ), READONLY},
+	{"hashfilter", T_OBJECT_EX, offsetof(Read, hashfilter ), READONLY},
 	{0}
 };
 MKTYPE(ReadBytes);
@@ -799,7 +799,7 @@ typedef union {
 	complex64 as_complex64;
 } default_u;
 
-typedef struct gzwrite {
+typedef struct write {
 	PyObject_HEAD
 	gzFile fh;
 	char *name;
@@ -819,9 +819,9 @@ typedef struct gzwrite {
 	int len;
 	char mode[4];
 	char buf[Z];
-} GzWrite;
+} Write;
 
-static int gzwrite_ensure_open(GzWrite *self)
+static int gzwrite_ensure_open(Write *self)
 {
 	if (self->fh) return 0;
 	if (self->closed) {
@@ -836,7 +836,7 @@ static int gzwrite_ensure_open(GzWrite *self)
 	return 0;
 }
 
-static int gzwrite_flush_(GzWrite *self)
+static int gzwrite_flush_(Write *self)
 {
 	if (!self->len) return 0;
 	if (gzwrite_ensure_open(self)) return 1;
@@ -849,14 +849,14 @@ static int gzwrite_flush_(GzWrite *self)
 	return 0;
 }
 
-static PyObject *gzwrite_flush(GzWrite *self)
+static PyObject *gzwrite_flush(Write *self)
 {
 	if (gzwrite_ensure_open(self)) return 0;
 	if (gzwrite_flush_(self)) return 0;
 	Py_RETURN_NONE;
 }
 
-static int gzwrite_close_(GzWrite *self)
+static int gzwrite_close_(Write *self)
 {
 	if (self->default_value) {
 		free(self->default_value);
@@ -899,7 +899,7 @@ bad:
 
 static int gzwrite_init_WriteBlob(PyObject *self_, PyObject *args, PyObject *kwds)
 {
-	GzWrite *self = (GzWrite *)self_;
+	Write *self = (Write *)self_;
 	char *name = 0;
 	const char *mode = 0;
 	PyObject *hashfilter = 0;
@@ -921,27 +921,27 @@ err:
 #define gzwrite_init_WriteAscii   gzwrite_init_WriteBlob
 #define gzwrite_init_WriteUnicode gzwrite_init_WriteBlob
 
-static void gzwrite_dealloc(GzWrite *self)
+static void gzwrite_dealloc(Write *self)
 {
 	gzwrite_close_(self);
 	PyObject_Del(self);
 }
 
-static PyObject *gzwrite_close(GzWrite *self)
+static PyObject *gzwrite_close(Write *self)
 {
 	if (gzwrite_flush_(self)) return 0;
 	if (gzwrite_close_(self)) return err_closed();
 	Py_RETURN_NONE;
 }
 
-static PyObject *gzwrite_self(GzWrite *self)
+static PyObject *gzwrite_self(Write *self)
 {
 	if (self->closed) return err_closed();
 	Py_INCREF(self);
 	return (PyObject *)self;
 }
 
-static PyObject *gzwrite_write_(GzWrite *self, const char *data, Py_ssize_t len)
+static PyObject *gzwrite_write_(Write *self, const char *data, Py_ssize_t len)
 {
 	if (len + self->len > Z) {
 		if (gzwrite_flush_(self)) return 0;
@@ -1108,7 +1108,7 @@ static PyObject *gzwrite_hash_WriteUnicode(PyObject *dummy, PyObject *obj)
 	ASCIIVERIFY(cleanup);                                                         	\
 	WRITEBLOBDO(cleanup);
 
-static PyObject *gzwrite_C_WriteBytes(GzWrite *self, PyObject *obj, int actually_write)
+static PyObject *gzwrite_C_WriteBytes(Write *self, PyObject *obj, int actually_write)
 {
 	WRITEBLOBPROLOGUE(!PyBytes_Check(obj), BYTES_NAME);
 	const Py_ssize_t len = PyBytes_GET_SIZE(obj);
@@ -1116,7 +1116,7 @@ static PyObject *gzwrite_C_WriteBytes(GzWrite *self, PyObject *obj, int actually
 	WRITEBLOBDO((void)data);
 }
 
-static PyObject *gzwrite_C_WriteAscii(GzWrite *self, PyObject *obj, int actually_write)
+static PyObject *gzwrite_C_WriteAscii(Write *self, PyObject *obj, int actually_write)
 {
 	WRITEBLOBPROLOGUE(!PyBytes_Check(obj) && !PyUnicode_Check(obj), EITHER_NAME);
 	if (PyBytes_Check(obj)) {
@@ -1128,18 +1128,18 @@ static PyObject *gzwrite_C_WriteAscii(GzWrite *self, PyObject *obj, int actually
 	}
 }
 
-static PyObject *gzwrite_C_WriteUnicode(GzWrite *self, PyObject *obj, int actually_write)
+static PyObject *gzwrite_C_WriteUnicode(Write *self, PyObject *obj, int actually_write)
 {
 	WRITEBLOBPROLOGUE(!PyUnicode_Check(obj), UNICODE_NAME);
 	UNICODEBLOB(WRITEBLOBDO);
 }
 
 #define MKWBLOB(name)                                                                               	\
-	static PyObject *gzwrite_write_Write ## name (GzWrite *self, PyObject *obj)                 	\
+	static PyObject *gzwrite_write_Write ## name (Write *self, PyObject *obj)                   	\
 	{                                                                                           	\
 		return gzwrite_C_Write ## name (self, obj, 1);                                      	\
 	}                                                                                           	\
-	static PyObject *gzwrite_hashcheck_Write ## name (GzWrite *self, PyObject *obj)             	\
+	static PyObject *gzwrite_hashcheck_Write ## name (Write *self, PyObject *obj)               	\
 	{                                                                                           	\
 		if (!self->slices) {                                                                	\
 			PyErr_SetString(PyExc_ValueError, "No hashfilter set");                     	\
@@ -1203,7 +1203,7 @@ MK_MINMAX_SET(Time    , unfmt_time((*(uint64_t *)cmp_value) >> 32, *(uint64_t *)
 	static int gzwrite_init_ ## tname(PyObject *self_, PyObject *args, PyObject *kwds)	\
 	{                                                                                	\
 		static char *kwlist[] = {"name", "mode", "default", "hashfilter", "none_support", 0}; \
-		GzWrite *self = (GzWrite *)self_;                                        	\
+		Write *self = (Write *)self_;                                            	\
 		char *name = 0;                                                          	\
 		const char *mode = 0;                                                    	\
 		PyObject *default_obj = 0;                                               	\
@@ -1245,7 +1245,7 @@ MK_MINMAX_SET(Time    , unfmt_time((*(uint64_t *)cmp_value) >> 32, *(uint64_t *)
 err:                                                                                     	\
 		return -1;                                                               	\
 	}                                                                                	\
-	static PyObject *gzwrite_C_ ## tname(GzWrite *self, PyObject *obj, int actually_write)	\
+	static PyObject *gzwrite_C_ ## tname(Write *self, PyObject *obj, int actually_write)	\
 	{                                                                                	\
 		if (withnone && obj == Py_None) {                                        	\
 is_none:                                                                                 	\
@@ -1278,11 +1278,11 @@ is_none:                                                                        
 		self->count++;                                                           	\
 		return gzwrite_write_(self, (char *)&value, sizeof(value));              	\
 	}                                                                                	\
-	static PyObject *gzwrite_write_ ## tname(GzWrite *self, PyObject *obj)           	\
+	static PyObject *gzwrite_write_ ## tname(Write *self, PyObject *obj)             	\
 	{                                                                                	\
 		return gzwrite_C_ ## tname(self, obj, 1);                                	\
 	}                                                                                	\
-	static PyObject *gzwrite_hashcheck_ ## tname(GzWrite *self, PyObject *obj)       	\
+	static PyObject *gzwrite_hashcheck_ ## tname(Write *self, PyObject *obj)         	\
 	{                                                                                	\
 		if (!self->slices) {                                                     	\
 			PyErr_SetString(PyExc_ValueError, "No hashfilter set");          	\
@@ -1483,7 +1483,7 @@ static int gzwrite_WriteNumber_serialize_Long(PyObject *obj, char *buf, const ch
 static int gzwrite_init_WriteNumber(PyObject *self_, PyObject *args, PyObject *kwds)
 {
 	static char *kwlist[] = {"name", "mode", "default", "hashfilter", "none_support", 0};
-	GzWrite *self = (GzWrite *)self_;
+	Write *self = (Write *)self_;
 	char *name = 0;
 	const char *mode = 0;
 	PyObject *default_obj = 0;
@@ -1522,7 +1522,7 @@ err:
 	return -1;
 }
 
-static void gzwrite_obj_minmax(GzWrite *self, PyObject *obj)
+static void gzwrite_obj_minmax(Write *self, PyObject *obj)
 {
 	if (!self->min_obj || (PyFloat_Check(self->min_obj) && isnan(PyFloat_AS_DOUBLE(self->min_obj)))) {
 		Py_INCREF(obj);
@@ -1545,7 +1545,7 @@ static void gzwrite_obj_minmax(GzWrite *self, PyObject *obj)
 	}
 }
 
-static PyObject *gzwrite_C_WriteNumber(GzWrite *self, PyObject *obj, int actually_write, int first)
+static PyObject *gzwrite_C_WriteNumber(Write *self, PyObject *obj, int actually_write, int first)
 {
 	if (obj == Py_None) {
 		WRITE_NONE_SLICE_CHECK;
@@ -1604,11 +1604,11 @@ static PyObject *gzwrite_C_WriteNumber(GzWrite *self, PyObject *obj, int actuall
 	self->count++;
 	return gzwrite_write_(self, buf, buf[0] + 1);
 }
-static PyObject *gzwrite_write_WriteNumber(GzWrite *self, PyObject *obj)
+static PyObject *gzwrite_write_WriteNumber(Write *self, PyObject *obj)
 {
 	return gzwrite_C_WriteNumber(self, obj, 1, 1);
 }
-static PyObject *gzwrite_hashcheck_WriteNumber(GzWrite *self, PyObject *obj)
+static PyObject *gzwrite_hashcheck_WriteNumber(Write *self, PyObject *obj)
 {
 	if (!self->slices) {
 		PyErr_SetString(PyExc_ValueError, "No hashfilter set");
@@ -1704,8 +1704,8 @@ err:
 		Py_DECREF(tmp);                                                                    	\
 		return res;                                                                        	\
 	}
-MKPARSEDNUMBERWRAPPER(write, GzWrite)
-MKPARSEDNUMBERWRAPPER(hashcheck, GzWrite)
+MKPARSEDNUMBERWRAPPER(write, Write)
+MKPARSEDNUMBERWRAPPER(hashcheck, Write)
 MKPARSEDNUMBERWRAPPER(hash, PyObject)
 
 #define MKPARSED_C(name, T, HT, inner, conv, withnone, errchk, err_v, do_minmax, minmax_set, hash) \
@@ -1744,12 +1744,12 @@ MKPARSED(Bits64 , uint64_t, uint64_t, PyNumber_Long , pyLong_AsU64     , 0, minm
 MKPARSED(Bits32 , uint32_t, uint64_t, PyNumber_Int  , pyLong_AsU32     , 0, minmax_set_Bits32 , hash_uint64);
 
 static PyMemberDef w_default_members[] = {
-	{"name"      , T_STRING   , offsetof(GzWrite, name       ), READONLY},
-	{"count"     , T_ULONGLONG, offsetof(GzWrite, count      ), READONLY},
-	{"hashfilter", T_OBJECT_EX, offsetof(GzWrite, hashfilter ), READONLY},
-	{"min"       , T_OBJECT   , offsetof(GzWrite, min_obj    ), READONLY},
-	{"max"       , T_OBJECT   , offsetof(GzWrite, max_obj    ), READONLY},
-	{"default"   , T_OBJECT_EX, offsetof(GzWrite, default_obj), READONLY},
+	{"name"      , T_STRING   , offsetof(Write, name       ), READONLY},
+	{"count"     , T_ULONGLONG, offsetof(Write, count      ), READONLY},
+	{"hashfilter", T_OBJECT_EX, offsetof(Write, hashfilter ), READONLY},
+	{"min"       , T_OBJECT   , offsetof(Write, min_obj    ), READONLY},
+	{"max"       , T_OBJECT   , offsetof(Write, max_obj    ), READONLY},
+	{"default"   , T_OBJECT_EX, offsetof(Write, default_obj), READONLY},
 	{0}
 };
 
@@ -1757,7 +1757,7 @@ static PyMemberDef w_default_members[] = {
 	static PyTypeObject name ## _Type = {                        	\
 		PyVarObject_HEAD_INIT(NULL, 0)                       	\
 		#name,                          /*tp_name*/          	\
-		sizeof(GzWrite),                /*tp_basicsize*/     	\
+		sizeof(Write),                  /*tp_basicsize*/     	\
 		0,                              /*tp_itemsize*/      	\
 		(destructor)gzwrite_dealloc,    /*tp_dealloc*/       	\
 		0,                              /*tp_print*/         	\
