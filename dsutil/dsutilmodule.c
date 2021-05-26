@@ -64,6 +64,8 @@
 // Up to +-(2**1007 - 1). Don't increase this.
 #define NUMBER_MAX_BYTES 127
 
+#define MAX_COMPRESSORS 16
+
 #define err1(v) if (v) goto err
 
 static inline void add_extra_to_exc_msg(const char *extra) {
@@ -341,6 +343,21 @@ static int parse_hashfilter(PyObject *hashfilter, PyObject **r_hashfilter, unsig
 	return !*r_hashfilter;
 }
 
+static PyObject *compression_dict = 0;
+static PyObject *compression_names[MAX_COMPRESSORS] = {0};
+static const dsu_compressor *compression_funcs[MAX_COMPRESSORS] = {0};
+
+static int parse_compression(PyObject *compression)
+{
+	if (!compression) return 1; // default to gzip for backwards compatibility
+	PyObject *v = PyDict_GetItem(compression_dict, compression);
+	if (!v) {
+		PyErr_Format(PyExc_ValueError, "Unknown compression %R", compression);
+		return -1;
+	}
+	return PyInt_AsLong(v);
+}
+
 static int Read_init(PyObject *self_, PyObject *args, PyObject *kwds)
 {
 	int res = -1;
@@ -371,6 +388,9 @@ static int Read_init(PyObject *self_, PyObject *args, PyObject *kwds)
 		&callback_offset,
 		&fd
 	)) return -1;
+	int idx = parse_compression(compression);
+	if (idx == -1) return -1;
+	self->compressor = compression_funcs[idx];
 	self->name = name;
 	if (callback && callback != Py_None) {
 		if (!PyCallable_Check(callback)) {
@@ -397,8 +417,7 @@ static int Read_init(PyObject *self_, PyObject *args, PyObject *kwds)
 		PyErr_SetFromErrnoWithFilename(PyExc_IOError, self->name);
 		goto err;
 	}
-	self->ctx = dsu_gz_read_open(fd, self->want_count * 4);
-	self->compressor = &dsu_gz;
+	self->ctx = self->compressor->read_open(fd, self->want_count * 4);
 	if (!self->ctx) {
 		PyErr_SetFromErrnoWithFilename(PyExc_IOError, self->name);
 		goto err;
@@ -1030,7 +1049,6 @@ static int Write_close_(Write *self)
 	FREE(self->name);
 	if (self->error_extra != default_error_extra) FREE(self->error_extra);
 	Py_CLEAR(self->hashfilter);
-	Py_CLEAR(self->compression);
 	Py_CLEAR(self->default_obj);
 	Py_CLEAR(self->min_obj);
 	Py_CLEAR(self->max_obj);
@@ -1045,8 +1063,10 @@ static int Write_close_(Write *self)
 
 static int Write_parse_compression(Write *self, PyObject *compression)
 {
-	self->compression = PyUnicode_FromString("gzip");
-	self->compressor = &dsu_gz;
+	int idx = parse_compression(compression);
+	if (idx == -1) return 1;
+	self->compressor = compression_funcs[idx];
+	self->compression = compression_names[idx];
 	return 0;
 }
 
@@ -2215,6 +2235,11 @@ __attribute__ ((visibility("default"))) PyMODINIT_FUNC INITFUNC(void)
 	INIT(WriteParsedInt32);
 	INIT(WriteParsedBits64);
 	INIT(WriteParsedBits32);
+	compression_dict = PyDict_New();
+	if (!compression_dict) return INITERR;
+	compression_funcs[1] = &dsu_gz;
+	compression_names[1] = PyUnicode_FromString("gzip");
+	if (PyDict_SetItem(compression_dict, compression_names[1], PyInt_FromLong(1))) return INITERR;
 #if PY_MAJOR_VERSION >= 3
 	return m;
 #endif
