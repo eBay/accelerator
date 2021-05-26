@@ -88,6 +88,55 @@ static inline void add_extra_to_exc_msg(const char *extra) {
 	}
 }
 
+
+typedef struct dsu_gz_ctx {
+	gzFile fh;
+} dsu_gz_ctx;
+
+static void *dsu_gz_read_open(int fd, Py_ssize_t size_hint)
+{
+	dsu_gz_ctx *ctx;
+	ctx = malloc(sizeof(*ctx));
+	err1(!ctx);
+	ctx->fh = gzdopen(fd, "rb");
+	err1(!ctx->fh);
+	if (size_hint >= 0 && size_hint < 400000) {
+		gzbuffer(ctx->fh, 16 * 1024);
+	} else {
+		gzbuffer(ctx->fh, 64 * 1024);
+	}
+	return ctx;
+err:
+	if (ctx) free(ctx);
+	return 0;
+}
+
+static int dsu_gz_read(void *ctx_, char *buf, int *len)
+{
+	dsu_gz_ctx *ctx = ctx_;
+	err1(!ctx->fh);
+	int got = gzread(ctx->fh, buf, *len);
+	err1(got == -1);
+	*len = got;
+	int error = 0;
+	if (len == 0) gzerror(ctx->fh, &error);
+	return error;
+err:
+	if (ctx->fh) {
+		gzclose(ctx->fh);
+		ctx->fh = 0;
+	}
+	return 1;
+}
+
+static void dsu_gz_read_close(void *ctx_)
+{
+	dsu_gz_ctx *ctx = ctx_;
+	if (ctx->fh) gzclose(ctx->fh);
+	free(ctx);
+}
+
+
 typedef struct read {
 	PyObject_HEAD
 	char *name;
@@ -99,7 +148,9 @@ typedef struct read {
 	PY_LONG_LONG callback_interval;
 	PY_LONG_LONG callback_offset;
 	uint64_t spread_None;
-	gzFile fh;
+	void *ctx;
+	int (*read)(void *ctx, char *buf, int *len);
+	void (*close)(void *ctx);
 	int error;
 	int pos, len;
 	unsigned int sliceno;
@@ -119,9 +170,9 @@ static int Read_close_(Read *self)
 	Py_CLEAR(self->callback);
 	self->callback_interval = 0;
 	self->callback_offset = 0;
-	if (self->fh) {
-		gzclose(self->fh);
-		self->fh = 0;
+	if (self->ctx) {
+		self->close(self->ctx);
+		self->ctx = 0;
 		return 0;
 	}
 	return 1;
@@ -290,23 +341,22 @@ static int Read_init(PyObject *self_, PyObject *args, PyObject *kwds)
 		PyErr_SetFromErrnoWithFilename(PyExc_IOError, self->name);
 		goto err;
 	}
-	self->fh = gzdopen(fd, "rb");
-	if (!self->fh) {
+	self->ctx = dsu_gz_read_open(fd, self->want_count * 4);
+	self->read = dsu_gz_read;
+	self->close = dsu_gz_read_close;
+	if (!self->ctx) {
 		PyErr_SetFromErrnoWithFilename(PyExc_IOError, self->name);
 		goto err;
 	}
-	fd = -1; // belongs to self->fh now
-	unsigned int buf_kb = 64;
+	fd = -1; // belongs to self->ctx now
 	if (self->want_count >= 0) {
 		self->break_count = self->want_count;
-		if (self->want_count < 100000) buf_kb = 16;
 	}
 	if (self->callback_interval > 0) {
 		if (self->callback_interval < self->break_count || self->break_count < 0) {
 			self->break_count = self->callback_interval;
 		}
 	}
-	gzbuffer(self->fh, buf_kb * 1024);
 	self->pos = self->len = 0;
 	err1(parse_hashfilter(hashfilter, &self->hashfilter, &self->sliceno, &self->slices, &self->spread_None));
 	res = 0;
@@ -339,7 +389,7 @@ static PyObject *Read_close(Read *self)
 
 static PyObject *Read_self(Read *self)
 {
-	if (!self->fh) return err_closed();
+	if (!self->ctx) return err_closed();
 	Py_INCREF(self);
 	return (PyObject *)self;
 }
@@ -347,16 +397,13 @@ static PyObject *Read_self(Read *self)
 static int Read_read_(Read *self, int itemsize)
 {
 	if (!self->error) {
-		unsigned len = Z;
+		self->len = Z;
 		if (self->want_count >= 0) {
 			PY_LONG_LONG count_left = self->want_count - self->count;
 			PY_LONG_LONG candidate = count_left * itemsize + itemsize;
-			if (candidate < len) len = candidate;
+			if (candidate < self->len) self->len = candidate;
 		}
-		self->len = gzread(self->fh, self->buf, len);
-		if (self->len <= 0) {
-			(void) gzerror(self->fh, &self->error);
-		}
+		self->error = self->read(self->ctx, self->buf, &self->len);
 	}
 	if (self->error) {
 		PyErr_SetString(PyExc_ValueError, "File format error");
@@ -414,7 +461,7 @@ static inline int do_callback(Read *self)
 
 #define ITERPROLOGUE(typename)                               	\
 	do {                                                 	\
-		if (!self->fh) return err_closed();          	\
+		if (!self->ctx) return err_closed();         	\
 		if (self->count == self->break_count) {      	\
 			if (self->count == self->want_count) {	\
 				return 0;                    	\
@@ -517,10 +564,10 @@ MKmkBlob(Unicode, PyUnicode_DecodeUTF8(ptr, len, 0))
 			memcpy(tmp, ptr, left_in_buf);                                   	\
 			self->pos = self->len;                                           	\
 			const int want_len = size - left_in_buf;                         	\
-			int read_len = gzread(self->fh, tmp + left_in_buf, want_len);    	\
-			if (read_len != want_len) {                                      	\
+			int read_len = want_len;                                         	\
+			self->error = self->read(self->ctx, tmp + left_in_buf, &read_len);	\
+			if (self->error || read_len != want_len) {                       	\
 				free(tmp);                                               	\
-				(void) gzerror(self->fh, &self->error);                  	\
 				goto fferror;                                            	\
 			}                                                                	\
 			PyObject *res = mkblob ## typename(self, tmp, size);             	\
@@ -530,11 +577,9 @@ MKmkBlob(Unicode, PyUnicode_DecodeUTF8(ptr, len, 0))
 		if (size > left_in_buf) {                                                	\
 			memmove(self->buf, ptr, left_in_buf);                            	\
 			ptr = self->buf + left_in_buf;                                   	\
-			int read_len = gzread(self->fh, ptr, Z - left_in_buf);           	\
-			if (read_len <= 0) {                                             	\
-				(void) gzerror(self->fh, &self->error);                  	\
-				goto fferror;                                            	\
-			}                                                                	\
+			int read_len = Z - left_in_buf;                                  	\
+			self->error = self->read(self->ctx, ptr, &read_len);             	\
+			if (self->error || read_len <= 0) goto fferror;                  	\
 			if (read_len + left_in_buf < size) goto fferror;                 	\
 			self->len = read_len + left_in_buf;                              	\
 			self->pos = 0;                                                   	\
