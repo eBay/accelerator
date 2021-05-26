@@ -459,7 +459,7 @@ def one_column(vars, colname, coltype, out_fns, for_hasher=False):
 		vars.res_default_count[colname] = sum(default_count)
 		coltype = coltype.split(':', 1)[0]
 		if is_null_converter:
-			real_coltype = vars.chain[0].columns[colname].backing_type
+			real_coltype = vars.chain[0].columns[colname].type
 			# Some lines may have been filtered out, so these minmax values
 			# could be wrong. There's no easy/cheap way to fix that though,
 			# and they will never be wrong in the bad direction.

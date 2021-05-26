@@ -161,17 +161,17 @@ def main(argv, cfg):
 		def no_conv(v):
 			return v
 		def mk_conv(col):
-			if ds.columns[col].backing_type in ('bytes', 'unicode', 'ascii',):
+			if ds.columns[col].type in ('bytes', 'unicode', 'ascii',):
 				if not ds.columns[col].none_support:
 					return no_conv
 			return unicode
 		chk = pat_s.search
 		def mk_iter(col):
-			if ds.columns[col].backing_type == 'ascii':
+			if ds.columns[col].type == 'ascii':
 				it = ds._column_iterator(sliceno, col, _type='unicode')
 			else:
 				it = ds._column_iterator(sliceno, col)
-			if ds.columns[col].backing_type == 'bytes':
+			if ds.columns[col].type == 'bytes':
 				errors = 'replace' if PY2 else 'surrogateescape'
 				if ds.columns[col].none_support:
 					it = (None if v is None else v.decode('utf-8', errors) for v in it)

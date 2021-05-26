@@ -53,7 +53,7 @@ kwlist.update({
 iskeyword = frozenset(kwlist).__contains__
 
 # A dataset is defined by a pickled DotDict containing at least the following (all strings are unicode):
-#     version = (3, 1,),
+#     version = (3, 3,),
 #     filename = "filename" or None,
 #     hashlabel = "column name" or None,
 #     caption = "caption",
@@ -66,17 +66,15 @@ iskeyword = frozenset(kwlist).__contains__
 #
 # A DatasetColumn has these fields:
 #     type = "type", # something that exists in type2iter and doesn't start with _
-#     backing_type = "type", # something that exists in type2iter (v2 used type for this)
-#                              (as the support for v2 has been removed, backing_type will
-#                              always be the same as type. until something changes again.)
+#     compression = "algo",
 #     location = something, # where the data for this column lives
-#         in version 2 and 3 this is "jobid/path/to/file" if .offsets else "jobid/path/with/%s/for/sliceno"
+#         this is "jobid/path/to/file" if .offsets else "jobid/path/with/%s/for/sliceno"
 #     min = minimum value in this dataset or None
 #     max = maximum value in this dataset or None
 #     offsets = (offset, per, slice) or None for non-merged slices.
 #     none_support = bool # not present in version 3.0, implicitly True there except for bits-types.
 #
-# Going from a DatasetColumn to a filename is like this for version 2 and 3 datasets:
+# Going from a DatasetColumn to a filename:
 #     jid, path = dc.location.split('/', 1)
 #     jid = Job(jid)
 #     if dc.offsets:
@@ -114,9 +112,13 @@ def _dsid(t):
 
 # If we want to add fields to later versions, using a versioned name will
 # allow still loading the old versions without messing with the constructor.
-_DatasetColumn_3_2 = namedtuple('_DatasetColumn_3_2', 'type backing_type location min max offsets none_support')
-DatasetColumn = _DatasetColumn_3_2
+_DatasetColumn_3_3 = namedtuple('_DatasetColumn_3_3', 'type compression location min max offsets none_support')
+DatasetColumn = _DatasetColumn_3_3
 # It's probably usually best to generate the new type so the rest of the code needs no special handling.
+class _DatasetColumn_3_2(object):
+	def __new__(cls, type, backing_type, location, min, max, offsets, none_support):
+		assert type == backing_type
+		return _DatasetColumn_3_3(type, 'gzip', location, min, max, offsets, none_support)
 class _DatasetColumn_3_1(object):
 	def __new__(cls, type, backing_type, name, location, min, max, offsets, none_support):
 		return _DatasetColumn_3_2(type, backing_type, location, min, max, offsets, none_support)
@@ -202,7 +204,7 @@ class Dataset(unicode):
 		obj.name = uni(name or 'default')
 		if jobid is _new_dataset_marker:
 			obj._data = DotDict({
-				'version': (3, 0,),
+				'version': (3, 3,),
 				'filename': None,
 				'hashlabel': None,
 				'caption': '',
@@ -370,7 +372,7 @@ class Dataset(unicode):
 		if sliceno is not None and self.lines[sliceno] == 0:
 			return _dummy_iter
 		dc = self.columns[col]
-		mkiter = partial(_type2iter[_type or dc.backing_type], **kw)
+		mkiter = partial(_type2iter[_type or dc.type], compression=dc.compression, **kw)
 		def one_slice(sliceno):
 			fn = self.column_filename(col, sliceno)
 			if dc.offsets:
@@ -390,7 +392,7 @@ class Dataset(unicode):
 		for col in columns or sorted(self.columns):
 			if col in self.columns:
 				if copy_mode:
-					t = _copy_mode_overrides.get(self.columns[col].backing_type)
+					t = _copy_mode_overrides.get(self.columns[col].type)
 					res.append(self._column_iterator(sliceno, col, _type=t))
 				else:
 					res.append(self._column_iterator(sliceno, col))
@@ -917,7 +919,7 @@ class Dataset(unicode):
 			t = uni(t)
 			self._data.columns[n] = DatasetColumn(
 				type=t,
-				backing_type=t,
+				compression='gzip',
 				location='%s/%s/%%s.%s' % (job, self.name, filenames[n]),
 				min=mm[0],
 				max=mm[1],
@@ -1222,7 +1224,7 @@ class DatasetWriter(object):
 				coltype = _copy_mode_overrides.get(coltype, coltype)
 			wt = typed_writer(coltype)
 			error_extra = ' (column %r (type %s) in %s/%s)' % (colname, coltype, job, self.name,)
-			kw = {'none_support': none_support, 'error_extra': error_extra}
+			kw = {'none_support': none_support, 'error_extra': error_extra, 'compression': 'gzip'}
 			if default is not _nodefault:
 				kw['default'] = default
 			fn = self.column_filename(colname, sliceno)
