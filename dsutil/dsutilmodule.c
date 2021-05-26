@@ -734,10 +734,7 @@ static PyObject *ReadTime_iternext(Read *self)
 
 static PyObject *any_exit(PyObject *self, PyObject *args)
 {
-	PyObject *ret = PyObject_CallMethod(self, "close", NULL);
-	if (!ret) return 0;
-	Py_DECREF(ret);
-	Py_RETURN_NONE;
+	return PyObject_CallMethod(self, "close", NULL);
 }
 
 static PyMethodDef Read_methods[] = {
