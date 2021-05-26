@@ -89,6 +89,15 @@ static inline void add_extra_to_exc_msg(const char *extra) {
 }
 
 
+typedef struct dsu_compressor {
+	int (*read)(void *ctx, char *buf, int *len);
+	int (*write)(void *ctx, const char *buf, int len);
+	void *(*read_open)(int fd, Py_ssize_t size_hint);
+	void *(*write_open)(int fd);
+	void (*read_close)(void *ctx);
+	int (*write_close)(void *ctx);
+} dsu_compressor;
+
 typedef struct dsu_gz_ctx {
 	gzFile fh;
 } dsu_gz_ctx;
@@ -175,6 +184,15 @@ err:
 	return 1;
 }
 
+static const dsu_compressor dsu_gz = {
+	dsu_gz_read,
+	dsu_gz_write,
+	dsu_gz_read_open,
+	dsu_gz_write_open,
+	dsu_gz_read_close,
+	dsu_gz_write_close,
+};
+
 
 typedef struct read {
 	PyObject_HEAD
@@ -188,8 +206,7 @@ typedef struct read {
 	PY_LONG_LONG callback_offset;
 	uint64_t spread_None;
 	void *ctx;
-	int (*read)(void *ctx, char *buf, int *len);
-	void (*close)(void *ctx);
+	const dsu_compressor *compressor;
 	int error;
 	int pos, len;
 	unsigned int sliceno;
@@ -210,7 +227,7 @@ static int Read_close_(Read *self)
 	self->callback_interval = 0;
 	self->callback_offset = 0;
 	if (self->ctx) {
-		self->close(self->ctx);
+		self->compressor->read_close(self->ctx);
 		self->ctx = 0;
 		return 0;
 	}
@@ -381,8 +398,7 @@ static int Read_init(PyObject *self_, PyObject *args, PyObject *kwds)
 		goto err;
 	}
 	self->ctx = dsu_gz_read_open(fd, self->want_count * 4);
-	self->read = dsu_gz_read;
-	self->close = dsu_gz_read_close;
+	self->compressor = &dsu_gz;
 	if (!self->ctx) {
 		PyErr_SetFromErrnoWithFilename(PyExc_IOError, self->name);
 		goto err;
@@ -442,7 +458,7 @@ static int Read_read_(Read *self, int itemsize)
 			PY_LONG_LONG candidate = count_left * itemsize + itemsize;
 			if (candidate < self->len) self->len = candidate;
 		}
-		self->error = self->read(self->ctx, self->buf, &self->len);
+		self->error = self->compressor->read(self->ctx, self->buf, &self->len);
 	}
 	if (self->error) {
 		PyErr_SetString(PyExc_ValueError, "File format error");
@@ -604,7 +620,7 @@ MKmkBlob(Unicode, PyUnicode_DecodeUTF8(ptr, len, 0))
 			self->pos = self->len;                                           	\
 			const int want_len = size - left_in_buf;                         	\
 			int read_len = want_len;                                         	\
-			self->error = self->read(self->ctx, tmp + left_in_buf, &read_len);	\
+			self->error = self->compressor->read(self->ctx, tmp + left_in_buf, &read_len); \
 			if (self->error || read_len != want_len) {                       	\
 				free(tmp);                                               	\
 				goto fferror;                                            	\
@@ -617,7 +633,7 @@ MKmkBlob(Unicode, PyUnicode_DecodeUTF8(ptr, len, 0))
 			memmove(self->buf, ptr, left_in_buf);                            	\
 			ptr = self->buf + left_in_buf;                                   	\
 			int read_len = Z - left_in_buf;                                  	\
-			self->error = self->read(self->ctx, ptr, &read_len);             	\
+			self->error = self->compressor->read(self->ctx, ptr, &read_len); 	\
 			if (self->error || read_len <= 0) goto fferror;                  	\
 			if (read_len + left_in_buf < size) goto fferror;                 	\
 			self->len = read_len + left_in_buf;                              	\
@@ -941,9 +957,7 @@ typedef union {
 typedef struct write {
 	PyObject_HEAD
 	void *ctx;
-	void *(*open)(int fd);
-	int (*write)(void *ctx, const char *buf, int len);
-	int (*close)(void *ctx);
+	const dsu_compressor *compressor;
 	char *name;
 	char *error_extra;
 	default_u *default_value;
@@ -977,7 +991,7 @@ static int Write_ensure_open(Write *self)
 		PyErr_SetFromErrnoWithFilename(PyExc_IOError, self->name);
 		return 1;
 	}
-	self->ctx = self->open(fd);
+	self->ctx = self->compressor->write_open(fd);
 	if (!self->ctx) {
 		close(fd);
 		PyErr_Format(PyExc_IOError, "failed to init compression for \"%s\"", self->name);
@@ -992,7 +1006,7 @@ static int Write_flush_(Write *self)
 	if (Write_ensure_open(self)) return 1;
 	const int len = self->len;
 	self->len = 0;
-	if (self->write(self->ctx, self->buf, len)) {
+	if (self->compressor->write(self->ctx, self->buf, len)) {
 		PyErr_SetString(PyExc_IOError, "Write failed");
 		return 1;
 	}
@@ -1021,7 +1035,7 @@ static int Write_close_(Write *self)
 	if (self->closed) return 1;
 	if (!self->ctx) return 0;
 	int err = Write_flush_(self);
-	err |= self->close(self->ctx);
+	err |= self->compressor->write_close(self->ctx);
 	self->ctx = 0;
 	self->closed = 1;
 	return err;
@@ -1029,9 +1043,7 @@ static int Write_close_(Write *self)
 
 static int Write_parse_compression(Write *self, PyObject *compression)
 {
-	self->open = dsu_gz_write_open;
-	self->write = dsu_gz_write;
-	self->close = dsu_gz_write_close;
+	self->compressor = &dsu_gz;
 	return 0;
 }
 
@@ -1097,7 +1109,7 @@ static PyObject *Write_write_(Write *self, const char *data, Py_ssize_t len)
 		if (Write_flush_(self)) return 0;
 	}
 	while (len > Z) {
-		if (self->write(self->ctx, data, Z)) {
+		if (self->compressor->write(self->ctx, data, Z)) {
 			PyErr_SetString(PyExc_IOError, "Write failed");
 			return 0;
 		}
