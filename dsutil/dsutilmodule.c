@@ -136,6 +136,45 @@ static void dsu_gz_read_close(void *ctx_)
 	free(ctx);
 }
 
+static void *dsu_gz_write_open(int fd)
+{
+	dsu_gz_ctx *ctx;
+	ctx = malloc(sizeof(*ctx));
+	err1(!ctx);
+	ctx->fh = gzdopen(fd, "wb");
+	err1(!ctx->fh);
+	return ctx;
+err:
+	if (ctx) free(ctx);
+	return 0;
+}
+
+static int dsu_gz_write_close(void *ctx_)
+{
+	int res = 1;
+	dsu_gz_ctx *ctx = ctx_;
+	err1(!ctx->fh);
+	res = gzclose(ctx->fh);
+err:
+	free(ctx);
+	return res;
+}
+
+static int dsu_gz_write(void *ctx_, const char *buf, int len)
+{
+	dsu_gz_ctx *ctx = ctx_;
+	err1(!ctx->fh);
+	int wrote = gzwrite(ctx->fh, buf, len);
+	err1(wrote != len);
+	return 0;
+err:
+	if (ctx->fh) {
+		gzclose(ctx->fh);
+		ctx->fh = 0;
+	}
+	return 1;
+}
+
 
 typedef struct read {
 	PyObject_HEAD
@@ -901,7 +940,10 @@ typedef union {
 
 typedef struct write {
 	PyObject_HEAD
-	gzFile fh;
+	void *ctx;
+	void *(*open)(int fd);
+	int (*write)(void *ctx, const char *buf, int len);
+	int (*close)(void *ctx);
 	char *name;
 	char *error_extra;
 	default_u *default_value;
@@ -925,14 +967,20 @@ static char * const default_error_extra = "";
 
 static int Write_ensure_open(Write *self)
 {
-	if (self->fh) return 0;
+	if (self->ctx) return 0;
 	if (self->closed) {
 		(void) err_closed();
 		return 1;
 	}
-	self->fh = gzopen(self->name, "wb");
-	if (!self->fh) {
+	int fd = open(self->name, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+	if (fd < 0) {
 		PyErr_SetFromErrnoWithFilename(PyExc_IOError, self->name);
+		return 1;
+	}
+	self->ctx = self->open(fd);
+	if (!self->ctx) {
+		close(fd);
+		PyErr_Format(PyExc_IOError, "failed to init compression for \"%s\"", self->name);
 		return 1;
 	}
 	return 0;
@@ -944,7 +992,7 @@ static int Write_flush_(Write *self)
 	if (Write_ensure_open(self)) return 1;
 	const int len = self->len;
 	self->len = 0;
-	if (gzwrite(self->fh, self->buf, len) != len) {
+	if (self->write(self->ctx, self->buf, len)) {
 		PyErr_SetString(PyExc_IOError, "Write failed");
 		return 1;
 	}
@@ -971,12 +1019,20 @@ static int Write_close_(Write *self)
 	Py_CLEAR(self->min_obj);
 	Py_CLEAR(self->max_obj);
 	if (self->closed) return 1;
-	if (!self->fh) return 0;
+	if (!self->ctx) return 0;
 	int err = Write_flush_(self);
-	err |= gzclose(self->fh);
-	self->fh = 0;
+	err |= self->close(self->ctx);
+	self->ctx = 0;
 	self->closed = 1;
 	return err;
+}
+
+static int Write_parse_compression(Write *self, PyObject *compression)
+{
+	self->open = dsu_gz_write_open;
+	self->write = dsu_gz_write;
+	self->close = dsu_gz_write_close;
+	return 0;
 }
 
 static int init_WriteBlob(PyObject *self_, PyObject *args, PyObject *kwds)
@@ -1001,6 +1057,7 @@ static int init_WriteBlob(PyObject *self_, PyObject *args, PyObject *kwds)
 	)) return -1;
 	self->name = name;
 	self->error_extra = error_extra;
+	err1(Write_parse_compression(self, compression));
 	err1(parse_hashfilter(hashfilter, &self->hashfilter, &self->sliceno, &self->slices, &self->spread_None));
 	self->closed = 0;
 	self->count = 0;
@@ -1040,7 +1097,7 @@ static PyObject *Write_write_(Write *self, const char *data, Py_ssize_t len)
 		if (Write_flush_(self)) return 0;
 	}
 	while (len > Z) {
-		if (gzwrite(self->fh, data, Z) != Z) {
+		if (self->write(self->ctx, data, Z)) {
 			PyErr_SetString(PyExc_IOError, "Write failed");
 			return 0;
 		}
@@ -1325,6 +1382,7 @@ MK_MINMAX_SET(Time    , unfmt_time((*(uint64_t *)cmp_value) >> 32, *(uint64_t *)
 		}                                                                        	\
 		self->name = name;                                                       	\
 		self->error_extra = error_extra;                                         	\
+		err1(Write_parse_compression(self, compression));                        	\
 		if (default_obj) {                                                       	\
 			T value;                                                         	\
 			Py_INCREF(default_obj);                                          	\
@@ -1616,6 +1674,7 @@ static int init_WriteNumber(PyObject *self_, PyObject *args, PyObject *kwds)
 	)) return -1;
 	self->name = name;
 	self->error_extra = error_extra;
+	err1(Write_parse_compression(self, compression));
 	if (default_obj) {
 		Py_INCREF(default_obj);
 		self->default_obj = default_obj;
