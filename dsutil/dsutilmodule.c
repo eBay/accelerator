@@ -963,6 +963,7 @@ typedef struct write {
 	default_u *default_value;
 	unsigned PY_LONG_LONG count;
 	PyObject *hashfilter;
+	PyObject *compression;
 	PyObject *default_obj;
 	PyObject *min_obj;
 	PyObject *max_obj;
@@ -1029,6 +1030,7 @@ static int Write_close_(Write *self)
 	FREE(self->name);
 	if (self->error_extra != default_error_extra) FREE(self->error_extra);
 	Py_CLEAR(self->hashfilter);
+	Py_CLEAR(self->compression);
 	Py_CLEAR(self->default_obj);
 	Py_CLEAR(self->min_obj);
 	Py_CLEAR(self->max_obj);
@@ -1043,6 +1045,7 @@ static int Write_close_(Write *self)
 
 static int Write_parse_compression(Write *self, PyObject *compression)
 {
+	self->compression = PyUnicode_FromString("gzip");
 	self->compressor = &dsu_gz;
 	return 0;
 }
@@ -1977,6 +1980,7 @@ static PyMemberDef w_default_members[] = {
 	{"min"       , T_OBJECT   , offsetof(Write, min_obj    ), READONLY},
 	{"max"       , T_OBJECT   , offsetof(Write, max_obj    ), READONLY},
 	{"default"   , T_OBJECT_EX, offsetof(Write, default_obj), READONLY},
+	{"compression",T_OBJECT_EX, offsetof(Write, compression), READONLY},
 	{0}
 };
 
