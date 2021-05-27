@@ -68,7 +68,9 @@ class Methods(object):
 
 # Collect information on methods
 class SubMethods(Methods):
-	def __init__(self, package_list, configfilename, server_config):
+	def __init__(self, server_config):
+		package_list = server_config['method_directories']
+		configfilename = 'methods.conf'
 		super(SubMethods, self).__init__(package_list, configfilename)
 		t0 = monotonic()
 		per_runner = defaultdict(list)

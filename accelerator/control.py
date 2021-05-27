@@ -2,7 +2,7 @@
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
 # Modifications copyright (c) 2018-2021 Carl Drougge                       #
-# Modifications copyright (c) 2020 Anders Berkeman                         #
+# Modifications copyright (c) 2020-2021 Anders Berkeman                    #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -38,7 +38,6 @@ from accelerator.setupfile import update_setup
 from accelerator.job import WORKDIRS, Job
 from accelerator.extras import json_save, DotDict
 
-METHODS_CONFIGFILENAME = 'methods.conf'
 
 
 
@@ -71,8 +70,7 @@ class Main:
 	def _update_methods(self):
 		print('Update methods')
 		# initialise methods class looking in method_directories from config file
-		method_directories = self.config['method_directories']
-		self.Methods = methods.SubMethods(method_directories, METHODS_CONFIGFILENAME, self.config)
+		self.Methods = methods.SubMethods(self.config)
 
 	def update_methods(self):
 		try:
