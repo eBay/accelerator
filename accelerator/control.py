@@ -70,7 +70,7 @@ class Main:
 	def _update_methods(self):
 		print('Update methods')
 		# initialise methods class looking in method_directories from config file
-		self.Methods = methods.SubMethods(self.config)
+		self.Methods = methods.Methods(self.config)
 
 	def update_methods(self):
 		try:

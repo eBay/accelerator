@@ -41,11 +41,14 @@ class MethodLoadException(Exception):
 		Exception.__init__(self, 'Failed to load ' + ', '.join(lst))
 		self.module_list = lst
 
+
+# Collect information on methods
 class Methods(object):
-	def __init__(self, package_list, configfilename):
-		self.package_list = package_list
+	def __init__(self, server_config):
+		package_list = server_config['method_directories']
+		# read all methods
 		self.db = {}
-		for package in self.package_list:
+		for package in package_list:
 			try:
 				package_mod = import_module(package)
 				if not hasattr(package_mod, "__file__"):
@@ -54,8 +57,8 @@ class Methods(object):
 				raise Exception("Failed to import %s, maybe missing __init__.py?" % (package,))
 			if not package_mod.__file__:
 				raise Exception("%s has no __file__, maybe missing __init__.py?" % (package,))
-			confname = os.path.join(os.path.dirname(package_mod.__file__), configfilename)
-			tmp = read_method_conf(confname)
+			dirname = os.path.dirname(package_mod.__file__)
+			tmp = read_method_conf(dirname)
 			for x in tmp:
 				if x in self.db:
 					print("METHOD:  ERROR, method \"%s\" defined both in \"%s\" and \"%s\"!" % (
@@ -64,14 +67,6 @@ class Methods(object):
 			for x in tmp.values():
 				x['package'] = os.path.basename(package)
 			self.db.update(tmp)
-
-
-# Collect information on methods
-class SubMethods(Methods):
-	def __init__(self, server_config):
-		package_list = server_config['method_directories']
-		configfilename = 'methods.conf'
-		super(SubMethods, self).__init__(package_list, configfilename)
 		t0 = monotonic()
 		per_runner = defaultdict(list)
 		for key, val in iteritems(self.db):
@@ -250,8 +245,9 @@ def options2typing(method, options):
 	return sorted(([k[1:], v] for k, v in iteritems(res) if v), key=lambda i: -len(i[0]))
 
 
-def read_method_conf(filename):
+def read_method_conf(dirname):
 	""" read and parse the methods.conf file """
+	filename = os.path.join(dirname, 'methods.conf')
 	db = {}
 	with open(filename) as fh:
 		for lineno, line in enumerate(fh, 1):
