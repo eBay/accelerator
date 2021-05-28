@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2019-2020 Anders Berkeman                    #
+# Modifications copyright (c) 2019-2021 Anders Berkeman                    #
 # Modifications copyright (c) 2019-2021 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -218,6 +218,8 @@ def load_config(filename):
 		if res.target_workdir not in res.workdirs:
 			raise _E('target workdir %r not in defined workdirs %r' % (res.target_workdir, set(res.workdirs),))
 		res.interpreters = dict(res.interpreters)
+		for exe in res.interpreters.values():
+			assert os.path.exists(exe), 'Executable %r does not exist.' % (exe,)
 		res.listen, res.url = fixup_listen(res.project_directory, res.listen)
 		if res.get('urd'):
 			res.urd_local, listen = res.urd
