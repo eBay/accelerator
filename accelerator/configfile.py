@@ -81,6 +81,13 @@ def load_config(filename):
 
 	class _E(Exception):
 		pass
+	def parse_package(val):
+		if len(val) == 2:
+			if val[1] != 'auto-discover':
+				raise _E('Either no option or "auto-discover" for package %r.' % (val[0],))
+			else:
+				return (val[0], True)
+		return (val[0], False)
 	def parse_workdir(val):
 		return val[0], fixpath(val[1])
 	def parse_interpreter(val):
@@ -118,6 +125,7 @@ def load_config(filename):
 		'board listen': (['path or [host]:port'], resolve_listen),
 		'input directory': (['path'], fixpath),
 		'result directory': (['path'], fixpath),
+		'method packages': (['package', '[auto-discover]'], parse_package),
 	}
 	checkers = dict(
 		interpreter=check_interpreter,
@@ -154,7 +162,7 @@ def load_config(filename):
 	def everything(key, val):
 		if key in parsers:
 			args, p = parsers[key]
-			if key == 'urd':
+			if key in ('urd', 'method packages'):
 				want_count = (1, 2)
 				want_count_str = "1 or 2"
 			else:
@@ -227,6 +235,7 @@ def load_config(filename):
 		else:
 			res.urd_local, res.urd_listen, res.urd = False, None, None
 		res.board_listen, _ = fixup_listen(res.project_directory, res.get('board_listen', ('.socket.dir/board', None)))
+		res.method_directories = dict(res.method_directories)
 	except _E as e:
 		if lineno[0] is None:
 			prefix = 'Error in %s:\n' % (filename,)
