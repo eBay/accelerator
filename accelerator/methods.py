@@ -2,7 +2,7 @@
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
 # Modifications copyright (c) 2018-2021 Carl Drougge                       #
-# Modifications copyright (c) 2020 Anders Berkeman                         #
+# Modifications copyright (c) 2020-2021 Anders Berkeman                    #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -49,24 +49,13 @@ class Methods(object):
 		# read all methods
 		self.db = {}
 		for package in package_list:
-			try:
-				package_mod = import_module(package)
-				if not hasattr(package_mod, "__file__"):
-					raise ImportError("no __file__")
-			except ImportError:
-				raise Exception("Failed to import %s, maybe missing __init__.py?" % (package,))
-			if not package_mod.__file__:
-				raise Exception("%s has no __file__, maybe missing __init__.py?" % (package,))
-			dirname = os.path.dirname(package_mod.__file__)
-			tmp = read_method_conf(dirname)
-			for x in tmp:
-				if x in self.db:
-					print("METHOD:  ERROR, method \"%s\" defined both in \"%s\" and \"%s\"!" % (
-						x, package, self.db[x]['package']))
-					exit(1)
-			for x in tmp.values():
-				x['package'] = os.path.basename(package)
-			self.db.update(tmp)
+			package_dir = self._check_package(package)
+			db_ = read_method_conf(package_dir)
+			for method, meta in db_.items():
+				if method in self.db:
+					raise Exception("Method \"%s\" defined both in \"%s\" and \"%s\"!" % (
+						method, package, self.db[method]['package']))
+				self.db[method] = DotDict(package=package, **meta)
 		t0 = monotonic()
 		per_runner = defaultdict(list)
 		for key, val in iteritems(self.db):
@@ -121,6 +110,18 @@ class Methods(object):
 		print("Updated %d methods on %d runners in %.1f seconds" % (
 		      len(self.hash), len(per_runner), monotonic() - t0,
 		     ))
+
+	def _check_package(self, package):
+		try:
+			package_mod = import_module(package)
+			if not hasattr(package_mod, "__file__"):
+				raise ImportError("no __file__")
+		except ImportError:
+			raise Exception("Failed to import %s, maybe missing __init__.py?" % (package,))
+		if not package_mod.__file__:
+			raise Exception("%s has no __file__, maybe missing __init__.py?" % (package,))
+		return os.path.dirname(package_mod.__file__)
+
 
 	def params2optset(self, params):
 		optset = set()
