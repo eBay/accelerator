@@ -649,11 +649,13 @@ if len(struct.pack("@L", 0)) == 8:
 	strtoul_f = 'strtoul'
 	long_t = 'long'
 	ulong_t = 'unsigned long'
+	longobj_f = 'PyLong_FromLong'
 elif len(struct.pack("@q", 0)) == 8:
 	strtol_f = 'strtoll'
 	strtoul_f = 'strtoull'
 	long_t = 'long long'
 	ulong_t = 'unsigned long long'
+	longobj_f = 'PyLong_FromLongLong'
 else:
 	raise Exception("Unable to find a suitable 64 bit integer type")
 
@@ -1198,7 +1200,7 @@ more_infiles:
 					// Fits in a double without precision loss
 					d_v = tmp;
 				} else {
-					o_v = PyLong_FromLong(tmp);
+					o_v = %(longobj_f)s(tmp);
 					err1(!o_v);
 				}
 			} else { // It's a big number
@@ -1298,7 +1300,7 @@ protos = []
 funcs = [noneval_data]
 
 proto = proto_template % ('number',)
-code = convert_number_template % dict(proto=proto, strtol_f=strtol_f)
+code = convert_number_template % dict(proto=proto, strtol_f=strtol_f, longobj_f=longobj_f)
 protos.append(proto + ';')
 funcs.append(code)
 
