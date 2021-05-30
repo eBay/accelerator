@@ -1205,7 +1205,7 @@ more_infiles:
 				o_v = _PyLong_FromByteArray((unsigned char *)ptr + 1, *ptr, 1, 1);
 				err1(!o_v);
 			}
-			if (!o_v && (o_col_min || o_col_max)) {
+			if (!o_v && o_col_min) {
 				o_v = PyFloat_FromDouble(d_v);
 				err1(!o_v);
 			}
@@ -1214,8 +1214,6 @@ more_infiles:
 				if (o_v) {
 					if (!o_col_min) {
 						o_col_min = PyFloat_FromDouble(d_col_min);
-					}
-					if (!o_col_max) {
 						o_col_max = PyFloat_FromDouble(d_col_max);
 					}
 					if (PyObject_RichCompareBool(o_v, o_col_min, Py_LT)) {
