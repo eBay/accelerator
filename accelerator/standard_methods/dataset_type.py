@@ -1014,7 +1014,7 @@ convert_number_template = r'''
 // Up to +-(2**1007 - 1). Don't increase this.
 #define GZNUMBER_MAX_BYTES 127
 
-static inline int convert_number_do(const char *inptr, char * const outptr_, const int allow_float)
+static inline int convert_number_do(const char *inptr, char * const outptr_, const int allow_float, double *r_d, PyObject **r_o)
 {
 	unsigned char *outptr = (unsigned char *)outptr_;
 	// First remove whitespace at the start
@@ -1059,6 +1059,7 @@ static inline int convert_number_do(const char *inptr, char * const outptr_, con
 	if (!inlen) {
 		*outptr = 8;
 		memset(outptr + 1, 0, 8);
+		*r_d = 0;
 		return 9;
 	}
 	if (hasdot || hasexp || hasletter) { // Float
@@ -1071,6 +1072,7 @@ static inline int convert_number_do(const char *inptr, char * const outptr_, con
 		} else {
 			*outptr = 1;
 			memcpy(outptr + 1, &value, 8);
+			*r_d = value;
 			return 9;
 		}
 	} else {
@@ -1091,7 +1093,7 @@ static inline int convert_number_do(const char *inptr, char * const outptr_, con
 			if (len_bytes < 8) len_bytes = 8; // Could happen for "42L" or similar.
 			*outptr = len_bytes;
 			err1(_PyLong_AsByteArray((PyLongObject *)i, outptr + 1, len_bytes, 1, 1) < 0);
-			Py_DECREF(i);
+			*r_o = i;
 			return len_bytes + 1;
 err:
 			Py_DECREF(i);
@@ -1099,6 +1101,13 @@ err:
 		} else {
 			*outptr = 8;
 			memcpy(outptr + 1, &value, 8);
+			if (value <= ((int64_t)1 << 53) && value >= -((int64_t)1 << 53)) {
+				// Fits in a double without precision loss
+				*r_d = value;
+			} else {
+				*r_o = %(longobj_f)s(value);
+				if (!*r_o) return 0;
+			}
 			return 9;
 		}
 	}
@@ -1115,6 +1124,8 @@ err:
 	char defbuf[GZNUMBER_MAX_BYTES];
 	char buf_col_min[GZNUMBER_MAX_BYTES];
 	char buf_col_max[GZNUMBER_MAX_BYTES];
+	double def_d = 0;
+	PyObject *def_o = 0;
 	int  deflen = 0;
 	int  minlen = 0;
 	int  maxlen = 0;
@@ -1147,7 +1158,7 @@ err:
 	}
 	if (default_value) {
 		err1(default_value_is_None);
-		deflen = convert_number_do(default_value, defbuf, allow_float);
+		deflen = convert_number_do(default_value, defbuf, allow_float, &def_d, &def_o);
 		err1(!deflen);
 	}
 	if (default_value_is_None) {
@@ -1172,7 +1183,9 @@ more_infiles:
 			continue;
 		}
 		char *ptr = buf;
-		int len = convert_number_do(line, ptr, allow_float);
+		double d_v = 0;
+		PyObject *o_v = 0;
+		int len = convert_number_do(line, ptr, allow_float, &d_v, &o_v);
 		if (!len) {
 			if (record_bad && !deflen) {
 				badmap[i / 8] |= 1 << (i %% 8);
@@ -1185,28 +1198,16 @@ more_infiles:
 			}
 			ptr = defbuf;
 			len = deflen;
+			if (def_o) {
+				Py_INCREF(def_o);
+				o_v = def_o;
+			} else {
+				d_v = def_d;
+			}
 			default_count[chosen_slice] += 1;
 		}
 		// minmax tracking, not done for None-values
 		if (len > 1) {
-			double d_v = 0;
-			PyObject *o_v = 0;
-			if (*ptr == 1) { // It's a double
-				memcpy(&d_v, ptr + 1, 8);
-			} else if (*ptr == 8) { // It's an int64_t
-				int64_t tmp;
-				memcpy(&tmp, ptr + 1, 8);
-				if (tmp <= ((int64_t)1 << 53) && tmp >= -((int64_t)1 << 53)) {
-					// Fits in a double without precision loss
-					d_v = tmp;
-				} else {
-					o_v = %(longobj_f)s(tmp);
-					err1(!o_v);
-				}
-			} else { // It's a big number
-				o_v = _PyLong_FromByteArray((unsigned char *)ptr + 1, *ptr, 1, 1);
-				err1(!o_v);
-			}
 			if (!o_v && o_col_min) {
 				o_v = PyFloat_FromDouble(d_v);
 				err1(!o_v);
@@ -1278,6 +1279,7 @@ more_infiles:
 err:
 	Py_XDECREF(o_col_min);
 	Py_XDECREF(o_col_max);
+	Py_XDECREF(def_o);
 #ifdef CFFI_ATE_MY_GIL
 	if (PyErr_Occurred()) {
 		PyErr_PrintEx(0);
