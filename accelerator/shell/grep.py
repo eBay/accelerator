@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2019-2020 Carl Drougge                       #
+# Modifications copyright (c) 2019-2021 Carl Drougge                       #
 # Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -107,16 +107,22 @@ def main(argv, cfg):
 				return str(v).encode('utf-8', 'replace')
 			def mk_iter(col):
 				if ds.columns[col].backing_type in ('bytes', 'unicode', 'ascii',):
-					return ds._column_iterator(sliceno, col, _type='bytes')
+					it = ds._column_iterator(sliceno, col, _type='bytes')
+					if ds.columns[col].none_support:
+						it = (b'None' if v is None else v for v in it)
+					return it
 				else:
 					return imap(strbytes, ds._column_iterator(sliceno, col))
 			chk = pat_b.search
 		else:
 			def mk_iter(col):
 				if ds.columns[col].backing_type in ('unicode', 'ascii',):
-					return ds._column_iterator(sliceno, col, _type='unicode')
+					it = ds._column_iterator(sliceno, col, _type='unicode')
+					if not ds.columns[col].none_support:
+						return it
 				else:
-					return imap(str, ds._column_iterator(sliceno, col))
+					it = ds._column_iterator(sliceno, col)
+				return imap(str, it)
 			chk = pat_s.search
 		def fmt(v):
 			if not isinstance(v, (unicode, bytes)):
