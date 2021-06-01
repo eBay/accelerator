@@ -122,7 +122,7 @@ def main(argv, cfg):
 						return it
 				else:
 					it = ds._column_iterator(sliceno, col)
-				return imap(str, it)
+				return imap(unicode, it)
 			chk = pat_s.search
 		def fmt(v):
 			if not isinstance(v, (unicode, bytes)):
