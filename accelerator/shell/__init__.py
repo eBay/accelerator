@@ -272,21 +272,35 @@ def parse_user_config():
 			return cfg['alias']
 	return None
 
-def printdesc(name, description, columns):
-	max_len = columns - 4 - len(name)
-	if description and max_len > 10:
+def printdesc(name, description, columns, full=False):
+	ddot = ' ...'
+	def chopline(description, max_len):
 		if len(description) > max_len:
-			max_len -= 4
+			max_len -= len(ddot)
 			parts = description.split()
 			description = ''
 			for part in parts:
 				if len(description) + len(part) + 1 > max_len:
 					break
-				description = '%s %s' % (description, part,)
-			description += ' ...'
-		print('  \x1b[1m%s\x1b[m: %s' % (name, description,))
+				if description:
+					description = '%s %s' % (description, part,)
+				else:
+					description = part
+			description += ddot
+		return description
+	max_len = columns - len(ddot) - len(name)
+	preamble = '  \x1b[1m%s\x1b[m' % (name, )
+	if description and max_len > 10:
+		description = description.strip('\n')
+		lines = description.split('\n')
+		if full:
+			print(preamble)
+			for line in lines:
+				print('    ' + line)
+		else:
+			print(preamble + ': ' + chopline(lines[0], max_len))
 	else:
-		print('  \x1b[1m%s\x1b[m' % (name,))
+		print(preamble)
 
 def main():
 	# As of python 3.8 the default start_method is 'spawn' on macOS.

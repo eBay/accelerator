@@ -63,4 +63,4 @@ def main(argv, cfg):
 		if lastpack != package:
 			print(package)
 			lastpack = package
-		printdesc(name, desc, columns)
+		printdesc(name, desc, columns, full=not args.short)
