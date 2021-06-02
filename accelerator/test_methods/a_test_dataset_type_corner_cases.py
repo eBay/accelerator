@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 ############################################################################
 #                                                                          #
-# Copyright (c) 2019-2020 Carl Drougge                                     #
+# Copyright (c) 2019-2021 Carl Drougge                                     #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -100,7 +100,7 @@ def _verify(name, types, data, coltype, want, default, want_fail, kw):
 		used_type(typ)
 
 def test_numbers():
-	verify('floats', ['float32', 'float64', 'number'], [b'1.5', b'-inf', b'5e-1'], [1.5, float('-inf'), 0.5], all_source_types=True)
+	verify('floats', ['float32', 'float64', 'number'], [b'1.50', b'-inf', b'5e-1'], [1.5, float('-inf'), 0.5], all_source_types=True)
 	if options.numeric_comma:
 		verify('numeric_comma', ['float32', 'float64', 'number'], [b'1,5', b'1.0', b'9'], [1.5, 42.0, 9.0], '42', numeric_comma=True)
 	verify('float32 rounds', ['float32'], [b'1.2'], [1.2000000476837158])

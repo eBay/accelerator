@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2018-2020 Carl Drougge                       #
+# Modifications copyright (c) 2018-2021 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -1067,7 +1067,7 @@ static inline int convert_number_do(const char *inptr, char * const outptr_, con
 		char *end;
 		errno = 0;
 		const double value = strtod(inptr, &end);
-		if (errno || end != inptr + inlen) {
+		if (errno || end < inptr + inlen) {
 			return 0;
 		} else {
 			*outptr = 1;
