@@ -194,6 +194,7 @@ def main(urd):
 		urd.warn()
 		urd.warn(e.format_msg())
 	urd.build("test_dataset_type_corner_cases", numeric_comma=not comma_broken)
+	urd.build("test_dataset_type_minmax")
 
 	print()
 	print("Testing dataset chaining, filtering, callbacks and rechaining")
