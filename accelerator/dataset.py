@@ -1420,14 +1420,19 @@ class DatasetChain(_ListTypePreserver):
 
 	def _minmax(self, column, minmax):
 		vl = []
+		nan_seen = None
 		for ds in self:
 			c = ds.columns.get(column)
 			if c:
 				v = getattr(c, minmax)
-				if v is not None:
+				if isinstance(v, float) and isnan(v):
+					nan_seen = v
+				elif v is not None:
 					vl.append(v)
 		if vl:
 			return getattr(builtins, minmax)(vl)
+		else:
+			return nan_seen
 
 	def min(self, column):
 		"""Min value for column over the whole chain.

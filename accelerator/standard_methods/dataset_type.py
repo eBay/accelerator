@@ -579,7 +579,7 @@ _c_conv_floatint_saturate_template = r'''
 		}
 '''
 
-MinMaxTuple = namedtuple('MinMaxTuple', 'setup code')
+MinMaxTuple = namedtuple('MinMaxTuple', 'setup code extra')
 def _c_minmax_simple(typename, min_const, max_const, check_none):
 	d = dict(type=typename, min_const=min_const, max_const=max_const, check_none=check_none)
 	setup = r'''
@@ -594,14 +594,34 @@ def _c_minmax_simple(typename, min_const, max_const, check_none):
 		do {
 			const %(type)s cand_value = *(const %(type)s *)ptr;
 			if (%(check_none)s) { // Some of these need to ignore None-values
+				/*NAN-handling 1*/
+				minmax_any = 1;
 				%(type)s * const col_min = (%(type)s *)buf_col_min;
 				%(type)s * const col_max = (%(type)s *)buf_col_max;
 				if (cand_value < *col_min) *col_min = cand_value;
 				if (cand_value > *col_max) *col_max = cand_value;
+				/*NAN-handling 2*/
 			}
 		} while (0)
 	''' % d
-	return MinMaxTuple(setup, code,)
+	return MinMaxTuple(setup, code, '',)
+
+def _c_minmax_float(typename, check_none):
+	setup, code, _ = _c_minmax_simple(typename, '-INFINITY', 'INFINITY', check_none)
+	code = code.replace('/*NAN-handling 1*/', r'''
+			if (isnan(cand_value)) {
+				if (!minmax_any) minmax_any = -1;
+			} else {
+	''').replace('/*NAN-handling 2*/', '}')
+	extra = r'''
+		if (minmax_any == -1) {
+			const %s nan = strtod("nan", 0);
+			err1(!isnan(nan));
+			memcpy(buf_col_min, &nan, sizeof(nan));
+			memcpy(buf_col_max, &nan, sizeof(nan));
+		}
+	''' % (typename,)
+	return MinMaxTuple(setup, code, extra)
 
 _c_minmax_datetime = MinMaxTuple(
 	r'''
@@ -618,6 +638,7 @@ _c_minmax_datetime = MinMaxTuple(
 			uint32_t * const col_min = (uint32_t *)buf_col_min;
 			uint32_t * const col_max = (uint32_t *)buf_col_max;
 			if (cand_p[0]) { // Ignore None-values
+				minmax_any = 1;
 				if (cand_p[0] < col_min[0] || (cand_p[0] == col_min[0] && cand_p[1] < col_min[1])) {
 					col_min[0] = cand_p[0];
 					col_min[1] = cand_p[1];
@@ -629,11 +650,12 @@ _c_minmax_datetime = MinMaxTuple(
 			}
 		} while (0)
 	''',
+	'',
 )
 
 minmaxfuncs = {
-	'float64'  : _c_minmax_simple('double'  , 'DBL_MIN'   , 'DBL_MAX'   , 'memcmp(ptr, noneval_float64, 8)'),
-	'float32'  : _c_minmax_simple('float'   , 'FLT_MIN'   , 'FLT_MAX'   , 'memcmp(ptr, noneval_float32, 4)'),
+	'float64'  : _c_minmax_float('double', 'memcmp(ptr, noneval_float64, 8)'),
+	'float32'  : _c_minmax_float('float' , 'memcmp(ptr, noneval_float32, 4)'),
 	'int64'    : _c_minmax_simple('int64_t' , '-INT64_MAX', 'INT64_MAX' , 'cand_value != INT64_MIN'),
 	'int32'    : _c_minmax_simple('int32_t' , '-INT32_MAX', 'INT32_MAX' , 'cand_value != INT32_MIN'),
 	'bits64'   : _c_minmax_simple('uint64_t', '0'         , 'UINT64_MAX', '1'),
@@ -907,6 +929,7 @@ convert_template = r'''
 	char defbuf[%(datalen)s];
 	char buf_col_min[%(datalen)s];
 	char buf_col_max[%(datalen)s];
+	int minmax_any = 0;
 	char *badmap = 0;
 	uint16_t *slicemap = 0;
 	int chosen_slice = 0;
@@ -987,12 +1010,17 @@ more_infiles:
 		g_init(&g, in_fns[current_file], offsets[current_file], 0);
 		goto more_infiles;
 	}
-	gzFile minmaxfh = gzopen(minmax_fn, gzip_mode);
-	err1(!minmaxfh);
-	res = g.error;
-	if (gzwrite(minmaxfh, buf_col_min, %(datalen)s) != %(datalen)s) res = 1;
-	if (gzwrite(minmaxfh, buf_col_max, %(datalen)s) != %(datalen)s) res = 1;
-	if (gzclose(minmaxfh)) res = 1;
+	if (minmax_any) {
+		%(minmax_extra)s
+		gzFile minmaxfh = gzopen(minmax_fn, gzip_mode);
+		err1(!minmaxfh);
+		res = g.error;
+		if (gzwrite(minmaxfh, buf_col_min, %(datalen)s) != %(datalen)s) res = 1;
+		if (gzwrite(minmaxfh, buf_col_max, %(datalen)s) != %(datalen)s) res = 1;
+		if (gzclose(minmaxfh)) res = 1;
+	} else {
+		res = g.error;
+	}
 err:
 	if (g_cleanup(&g)) res = 1;
 	for (int i = 0; i < slices; i++) {
@@ -1129,6 +1157,7 @@ err:
 	int  deflen = 0;
 	int  minlen = 0;
 	int  maxlen = 0;
+	int  saw_nan = 0;
 	PyObject *o_col_min = 0;
 	PyObject *o_col_max = 0;
 	double d_col_min = 0;
@@ -1247,12 +1276,16 @@ more_infiles:
 					}
 				}
 			} else {
-				memcpy(buf_col_min, ptr, len);
-				memcpy(buf_col_max, ptr, len);
-				minlen = maxlen = len;
-				d_col_min = d_col_max = d_v;
-				o_col_min = o_col_max = o_v;
-				if (o_v) Py_INCREF(o_v);
+				if (!o_v && isnan(d_v)) {
+					saw_nan = 1;
+				} else {
+					memcpy(buf_col_min, ptr, len);
+					memcpy(buf_col_max, ptr, len);
+					minlen = maxlen = len;
+					d_col_min = d_col_max = d_v;
+					o_col_min = o_col_max = o_v;
+					if (o_v) Py_INCREF(o_v);
+				}
 			}
 		}
 		if (!outfhs[chosen_slice]) {
@@ -1266,16 +1299,24 @@ more_infiles:
 		g_init(&g, in_fns[current_file], offsets[current_file], 0);
 		goto more_infiles;
 	}
-	gzFile minmaxfh = gzopen(minmax_fn, gzip_mode);
-	err1(!minmaxfh);
-	res = g.error;
+	if (!minlen && saw_nan) {
+		const double nan = strtod("nan", 0);
+		err1(!isnan(nan));
+		buf_col_min[0] = buf_col_max[0] = 1;
+		memcpy(buf_col_min + 1, &nan, 8);
+		memcpy(buf_col_max + 1, &nan, 8);
+		minlen = maxlen = 9;
+	}
 	if (minlen) {
+		gzFile minmaxfh = gzopen(minmax_fn, gzip_mode);
+		err1(!minmaxfh);
+		res = g.error;
 		if (gzwrite(minmaxfh, buf_col_min, minlen) != minlen) res = 1;
 		if (gzwrite(minmaxfh, buf_col_max, maxlen) != maxlen) res = 1;
+		if (gzclose(minmaxfh)) res = 1;
 	} else {
-		if (gzwrite(minmaxfh, "\0\0", 2) != 2) res = 1;
+		res = g.error;
 	}
-	if (gzclose(minmaxfh)) res = 1;
 err:
 	Py_XDECREF(o_col_min);
 	Py_XDECREF(o_col_max);
@@ -1422,11 +1463,7 @@ more_infiles:
 		g_init(&g, in_fns[current_file], offsets[current_file], 0);
 		goto more_infiles;
 	}
-	gzFile minmaxfh = gzopen(minmax_fn, gzip_mode);
-	err1(!minmaxfh);
 	res = g.error;
-	if (gzwrite(minmaxfh, "\xff\0\0\0\0\xff\0\0\0\0", 10) != 10) res = 1;
-	if (gzclose(minmaxfh)) res = 1;
 err:
 	if (defbuf) free(defbuf);
 	if (g_cleanup(&g)) res = 1;
@@ -1622,7 +1659,7 @@ for name, ct in sorted(list(convfuncs.items()) + list(hidden_convfuncs.items()))
 		mm = minmaxfuncs[destname]
 		noneval_support = not destname.startswith('bits')
 		noneval_name = 'noneval_' + destname
-		code = convert_template % dict(proto=proto, datalen=ct.size, convert=ct.conv_code_str, minmax_setup=mm.setup, minmax_code=mm.code, noneval_support=noneval_support, noneval_name=noneval_name)
+		code = convert_template % dict(proto=proto, datalen=ct.size, convert=ct.conv_code_str, minmax_setup=mm.setup, minmax_code=mm.code, minmax_extra=mm.extra, noneval_support=noneval_support, noneval_name=noneval_name)
 	else:
 		proto = proto_template % (name.replace(':*', '').replace(':', '_'),)
 		args = dict(proto=proto, convert=ct.conv_code_str, setup='', cleanup='')

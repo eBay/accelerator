@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2018-2020 Carl Drougge                       #
+# Modifications copyright (c) 2018-2021 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -23,6 +23,7 @@ from __future__ import print_function
 
 from resource import getpagesize
 from os import unlink
+from os.path import exists
 from mmap import mmap, PROT_READ
 from shutil import copyfileobj
 from struct import Struct
@@ -460,23 +461,16 @@ def one_column(vars, colname, coltype, out_fns, for_hasher=False):
 		coltype = coltype.split(':', 1)[0]
 		if is_null_converter:
 			real_coltype = vars.chain[0].columns[colname].backing_type
-			mins = []
-			maxs = []
 			# Some lines may have been filtered out, so these minmax values
 			# could be wrong. There's no easy/cheap way to fix that though,
 			# and they will never be wrong in the bad direction.
-			for d in vars.chain:
-				col = d.columns[colname]
-				if col.min is not None:
-					mins.append(col.min)
-					maxs.append(col.max)
-			if mins:
-				vars.res_minmax[colname] = [min(mins), max(maxs)]
+			vars.res_minmax[colname] = [vars.chain.min(colname), vars.chain.max(colname)]
 		else:
 			real_coltype = dataset_type.typerename.get(coltype, coltype)
-			with type2iter[real_coltype](minmax_fn) as it:
-				vars.res_minmax[colname] = list(it)
-			unlink(minmax_fn)
+			if exists(minmax_fn):
+				with type2iter[real_coltype](minmax_fn) as it:
+					vars.res_minmax[colname] = list(it)
+				unlink(minmax_fn)
 	else:
 		# python func
 		if for_hasher:
