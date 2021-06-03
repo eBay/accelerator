@@ -137,9 +137,11 @@ test_one() {
 	"/opt/python/$V/bin/ax" init --slices "$SLICES" --name "$TEST_NAME" "$TEST_DIR" $3
 	"/opt/python/$V/bin/ax" --config "$TEST_DIR/accelerator.conf" server &
 	SERVER_PID=$!
+	trap 'test -n "$SERVER_PID" && kill $SERVER_PID' EXIT
 	sleep 1
 	"/opt/python/$V/bin/ax" --config "$TEST_DIR/accelerator.conf" run tests
 	kill "$SERVER_PID"
+	SERVER_PID=""
 	rm -rf "$TEST_DIR"
 	# verify that we can still read old datasets
 	for SRCDIR in /prepare/old.*; do
