@@ -1,6 +1,6 @@
 ############################################################################
 #                                                                          #
-# Copyright (c) 2019-2020 Carl Drougge                                     #
+# Copyright (c) 2019-2021 Carl Drougge                                     #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -36,19 +36,22 @@ all_data = list(zip(range(10000), reversed(range(10000))))
 def prepare(params):
 	assert params.slices >= 2, "Hashing won't do anything with just one slice"
 	dws = DotDict()
-	for name, hashlabel in (
-		("unhashed_manual", None), # manually interlaved
-		("unhashed_split", None), # split_write interlaved
-		("up_checked", "up"), # hashed on up using dw.hashcheck
-		("up_split", "up"), # hashed on up using split_write
-		("down_checked", "down"), # hashed on down using dw.hashcheck
-		("down_discarded", "down"), # hashed on down using discarding writes
-		("down_discarded_list", "down"), # hashed on down using discarding list writes
-		("down_discarded_dict", "down"), # hashed on down using discarding dict writes
+	# all the numeric types should hash the same (for values they have in common)
+	for name, hashlabel, typ in (
+		("unhashed_manual"    , None  , "int32"),     # manually interlaved
+		("unhashed_split"     , None  , "int64"),     # split_write interlaved
+		("up_checked"         , "up"  , "float32"),   # hashed on up using dw.hashcheck
+		("up_split"           , "up"  , "float64"),   # hashed on up using split_write
+		("down_checked"       , "down", "bits32"),    # hashed on down using dw.hashcheck
+		("down_discarded"     , "down", "bits64"),    # hashed on down using discarding writes
+		("down_discarded_list", "down", "number"),    # hashed on down using discarding list writes
+		("down_discarded_dict", "down", "complex32"), # hashed on down using discarding dict writes
+		# we have too many types, so we need more datasets
+		("unhashed_complex64" , None  , "complex64"),
 	):
 		dw = DatasetWriter(name=name, hashlabel=hashlabel)
-		dw.add("up", "int32")
-		dw.add("down", "int32")
+		dw.add("up", typ)
+		dw.add("down", typ)
 		dws[name] = dw
 	return dws
 
@@ -64,6 +67,7 @@ def analysis(sliceno, prepare_res, params):
 			dws.down_checked.write(up, down)
 		if ix % params.slices == sliceno:
 			dws.unhashed_manual.write(up, down)
+			dws.unhashed_complex64.write(up, down)
 		dws.down_discarded.write(up, down)
 		dws.down_discarded_list.write_list([up, down])
 		dws.down_discarded_dict.write_dict(dict(up=up, down=down))
@@ -82,6 +86,13 @@ def analysis(sliceno, prepare_res, params):
 				pass
 			assert good, "%s allowed writing in wrong slice" % (fn,)
 
+# complex isn't sortable
+def uncomplex(t):
+	if isinstance(t[0], complex):
+		return tuple(v.real for v in t)
+	else:
+		return t
+
 def synthesis(prepare_res, params, job, slices):
 	dws = prepare_res
 	for dw in (dws.unhashed_split, dws.up_split,):
@@ -92,8 +103,9 @@ def synthesis(prepare_res, params, job, slices):
 		dw.finish()
 
 	# Verify that the different ways of writing gave the same result
+	all_ds = []
 	for names in (
-		("unhashed_split", "unhashed_manual"),
+		("unhashed_split", "unhashed_manual", "unhashed_complex64"),
 		("up_checked", "up_split"),
 		("down_checked", "down_discarded", "down_discarded_list", "down_discarded_dict"),
 	):
@@ -104,6 +116,7 @@ def synthesis(prepare_res, params, job, slices):
 			good = data[names[0]]
 			for name in names[1:]:
 				assert data[name] == good, "%s doesn't match %s in slice %d" % (names[0], name, sliceno,)
+		all_ds.append(list(dws.values()))
 
 	# Verify that both up and down hashed on the expected column
 	hash = typed_writer("int32").hash
@@ -128,11 +141,14 @@ def synthesis(prepare_res, params, job, slices):
 	up = job.dataset("up_checked")
 	down = job.dataset("down_checked")
 	unhashed = job.dataset("unhashed_manual")
-	for sliceno in range(slices):
-		a = list(up.iterate(sliceno))
-		b = list(down.iterate(sliceno, hashlabel="up", rehash=True))
-		c = list(unhashed.iterate(sliceno, hashlabel="up", rehash=True))
-		assert sorted(a) == sorted(b) == sorted(c), "Rehashing is broken (slice %d)" % (sliceno,)
+	for ds, chk_ix in ((up, 2), (down, 1)):
+		for sliceno in range(slices):
+			want = sorted(ds.iterate(sliceno))
+			for chk_ds in all_ds[0] + all_ds[chk_ix]:
+				assert chk_ds.hashlabel != ds.hashlabel
+				got = chk_ds.iterate(sliceno, hashlabel=ds.hashlabel, rehash=True)
+				got = sorted(map(uncomplex, got))
+				assert want == got, "Rehashing is broken for %s (slice %d of %s)" % (chk_ds.columns[ds.hashlabel].type, sliceno, chk_ds,)
 
 	# And finally verify that we are not allowed to specify the wrong hashlabel
 	good = True
