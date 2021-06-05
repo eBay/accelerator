@@ -1733,8 +1733,8 @@ static inline PyObject *pyComplex_parse(PyObject *obj)
 
 static const complex64 complex64_error = { -1.0, 0.0 };
 static const complex32 complex32_error = { -1.0, 0.0 };
-MKPARSED_C(Complex64, complex64, complex64, pyComplex_parse, PyComplex_AsCComplex  , 1, value.real == -1.0, complex64_error, MINMAX_DUMMY, , hash_double);
-MKPARSED_C(Complex32, complex32, complex32, pyComplex_parse, pyComplex_AsCComplex32, 1, value.real == -1.0, complex32_error, MINMAX_DUMMY, , hash_double);
+MKPARSED_C(Complex64, complex64, complex64, pyComplex_parse, PyComplex_AsCComplex  , 1, value.real == -1.0, complex64_error, MINMAX_DUMMY, , hash_complex64);
+MKPARSED_C(Complex32, complex32, complex32, pyComplex_parse, pyComplex_AsCComplex32, 1, value.real == -1.0, complex32_error, MINMAX_DUMMY, , hash_complex32);
 MKPARSED_C(Float64, double  , double  , PyNumber_Float, PyFloat_AsDouble , 1, value == -1.0, -1, MINMAX_FLOAT, minmax_set_Float64, hash_double);
 MKPARSED_C(Float32, float   , double  , PyNumber_Float, PyFloat_AsDouble , 1, value == -1.0, -1, MINMAX_FLOAT, minmax_set_Float32, hash_double);
 MKPARSED(Int64  , int64_t , int64_t , PyNumber_Int  , pyLong_AsS64     , 1, minmax_set_Int64  , hash_integer);
