@@ -30,6 +30,7 @@ from accelerator.dataset import DatasetWriter
 from accelerator.extras import DotDict
 from accelerator.gzwrite import typed_writer
 from accelerator.error import DatasetUsageError
+from accelerator.compat import unicode
 
 from datetime import datetime
 
@@ -50,6 +51,9 @@ def prepare(params):
 		("down_discarded_dict", "down", "complex32"), # hashed on down using discarding dict writes
 		# we have too many types, so we need more datasets
 		("unhashed_complex64" , None  , "complex64"),
+		("unhashed_bytes"     , None  , "bytes"),
+		("up_ascii"           , "up"  , "ascii"),
+		("down_unicode"       , "down", "unicode"),
 		# datetime on 1970-01-01 hashes like time
 		("up_datetime"        , "up"  , "datetime"),
 		("down_time"          , "down", "time"),
@@ -67,6 +71,8 @@ def analysis(sliceno, prepare_res, params):
 	dws.down_discarded_dict.enable_hash_discard()
 	dws.up_datetime.enable_hash_discard()
 	dws.down_time.enable_hash_discard()
+	dws.up_ascii.enable_hash_discard()
+	dws.down_unicode.enable_hash_discard()
 	for ix, (up, down) in enumerate(all_data):
 		if dws.up_checked.hashcheck(up):
 			dws.up_checked.write(up, down)
@@ -75,6 +81,7 @@ def analysis(sliceno, prepare_res, params):
 		if ix % params.slices == sliceno:
 			dws.unhashed_manual.write(up, down)
 			dws.unhashed_complex64.write(up, down)
+			dws.unhashed_bytes.write(str(up).encode("ascii"), str(down).encode("ascii"))
 		dws.down_discarded.write(up, down)
 		dws.down_discarded_list.write_list([up, down])
 		dws.down_discarded_dict.write_dict(dict(up=up, down=down))
@@ -82,6 +89,8 @@ def analysis(sliceno, prepare_res, params):
 		dt_down = datetime(1970, 1, 1, 0, 0, 0, down)
 		dws.up_datetime.write(dt_up, dt_down)
 		dws.down_time.write(dt_up.time(), dt_down.time())
+		dws.up_ascii.write(str(up), str(down))
+		dws.down_unicode.write(unicode(up), unicode(down))
 	# verify that we are not allowed to write in the wrong slice without enable_hash_discard
 	if not dws.up_checked.hashcheck(0):
 		good = True
@@ -111,8 +120,14 @@ def undatetime(t):
 	else:
 		return t
 
+def unstr(t):
+	if isinstance(t[0], (bytes, unicode)):
+		return tuple(int(v) for v in t)
+	else:
+		return t
+
 def cleanup(lst):
-	return [undatetime(uncomplex(t)) for t in lst]
+	return [unstr(undatetime(uncomplex(t))) for t in lst]
 
 def synthesis(prepare_res, params, job, slices):
 	dws = prepare_res
@@ -122,7 +137,7 @@ def synthesis(prepare_res, params, job, slices):
 			w(row)
 	hl2ds = {None: [], "up": [], "down": []}
 	all_ds = {}
-	special_cases = {"up_datetime", "down_time"}
+	special_cases = {"up_datetime", "down_time", "unhashed_bytes", "up_ascii", "down_unicode"}
 	for name, dw in dws.items():
 		ds = dw.finish()
 		all_ds[ds.name] = ds
@@ -150,6 +165,7 @@ def synthesis(prepare_res, params, job, slices):
 	for up_name, down_name in (
 		("up_checked", "down_checked"),
 		("up_datetime", "down_time"),
+		("up_ascii", "down_unicode"),
 	):
 		up = cleanup(all_ds[up_name].iterate(None))
 		down = cleanup(all_ds[down_name].iterate(None))
@@ -174,6 +190,8 @@ def synthesis(prepare_res, params, job, slices):
 	test_rehash("down_checked", hl2ds[None] + hl2ds["up"])
 	test_rehash("up_datetime", [all_ds["down_time"]])
 	test_rehash("down_time", [all_ds["up_datetime"]])
+	test_rehash("up_ascii", [all_ds["unhashed_bytes"], all_ds["down_unicode"]])
+	test_rehash("down_unicode", [all_ds["unhashed_bytes"], all_ds["up_ascii"]])
 
 	# And finally verify that we are not allowed to specify the wrong hashlabel
 	good = True
