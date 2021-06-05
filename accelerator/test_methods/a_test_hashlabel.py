@@ -31,6 +31,8 @@ from accelerator.extras import DotDict
 from accelerator.gzwrite import typed_writer
 from accelerator.error import DatasetUsageError
 
+from datetime import datetime
+
 all_data = list(zip(range(10000), reversed(range(10000))))
 
 def prepare(params):
@@ -48,6 +50,9 @@ def prepare(params):
 		("down_discarded_dict", "down", "complex32"), # hashed on down using discarding dict writes
 		# we have too many types, so we need more datasets
 		("unhashed_complex64" , None  , "complex64"),
+		# datetime on 1970-01-01 hashes like time
+		("up_datetime"        , "up"  , "datetime"),
+		("down_time"          , "down", "time"),
 	):
 		dw = DatasetWriter(name=name, hashlabel=hashlabel)
 		dw.add("up", typ)
@@ -60,6 +65,8 @@ def analysis(sliceno, prepare_res, params):
 	dws.down_discarded.enable_hash_discard()
 	dws.down_discarded_list.enable_hash_discard()
 	dws.down_discarded_dict.enable_hash_discard()
+	dws.up_datetime.enable_hash_discard()
+	dws.down_time.enable_hash_discard()
 	for ix, (up, down) in enumerate(all_data):
 		if dws.up_checked.hashcheck(up):
 			dws.up_checked.write(up, down)
@@ -71,6 +78,10 @@ def analysis(sliceno, prepare_res, params):
 		dws.down_discarded.write(up, down)
 		dws.down_discarded_list.write_list([up, down])
 		dws.down_discarded_dict.write_dict(dict(up=up, down=down))
+		dt_up = datetime(1970, 1, 1, 0, 0, 0, up)
+		dt_down = datetime(1970, 1, 1, 0, 0, 0, down)
+		dws.up_datetime.write(dt_up, dt_down)
+		dws.down_time.write(dt_up.time(), dt_down.time())
 	# verify that we are not allowed to write in the wrong slice without enable_hash_discard
 	if not dws.up_checked.hashcheck(0):
 		good = True
@@ -93,6 +104,16 @@ def uncomplex(t):
 	else:
 		return t
 
+# datetime doesn't compare to time (or numbers, for the all_data check)
+def undatetime(t):
+	if hasattr(t[0], "microsecond"):
+		return tuple(v.microsecond for v in t)
+	else:
+		return t
+
+def cleanup(lst):
+	return [undatetime(uncomplex(t)) for t in lst]
+
 def synthesis(prepare_res, params, job, slices):
 	dws = prepare_res
 	for dw in (dws.unhashed_split, dws.up_split,):
@@ -101,10 +122,12 @@ def synthesis(prepare_res, params, job, slices):
 			w(row)
 	hl2ds = {None: [], "up": [], "down": []}
 	all_ds = {}
+	special_cases = {"up_datetime", "down_time"}
 	for name, dw in dws.items():
 		ds = dw.finish()
 		all_ds[ds.name] = ds
-		hl2ds[ds.hashlabel].append(ds)
+		if ds.name not in special_cases:
+			hl2ds[ds.hashlabel].append(ds)
 
 	# Verify that the different ways of writing gave the same result
 	for hashlabel in (None, "up", "down"):
@@ -124,27 +147,33 @@ def synthesis(prepare_res, params, job, slices):
 
 	# Verify that up and down are not the same, to catch hashing
 	# not actually hashing.
-	up = list(all_ds["up_checked"].iterate(None))
-	down = list(all_ds["down_checked"].iterate(None))
-	assert up != down, "Hashlabel did not change slice distribution"
-	# And check that the data is still the same.
-	assert sorted(up) == sorted(down) == all_data, "Hashed datasets have wrong data"
+	for up_name, down_name in (
+		("up_checked", "down_checked"),
+		("up_datetime", "down_time"),
+	):
+		up = cleanup(all_ds[up_name].iterate(None))
+		down = cleanup(all_ds[down_name].iterate(None))
+		assert up != down, "Hashlabel did not change slice distribution (%s vs %s)" % (up_name, down_name)
+		# And check that the data is still the same.
+		assert sorted(up) == sorted(down) == all_data, "Hashed datasets have wrong data (%s vs %s)" % (up_name, down_name)
 
 	# Verify that rehashing works.
 	# (Can't use sliceno None, because that won't rehash, and even if it did
 	# the order wouldn't match. Order doesn't even match in the rehashed
 	# individual slices.)
-	for ds, hashlabel in (
-		(all_ds["up_checked"], "down"),
-		(all_ds["down_checked"], "up"),
-	):
+	def test_rehash(want_ds, chk_ds_lst):
+		want_ds = all_ds[want_ds]
 		for sliceno in range(slices):
-			want = sorted(ds.iterate(sliceno))
-			for chk_ds in hl2ds[None] + hl2ds[hashlabel]:
-				assert chk_ds.hashlabel != ds.hashlabel
-				got = chk_ds.iterate(sliceno, hashlabel=ds.hashlabel, rehash=True)
-				got = sorted(map(uncomplex, got))
-				assert want == got, "Rehashing is broken for %s (slice %d of %s)" % (chk_ds.columns[ds.hashlabel].type, sliceno, chk_ds,)
+			want = sorted(cleanup(want_ds.iterate(sliceno)))
+			for chk_ds in chk_ds_lst:
+				assert chk_ds.hashlabel != want_ds.hashlabel
+				got = chk_ds.iterate(sliceno, hashlabel=want_ds.hashlabel, rehash=True)
+				got = sorted(cleanup(got))
+				assert want == got, "Rehashing is broken for %s (slice %d of %s)" % (chk_ds.columns[want_ds.hashlabel].type, sliceno, chk_ds,)
+	test_rehash("up_checked", hl2ds[None] + hl2ds["down"])
+	test_rehash("down_checked", hl2ds[None] + hl2ds["up"])
+	test_rehash("up_datetime", [all_ds["down_time"]])
+	test_rehash("down_time", [all_ds["up_datetime"]])
 
 	# And finally verify that we are not allowed to specify the wrong hashlabel
 	good = True
