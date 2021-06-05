@@ -220,3 +220,19 @@ def synthesis(prepare_res, params, job, slices):
 	except DatasetUsageError:
 		pass
 	assert good, "Iteration allowed on the wrong hashlabel"
+
+	# verify that non-integral floats hash the same in the five types that can have them
+	# using + 0.5 is safe for the values we use, it can be exactly represented in 32 bit floats.
+	float_data = [v + 0.5 for v, _ in all_data]
+	float_ds_lst = []
+	for typ in ("float32", "float64", "complex32", "complex64", "number"):
+		dw = job.datasetwriter(name="floattest_" + typ, columns={"value": typ}, hashlabel="value")
+		write = dw.get_split_write()
+		for v in float_data:
+			write(v)
+		float_ds_lst.append(dw.finish())
+	for sliceno in range(slices):
+		values = [(ds, list(ds.iterate(sliceno, "value"))) for ds in float_ds_lst]
+		want_ds, want = values.pop()
+		for ds, got in values:
+			assert got == want, "%s did not match %s in slice %d" % (ds, want_ds, sliceno,)
