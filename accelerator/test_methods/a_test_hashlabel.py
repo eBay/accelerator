@@ -26,7 +26,7 @@ Then test that rehashing gives the expected result, and that using the
 wrong hashlabel without rehashing is not allowed.
 '''
 
-from accelerator.dataset import DatasetWriter, Dataset
+from accelerator.dataset import DatasetWriter
 from accelerator.extras import DotDict
 from accelerator.gzwrite import typed_writer
 from accelerator.error import DatasetUsageError
@@ -99,37 +99,33 @@ def synthesis(prepare_res, params, job, slices):
 		w = dw.get_split_write_list()
 		for row in all_data:
 			w(row)
-	for dw in dws.values():
-		dw.finish()
+	hl2ds = {None: [], "up": [], "down": []}
+	all_ds = {}
+	for name, dw in dws.items():
+		ds = dw.finish()
+		all_ds[ds.name] = ds
+		hl2ds[ds.hashlabel].append(ds)
 
 	# Verify that the different ways of writing gave the same result
-	all_ds = []
-	for names in (
-		("unhashed_split", "unhashed_manual", "unhashed_complex64"),
-		("up_checked", "up_split"),
-		("down_checked", "down_discarded", "down_discarded_list", "down_discarded_dict"),
-	):
-		dws = {name: job.dataset(name) for name in names}
-		assert dws == {name: Dataset((params.jobid, name)) for name in names}, "Old style Dataset((params.jobid, name)) broken"
+	for hashlabel in (None, "up", "down"):
 		for sliceno in range(slices):
-			data = {name: list(dws[name].iterate(sliceno)) for name in names}
-			good = data[names[0]]
-			for name in names[1:]:
-				assert data[name] == good, "%s doesn't match %s in slice %d" % (names[0], name, sliceno,)
-		all_ds.append(list(dws.values()))
+			data = [(ds, list(ds.iterate(sliceno))) for ds in hl2ds[hashlabel]]
+			good = data[0][1]
+			for name, got in data:
+				assert got == good, "%s doesn't match %s in slice %d" % (data[0][0], name, sliceno,)
 
 	# Verify that both up and down hashed on the expected column
 	hash = typed_writer("int32").hash
 	for colname in ("up", "down"):
-		ds = job.dataset(colname + "_checked")
+		ds = all_ds[colname + "_checked"]
 		for sliceno in range(slices):
 			for value in ds.iterate(sliceno, colname):
 				assert hash(value) % slices == sliceno, "Bad hashing on %s in slice %d" % (colname, sliceno,)
 
 	# Verify that up and down are not the same, to catch hashing
 	# not actually hashing.
-	up = list(job.dataset("up_checked").iterate(None))
-	down = list(job.dataset("down_checked").iterate(None))
+	up = list(all_ds["up_checked"].iterate(None))
+	down = list(all_ds["down_checked"].iterate(None))
 	assert up != down, "Hashlabel did not change slice distribution"
 	# And check that the data is still the same.
 	assert sorted(up) == sorted(down) == all_data, "Hashed datasets have wrong data"
@@ -138,13 +134,13 @@ def synthesis(prepare_res, params, job, slices):
 	# (Can't use sliceno None, because that won't rehash, and even if it did
 	# the order wouldn't match. Order doesn't even match in the rehashed
 	# individual slices.)
-	up = job.dataset("up_checked")
-	down = job.dataset("down_checked")
-	unhashed = job.dataset("unhashed_manual")
-	for ds, chk_ix in ((up, 2), (down, 1)):
+	for ds, hashlabel in (
+		(all_ds["up_checked"], "down"),
+		(all_ds["down_checked"], "up"),
+	):
 		for sliceno in range(slices):
 			want = sorted(ds.iterate(sliceno))
-			for chk_ds in all_ds[0] + all_ds[chk_ix]:
+			for chk_ds in hl2ds[None] + hl2ds[hashlabel]:
 				assert chk_ds.hashlabel != ds.hashlabel
 				got = chk_ds.iterate(sliceno, hashlabel=ds.hashlabel, rehash=True)
 				got = sorted(map(uncomplex, got))
@@ -153,12 +149,12 @@ def synthesis(prepare_res, params, job, slices):
 	# And finally verify that we are not allowed to specify the wrong hashlabel
 	good = True
 	try:
-		up.iterate(None, hashlabel="down")
+		all_ds["up_checked"].iterate(None, hashlabel="down")
 		good = False
 	except DatasetUsageError:
 		pass
 	try:
-		unhashed.iterate(None, hashlabel="down")
+		all_ds["unhashed_manual"].iterate(None, hashlabel="down")
 		good = False
 	except DatasetUsageError:
 		pass
