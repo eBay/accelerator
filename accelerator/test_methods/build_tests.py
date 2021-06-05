@@ -165,6 +165,7 @@ def main(urd):
 	urd.build("test_dataset_filter_columns")
 	urd.build("test_dataset_empty_colname")
 	urd.build("test_dataset_nan")
+	urd.build('test_dataset_parsing_writer')
 
 	print()
 	print("Testing csvimport with more difficult files")
