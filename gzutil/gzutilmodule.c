@@ -157,35 +157,36 @@ static uint64_t hash_32bits(const void *ptr)
 {
 	return hash(ptr, 4);
 }
-static uint64_t hash_bool(const void *ptr)
+static uint64_t hash_bool(const uint8_t *ptr)
 {
-	return !!*(uint8_t *)ptr;
+	return !!*ptr;
 }
-static uint64_t hash_integer(const void *ptr)
+static uint64_t hash_uint64(const uint64_t *ptr)
 {
-	uint64_t i = *(uint64_t *)ptr;
-	if (!i) return 0;
+	if (!*ptr) return 0;
 	return hash(ptr, 8);
 }
-static uint64_t hash_double(const void *ptr)
+static uint64_t hash_int64(const int64_t *ptr)
 {
-	double  d = *(double *)ptr;
-	int64_t i = d;
-	if (i == d) return hash_integer(&i);
-	return hash(&d, sizeof(d));
+	if (!*ptr) return 0;
+	return hash(ptr, 8);
 }
-static uint64_t hash_complex64(const void *ptr)
+static uint64_t hash_double(const double *ptr)
 {
-	complex64 *p = (complex64 *)ptr;
-	if (p->imag == 0.0) return hash_double(&p->real);
-	return hash(p, sizeof(*p));
+	int64_t i = *ptr;
+	if (i == *ptr) return hash_int64(&i);
+	return hash(ptr, sizeof(*ptr));
 }
-static uint64_t hash_complex32(const void *ptr)
+static uint64_t hash_complex64(const complex64 *ptr)
 {
-	complex32 *p = (complex32 *)ptr;
+	if (ptr->imag == 0.0) return hash_double(&ptr->real);
+	return hash(ptr, sizeof(*ptr));
+}
+static uint64_t hash_complex32(const complex32 *ptr)
+{
 	complex64 v64;
-	v64.real = p->real;
-	v64.imag = p->imag;
+	v64.real = ptr->real;
+	v64.imag = ptr->imag;
 	return hash_complex64(&v64);
 }
 
@@ -562,10 +563,10 @@ MKITER(GzComplex64, complex64, PyComplex_FromCComplex, hash_complex64, complex64
 MKITER(GzComplex32, complex32, pyComplex_From32      , hash_complex32, complex32, 1)
 MKITER(GzFloat64, double  , PyFloat_FromDouble     , hash_double , double  , 1)
 MKITER(GzFloat32, float   , PyFloat_FromDouble     , hash_double , double  , 1)
-MKITER(GzInt64  , int64_t , pyInt_FromS64          , hash_integer, int64_t , 1)
-MKITER(GzInt32  , int32_t , pyInt_FromS32          , hash_integer, int64_t , 1)
-MKITER(GzBits64 , uint64_t, pyInt_FromU64          , hash_integer, uint64_t, 0)
-MKITER(GzBits32 , uint32_t, pyInt_FromU32          , hash_integer, uint64_t, 0)
+MKITER(GzInt64  , int64_t , pyInt_FromS64          , hash_int64  , int64_t , 1)
+MKITER(GzInt32  , int32_t , pyInt_FromS32          , hash_int64  , int64_t , 1)
+MKITER(GzBits64 , uint64_t, pyInt_FromU64          , hash_uint64 , uint64_t, 0)
+MKITER(GzBits32 , uint32_t, pyInt_FromU32          , hash_uint64 , uint64_t, 0)
 MKITER(GzBool   , uint8_t , PyBool_FromLong        , hash_bool   , uint8_t , 1)
 
 static PyObject *GzNumber_iternext(GzRead *self)
@@ -609,7 +610,7 @@ static PyObject *GzNumber_iternext(GzRead *self)
 	if (len == 8) {
 		int64_t v;
 		memcpy(&v, buf, sizeof(v));
-		HC_CHECK(hash_integer(&v));
+		HC_CHECK(hash_int64(&v));
 		return pyInt_FromS64(v);
 	}
 	HC_CHECK(hash(buf, len));
@@ -1401,10 +1402,10 @@ MKWRITER_C(GzWriteComplex64, complex64, complex64, PyComplex_AsCComplex  , 1, va
 MKWRITER_C(GzWriteComplex32, complex32, complex32, pyComplex_AsCComplex32, 1, value.real == -1.0, MINMAX_DUMMY, , , hash_complex32);
 MKWRITER_C(GzWriteFloat64, double  , double  , PyFloat_AsDouble , 1, value == -1.0, MINMAX_FLOAT, , minmax_set_Float64, hash_double );
 MKWRITER_C(GzWriteFloat32, float   , double  , PyFloat_AsDouble , 1, value == -1.0, MINMAX_FLOAT, , minmax_set_Float32, hash_double );
-MKWRITER(GzWriteInt64  , int64_t , int64_t , pyLong_AsS64     , 1, , minmax_set_Int64  , hash_integer);
-MKWRITER(GzWriteInt32  , int32_t , int64_t , pyLong_AsS32     , 1, , minmax_set_Int32  , hash_integer);
-MKWRITER(GzWriteBits64 , uint64_t, uint64_t, pyLong_AsU64     , 0, , minmax_set_Bits64 , hash_integer);
-MKWRITER(GzWriteBits32 , uint32_t, uint64_t, pyLong_AsU32     , 0, , minmax_set_Bits32 , hash_integer);
+MKWRITER(GzWriteInt64  , int64_t , int64_t , pyLong_AsS64     , 1, , minmax_set_Int64  , hash_int64  );
+MKWRITER(GzWriteInt32  , int32_t , int64_t , pyLong_AsS32     , 1, , minmax_set_Int32  , hash_int64  );
+MKWRITER(GzWriteBits64 , uint64_t, uint64_t, pyLong_AsU64     , 0, , minmax_set_Bits64 , hash_uint64 );
+MKWRITER(GzWriteBits32 , uint32_t, uint64_t, pyLong_AsU32     , 0, , minmax_set_Bits32 , hash_uint64 );
 MKWRITER(GzWriteBool   , uint8_t , uint8_t , pyLong_AsBool    , 1, , minmax_set_Bool   , hash_bool   );
 static uint64_t fmt_datetime(PyObject *dt)
 {
@@ -1576,7 +1577,7 @@ static PyObject *gzwrite_C_GzWriteNumber(GzWrite *self, PyObject *obj, int actua
 	char buf[GZNUMBER_MAX_BYTES];
 	if (value != -1 || !PyErr_Occurred()) {
 		if (self->slices) {
-			const unsigned int sliceno = hash_integer(&value) % self->slices;
+			const unsigned int sliceno = hash_int64(&value) % self->slices;
 			if (sliceno != self->sliceno) Py_RETURN_FALSE;
 		}
 		if (!actually_write) Py_RETURN_TRUE;
@@ -1631,7 +1632,7 @@ static PyObject *gzwrite_hash_GzWriteNumber(PyObject *dummy, PyObject *obj)
 		uint64_t h;
 		const int64_t value = pyLong_AsS64(obj);
 		if (value != -1 || !PyErr_Occurred()) {
-			h = hash_integer(&value);
+			h = hash_int64(&value);
 		} else {
 			char buf[GZNUMBER_MAX_BYTES];
 			if (gzwrite_GzWriteNumber_serialize_Long(obj, buf, "Value")) return 0;
@@ -1737,10 +1738,10 @@ MKPARSED_C(Complex64, complex64, complex64, pyComplex_parse, PyComplex_AsCComple
 MKPARSED_C(Complex32, complex32, complex32, pyComplex_parse, pyComplex_AsCComplex32, 1, value.real == -1.0, complex32_error, MINMAX_DUMMY, , hash_complex32);
 MKPARSED_C(Float64, double  , double  , PyNumber_Float, PyFloat_AsDouble , 1, value == -1.0, -1, MINMAX_FLOAT, minmax_set_Float64, hash_double);
 MKPARSED_C(Float32, float   , double  , PyNumber_Float, PyFloat_AsDouble , 1, value == -1.0, -1, MINMAX_FLOAT, minmax_set_Float32, hash_double);
-MKPARSED(Int64  , int64_t , int64_t , PyNumber_Int  , pyLong_AsS64     , 1, minmax_set_Int64  , hash_integer);
-MKPARSED(Int32  , int32_t , int64_t , PyNumber_Int  , pyLong_AsS32     , 1, minmax_set_Int32  , hash_integer);
-MKPARSED(Bits64 , uint64_t, uint64_t, PyNumber_Long , pyLong_AsU64     , 0, minmax_set_Bits64 , hash_integer);
-MKPARSED(Bits32 , uint32_t, uint64_t, PyNumber_Int  , pyLong_AsU32     , 0, minmax_set_Bits32 , hash_integer);
+MKPARSED(Int64  , int64_t , int64_t , PyNumber_Int  , pyLong_AsS64     , 1, minmax_set_Int64  , hash_int64);
+MKPARSED(Int32  , int32_t , int64_t , PyNumber_Int  , pyLong_AsS32     , 1, minmax_set_Int32  , hash_int64);
+MKPARSED(Bits64 , uint64_t, uint64_t, PyNumber_Long , pyLong_AsU64     , 0, minmax_set_Bits64 , hash_uint64);
+MKPARSED(Bits32 , uint32_t, uint64_t, PyNumber_Int  , pyLong_AsU32     , 0, minmax_set_Bits32 , hash_uint64);
 
 static PyMemberDef w_default_members[] = {
 	{"name"      , T_STRING   , offsetof(GzWrite, name       ), READONLY},
