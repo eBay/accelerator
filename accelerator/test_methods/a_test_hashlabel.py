@@ -32,7 +32,7 @@ from accelerator.gzwrite import typed_writer
 from accelerator.error import DatasetUsageError
 from accelerator.compat import unicode
 
-from datetime import datetime
+from datetime import datetime, date
 
 all_data = list(zip(range(10000), reversed(range(10000))))
 
@@ -57,6 +57,9 @@ def prepare(params):
 		# datetime on 1970-01-01 hashes like time
 		("up_datetime"        , "up"  , "datetime"),
 		("down_time"          , "down", "time"),
+		# date doesn't hash the same as anything else, so compare it to itself
+		("up_date"            , "up"  , "date"),
+		("down_date"          , "down", "date"),
 	):
 		dw = DatasetWriter(name=name, hashlabel=hashlabel)
 		dw.add("up", typ)
@@ -73,6 +76,8 @@ def analysis(sliceno, prepare_res, params):
 	dws.down_time.enable_hash_discard()
 	dws.up_ascii.enable_hash_discard()
 	dws.down_unicode.enable_hash_discard()
+	dws.up_date.enable_hash_discard()
+	dws.down_date.enable_hash_discard()
 	for ix, (up, down) in enumerate(all_data):
 		if dws.up_checked.hashcheck(up):
 			dws.up_checked.write(up, down)
@@ -89,6 +94,8 @@ def analysis(sliceno, prepare_res, params):
 		dt_down = datetime(1970, 1, 1, 0, 0, 0, down)
 		dws.up_datetime.write(dt_up, dt_down)
 		dws.down_time.write(dt_up.time(), dt_down.time())
+		dws.up_date.write(date.fromordinal(up + 1), date.fromordinal(down + 1))
+		dws.down_date.write(date.fromordinal(up + 1), date.fromordinal(down + 1))
 		dws.up_ascii.write(str(up), str(down))
 		dws.down_unicode.write(unicode(up), unicode(down))
 	# verify that we are not allowed to write in the wrong slice without enable_hash_discard
@@ -117,6 +124,8 @@ def uncomplex(t):
 def undatetime(t):
 	if hasattr(t[0], "microsecond"):
 		return tuple(v.microsecond for v in t)
+	elif hasattr(t[0], "toordinal"):
+		return tuple(v.toordinal() - 1 for v in t)
 	else:
 		return t
 
@@ -137,7 +146,10 @@ def synthesis(prepare_res, params, job, slices):
 			w(row)
 	hl2ds = {None: [], "up": [], "down": []}
 	all_ds = {}
-	special_cases = {"up_datetime", "down_time", "unhashed_bytes", "up_ascii", "down_unicode"}
+	special_cases = {
+		"up_datetime", "down_time", "up_date", "down_date",
+		"unhashed_bytes", "up_ascii", "down_unicode",
+	}
 	for name, dw in dws.items():
 		ds = dw.finish()
 		all_ds[ds.name] = ds
@@ -165,6 +177,7 @@ def synthesis(prepare_res, params, job, slices):
 	for up_name, down_name in (
 		("up_checked", "down_checked"),
 		("up_datetime", "down_time"),
+		("up_date", "down_date"),
 		("up_ascii", "down_unicode"),
 	):
 		up = cleanup(all_ds[up_name].iterate(None))
@@ -190,6 +203,7 @@ def synthesis(prepare_res, params, job, slices):
 	test_rehash("down_checked", hl2ds[None] + hl2ds["up"])
 	test_rehash("up_datetime", [all_ds["down_time"]])
 	test_rehash("down_time", [all_ds["up_datetime"]])
+	test_rehash("down_date", [all_ds["up_date"]])
 	test_rehash("up_ascii", [all_ds["unhashed_bytes"], all_ds["down_unicode"]])
 	test_rehash("down_unicode", [all_ds["unhashed_bytes"], all_ds["up_ascii"]])
 
