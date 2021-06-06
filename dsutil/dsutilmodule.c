@@ -218,6 +218,7 @@ static int Read_init(PyObject *self_, PyObject *args, PyObject *kwds)
 	Read *self = (Read *)self_;
 	char *name = 0;
 	int fd = -1;
+	PyObject *compression = 0;
 	PY_LONG_LONG seek = 0;
 	PyObject *hashfilter = 0;
 	PyObject *callback = 0;
@@ -225,8 +226,22 @@ static int Read_init(PyObject *self_, PyObject *args, PyObject *kwds)
 	PY_LONG_LONG callback_offset = 0;
 	Read_close_(self);
 	self->error = 0;
-	static char *kwlist[] = {"name", "seek", "want_count", "hashfilter", "callback", "callback_interval", "callback_offset", "fd", 0};
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|LLOOLLi", kwlist, Py_FileSystemDefaultEncoding, &name, &seek, &self->want_count, &hashfilter, &callback, &callback_interval, &callback_offset, &fd)) return -1;
+	static char *kwlist[] = {
+		"name", "compression", "seek", "want_count", "hashfilter",
+		"callback", "callback_interval", "callback_offset", "fd", 0
+	};
+	if (!PyArg_ParseTupleAndKeywords(
+		args, kwds, "et|OLLOOLLi", kwlist,
+		Py_FileSystemDefaultEncoding, &name,
+		&compression,
+		&seek,
+		&self->want_count,
+		&hashfilter,
+		&callback,
+		&callback_interval,
+		&callback_offset,
+		&fd
+	)) return -1;
 	self->name = name;
 	if (callback && callback != Py_None) {
 		if (!PyCallable_Check(callback)) {
@@ -900,12 +915,20 @@ bad:
 static int init_WriteBlob(PyObject *self_, PyObject *args, PyObject *kwds)
 {
 	Write *self = (Write *)self_;
+	PyObject *compression = 0;
 	char *name = 0;
 	const char *mode = 0;
 	PyObject *hashfilter = 0;
 	Write_close_(self);
-	static char *kwlist[] = {"name", "mode", "hashfilter", "none_support", 0};
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|sOi", kwlist, Py_FileSystemDefaultEncoding, &name, &mode, &hashfilter, &self->none_support)) return -1;
+	static char *kwlist[] = {"name", "compression", "mode", "hashfilter", "none_support", 0};
+	if (!PyArg_ParseTupleAndKeywords(
+		args, kwds, "et|OsOi", kwlist,
+		Py_FileSystemDefaultEncoding, &name,
+		&compression,
+		&mode,
+		&hashfilter,
+		&self->none_support
+	)) return -1;
 	self->name = name;
 	err1(parse_hashfilter(hashfilter, &self->hashfilter, &self->sliceno, &self->slices, &self->spread_None));
 	err1(mode_fixup(mode, self->mode));
@@ -1202,14 +1225,26 @@ MK_MINMAX_SET(Time    , unfmt_time((*(uint64_t *)cmp_value) >> 32, *(uint64_t *)
 #define MKWRITER_C(tname, T, HT, conv, withnone, errchk, do_minmax, minmax_value, minmax_set, hash) \
 	static int init_ ## tname(PyObject *self_, PyObject *args, PyObject *kwds)       	\
 	{                                                                                	\
-		static char *kwlist[] = {"name", "mode", "default", "hashfilter", "none_support", 0}; \
+		static char *kwlist[] = {                                                	\
+			"name", "compression", "mode", "default", "hashfilter",          	\
+			"none_support", 0                                                	\
+		};                                                                       	\
 		Write *self = (Write *)self_;                                            	\
 		char *name = 0;                                                          	\
 		const char *mode = 0;                                                    	\
+		PyObject *compression = 0;                                               	\
 		PyObject *default_obj = 0;                                               	\
 		PyObject *hashfilter = 0;                                                	\
 		Write_close_(self);                                                      	\
-		if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|sOOi", kwlist, Py_FileSystemDefaultEncoding, &name, &mode, &default_obj, &hashfilter, &self->none_support)) return -1; \
+		if (!PyArg_ParseTupleAndKeywords(                                        	\
+			args, kwds, "et|OsOOi", kwlist,                                  	\
+			Py_FileSystemDefaultEncoding, &name,                             	\
+			&compression,                                                    	\
+			&mode,                                                           	\
+			&default_obj,                                                    	\
+			&hashfilter,                                                     	\
+			&self->none_support                                              	\
+		)) return -1;                                                            	\
 		if (!withnone && self->none_support) {                                   	\
 			PyErr_Format(PyExc_ValueError, "%s objects don't support None values", self_->ob_type->tp_name); \
 			return -1;                                                       	\
@@ -1482,14 +1517,26 @@ static int WriteNumber_serialize_Long(PyObject *obj, char *buf, const char *msg)
 
 static int init_WriteNumber(PyObject *self_, PyObject *args, PyObject *kwds)
 {
-	static char *kwlist[] = {"name", "mode", "default", "hashfilter", "none_support", 0};
+	static char *kwlist[] = {
+		"name", "compression", "mode", "default", "hashfilter",
+		"none_support", 0
+	};
 	Write *self = (Write *)self_;
 	char *name = 0;
+	PyObject *compression = 0;
 	const char *mode = 0;
 	PyObject *default_obj = 0;
 	PyObject *hashfilter = 0;
 	Write_close_(self);
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "et|sOOi", kwlist, Py_FileSystemDefaultEncoding, &name, &mode, &default_obj, &hashfilter, &self->none_support)) return -1;
+	if (!PyArg_ParseTupleAndKeywords(
+		args, kwds, "et|OsOOi", kwlist,
+		Py_FileSystemDefaultEncoding, &name,
+		&compression,
+		&mode,
+		&default_obj,
+		&hashfilter,
+		&self->none_support
+	)) return -1;
 	self->name = name;
 	if (default_obj) {
 		Py_INCREF(default_obj);
@@ -1644,8 +1691,12 @@ static PyObject *hash_WriteNumber(PyObject *dummy, PyObject *obj)
 
 static int init_WriteParsedNumber(PyObject *self_, PyObject *args, PyObject *kwds)
 {
-	static char *kwlist[] = {"name", "mode", "default", "hashfilter", "none_support", 0};
+	static char *kwlist[] = {
+		"name", "compression", "mode", "default", "hashfilter",
+		"none_support", 0
+	};
 	PyObject *name = 0;
+	PyObject *compression = 0;
 	PyObject *mode = 0;
 	PyObject *default_obj_ = 0;
 	PyObject *default_obj = 0;
@@ -1654,7 +1705,15 @@ static int init_WriteParsedNumber(PyObject *self_, PyObject *args, PyObject *kwd
 	PyObject *new_args = 0;
 	PyObject *new_kwds = 0;
 	int res = -1;
-	err1(!PyArg_ParseTupleAndKeywords(args, kwds, "O|OOOO", kwlist, &name, &mode, &default_obj_, &hashfilter, &none_support));
+	err1(!PyArg_ParseTupleAndKeywords(
+		args, kwds, "O|OOOOO", kwlist,
+		&name,
+		&compression,
+		&mode,
+		&default_obj_,
+		&hashfilter,
+		&none_support
+	));
 	if (default_obj_) {
 		if (default_obj_ == Py_None || PyFloat_Check(default_obj_)) {
 			default_obj = default_obj_;
@@ -1671,6 +1730,7 @@ static int init_WriteParsedNumber(PyObject *self_, PyObject *args, PyObject *kwd
 	new_args = Py_BuildValue("(O)", name);
 	new_kwds = PyDict_New();
 	err1(!new_args || !new_kwds);
+	if (compression) err1(PyDict_SetItemString(new_kwds, "compression", compression));
 	if (mode) err1(PyDict_SetItemString(new_kwds, "mode", mode));
 	if (default_obj) err1(PyDict_SetItemString(new_kwds, "default", default_obj));
 	if (hashfilter) err1(PyDict_SetItemString(new_kwds, "hashfilter", hashfilter));
