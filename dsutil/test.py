@@ -271,15 +271,6 @@ for v in (0, 1, 2, 9007199254740991, -42):
 	assert _dsutil.WriteInt64.hash(v) == _dsutil.WriteFloat64.hash(float(v)), "%d doesn't hash the same" % (v,)
 	assert _dsutil.WriteInt64.hash(v) == _dsutil.WriteNumber.hash(v), "%d doesn't hash the same" % (v,)
 
-print("Append test")
-# And finally verify appending works as expected.
-with _dsutil.WriteInt64(TMP_FN) as fh:
-	fh.write(42)
-with _dsutil.WriteInt64(TMP_FN, mode="a") as fh:
-	fh.write(18)
-with _dsutil.ReadInt64(TMP_FN) as fh:
-	assert list(fh) == [42, 18]
-
 print("Number boundary test")
 Z = 128 * 1024 # the internal buffer size in _dsutil
 with _dsutil.WriteNumber(TMP_FN) as fh:
