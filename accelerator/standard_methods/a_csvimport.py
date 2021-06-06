@@ -49,7 +49,7 @@ import struct
 import locale
 
 from accelerator import OptionString, DotDict
-from accelerator.sourcedata import typed_reader
+from accelerator.dsutil import typed_reader
 from accelerator.compat import setproctitle, uni
 from . import csvimport
 

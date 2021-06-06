@@ -36,7 +36,7 @@ def hashfilter(typ, values, sliceno):
 	if typ == 'json':
 		return values[sliceno::slices]
 	else:
-		from accelerator.gzwrite import typed_writer
+		from accelerator.dsutil import typed_writer
 		h = typed_writer(typ).hash
 		return [v for v in values if h(v) % slices == sliceno]
 

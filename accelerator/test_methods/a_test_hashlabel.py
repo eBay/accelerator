@@ -28,7 +28,7 @@ wrong hashlabel without rehashing is not allowed.
 
 from accelerator.dataset import DatasetWriter
 from accelerator.extras import DotDict
-from accelerator.gzwrite import typed_writer
+from accelerator.dsutil import typed_writer
 from accelerator.error import DatasetUsageError
 from accelerator.compat import unicode
 

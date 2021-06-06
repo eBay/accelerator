@@ -32,8 +32,7 @@ import itertools
 from accelerator.compat import NoneType, unicode, imap, itervalues, PY2
 
 from accelerator.extras import OptionEnum, DotDict
-from accelerator.gzwrite import typed_writer, typed_reader
-from accelerator.sourcedata import type2iter
+from accelerator.dsutil import typed_writer, typed_reader
 from . import dataset_type
 
 depend_extra = (dataset_type,)
@@ -468,7 +467,7 @@ def one_column(vars, colname, coltype, out_fns, for_hasher=False):
 		else:
 			real_coltype = dataset_type.typerename.get(coltype, coltype)
 			if exists(minmax_fn):
-				with type2iter[real_coltype](minmax_fn) as it:
+				with typed_reader(real_coltype)(minmax_fn) as it:
 					vars.res_minmax[colname] = list(it)
 				unlink(minmax_fn)
 	else:

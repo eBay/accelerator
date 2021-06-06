@@ -40,7 +40,7 @@ from accelerator.compat import str_types, int_types, FileNotFoundError
 from accelerator import blob
 from accelerator.extras import DotDict, job_params, _ListTypePreserver
 from accelerator.job import Job
-from accelerator.gzwrite import typed_writer
+from accelerator.dsutil import typed_writer, _type2iter
 from accelerator.error import NoSuchDatasetError, DatasetUsageError, DatasetError
 
 kwlist = set(kwlist)
@@ -358,9 +358,8 @@ class Dataset(unicode):
 	def _column_iterator(self, sliceno, col, _type=None, **kw):
 		if sliceno is not None and self.lines[sliceno] == 0:
 			return _dummy_iter
-		from accelerator.sourcedata import type2iter
 		dc = self.columns[col]
-		mkiter = partial(type2iter[_type or dc.backing_type], **kw)
+		mkiter = partial(_type2iter[_type or dc.backing_type], **kw)
 		def one_slice(sliceno):
 			fn = self.column_filename(col, sliceno)
 			if dc.offsets:
@@ -878,7 +877,6 @@ class Dataset(unicode):
 		return res
 
 	def _append(self, columns, filenames, minmax, filename, caption, previous, column_filter, name):
-		from accelerator.sourcedata import type2iter
 		from accelerator.g import job
 		name = uni(name)
 		filenames = {uni(k): uni(v) for k, v in filenames.items()}
@@ -902,7 +900,7 @@ class Dataset(unicode):
 				raise DatasetUsageError("Columns in filter not available in dataset: %r" % (left_over,))
 			self._data.columns = filtered_columns
 		for n, (t, none_support) in sorted(columns.items()):
-			if t not in type2iter:
+			if t not in _type2iter:
 				raise DatasetUsageError('Unknown type %s on column %s' % (t, n,))
 			mm = minmax.get(n, (None, None,))
 			t = uni(t)

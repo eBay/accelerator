@@ -891,7 +891,7 @@ typesizes = {typerename.get(key.split(':')[0], key.split(':')[0]): convfuncs[key
 # Verify that all types have working (well, findable) writers
 # and something approaching the right type of data.
 def _test():
-	from accelerator.gzwrite import typed_writer, _convfuncs
+	from accelerator.dsutil import typed_writer, _convfuncs
 	for key, data in iteritems(convfuncs):
 		key = key.split(":")[0]
 		typed_writer(typerename.get(key, key))

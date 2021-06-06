@@ -1,6 +1,6 @@
 ############################################################################
 #                                                                          #
-# Copyright (c) 2019-2020 Carl Drougge                                     #
+# Copyright (c) 2019-2021 Carl Drougge                                     #
 # Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -29,7 +29,7 @@ from datetime import date
 
 from accelerator import subjobs
 from accelerator.dataset import DatasetWriter, Dataset
-from accelerator.gzwrite import typed_writer
+from accelerator.dsutil import typed_writer
 
 data = [
 	{"a column": "text", "also a column": b"octets", "number": 10, "date": date(1978, 1, 1)},

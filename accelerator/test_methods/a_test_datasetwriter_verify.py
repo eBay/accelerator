@@ -1,6 +1,6 @@
 ############################################################################
 #                                                                          #
-# Copyright (c) 2019-2020 Carl Drougge                                     #
+# Copyright (c) 2019-2021 Carl Drougge                                     #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -28,7 +28,7 @@ from datetime import date
 from sys import version_info
 
 from accelerator.dataset import Dataset
-from accelerator.gzwrite import typed_writer
+from accelerator.dsutil import typed_writer
 from . import test_data
 
 depend_extra=(test_data,)

@@ -51,18 +51,36 @@ _convfuncs = {
 	'parsed:bits32'   : gzutil.GzWriteParsedBits32,
 }
 
+_type2iter = {
+	'number'  : gzutil.GzNumber,
+	'complex64': gzutil.GzComplex64,
+	'complex32': gzutil.GzComplex32,
+	'float64' : gzutil.GzFloat64,
+	'float32' : gzutil.GzFloat32,
+	'int64'   : gzutil.GzInt64,
+	'int32'   : gzutil.GzInt32,
+	'bits64'  : gzutil.GzBits64,
+	'bits32'  : gzutil.GzBits32,
+	'bool'    : gzutil.GzBool,
+	'datetime': gzutil.GzDateTime,
+	'date'    : gzutil.GzDate,
+	'time'    : gzutil.GzTime,
+	'bytes'   : gzutil.GzBytes,
+	'ascii'   : gzutil.GzAscii,
+	'unicode' : gzutil.GzUnicode,
+}
+
 def typed_writer(typename):
 	if typename not in _convfuncs:
 		raise ValueError("Unknown writer for type %s" % (typename,))
 	return _convfuncs[typename]
 
 def typed_reader(typename):
-	from accelerator.sourcedata import type2iter
-	if typename not in type2iter:
+	if typename not in _type2iter:
 		raise ValueError("Unknown reader for type %s" % (typename,))
-	return type2iter[typename]
+	return _type2iter[typename]
 
-from json import JSONEncoder, loads
+from json import JSONEncoder, JSONDecoder, loads as json_loads
 class GzWriteJson(object):
 	min = max = None
 	def __init__(self, *a, **kw):
@@ -91,11 +109,31 @@ class GzWriteParsedJson(GzWriteJson):
 	If they are unparseable you get an error."""
 	def write(self, o):
 		if isinstance(o, str_types):
-			o = loads(o)
+			o = json_loads(o)
 		self.fh.write(self.encode(o))
 _convfuncs['parsed:json'] = GzWriteParsedJson
 
-from pickle import dumps
+class GzJson(object):
+	def __init__(self, *a, **kw):
+		if PY3:
+			self.fh = gzutil.GzUnicode(*a, **kw)
+		else:
+			self.fh = gzutil.GzBytes(*a, **kw)
+		self.decode = JSONDecoder().decode
+	def __next__(self):
+		return self.decode(next(self.fh))
+	next = __next__
+	def close(self):
+		self.fh.close()
+	def __iter__(self):
+		return self
+	def __enter__(self):
+		return self
+	def __exit__(self, type, value, traceback):
+		self.close()
+_type2iter['json'] = GzJson
+
+from pickle import dumps as pickle_dumps, loads as pickle_loads
 class GzWritePickle(object):
 	min = max = None
 	def __init__(self, *a, **kw):
@@ -103,7 +141,7 @@ class GzWritePickle(object):
 		assert 'default' not in kw, "default not supported for Pickle, sorry"
 		self.fh = gzutil.GzWriteBytes(*a, **kw)
 	def write(self, o):
-		self.fh.write(dumps(o, 4))
+		self.fh.write(pickle_dumps(o, 4))
 	@property
 	def count(self):
 		return self.fh.count
@@ -114,3 +152,20 @@ class GzWritePickle(object):
 	def __exit__(self, type, value, traceback):
 		self.close()
 _convfuncs['pickle'] = GzWritePickle
+
+class GzPickle(object):
+	def __init__(self, *a, **kw):
+		assert PY3, "Pickle columns require python 3, sorry"
+		self.fh = gzutil.GzBytes(*a, **kw)
+	def __next__(self):
+		return pickle_loads(next(self.fh))
+	next = __next__
+	def close(self):
+		self.fh.close()
+	def __iter__(self):
+		return self
+	def __enter__(self):
+		return self
+	def __exit__(self, type, value, traceback):
+		self.close()
+_type2iter['pickle'] = GzPickle

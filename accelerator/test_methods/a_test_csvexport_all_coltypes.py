@@ -27,7 +27,7 @@ Verify that all column types come out correctly in csvexport.
 from datetime import date, time, datetime
 
 from accelerator import subjobs, status
-from accelerator.gzwrite import _convfuncs
+from accelerator.dsutil import _convfuncs
 from accelerator.compat import PY2
 
 def synthesis(job):
