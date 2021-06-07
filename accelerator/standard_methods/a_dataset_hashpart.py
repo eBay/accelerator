@@ -118,6 +118,7 @@ def synthesis(prepare_res, job, slices):
 			columns=cols,
 		)
 		dws = list(filter(None, dws))
+		merged_dw.set_compressions(dws[0]._compressions)
 		for sliceno in range(slices):
 			merged_dw.set_lines(sliceno, sum(dw._lens[sliceno] for dw in dws))
 			for dwno, dw in enumerate(dws):

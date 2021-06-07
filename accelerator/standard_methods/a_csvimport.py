@@ -327,6 +327,9 @@ def synthesis(prepare_res, analysis_res):
 		good_counts.append(good_count)
 		bad_counts.append(bad_count)
 		skipped_counts.append(skipped_count)
+	for dw in (bad_dw, skipped_dw, dw,):
+		if dw:
+			dw.set_compressions("gzip")
 	return DotDict(
 		num_lines=sum(good_counts),
 		lines_per_slice=good_counts,

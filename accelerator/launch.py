@@ -127,19 +127,22 @@ def call_analysis(analysis_func, sliceno_, delayed_start, q, preserve_result, pa
 		from accelerator.extras import saved_files
 		dw_lens = {}
 		dw_minmax = {}
+		dw_compressions = {}
 		for name, dw in dataset._datasetwriters.items():
+			if dw._for_single_slice or sliceno_ == 0:
+				dw_compressions[name] = dw._compressions
 			if dw._for_single_slice in (None, sliceno_,):
 				dw.close()
 				dw_lens[name] = dw._lens
 				dw_minmax[name] = dw._minmax
 		c_fflush()
-		q.put((sliceno_, monotonic(), saved_files, dw_lens, dw_minmax, None,))
+		q.put((sliceno_, monotonic(), saved_files, dw_lens, dw_minmax, dw_compressions, None,))
 		q.close()
 	except:
 		c_fflush()
 		msg = fmt_tb(1)
 		print(msg)
-		q.put((sliceno_, monotonic(), {}, {}, {}, msg,))
+		q.put((sliceno_, monotonic(), {}, {}, {}, {}, msg,))
 		q.close()
 		sleep(5) # give launcher time to report error (and kill us)
 		exitfunction()
@@ -193,7 +196,7 @@ def fork_analysis(slices, concurrency, analysis_func, kw, preserve_result, outpu
 				# Notification from iowrapper, so we wake up (quickly) even if
 				# the process died badly (e.g. from running out of memory).
 				continue
-			s_no, s_t, s_temp_files, s_dw_lens, s_dw_minmax, s_tb = msg
+			s_no, s_t, s_temp_files, s_dw_lens, s_dw_minmax, s_dw_compressions, s_tb = msg
 		except QueueEmpty:
 			if not children:
 				# No children left, so they must have all sent their messages.
@@ -217,6 +220,8 @@ def fork_analysis(slices, concurrency, analysis_func, kw, preserve_result, outpu
 			dataset._datasetwriters[name]._lens.update(lens)
 		for name, minmax in s_dw_minmax.items():
 			dataset._datasetwriters[name]._minmax.update(minmax)
+		for name, compressions in s_dw_compressions.items():
+			dataset._datasetwriters[name]._compressions.update(compressions)
 	g.update_top_status("Waiting for all slices to finish cleanup")
 	q.close()
 	if delayed_start:

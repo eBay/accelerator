@@ -622,11 +622,14 @@ def synthesis(slices, analysis_res, prepare_res):
 					dws[sliceno].set_minmax(-1, data[3])
 					for s, count in enumerate(data[4]):
 						dws[sliceno].set_lines(s, count - data[1][s])
+					dws[sliceno].set_compressions('gzip')
 	else:
 		for sliceno, count in enumerate(lines):
 			dw.set_lines(sliceno, count)
 		for sliceno, data in enumerate(analysis_res):
 			dw.set_minmax(sliceno, data[3])
+	if dw:
+		dw.set_compressions('gzip')
 	used = {rev_rename.get(colname, colname) for colname in column2type}
 	discarded = set(datasets.source.columns) - used
 	if discarded:

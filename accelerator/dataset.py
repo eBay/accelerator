@@ -837,7 +837,7 @@ class Dataset(unicode):
 					return
 
 	@staticmethod
-	def new(columns, filenames, lines, minmax={}, filename=None, hashlabel=None, caption=None, previous=None, name='default'):
+	def new(columns, filenames, compressions, lines, minmax={}, filename=None, hashlabel=None, caption=None, previous=None, name='default'):
 		"""columns = {"colname": "type"}, lines = [n, ...] or {sliceno: n}"""
 		columns = {uni(k): (uni(v[0]), bool(v[1])) if isinstance(v, tuple) else (uni(v), False) for k, v in columns.items()}
 		if hashlabel is not None:
@@ -847,7 +847,7 @@ class Dataset(unicode):
 		res = Dataset(_new_dataset_marker, name)
 		res._data.lines = list(Dataset._linefixup(lines))
 		res._data.hashlabel = hashlabel
-		res._append(columns, filenames, minmax, filename, caption, previous, None, name)
+		res._append(columns, filenames, compressions, minmax, filename, caption, previous, None, name)
 		return res
 
 	@staticmethod
@@ -861,7 +861,7 @@ class Dataset(unicode):
 			raise DatasetUsageError("Lines must be specified for all slices")
 		return lines
 
-	def append(self, columns, filenames, lines, minmax={}, filename=None, hashlabel=None, hashlabel_override=False, caption=None, previous=None, column_filter=None, name='default'):
+	def append(self, columns, filenames, compressions, lines, minmax={}, filename=None, hashlabel=None, hashlabel_override=False, caption=None, previous=None, column_filter=None, name='default'):
 		hashlabel = uni(hashlabel)
 		if hashlabel_override:
 			self._data.hashlabel = hashlabel
@@ -870,7 +870,7 @@ class Dataset(unicode):
 		if self._linefixup(lines) != self.lines:
 			raise DatasetUsageError("New columns don't have the same number of lines as parent columns")
 		columns = {uni(k): (uni(v[0]), bool(v[1])) if isinstance(v, tuple) else (uni(v), False) for k, v in columns.items()}
-		self._append(columns, filenames, minmax, filename, caption, previous, column_filter, name)
+		self._append(columns, filenames, compressions, minmax, filename, caption, previous, column_filter, name)
 
 	def _minmax_merge(self, minmax):
 		def minmax_fixup(a, b):
@@ -896,12 +896,14 @@ class Dataset(unicode):
 					res[name] = [nanfix(min, mm[0], omm[0]), nanfix(max, mm[1], omm[1])]
 		return res
 
-	def _append(self, columns, filenames, minmax, filename, caption, previous, column_filter, name):
+	def _append(self, columns, filenames, compressions, minmax, filename, caption, previous, column_filter, name):
 		from accelerator.g import job
 		name = uni(name)
 		filenames = {uni(k): uni(v) for k, v in filenames.items()}
 		if set(columns) != set(filenames):
 			raise DatasetUsageError("columns and filenames don't have the same keys")
+		if set(columns) != set(compressions):
+			raise DatasetUsageError("columns and compressions don't have the same keys")
 		if self.job and (self.job != job or self.name != name):
 			self._data.parent = '%s/%s' % (self.job, self.name,)
 		self.job = job
@@ -927,7 +929,7 @@ class Dataset(unicode):
 			t = uni(t)
 			self._data.columns[n] = DatasetColumn(
 				type=t,
-				compression='gzip',
+				compression=compressions[n],
 				location='%s/%s/%%s.%s' % (job, self._name('dir'), filenames[n]),
 				min=mm[0],
 				max=mm[1],
@@ -1080,7 +1082,9 @@ class DatasetWriter(object):
 	If you need to handle everything yourself, set meta_only=True and
 	use dw.column_filename(colname) to find the right files to write to.
 	In this case you also need to call dw.set_lines(sliceno, count)
-	before finishing. You should also call
+	and dw.set_compressions(compression) (or
+	dw.set_compressions({colname: compression}) if not all columns use
+	the same compression) before finishing. You should also call
 	dw.set_minmax(sliceno, {colname: (min, max)}) if you can.
 
 	If you are just copying from another dataset you can set copy_mode
@@ -1146,6 +1150,7 @@ class DatasetWriter(object):
 			obj._lens = {}
 			obj._minmax = {}
 			obj._order = []
+			obj._compressions = {}
 			for k, v in sorted(columns.items()):
 				if v is None:
 					continue
@@ -1251,6 +1256,7 @@ class DatasetWriter(object):
 				self.hashcheck = w.hashcheck
 			else:
 				w = wt(fn, **kw)
+			self._compressions[colname] = w.compression
 			writers[colname] = w
 		return writers
 
@@ -1416,6 +1422,14 @@ class DatasetWriter(object):
 			raise DatasetUsageError("Don't try to set minmax for writers that actually write")
 		self._minmax[sliceno] = minmax
 
+	def set_compressions(self, compressions):
+		if not self.meta_only:
+			raise DatasetUsageError("Don't try to set compressions for writers that actually write")
+		if isinstance(compressions, str_types):
+			self._compressions = dict.fromkeys(self.columns, compressions)
+		else:
+			self._compressions.update(compressions)
+
 	def finish(self):
 		"""Normally you don't need to call this, but if you want to
 		pass yourself as a dataset to a subjob you need to call
@@ -1424,6 +1438,10 @@ class DatasetWriter(object):
 		if running != self._running and running != 'synthesis':
 			raise DatasetUsageError("Finish where you started or in synthesis")
 		self.close()
+		if set(self._compressions) != set(self.columns):
+			missing = set(self.columns) - set(self._compressions)
+			extra = set(self._compressions) - set(self.columns)
+			raise DatasetUsageError("compressions don't match columns in %s, missing %s, extra %s" % (self.name, missing or "none", extra or "none",))
 		if len(self._lens) != slices:
 			if self._allow_missing_slices:
 				for sliceno in range(slices):
@@ -1433,6 +1451,7 @@ class DatasetWriter(object):
 		args = dict(
 			columns={k: (v[0].split(':')[-1], v[2]) for k, v in self.columns.items()},
 			filenames=self._filenames,
+			compressions=self._compressions,
 			lines=self._lens,
 			minmax=self._minmax,
 			filename=self.filename,
