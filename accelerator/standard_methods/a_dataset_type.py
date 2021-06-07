@@ -48,7 +48,7 @@ doesn't have a default. With filter_bad the value is filtered out
 together with all other values on the same line.
 
 With filter_bad, when rehashing or when typing a chain a new dataset is
-produced. Any columns that to not have the same type over all the typed
+produced. Any columns that do not have the same type over all the typed
 datasets will be discarded in this case. You can set discard_untyped to
 discard all untyped columns, or set it to False to get an error if any
 columns were not preservable (except columns renamed over).
