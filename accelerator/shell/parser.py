@@ -120,7 +120,7 @@ def _name2job(cfg, n):
 	if n.startswith(':'):
 		# resolve through urd
 		assert cfg.urd, 'No urd configured'
-		a = n[1:].split(':', 1)
+		a = n[1:].rsplit(':', 1)
 		if len(a) == 1:
 			raise JobNotFound('looks like a partial :urdlist:[entry] spec')
 		entry = a[1] or '-1'
