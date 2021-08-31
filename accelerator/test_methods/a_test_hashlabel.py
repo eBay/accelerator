@@ -170,7 +170,7 @@ def synthesis(prepare_res, params, job, slices):
 		ds = all_ds[colname + "_checked"]
 		for sliceno in range(slices):
 			for value in ds.iterate(sliceno, colname):
-				assert hash(value) % slices == sliceno, "Bad hashing on %s in slice %d" % (colname, sliceno,)
+				assert hash(int(value)) % slices == sliceno, "Bad hashing on %s in slice %d" % (colname, sliceno,)
 
 	# Verify that up and down are not the same, to catch hashing
 	# not actually hashing.
