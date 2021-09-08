@@ -65,22 +65,24 @@ if exists('PKG-INFO'):
 else:
 	version = datetime.utcnow().strftime('%Y.%m.%d')
 	env_version = os.environ.get('ACCELERATOR_BUILD_VERSION')
+	if env_version and dirty():
+		raise Exception("Refusing to build a specified version from a dirty repo")
+	commit = check_output(['git', 'rev-parse', 'HEAD']).strip().decode('ascii')
 	if os.environ.get('ACCELERATOR_BUILD') == 'IS_RELEASE':
-		if dirty():
-			raise Exception("Refusing to build release from dirty repo")
-		if env_version:
-			assert re.match(r'20\d\d\.\d\d\.\d\d$', env_version)
-			version = env_version
+		if not env_version:
+			raise Exception("Refusing to build release without a specified version")
+		assert re.match(r'20\d\d\.\d\d\.\d\d$', env_version)
+		version = env_version
 	else:
 		if env_version:
 			assert re.match(r'20\d\d\.\d\d\.\d\d\.dev\d+$', env_version)
 			version = env_version
 		else:
-			commit = check_output(['git', 'rev-parse', 'HEAD']).strip()[:10].decode('ascii')
-			version = "%s.dev1+%s%s" % (version, commit, dirty(),)
+			version = "%s.dev1+%s%s" % (version, commit[:10], dirty(),)
 	version = version.replace('.0', '.')
 	with open('accelerator/version.txt', 'w') as fh:
 		fh.write(version + '\n')
+		fh.write(commit + dirty() + '\n')
 
 def mk_file(fn, contents):
 	if exists(fn):
