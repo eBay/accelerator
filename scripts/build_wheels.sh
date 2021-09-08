@@ -2,18 +2,18 @@
 # This is for running in a manylinux2010 docker image, so /bin/bash is fine.
 # (or manylinux2014 on non-x86 platforms)
 #
-# docker run -it --rm -v /some/where:/out:rw -v /path/to/accelerator:/accelerator:ro --tmpfs /tmp:exec,size=1G quay.io/pypa/manylinux2010_x86_64:2021-02-06-c17986e /accelerator/scripts/build_wheels.sh 20xx.xx.xx.dev1 [commit/tag/branch]
+# docker run -it --rm -v /some/where:/out:rw -v /path/to/accelerator:/accelerator:ro --tmpfs /tmp:exec,size=1G quay.io/pypa/manylinux2010_x86_64:2021-02-06-c17986e /accelerator/scripts/build_wheels.sh 20xx.xx.xx.dev1 commit/tag/branch
 #
 # or preferably:
-# docker run --rm --network none -v /some/where:/out:rw -v /path/to/accelerator:/accelerator:ro --tmpfs /tmp:exec,size=1G YOUR_DOCKER_IMAGE_YOU_HAVE_RUN_build_prepare.sh /accelerator/scripts/build_wheels.sh 20xx.xx.xx.dev1 [commit/tag/branch]
+# docker run --rm --network none -v /some/where:/out:rw -v /path/to/accelerator:/accelerator:ro --tmpfs /tmp:exec,size=1G YOUR_DOCKER_IMAGE_YOU_HAVE_RUN_build_prepare.sh /accelerator/scripts/build_wheels.sh 20xx.xx.xx.dev1 commit/tag/branch
 #
 # builds sdist if you specify a commit, needs sdist to already be in wheelhouse otherwise
 # if you run it in an image where you have already run build_prepare.sh you can run it with --network none
 
 set -euo pipefail
 
-if [ "$#" != 1 -a "$#" != "2" ]; then
-	echo "Usage: $0 ACCELERATOR_BUILD_VERSION [commit/tag/branch]"
+if [ "$#" != "2" ]; then
+	echo "Usage: $0 ACCELERATOR_BUILD_VERSION commit/tag/branch"
 	exit 1
 fi
 
@@ -22,6 +22,15 @@ set -x
 test -d /out/wheelhouse || exit 1
 test -d /accelerator/.git || exit 1
 test -d /accelerator/accelerator || exit 1
+
+if [ "$0" != "/tmp/accelerator/scripts/build_wheels.sh" ]; then
+	cd /tmp
+	rm -rf accelerator
+	git clone -ns /accelerator
+	cd accelerator
+	git checkout "$2"
+	exec /tmp/accelerator/scripts/build_wheels.sh "$@"
+fi
 
 case "$1" in
 	20[2-9][0-9].[01][0-9].[0-3][0-9])
