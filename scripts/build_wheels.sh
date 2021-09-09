@@ -7,13 +7,15 @@
 # or preferably:
 # docker run --rm --network none -v /some/where:/out:rw -v /path/to/accelerator:/accelerator:ro --tmpfs /tmp:exec,size=1G YOUR_DOCKER_IMAGE_YOU_HAVE_RUN_build_prepare.sh /accelerator/scripts/build_wheels.sh 20xx.xx.xx.dev1 commit/tag/branch
 #
-# builds sdist if you specify a commit, needs sdist to already be in wheelhouse otherwise
 # if you run it in an image where you have already run build_prepare.sh you can run it with --network none
 
 set -euo pipefail
 
 if [ "$#" != "2" ]; then
 	echo "Usage: $0 ACCELERATOR_BUILD_VERSION commit/tag/branch"
+	echo
+	echo "Run first in a recent manylinux2010 or manylinux2014 container,"
+	echo "then in one from 2021-02-06-c17986e or earlier."
 	exit 1
 fi
 
@@ -49,27 +51,7 @@ NAME="accelerator-${VERSION//.0/.}"
 
 BUILT=()
 
-/accelerator/scripts/build_prepare.sh
-
-
-SDIST="/out/wheelhouse/$NAME.tar.gz"
-if [ "$#" = "1" ]; then
-	test -e "$SDIST" || exit 1
-	BUILT_SDIST=""
-else
-	test -e "$SDIST" && exit 1
-	cd /tmp
-	rm -rf accelerator
-	git clone -s /accelerator
-	cd accelerator
-	git checkout "$2"
-	ACCELERATOR_BUILD_VERSION="$VERSION" ACCELERATOR_BUILD="$ACCELERATOR_BUILD" /opt/python/cp38-cp38/bin/python3 ./setup.py sdist
-	cp -p "dist/$NAME.tar.gz" /tmp/
-	SDIST="/tmp/$NAME.tar.gz"
-	BUILT_SDIST="$SDIST"
-	cd ..
-	rm -rf accelerator
-fi
+/tmp/accelerator/scripts/build_prepare.sh
 
 
 MANYLINUX_VERSION="${AUDITWHEEL_PLAT/%_*}"
@@ -77,13 +59,55 @@ AUDITWHEEL_ARCH="${AUDITWHEEL_PLAT/${MANYLINUX_VERSION}_}"
 ZLIB_PREFIX="/prepare/zlib-ng"
 
 if [ "$MANYLINUX_VERSION" = "manylinux2010" ]; then
-		# The 2010 wheels are in our case 1-compatible
-		AUDITWHEEL_PLAT="manylinux1_$AUDITWHEEL_ARCH"
+	# The 2010 wheels are in our case 1-compatible
+	AUDITWHEEL_PLAT="manylinux1_$AUDITWHEEL_ARCH"
+	FN_AUDITWHEEL_PLAT="$AUDITWHEEL_PLAT"
+	FN_AUDITWHEEL_PLAT_NEW="manylinux_2_5_$AUDITWHEEL_ARCH.$AUDITWHEEL_PLAT"
+else
+	FN_AUDITWHEEL_PLAT="$AUDITWHEEL_PLAT"
+	FN_AUDITWHEEL_PLAT_NEW="manylinux_2_17_$AUDITWHEEL_ARCH.$AUDITWHEEL_PLAT"
 fi
 
 
-# The numeric_comma test needs a locale which uses numeric comma.
-localedef -i da_DK -f UTF-8 da_DK.UTF-8
+if [ -e /opt/python/cp310-cp310/bin/python ]; then
+	BUILD_STEP="new"
+	VERSIONS=(/opt/python/cp39-* /opt/python/cp31[0-9]-*)
+	FN_AUDITWHEEL_PLAT="$FN_AUDITWHEEL_PLAT_NEW"
+else
+	BUILD_STEP="old"
+	VERSIONS=(/opt/python/cp[23][5-8]-*)
+	if [ ! -e "/out/wheelhouse/$NAME-cp39-cp39-$FN_AUDITWHEEL_PLAT_NEW.whl" ]; then
+		echo "First build in a newer $MANYLINUX_VERSION container"
+		exit 1
+	fi
+fi
+
+SDIST="/out/wheelhouse/$NAME.tar.gz"
+if [ -e "$SDIST" ]; then
+	BUILT_SDIST=""
+	mkdir /tmp/sdist_check
+	cd /tmp/sdist_check
+	tar zxf "$SDIST"
+	SDIST_COMMIT="$(cat /tmp/sdist_check/*/accelerator/version.txt | tail -1)"
+	cd /tmp/accelerator
+	rm -rf /tmp/sdist_check
+	REPO_COMMIT="$(git rev-parse HEAD)"
+	if [ "$SDIST_COMMIT" != "$REPO_COMMIT" ]; then
+		set +x
+		echo
+		echo "Attempting to build $REPO_COMMIT"
+		echo "but $SDIST"
+		echo "is built from $SDIST_COMMIT"
+		exit 1
+	fi
+else
+	cd /tmp/accelerator
+	ACCELERATOR_BUILD_VERSION="$VERSION" ACCELERATOR_BUILD="$ACCELERATOR_BUILD" /opt/python/cp38-cp38/bin/python3 ./setup.py sdist
+	cp -p "dist/$NAME.tar.gz" /tmp/
+	SDIST="/tmp/$NAME.tar.gz"
+	BUILT_SDIST="$SDIST"
+fi
+
 
 cd /tmp
 rm -rf /tmp/wheels
@@ -103,21 +127,15 @@ Vs=()
 
 # build all in parallel
 # error checking suffers, so we check that no ax is installed before
-for V in /opt/python/cp[23][5-9]-*; do
+for V in "${VERSIONS[@]}"; do
 	V="${V/\/opt\/python\//}"
-	case "$V" in
-		cp27-*|cp3[5-9]-*)
-			test -e "/opt/python/$V/bin/ax" && exit 1
-			UNFIXED_NAME="/tmp/wheels/$NAME-$V-linux_$AUDITWHEEL_ARCH.whl"
-			FIXED_NAME="/tmp/wheels/fixed/$NAME-$V-$AUDITWHEEL_PLAT.whl"
-			test -e "/out/wheelhouse/${FIXED_NAME/*\//}" && continue
-			rm -f "$UNFIXED_NAME" "$FIXED_NAME"
-			build_one_wheel "$UNFIXED_NAME" "$FIXED_NAME" &
-			Vs+=("$V")
-			;;
-		*)
-			;;
-	esac
+	test -e "/opt/python/$V/bin/ax" && exit 1
+	UNFIXED_NAME="/tmp/wheels/$NAME-$V-linux_$AUDITWHEEL_ARCH.whl"
+	FIXED_NAME="/tmp/wheels/fixed/$NAME-$V-$FN_AUDITWHEEL_PLAT.whl"
+	test -e "/out/wheelhouse/${FIXED_NAME/*\//}" && continue
+	rm -f "$UNFIXED_NAME" "$FIXED_NAME"
+	build_one_wheel "$UNFIXED_NAME" "$FIXED_NAME" &
+	Vs+=("$V")
 done
 
 wait # for all builds to finish
@@ -154,7 +172,7 @@ test_one() {
 	rm -rf "$TEST_DIR"
 	# verify that we can still read old datasets
 	for SRCDIR in /prepare/old.*; do
-		PATH="/opt/python/$V/bin:$PATH" /accelerator/scripts/check_old_versions.sh "$SRCDIR"
+		PATH="/opt/python/$V/bin:$PATH" /tmp/accelerator/scripts/check_old_versions.sh "$SRCDIR"
 	done
 	touch "/tmp/ax.$V.OK"
 }
@@ -190,28 +208,31 @@ for V in "${Vs[@]}"; do
 		exit 1
 	fi
 	# The wheel passed the tests, copy it to the wheelhouse (later).
-	BUILT+=("/tmp/wheels/fixed/$NAME-$V-$AUDITWHEEL_PLAT.whl")
+	BUILT+=("/tmp/wheels/fixed/$NAME-$V-$FN_AUDITWHEEL_PLAT.whl")
 done
 
 
-if [ "$MANYLINUX_VERSION" = "manylinux2010" ]; then
-	# Test running 2.7 and 3.5 under a 3.8 server
-	/accelerator/scripts/multiple_interpreters_test.sh \
-		/opt/python/cp38-cp38/bin \
-		/opt/python/cp27-cp27mu/bin \
-		/opt/python/cp35-cp35m/bin
+if [ "$BUILD_STEP" = "old" ]; then
+	/opt/python/cp39-cp39/bin/pip install "/out/wheelhouse/$NAME-cp39-cp39-$FN_AUDITWHEEL_PLAT_NEW.whl"
+	if [ "$MANYLINUX_VERSION" = "manylinux2010" ]; then
+		# Test running 2.7 and 3.5 under a 3.8 server
+		/tmp/accelerator/scripts/multiple_interpreters_test.sh \
+			/opt/python/cp38-cp38/bin \
+			/opt/python/cp27-cp27mu/bin \
+			/opt/python/cp35-cp35m/bin
 
-	# Test running 3.6 and 3.9 under a 2.7 server
-	/accelerator/scripts/multiple_interpreters_test.sh \
-		/opt/python/cp27-cp27m/bin \
-		/opt/python/cp36-cp36m/bin \
-		/opt/python/cp39-cp39/bin
-else
-	# Test running 3.9 and 3.5 under a 3.8 server
-	/accelerator/scripts/multiple_interpreters_test.sh \
-		/opt/python/cp38-cp38/bin \
-		/opt/python/cp39-cp39/bin \
-		/opt/python/cp35-cp35m/bin
+		# Test running 3.6 and 3.9 under a 2.7 server
+		/tmp/accelerator/scripts/multiple_interpreters_test.sh \
+			/opt/python/cp27-cp27m/bin \
+			/opt/python/cp36-cp36m/bin \
+			/opt/python/cp39-cp39/bin
+	else
+		# Test running 3.9 and 3.5 under a 3.8 server
+		/tmp/accelerator/scripts/multiple_interpreters_test.sh \
+			/opt/python/cp38-cp38/bin \
+			/opt/python/cp39-cp39/bin \
+			/opt/python/cp35-cp35m/bin
+	fi
 fi
 
 
@@ -233,3 +254,7 @@ echo "Built the following files:"
 for N in "${BUILT[@]}"; do
 	echo "${N/*\//}"
 done
+if [ "$BUILD_STEP" = "new" ]; then
+	echo
+	echo "Remember to also build in an older container, several tests only run there."
+fi

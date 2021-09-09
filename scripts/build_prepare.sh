@@ -9,28 +9,36 @@
 
 set -euo pipefail
 set -x
+shopt -s nullglob
 
 test -d /accelerator/.git || exit 1
 test -d /accelerator/accelerator || exit 1
 
-if [ "$AUDITWHEEL_ARCH" = "x86_64" -o "$AUDITWHEEL_ARCH" = "i686" ]; then
-	if [ ! -e /opt/python/cp27-cp27mu ]; then
-		echo "Needs python 2.7, run in manylinux2010_$AUDITWHEEL_ARCH:2021-02-06-c17986e or earlier"
+if [ ! -e /opt/python/cp310-cp310/bin/python ]; then
+	if [ "$AUDITWHEEL_ARCH" = "x86_64" -o "$AUDITWHEEL_ARCH" = "i686" ]; then
+		if [ ! -e /opt/python/cp27-cp27mu ]; then
+			echo "Old build container needs python 2.7, run in manylinux2010_$AUDITWHEEL_ARCH:2021-02-06-c17986e or earlier"
+			exit 1
+		fi
+	fi
+
+	if [ ! -e /opt/python/cp35-cp35m ]; then
+		echo "Old build container needs python 3.5, your manylinux container must be too new"
 		exit 1
 	fi
 fi
 
-if [ ! -e /opt/python/cp35-cp35m ]; then
-	echo "Needs python 3.5, your manylinux container must be too new"
-	exit 1
-fi
-
 if [ -e /prepare/.done ]; then
-	exit 0
+	if [ "$(cat /prepare/.done)" = "1" ]; then
+		exit 0
+	fi
 fi
 
 rm -rf /prepare
 mkdir /prepare
+
+# The numeric_comma test needs a locale which uses numeric comma.
+localedef -i da_DK -f UTF-8 da_DK.UTF-8
 
 
 ZLIB_PREFIX="/prepare/zlib-ng"
@@ -45,9 +53,8 @@ make install
 cd ..
 rm -rf zlib-ng
 
-
-# oldest deps we can use for <3.9, newest on 3.9
-for V in /opt/python/cp[23][5-9]-*; do
+# oldest deps we can use for <3.9, newest on >=3.9
+for V in /opt/python/cp[23][5-9]-* /opt/python/cp31[0-9]-*; do
 	V="${V/\/opt\/python\//}"
 	case "$V" in
 		cp27-*)
@@ -56,10 +63,8 @@ for V in /opt/python/cp[23][5-9]-*; do
 		cp3[5-8]-*)
 			/opt/python/"$V"/bin/pip install "setproctitle==1.1.8" "bottle==0.12.7" "waitress==1.0"
 			;;
-		cp39-*)
-			/opt/python/"$V"/bin/pip install setproctitle 'bottle>=0.12.7, <0.13' waitress
-			;;
 		*)
+			/opt/python/"$V"/bin/pip install setproctitle 'bottle>=0.12.7, <0.13' waitress
 			;;
 	esac
 done
@@ -78,7 +83,7 @@ for V in cp27-cp27mu cp37-cp37m; do
 	VE=""
 done
 
-touch /prepare/.done
+echo 1 >/prepare/.done
 
 set +x
 
