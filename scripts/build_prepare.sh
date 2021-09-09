@@ -39,7 +39,7 @@ cd /tmp
 rm -rf zlib-ng
 git clone https://github.com/zlib-ng/zlib-ng.git
 cd zlib-ng
-git checkout 5fe25907ea1da498a75e4b842b9d97ca27acf1ed # 2.0.2
+git checkout c69f78bc5e18a0f6de2dcbd8af863f59a14194f0 # 2.0.5
 CFLAGS="-fPIC -fvisibility=hidden" ./configure --zlib-compat --static --prefix="$ZLIB_PREFIX"
 make install
 cd ..
