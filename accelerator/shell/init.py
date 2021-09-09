@@ -46,6 +46,16 @@ build_script = r"""def main(urd):
 """
 
 
+methods_conf_template = r"""# The {name} package uses auto-discover in accelerator.conf,
+# so you don't need to write anything here.
+#
+# But if you want to override the interpreter for some method, you can.
+# For example:
+# some_method 2.7
+# would run some_method on the 2.7 interpreter.
+"""
+
+
 config_template = r"""# The configuration is a collection of key value pairs.
 #
 # Values are specified as
@@ -68,7 +78,7 @@ workdirs:
 target workdir: {name}
 
 method packages:
-	{name}
+	{name} auto-discover
 	accelerator.standard_methods
 	accelerator.test_methods
 
@@ -243,7 +253,7 @@ def main(argv):
 	with open(join(method_dir, '__init__.py'), 'w') as fh:
 		pass
 	with open(join(method_dir, 'methods.conf'), 'w') as fh:
-		fh.write('example\n')
+		fh.write(methods_conf_template.format(name=options.name))
 	with open(join(method_dir, 'a_example.py'), 'w') as fh:
 		fh.write(a_example)
 	with open(join(method_dir, 'build.py'), 'w') as fh:
