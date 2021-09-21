@@ -78,6 +78,7 @@ def load_some_cfg(basedir='.', all=False):
 				pass
 		if not found_any:
 			raise UserError("Could not find 'accelerator*.conf' in %r or any of its parents." % (basedir,))
+		cfg.config_filename = None
 	else:
 		try:
 			fn = next(cfgs)

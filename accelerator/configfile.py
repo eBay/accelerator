@@ -243,4 +243,5 @@ def load_config(filename):
 			prefix = 'Error on line %d of %s:\n' % (lineno[0], filename,)
 		raise UserError(prefix + e.args[0])
 
+	res.config_filename = os.path.realpath(filename)
 	return res

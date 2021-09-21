@@ -247,5 +247,12 @@ def main(urd):
 	urd.build("test_json")
 	urd.build("test_jobwithfile")
 	urd.build("test_jobchain")
+
+	print()
+	print("Test shell commands")
+	from sys import argv
+	from accelerator.shell import cfg
+	command_prefix = [argv[0], '--config', cfg.config_filename]
+
 	summary = urd.build("test_summary", joblist=urd.joblist)
 	summary.link_result('summary.html')
