@@ -69,10 +69,11 @@ def initialise_jobs(setup, target_WorkSpace, DataBase, Methods, verbose=False):
 	# create a DepTree object used to track options and make status
 	DepTree = deptree.DepTree(Methods, setup)
 
-	# compare database to deptree
-	reqlist = DepTree.get_reqlist()
-	for uid, job in DataBase.match_exact(reqlist):
-		DepTree.set_link(uid, job)
+	if not setup.get('force_build'):
+		# compare database to deptree
+		reqlist = DepTree.get_reqlist()
+		for uid, job in DataBase.match_exact(reqlist):
+			DepTree.set_link(uid, job)
 	DepTree.propagate_make()
 	why_build = setup.get('why_build')
 	if why_build:

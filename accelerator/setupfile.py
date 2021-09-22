@@ -30,7 +30,7 @@ from accelerator.compat import iteritems, unicode, long, PY3, PY2, uni
 from accelerator.extras import DotDict, json_load, json_save, json_encode
 from accelerator.job import Job
 
-def generate(caption, method, options=None, datasets=None, jobs=None, package=None, description=None, why_build=False):
+def generate(caption, method, options=None, datasets=None, jobs=None, package=None, description=None, why_build=False, force_build=False):
 	data = DotDict()
 	data.caption = caption
 	data.method  = method
@@ -44,6 +44,8 @@ def generate(caption, method, options=None, datasets=None, jobs=None, package=No
 			data.versions.accelerator = description['accelerator_version']
 	if why_build:
 		data.why_build = why_build
+	if force_build:
+		data.force_build = True
 	data.options = options or DotDict()
 	data.datasets = datasets or DotDict()
 	data.jobs = jobs or DotDict()
