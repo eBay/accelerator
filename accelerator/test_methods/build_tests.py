@@ -253,6 +253,30 @@ def main(urd):
 	from sys import argv
 	from accelerator.shell import cfg
 	command_prefix = [argv[0], '--config', cfg.config_filename]
+	# These have to be rebuilt every time, or the resolving might give other jobs.
+	a = urd.build('test_shell_data', force_build=True)
+	b = urd.build('test_shell_data', force_build=True)
+	c = urd.build('test_shell_data', datasets={'previous': a})
+	d = urd.build('test_shell_data', datasets={'previous': c, 'parent': a + '/j'}, jobs={'previous': b})
+	e = urd.build('test_shell_data', jobs={'previous': d})
+	# ~ finds earlier jobs with that method, ^ follows jobs.previous falling back to datasets.previous.
+	want = {
+		'test_shell_data': e, # just the plain method -> job resolution.
+		c + '~~': a, # not using .previous, just going back jobs
+		'test_shell_data~3': b, # numbered tildes
+		'test_shell_data~2^': a, # ~~ goes to c, ^ follows .previous to a.
+		d + '^': b, # prefers jobs.previous to .datasets.previous
+	}
+	urd.build('test_shell_job', command_prefix=command_prefix, want=want)
+	# the job is resolved first, so the old specs give the same results
+	want = {spec: job + '/default' for spec, job in want.items()}
+	want.update({
+		d + '/j^': a + '/j', # .parent
+		d + '/j~': b + '/default', # .previous
+		'test_shell_data~/j^': a + '/j', # both job and ds movement
+		e + '/j~^': a + '/j', # .previous.parent
+	})
+	urd.build('test_shell_ds', command_prefix=command_prefix, want=want)
 
 	summary = urd.build("test_summary", joblist=urd.joblist)
 	summary.link_result('summary.html')
