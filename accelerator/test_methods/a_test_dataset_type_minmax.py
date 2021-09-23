@@ -174,6 +174,7 @@ def synthesis(job):
 	dw = DatasetWriter(name='empty', columns={'v': 'ascii'})
 	dw.get_split_write()
 	empty_ds = dw.finish()
+	assert empty_ds.min('non-existant column') is empty_ds.max('non-existant column') is None, 'Dataset.min/max() broken for non-existant columns'
 	for typ, groups in tests.items():
 		t_ds = subjobs.build('dataset_type', column2type={'v': typ}, source=empty_ds).dataset()
 		minmax = (t_ds.columns['v'].min, t_ds.columns['v'].max)
@@ -189,6 +190,7 @@ def synthesis(job):
 				got_minmax = (t_ds.columns['v'].min, t_ds.columns['v'].max)
 				want_minmax = (mn, mx)
 				chk_minmax(got_minmax, want_minmax, 'Typing %s as %s gave wrong minmax: expected %r, got %r (in %s)' % (ds, typ, want_minmax, got_minmax, t_ds,))
+				chk_minmax(got_minmax, (t_ds.min('v'), t_ds.max('v')), 'Dataset.min/max() broken on ' + t_ds)
 				# verify writing the same data normally also gives the correct result
 				dw = DatasetWriter(name='rewrite ' + t_ds, columns=t_ds.columns)
 				write = dw.get_split_write()

@@ -270,6 +270,17 @@ class Dataset(unicode):
 	def shape(self):
 		return (len(self.columns), sum(self.lines),)
 
+	def _minmax(self, column, minmax):
+		c = self.columns.get(column)
+		if c:
+			return getattr(c, minmax)
+
+	def min(self, column):
+		return self._minmax(column, 'min')
+
+	def max(self, column):
+		return self._minmax(column, 'max')
+
 	def link_to_here(self, name='default', column_filter=None, override_previous=_no_override, filename=None):
 		"""Use this to expose a subjob as a dataset in your job:
 		Dataset(subjid).link_to_here()
