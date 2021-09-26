@@ -30,7 +30,7 @@ import errno
 from os import write
 
 from accelerator.compat import ArgumentParser
-from accelerator.compat import unicode, izip, imap
+from accelerator.compat import unicode, izip, PY2
 from .parser import name2ds
 from accelerator import g
 
@@ -53,13 +53,11 @@ def main(argv, cfg):
 	parser.add_argument('columns', nargs='*', default=[])
 	args = parser.parse_intermixed_args(argv)
 
-	pat_s = re.compile(args.pattern                , re.IGNORECASE if args.ignore_case else 0)
-	pat_b = re.compile(args.pattern.encode('utf-8'), re.IGNORECASE if args.ignore_case else 0)
+	pat_s = re.compile(args.pattern, re.IGNORECASE if args.ignore_case else 0)
 	datasets = [name2ds(cfg, args.dataset)]
 	columns = []
 
 	separator_s = args.separator
-	separator_b = separator_s.encode('utf-8')
 
 	for ds_or_col in args.columns:
 		if columns:
@@ -101,72 +99,66 @@ def main(argv, cfg):
 			return 1
 
 	def grep(ds, sliceno):
-		# Use bytes for everything if anything is bytes, str otherwise. (For speed.)
-		if any(ds.columns[col].backing_type == 'bytes' for col in (grep_columns or columns or ds.columns)):
-			def strbytes(v):
-				return str(v).encode('utf-8', 'replace')
-			def mk_iter(col):
-				if ds.columns[col].backing_type in ('bytes', 'unicode', 'ascii',):
-					it = ds._column_iterator(sliceno, col, _type='bytes')
-					if ds.columns[col].none_support:
-						it = (b'None' if v is None else v for v in it)
-					return it
-				else:
-					return imap(strbytes, ds._column_iterator(sliceno, col))
-			chk = pat_b.search
-		else:
-			def mk_iter(col):
-				if ds.columns[col].backing_type in ('unicode', 'ascii',):
-					it = ds._column_iterator(sliceno, col, _type='unicode')
-					if not ds.columns[col].none_support:
-						return it
-				else:
-					it = ds._column_iterator(sliceno, col)
-				return imap(unicode, it)
-			chk = pat_s.search
-		def fmt(v):
-			if not isinstance(v, (unicode, bytes)):
-				v = str(v)
-			if isinstance(v, unicode):
-				v = v.encode('utf-8', 'replace')
+		def no_conv(v):
 			return v
+		def mk_conv(col):
+			if ds.columns[col].backing_type in ('bytes', 'unicode', 'ascii',):
+				if not ds.columns[col].none_support:
+					return no_conv
+			return unicode
+		chk = pat_s.search
+		def mk_iter(col):
+			if ds.columns[col].backing_type == 'ascii':
+				it = ds._column_iterator(sliceno, col, _type='unicode')
+			else:
+				it = ds._column_iterator(sliceno, col)
+			if ds.columns[col].backing_type == 'bytes':
+				errors = 'replace' if PY2 else 'surrogateescape'
+				if ds.columns[col].none_support:
+					it = (None if v is None else v.decode('utf-8', errors) for v in it)
+				else:
+					it = (v.decode('utf-8', errors) for v in it)
+			return it
 		def color(item):
 			pos = 0
 			parts = []
-			for m in pat_b.finditer(item):
+			for m in pat_s.finditer(item):
 				a, b = m.span()
-				parts.extend((item[pos:a], b'\x1b[31m', item[a:b], b'\x1b[m'))
+				parts.extend((item[pos:a], '\x1b[31m', item[a:b], '\x1b[m'))
 				pos = b
 			parts.append(item[pos:])
-			return b''.join(parts)
+			return ''.join(parts)
 		prefix = []
 		if args.show_dataset:
-			prefix.append(ds.encode('utf-8'))
+			prefix.append(ds)
 		if args.show_sliceno:
-			prefix.append(str(sliceno).encode('utf-8'))
+			prefix.append(str(sliceno))
 		prefix = tuple(prefix)
-		def show(prefix, items):
-			items = map(fmt, items)
+		def show():
+			data = list(prefix)
+			if args.show_lineno:
+				data.append(unicode(lineno))
+			if PY2:
+				show_items = (v if isinstance(v, unicode) else str(v).decode('utf-8', 'replace') for v in items)
+			else:
+				show_items = map(str, items)
 			if args.color:
-				items = map(color, items)
-			# This will be atomic if the line is not too long
-			# (at least up to PIPE_BUF bytes, should be at least 512).
-			write(1, separator_b.join(prefix + tuple(items)) + b'\n')
-		if grep_columns and grep_columns != set(columns or ds.columns):
+				show_items = map(color, show_items)
+			data.extend(show_items)
+			return separator_s.join(data).encode('utf-8', 'replace' if PY2 else 'surrogateescape')
+		used_columns = columns or sorted(ds.columns)
+		if grep_columns and grep_columns != set(used_columns):
 			grep_iter = izip(*(mk_iter(col) for col in grep_columns))
-			lines_iter = ds.iterate(sliceno, columns)
+			conv_items = [mk_conv(col) for col in grep_columns]
 		else:
 			grep_iter = repeat(None)
-			lines_iter = izip(*(mk_iter(col) for col in (columns or sorted(ds.columns))))
-		lines = izip(grep_iter, lines_iter)
-		if args.show_lineno:
-			for lineno, (grep_items, items) in enumerate(lines):
-				if any(imap(chk, grep_items or items)):
-					show(prefix + (str(lineno).encode('utf-8'),), items)
-		else:
-			for grep_items, items in lines:
-				if any(imap(chk, grep_items or items)):
-					show(prefix, items)
+			conv_items = [mk_conv(col) for col in used_columns]
+		lines_iter = izip(*(mk_iter(col) for col in used_columns))
+		for lineno, (grep_items, items) in enumerate(izip(grep_iter, lines_iter)):
+			if any(chk(conv(item)) for conv, item in izip(conv_items, grep_items or items)):
+				# This will be atomic if the line is not too long
+				# (at least up to PIPE_BUF bytes, should be at least 512).
+				write(1, show() + b'\n')
 
 	def one_slice(sliceno, q, wait_for):
 		try:
