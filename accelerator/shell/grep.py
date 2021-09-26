@@ -139,24 +139,25 @@ def main(argv, cfg):
 				pos = b
 			parts.append(item[pos:])
 			return ''.join(parts)
-		prefix = []
-		if args.show_dataset:
-			prefix.append(ds)
-		if args.show_sliceno:
-			prefix.append(str(sliceno))
-		prefix = tuple(prefix)
-		def show():
-			data = list(prefix)
-			if args.show_lineno:
-				data.append(unicode(lineno))
-			if PY2:
-				show_items = (v if isinstance(v, unicode) else str(v).decode('utf-8', 'replace') for v in items)
-			else:
-				show_items = map(str, items)
-			if highlight_matches:
-				show_items = map(colour_item, show_items)
-			data.extend(show_items)
-			return separator_s.join(data).encode('utf-8', 'replace' if PY2 else 'surrogateescape')
+		if 1:
+			prefix = []
+			if args.show_dataset:
+				prefix.append(ds)
+			if args.show_sliceno:
+				prefix.append(str(sliceno))
+			prefix = tuple(prefix)
+			def show():
+				data = list(prefix)
+				if args.show_lineno:
+					data.append(unicode(lineno))
+				if PY2:
+					show_items = (v if isinstance(v, unicode) else str(v).decode('utf-8', 'replace') for v in items)
+				else:
+					show_items = map(str, items)
+				if highlight_matches:
+					show_items = map(colour_item, show_items)
+				data.extend(show_items)
+				return separator_s.join(data).encode('utf-8', 'replace' if PY2 else 'surrogateescape')
 		used_columns = columns or sorted(ds.columns)
 		if grep_columns and grep_columns != set(used_columns):
 			grep_iter = izip(*(mk_iter(col) for col in grep_columns))
