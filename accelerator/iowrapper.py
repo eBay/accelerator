@@ -39,7 +39,7 @@ def main():
 	# output (this pipe) non-blocking without messing up the real stdout.
 	a, b = os.pipe()
 	os.environ['BD_TERM_FD'] = str(b)
-	Popen(['cat'], close_fds=True, stdin=a)
+	Popen(['cat'], close_fds=True, stdin=a, preexec_fn=os.setpgrp)
 	# Use a pty for programs under us, so they stay line buffered.
 	a, b = openpty()
 	run_reader({}, None, [a], [b], 'main iowrapper.reader', None, True)
