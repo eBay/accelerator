@@ -38,7 +38,7 @@ def main(argv, cfg):
 	usage = "%(prog)s [options] pattern ds [ds [...]] [column [column [...]]"
 	parser = ArgumentParser(usage=usage, prog=argv.pop(0))
 	parser.add_argument('-c', '--chain',        action='store_true', help="follow dataset chains", )
-	parser.add_argument('-C', '--color',        action='store_true', help="color matched text", )
+	parser.add_argument('-C', '--colour', '--color', action='store_true', help="colour matched text", )
 	parser.add_argument('-i', '--ignore-case',  action='store_true', help="case insensitive pattern", )
 	parser.add_argument('-H', '--headers',      action='store_true', help="print column names before output (and on each change)", )
 	parser.add_argument('-o', '--ordered',      action='store_true', help="output in order (one slice at a time)", )
@@ -119,7 +119,7 @@ def main(argv, cfg):
 				else:
 					it = (v.decode('utf-8', errors) for v in it)
 			return it
-		def color(item):
+		def colour_item(item):
 			pos = 0
 			parts = []
 			for m in pat_s.finditer(item):
@@ -142,8 +142,8 @@ def main(argv, cfg):
 				show_items = (v if isinstance(v, unicode) else str(v).decode('utf-8', 'replace') for v in items)
 			else:
 				show_items = map(str, items)
-			if args.color:
-				show_items = map(color, show_items)
+			if args.colour:
+				show_items = map(colour_item, show_items)
 			data.extend(show_items)
 			return separator_s.join(data).encode('utf-8', 'replace' if PY2 else 'surrogateescape')
 		used_columns = columns or sorted(ds.columns)
