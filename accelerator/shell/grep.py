@@ -31,6 +31,7 @@ from os import write
 
 from accelerator.compat import ArgumentParser
 from accelerator.compat import unicode, izip, PY2
+from accelerator.colourwrapper import colour
 from .parser import name2ds
 from accelerator import g
 
@@ -124,7 +125,7 @@ def main(argv, cfg):
 			parts = []
 			for m in pat_s.finditer(item):
 				a, b = m.span()
-				parts.extend((item[pos:a], '\x1b[31m', item[a:b], '\x1b[m'))
+				parts.extend((item[pos:a], colour.red(item[a:b])))
 				pos = b
 			parts.append(item[pos:])
 			return ''.join(parts)
@@ -203,7 +204,7 @@ def main(argv, cfg):
 					headers[ds] = current_headers = candidate_headers
 			current_headers = headers.pop(datasets[0])
 		def show_headers(headers):
-			print('\x1b[34m' + separator_s.join(headers_prefix + headers) + '\x1b[m')
+			print(colour.blue(separator_s.join(headers_prefix + headers)))
 		show_headers(current_headers)
 
 	queues = []

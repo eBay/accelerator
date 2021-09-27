@@ -31,6 +31,7 @@ import errno
 
 from accelerator.workarounds import nonblocking
 from accelerator.compat import setproctitle
+from accelerator.colourwrapper import colour
 from accelerator import statmsg
 
 
@@ -115,7 +116,7 @@ def reader(fd2pid, names, masters, slaves, process_name, basedir, is_main, syncp
 			assert len(fd2pid) == 1, "fd2pid should have 1 or 2 elements initially"
 	missed = [False]
 	output_happened = False
-	def try_print(data=b'\n\x1b[31m*** Some output not printed ***\x1b[m\n'):
+	def try_print(data=b'\n' + colour.red(b'*** Some output not printed ***') + b'\n'):
 		try:
 			os.write(out_fd, data)
 		except OSError:

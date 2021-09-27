@@ -26,6 +26,7 @@ import errno
 from argparse import RawTextHelpFormatter
 
 from accelerator.compat import ArgumentParser
+from accelerator.colourwrapper import colour
 from accelerator.setupfile import encode_setup
 from accelerator.compat import FileNotFoundError, url_quote
 from accelerator.unixhttp import call
@@ -51,7 +52,7 @@ def show(url, job, show_output):
 	try:
 		post = job.json_load('post.json')
 	except FileNotFoundError:
-		print('\x1b[31mWARNING: Job did not finish\x1b[m')
+		print(colour.red('WARNING: Job did not finish'))
 		post = None
 	if post and post.subjobs:
 		print()
@@ -64,7 +65,7 @@ def show(url, job, show_output):
 		for fn in sorted(post.files):
 			print('   ', job.filename(fn))
 	if post and not call(url + '/job_is_current/' + url_quote(job)):
-		print('\x1b[34mJob is not current\x1b[m')
+		print(colour.blue('Job is not current'))
 	print()
 	out = job.output()
 	if show_output:

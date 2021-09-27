@@ -1,6 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2021 Anders Berkeman                                       #
+# Modifications copyright (c) 2021 Carl Drougge                            #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -25,6 +26,7 @@ from glob import glob
 from os.path import dirname, basename
 from importlib import import_module
 from accelerator.compat import terminal_size, ArgumentParser
+from accelerator.colourwrapper import colour
 from accelerator.shell import printdesc
 
 
@@ -54,7 +56,7 @@ def main(argv, cfg):
 				try:
 					module = import_module(modname)
 				except Exception as e:
-					print('\x1b[31m%s:' % (item,), e, '\x1b[m', file=sys.stderr)
+					print('%s%s: %s%s' % (colour.RED, item, e, colour.RESET), file=sys.stderr)
 					continue
 				allscripts.append((package, name, getattr(module, 'description', '').strip('\n')))
 

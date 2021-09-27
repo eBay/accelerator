@@ -38,6 +38,7 @@ from accelerator.compat import urlencode
 from accelerator.compat import getarglist
 
 from accelerator import setupfile
+from accelerator.colourwrapper import colour
 from accelerator.extras import json_encode, DotDict, _ListTypePreserver
 from accelerator.job import Job
 from accelerator.statmsg import print_status_stacks
@@ -621,10 +622,10 @@ class Urd(object):
 			warnings = list(chain.from_iterable(reflow(w) for w in self._warnings))
 			print()
 			width = max(len(line) for line in warnings)
-			print('\x1b[35m' + ('#' * (width + 6)) + '\x1b[m')
+			print(colour.magenta('#' * (width + 6)))
 			for line in warnings:
-				print('\x1b[35m##\x1b[m', line.ljust(width), '\x1b[35m##\x1b[m')
-			print('\x1b[35m' + ('#' * (width + 6)) + '\x1b[m')
+				print(colour.magenta('##'), line.ljust(width), colour.magenta('##'))
+			print(colour.magenta('#' * (width + 6)))
 			self._warnings = []
 
 

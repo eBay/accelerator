@@ -34,6 +34,7 @@ from accelerator import dispatch
 from accelerator import workspace
 from accelerator import database
 from accelerator import methods
+from accelerator.colourwrapper import colour
 from accelerator.setupfile import update_setup
 from accelerator.job import WORKDIRS, Job
 from accelerator.extras import json_save, DotDict
@@ -97,14 +98,14 @@ class Main:
 
 	def print_workdirs(self):
 		namelen = max(len(n) for n in self.workspaces)
-		templ = "    %%s %%%ds: %%s \x1b[m(%%d)" % (namelen,)
+		templ = "    %%s %%%ds: %%s %s(%%d)" % (namelen, colour.RESET,)
 		print("Available workdirs:")
 		names = sorted(self.workspaces)
 		names.remove(self.target_workdir)
 		names.insert(0, self.target_workdir)
 		for n in names:
 			if n == self.target_workdir:
-				prefix = 'TARGET\x1b[1m  '
+				prefix = 'TARGET  ' + colour.BOLD
 			else:
 				prefix = 'SOURCE  '
 			w = self.workspaces[n]

@@ -38,6 +38,7 @@ import os
 import signal
 
 from accelerator.compat import iteritems, itervalues, unicode, ArgumentParser
+from accelerator.colourwrapper import colour
 from accelerator.extras import DotDict, PY3
 from accelerator.unixhttp import WaitressServer
 
@@ -367,7 +368,8 @@ class DB:
 							extra = ''
 						except:
 							extra = "  Also failed to remove partially written data."
-							extra2 = "  \x1b[31m****\x1b[m YOUR URD DB IS PROBABLY BROKEN NOW! \x1b[31m****\x1b[m"
+							stars = colour.red('****')
+							extra2 = "  " + stars + " YOUR URD DB IS PROBABLY BROKEN NOW! " + stars
 						msg = "  Failed to write %s: %s" % (fn, e)
 						brk = "#" * (max(len(msg), len(extra)) + 2)
 						print("", file=sys.stderr)

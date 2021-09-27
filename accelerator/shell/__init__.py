@@ -31,6 +31,7 @@ import shlex
 from argparse import RawDescriptionHelpFormatter
 
 from accelerator.compat import ArgumentParser
+from accelerator.colourwrapper import colour
 from accelerator.error import UserError
 
 cfg = None
@@ -290,7 +291,7 @@ def printdesc(name, description, columns, full=False):
 			description += ddot
 		return description
 	max_len = columns - len(ddot) - len(name)
-	preamble = '  \x1b[1m%s\x1b[m' % (name, )
+	preamble = colour.bold('  ' + name)
 	if description and max_len > 10:
 		description = description.strip('\n')
 		lines = description.split('\n')

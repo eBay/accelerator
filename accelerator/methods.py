@@ -31,6 +31,7 @@ from importlib import import_module
 from accelerator.compat import iteritems, itervalues, first_value
 from accelerator.compat import NoneType, unicode, long, monotonic
 
+from accelerator.colourwrapper import colour
 from accelerator.extras import DotDict, _OptionString, OptionEnum, OptionDefault, RequiredOption
 from accelerator.runner import new_runners
 from accelerator.setupfile import _sorted_set
@@ -104,9 +105,9 @@ class Methods(object):
 		if warnings:
 			prt(warnings, 'WARNING: ')
 		if failed:
-			print('\033[47;31;1m')
+			print(colour.WHITEBG + colour.RED + colour.BOLD)
 			prt(failed, 'FAILED to import ')
-			print('\033[m')
+			print(colour.RESET)
 			raise MethodLoadException(failed)
 		print("Updated %d methods on %d runners in %.1f seconds" % (
 		      len(self.hash), len(per_runner), monotonic() - t0,

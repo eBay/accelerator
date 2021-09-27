@@ -30,6 +30,7 @@ from math import ceil, floor, log10, isinf, isnan
 from accelerator.compat import ArgumentParser
 from accelerator.compat import terminal_size
 from .parser import name2ds, name2job
+from accelerator.colourwrapper import colour
 from accelerator.error import NoSuchWhateverError
 
 MINMAXWIDTH = 13 # minimum number of characters reserved for min/max values
@@ -185,7 +186,7 @@ def main(argv, cfg):
 					minval, maxval = chain.min(n), chain.max(n)
 				else:
 					minval, maxval = c.min, c.max
-				hashdot = "\x1b[1m*\x1b[m" if n == ds.hashlabel else " "
+				hashdot = colour.bold("*") if n == ds.hashlabel else " "
 				print(template.format(quote(n), name2typ[n], hashdot, prettyminmax(minval, maxval), c.location).rstrip())
 			print("    {0:n} columns".format(len(ds.columns)))
 		print("    {0:n} lines".format(sum(ds.lines)))

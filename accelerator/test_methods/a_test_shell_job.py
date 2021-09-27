@@ -29,6 +29,7 @@ options = dict(
 	want={'spec': 'jobid'},
 )
 
+import os
 from subprocess import check_output
 
 def ax_job(*a):
@@ -40,9 +41,15 @@ def ax_job(*a):
 	return res.split('\n')
 
 def synthesis(job):
+	os.putenv('CLICOLOR_FORCE', '1')
 	res = ax_job(job)
 	assert res[0] == job.path, res[0]
 	assert '\x1b[31mWARNING: Job did not finish\x1b[m' in res
+	os.unsetenv('CLICOLOR_FORCE')
+	os.putenv('NO_COLOR', '')
+	res = ax_job(job)
+	assert res[0] == job.path, res[0]
+	assert 'WARNING: Job did not finish' in res
 	for spec, jobid in options.want.items():
 		res = ax_job(spec)
 		got_jobid = res[0].split('/')[-1]

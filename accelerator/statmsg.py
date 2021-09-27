@@ -46,7 +46,7 @@ import socket
 import os
 
 from accelerator.compat import str_types, iteritems, monotonic
-
+from accelerator.colourwrapper import colour
 from accelerator import g
 
 
@@ -170,7 +170,7 @@ def print_status_stacks(stacks=None):
 			print("%6d TAIL OF OUTPUT: (%.1f seconds ago)" % (pid, report_t - t,))
 			msgs = list(filter(None, msg.split('\n')))[-3:]
 			for msg in msgs:
-				print("       \x1b[32m" + msg + "\x1b[m")
+				print("       " + colour.green(msg))
 		else:
 			print("%6d STATUS: %s%s (%.1f seconds)" % (pid, "    " * indent, msg, report_t - t))
 
