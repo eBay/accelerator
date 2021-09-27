@@ -253,12 +253,19 @@ def main(urd):
 	from sys import argv
 	from accelerator.shell import cfg
 	command_prefix = [argv[0], '--config', cfg.config_filename]
+	urd.truncate("tests_urd", 0)
 	# These have to be rebuilt every time, or the resolving might give other jobs.
+	urd.begin("tests_urd", 1)
 	a = urd.build('test_shell_data', force_build=True)
 	b = urd.build('test_shell_data', force_build=True)
 	c = urd.build('test_shell_data', datasets={'previous': a})
+	urd.finish("tests_urd")
+	urd.begin("tests_urd", "2021-09-27")
 	d = urd.build('test_shell_data', datasets={'previous': c, 'parent': a + '/j'}, jobs={'previous': b})
+	urd.finish("tests_urd")
+	urd.begin("tests_urd", "2021-09-27+1")
 	e = urd.build('test_shell_data', jobs={'previous': d})
+	urd.finish("tests_urd")
 	# ~ finds earlier jobs with that method, ^ follows jobs.previous falling back to datasets.previous.
 	want = {
 		'test_shell_data': e, # just the plain method -> job resolution.
@@ -266,6 +273,13 @@ def main(urd):
 		'test_shell_data~3': b, # numbered tildes
 		'test_shell_data~2^': a, # ~~ goes to c, ^ follows .previous to a.
 		d + '^': b, # prefers jobs.previous to .datasets.previous
+		':tests_urd:': e,
+		':tests_urd/2021-09-27:': d,
+		':tests_urd/1:1': b, # 1 is the second entry
+		':tests_urd/1:-3': a, # third entry from the end
+		':tests_urd:^': d,
+		':tests_urd/2021-09-27+1^^:0': a, # ^ in :: goes to earlier entries
+		':tests_urd/1~:': d, # ~ in :: goes to later entries
 	}
 	urd.build('test_shell_job', command_prefix=command_prefix, want=want)
 	# the job is resolved first, so the old specs give the same results
@@ -277,6 +291,7 @@ def main(urd):
 		e + '/j~^': a + '/j', # .previous.parent
 	})
 	urd.build('test_shell_ds', command_prefix=command_prefix, want=want)
+	urd.truncate("tests_urd", 0)
 
 	summary = urd.build("test_summary", joblist=urd.joblist)
 	summary.link_result('summary.html')
