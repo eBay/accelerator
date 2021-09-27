@@ -39,7 +39,7 @@ def main(argv, cfg):
 	usage = "%(prog)s [options] pattern ds [ds [...]] [column [column [...]]"
 	parser = ArgumentParser(usage=usage, prog=argv.pop(0))
 	parser.add_argument('-c', '--chain',        action='store_true', help="follow dataset chains", )
-	parser.add_argument('-C', '--colour', '--color', action='store_true', help="colour matched text", )
+	parser.add_argument('-C', '--colour', '--color', nargs='?', const='always', choices=['auto', 'never', 'always'], type=str.lower, help="colour matched text. can be auto, never or always", metavar='WHEN', )
 	parser.add_argument('-i', '--ignore-case',  action='store_true', help="case insensitive pattern", )
 	parser.add_argument('-H', '--headers',      action='store_true', help="print column names before output (and on each change)", )
 	parser.add_argument('-o', '--ordered',      action='store_true', help="output in order (one slice at a time)", )
@@ -99,6 +99,16 @@ def main(argv, cfg):
 		if bad:
 			return 1
 
+	# never and always override env settings, auto (default) sets from env/tty
+	if args.colour == 'never':
+		colour.disable()
+		highlight_matches = False
+	elif args.colour == 'always':
+		colour.enable()
+		highlight_matches = True
+	else:
+		highlight_matches = colour.enabled
+
 	def grep(ds, sliceno):
 		def no_conv(v):
 			return v
@@ -143,7 +153,7 @@ def main(argv, cfg):
 				show_items = (v if isinstance(v, unicode) else str(v).decode('utf-8', 'replace') for v in items)
 			else:
 				show_items = map(str, items)
-			if args.colour:
+			if highlight_matches:
 				show_items = map(colour_item, show_items)
 			data.extend(show_items)
 			return separator_s.join(data).encode('utf-8', 'replace' if PY2 else 'surrogateescape')
