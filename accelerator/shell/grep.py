@@ -28,6 +28,7 @@ from multiprocessing import Process, JoinableQueue
 from itertools import chain, repeat
 import errno
 from os import write
+import json
 
 from accelerator.compat import ArgumentParser
 from accelerator.compat import unicode, izip, PY2
@@ -36,8 +37,10 @@ from .parser import name2ds
 from accelerator import g
 
 def main(argv, cfg):
-	usage = "%(prog)s [options] pattern ds [ds [...]] [column [column [...]]"
-	parser = ArgumentParser(usage=usage, prog=argv.pop(0))
+	parser = ArgumentParser(
+		usage="%(prog)s [options] pattern ds [ds [...]] [column [column [...]]",
+		prog=argv.pop(0),
+	)
 	parser.add_argument('-c', '--chain',        action='store_true', help="follow dataset chains", )
 	parser.add_argument('-C', '--colour', '--color', nargs='?', const='always', choices=['auto', 'never', 'always'], type=str.lower, help="colour matched text. can be auto, never or always", metavar='WHEN', )
 	parser.add_argument('-i', '--ignore-case',  action='store_true', help="case insensitive pattern", )
@@ -45,10 +48,12 @@ def main(argv, cfg):
 	parser.add_argument('-o', '--ordered',      action='store_true', help="output in order (one slice at a time)", )
 	parser.add_argument('-g', '--grep',         action='append',     help="grep this column only, can be specified multiple times", metavar='COLUMN')
 	parser.add_argument('-s', '--slice',        action='append',     help="grep this slice only, can be specified multiple times",  type=int)
-	parser.add_argument('-t', '--separator', help="field separator (default tab)", default='\t')
 	parser.add_argument('-D', '--show-dataset', action='store_true', help="show dataset on matching lines", )
 	parser.add_argument('-S', '--show-sliceno', action='store_true', help="show sliceno on matching lines", )
 	parser.add_argument('-L', '--show-lineno',  action='store_true', help="show lineno (per slice) on matching lines", )
+	supported_formats = ('csv', 'raw', 'json',)
+	parser.add_argument('-f', '--format', default='csv', choices=supported_formats, help="output format, csv (default) / " + ' / '.join(supported_formats[1:]), metavar='FORMAT', )
+	parser.add_argument('-t', '--separator', help="field separator, default tab / tab-like spaces", )
 	parser.add_argument('pattern')
 	parser.add_argument('dataset', help='can be specified in the same ways as for "ax ds"')
 	parser.add_argument('columns', nargs='*', default=[])
@@ -57,8 +62,6 @@ def main(argv, cfg):
 	pat_s = re.compile(args.pattern, re.IGNORECASE if args.ignore_case else 0)
 	datasets = [name2ds(cfg, args.dataset)]
 	columns = []
-
-	separator_s = args.separator
 
 	for ds_or_col in args.columns:
 		if columns:
@@ -109,6 +112,26 @@ def main(argv, cfg):
 	else:
 		highlight_matches = colour.enabled
 
+	separator = args.separator
+	if separator is None and not sys.stdout.isatty():
+		separator = '\t'
+
+	if separator is None:
+		# special case where we try to be like a tab, but with spaces.
+		# this is useful because terminals typically don't style tabs.
+		def separate(items):
+			things = []
+			for item in items:
+				things.append(item)
+				spaces = 8 - (len(item) % 8)
+				things.append(colour(' ' * spaces, 'cyan', 'underline'))
+			return ''.join(things[:-1])
+		separator = '\t'
+	else:
+		separator_coloured = colour(separator, 'cyan', 'underline')
+		def separate(items):
+			return separator_coloured.join(items)
+
 	def grep(ds, sliceno):
 		def no_conv(v):
 			return v
@@ -139,7 +162,23 @@ def main(argv, cfg):
 				pos = b
 			parts.append(item[pos:])
 			return ''.join(parts)
-		if 1:
+		if args.format == 'json':
+			prefix = {}
+			dumps = json.JSONEncoder(ensure_ascii=False).encode
+			if args.show_dataset:
+				prefix['dataset'] = ds
+			if args.show_sliceno:
+				prefix['sliceno'] = sliceno
+			def show():
+				d = dict(zip(used_columns, items))
+				if args.show_lineno:
+					prefix['lineno'] = lineno
+				if prefix:
+					dd = dict(prefix)
+					dd['data'] = d
+					d = dd
+				return dumps(d).encode('utf-8', 'surrogatepass')
+		else:
 			prefix = []
 			if args.show_dataset:
 				prefix.append(ds)
@@ -156,8 +195,13 @@ def main(argv, cfg):
 					show_items = map(str, items)
 				if highlight_matches:
 					show_items = map(colour_item, show_items)
+				if args.format == 'csv':
+					show_items = ('"' + v.replace('\n', '\\n').replace('"', '""') + '"' if v and (separator in v or v[0] in '\'"' or v[-1]  in '\'"') else v.replace('\n', '\\n') for v in show_items)
+					errors = 'surrogatepass'
+				else:
+					errors = 'replace' if PY2 else 'surrogateescape'
 				data.extend(show_items)
-				return separator_s.join(data).encode('utf-8', 'replace' if PY2 else 'surrogateescape')
+				return separate(data).encode('utf-8', errors)
 		used_columns = columns or sorted(ds.columns)
 		if grep_columns and grep_columns != set(used_columns):
 			grep_iter = izip(*(mk_iter(col) for col in grep_columns))
@@ -215,7 +259,8 @@ def main(argv, cfg):
 					headers[ds] = current_headers = candidate_headers
 			current_headers = headers.pop(datasets[0])
 		def show_headers(headers):
-			print(colour.blue(separator_s.join(headers_prefix + headers)))
+			if args.format != 'json':
+				print(separate(map(colour.blue, headers_prefix + headers)))
 		show_headers(current_headers)
 
 	queues = []

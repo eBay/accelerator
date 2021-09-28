@@ -1,6 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
+# Modifications copyright (c) 2021 Carl Drougge                            #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -19,6 +20,7 @@
 class AutoFlush:
 	def __init__(self, fh):
 		self.fh = fh
+		self.isatty = fh.isatty
 	def write(self, data):
 		self.fh.write(data)
 		self.fh.flush()
