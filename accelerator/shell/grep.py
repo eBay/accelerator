@@ -113,6 +113,10 @@ def main(argv, cfg):
 	else:
 		highlight_matches = colour.enabled
 
+	# Don't highlight everything when just trying to cat
+	if args.pattern == '':
+		highlight_matches = False
+
 	separator = args.separator
 	if separator is None and not sys.stdout.isatty():
 		separator = '\t'
