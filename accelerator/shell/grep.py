@@ -29,6 +29,7 @@ from itertools import chain, repeat
 import errno
 from os import write
 import json
+import datetime
 
 from accelerator.compat import ArgumentParser
 from accelerator.compat import unicode, izip, PY2
@@ -132,6 +133,14 @@ def main(argv, cfg):
 		def separate(items):
 			return separator_coloured.join(items)
 
+	def json_default(obj):
+		if isinstance(obj, (datetime.datetime, datetime.date, datetime.time)):
+			return str(obj)
+		elif isinstance(obj, complex):
+			return [obj.real, obj.imag]
+		else:
+			return repr(obj)
+
 	def grep(ds, sliceno):
 		def no_conv(v):
 			return v
@@ -164,7 +173,7 @@ def main(argv, cfg):
 			return ''.join(parts)
 		if args.format == 'json':
 			prefix = {}
-			dumps = json.JSONEncoder(ensure_ascii=False).encode
+			dumps = json.JSONEncoder(ensure_ascii=False, default=json_default).encode
 			if args.show_dataset:
 				prefix['dataset'] = ds
 			if args.show_sliceno:
