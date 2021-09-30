@@ -145,6 +145,17 @@ def main(argv, cfg):
 		else:
 			return repr(obj)
 
+	if args.format == 'csv':
+		def escape_item(item):
+			if item and (separator in item or item[0] in '\'"' or item[-1] in '\'"'):
+				return '"' + item.replace('\n', '\\n').replace('"', '""') + '"'
+			else:
+				return item.replace('\n', '\\n')
+		errors = 'surrogatepass'
+	else:
+		escape_item = None
+		errors = 'replace' if PY2 else 'surrogateescape'
+
 	def grep(ds, sliceno):
 		def no_conv(v):
 			return v
@@ -208,11 +219,8 @@ def main(argv, cfg):
 					show_items = map(str, items)
 				if highlight_matches:
 					show_items = map(colour_item, show_items)
-				if args.format == 'csv':
-					show_items = ('"' + v.replace('\n', '\\n').replace('"', '""') + '"' if v and (separator in v or v[0] in '\'"' or v[-1]  in '\'"') else v.replace('\n', '\\n') for v in show_items)
-					errors = 'surrogatepass'
-				else:
-					errors = 'replace' if PY2 else 'surrogateescape'
+				if escape_item:
+					show_items = map(escape_item, show_items)
 				data.extend(show_items)
 				return separate(data).encode('utf-8', errors)
 		used_columns = columns or sorted(ds.columns)
@@ -273,7 +281,10 @@ def main(argv, cfg):
 			current_headers = headers.pop(datasets[0])
 		def show_headers(headers):
 			if args.format != 'json':
-				print(separate(map(colour.blue, headers_prefix + headers)))
+				show_items = headers_prefix + headers
+				if escape_item:
+					show_items = map(escape_item, show_items)
+				print(separate(map(colour.blue, show_items)))
 		show_headers(current_headers)
 
 	queues = []
