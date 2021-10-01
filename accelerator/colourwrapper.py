@@ -31,8 +31,10 @@ class Colour:
 	Available as constants named .COLOUR, functions named .colour and
 	as direct calls on the object taking (value, *attrs).
 	Colours are BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE,
-	DEFAULT and BLACKBG, REDBG etc.
-	BOLD, ITALIC, UNDERLINE, BLINK, INVERT, and STRIKE are also available.
+	These can be prefixed with BRIGHT and/or suffixed with BG.
+
+	DEFAULT[BG], BOLD, FAINT, ITALIC, UNDERLINE, BLINK, INVERT, and STRIKE
+	are also available.
 
 	When using the constants, end with .RESET.
 
@@ -40,11 +42,15 @@ class Colour:
 
 	colour(v, 'red', 'bold') and similar produce shorter sequences than other
 	ways of combining several attributes.
+
+	You can also use colour(v, '#RRGGBB[bg]'), but terminal support is not
+	great.
 	"""
 
 	def __init__(self):
 		self._all = dict(
 			BOLD='1',
+			FAINT='2',
 			ITALIC='3',
 			UNDERLINE='4',
 			BLINK='5',
@@ -54,11 +60,12 @@ class Colour:
 		for num, name in enumerate([
 			'BLACK', 'RED', 'GREEN', 'YELLOW',
 			'BLUE', 'MAGENTA', 'CYAN', 'WHITE',
-			None, 'DEFAULT',
 		]):
-			if name:
-				self._all[name] = '3%d' % (num,)
-				self._all[name + 'BG'] = '4%d' % (num,)
+			for prefix, base in (('', 30), ('BRIGHT', 90)):
+				self._all[prefix + name] = str(base + num)
+				self._all[prefix + name + 'BG'] = str(base + 10 + num)
+		self._all['DEFAULT'] = '39'
+		self._all['DEFAULTBG'] = '49'
 		for k in self._all:
 			setattr(self, k.lower(), partial(self._single, k))
 		self._on = {k: '\x1b[%sm' % (v,) for k, v in self._all.items()}
@@ -88,9 +95,23 @@ class Colour:
 			stuff = []
 			for a in attrs:
 				want = a.upper()
-				if want not in self._all:
-					raise Exception('Unknown colour/attr %r' % (a,))
-				stuff.append(self._all[want])
+				if want.startswith('#'):
+					if want.endswith('BG'):
+						prefix = '48'
+						want = want[:-2]
+					else:
+						prefix = '38'
+					if len(want) != 7:
+						raise Exception('Bad colour spec %r' % (a,))
+					try:
+						r, g, b = (str(int(w, 16)) for w in (want[1:3], want[3:5], want[5:7]))
+					except ValueError:
+						raise Exception('Bad colour spec %r' % (a,))
+					stuff.extend((prefix, '2', r, g, b))
+				else:
+					if want not in self._all:
+						raise Exception('Unknown colour/attr %r' % (a,))
+					stuff.append(self._all[want])
 			pre = '\x1b[' + ';'.join(stuff) + 'm'
 			post = self.RESET
 		if isinstance(value, bytes):
