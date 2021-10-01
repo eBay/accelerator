@@ -28,8 +28,9 @@ from accelerator.unixhttp import call
 from accelerator.setupfile import load_setup
 from accelerator.build import fmttime
 from accelerator.extras import DotDict
+from accelerator.job import Job
 
-def job_data(known, jid):
+def job_data(known, jid, full_path=False):
 	if jid in known:
 		data = known[jid]
 	else:
@@ -49,11 +50,19 @@ def job_data(known, jid):
 		data.klass = 'current'
 	else:
 		data.klass = 'old'
+	if not data.get('path'):
+		if full_path:
+			data.path = Job(jid).path
+		else:
+			data.path = jid
 	return data
 
-def show_job(known, jid, show_jid=None):
-	data = job_data(known, jid)
-	print('\t'.join((show_jid or jid, data.klass, data.method, data.totaltime or '')))
+def show_job(args, known, jid, as_latest=False):
+	data = job_data(known, jid, args.full_path)
+	path = data.path
+	if as_latest:
+		path = path.rsplit('-', 1)[0] + '-LATEST'
+	print('\t'.join((path, data.klass, data.method, data.totaltime or '')))
 
 def workdir_jids(cfg, name):
 	jidlist = []
@@ -66,9 +75,10 @@ def workdir_jids(cfg, name):
 	return ['%s-%s' % (name, jid,) for jid in jidlist]
 
 def main(argv, cfg):
-	usage = "%(prog)s [-a | [workdir [workdir [...]]]"
+	usage = "%(prog)s [-p] [-a | [workdir [workdir [...]]]"
 	parser = ArgumentParser(usage=usage, prog=argv.pop(0))
 	parser.add_argument('-a', '--all', action='store_true', help="list all workdirs")
+	parser.add_argument('-p', '--full-path', action='store_true', help="show full path")
 	parser.add_argument('workdirs', nargs='*', default=[])
 	args = parser.parse_args(argv)
 
@@ -77,7 +87,10 @@ def main(argv, cfg):
 
 	if not args.workdirs:
 		for wd in sorted(cfg.workdirs):
-			print(wd)
+			if args.full_path:
+				print('%s\t%s' % (wd, cfg.workdirs[wd]))
+			else:
+				print(wd)
 		return
 
 	for name in args.workdirs:
@@ -86,11 +99,11 @@ def main(argv, cfg):
 			continue
 		known = call(cfg.url + '/workdir/' + url_quote(name))
 		for jid in workdir_jids(cfg, name):
-			show_job(known, jid)
+			show_job(args, known, jid)
 
 		try:
 			latest = os.readlink(os.path.join(cfg.workdirs[name], name + '-LATEST'))
 		except OSError:
 			latest = None
 		if latest:
-			show_job(known, jid, name + '-LATEST')
+			show_job(args, known, jid, True)
