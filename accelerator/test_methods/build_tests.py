@@ -292,6 +292,7 @@ def main(urd):
 	})
 	urd.build('test_shell_ds', command_prefix=command_prefix, want=want)
 	urd.truncate("tests_urd", 0)
+	urd.build('test_shell_grep', command_prefix=command_prefix)
 
 	summary = urd.build("test_summary", joblist=urd.joblist)
 	summary.link_result('summary.html')
