@@ -44,7 +44,7 @@ def synthesis(job):
 	os.putenv('CLICOLOR_FORCE', '1')
 	res = ax_job(job)
 	assert res[0] == job.path, res[0]
-	assert '\x1b[31mWARNING: Job did not finish\x1b[m' in res
+	assert '\x1b[31mWARNING: Job did not finish\x1b[39m' in res
 	os.unsetenv('CLICOLOR_FORCE')
 	os.putenv('NO_COLOR', '')
 	res = ax_job(job)

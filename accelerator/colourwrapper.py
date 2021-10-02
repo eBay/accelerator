@@ -32,19 +32,24 @@ class Colour:
 	as direct calls on the object taking (value, *attrs).
 	Colours are BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE,
 	These can be prefixed with BRIGHT and/or suffixed with BG.
+	DEFAULT[BG] restores the default colour.
 
-	DEFAULT[BG], BOLD, FAINT, ITALIC, UNDERLINE, BLINK, INVERT, and STRIKE
-	are also available.
+	BOLD, FAINT, ITALIC, UNDERLINE, BLINK, INVERT, and STRIKE are also
+	available. These can be prefixed with NOT to turn them off.
 
-	When using the constants, end with .RESET.
+	When using the constants, you should usually end with .RESET.
 
-	>>> colour.RED + 'foo' + colour.RESET == colour.red('foo') == colour('foo', 'red')
+	>>> colour.RED + 'foo' + colour.DEFAULT == colour.red('foo') == colour('foo', 'red')
 
 	colour(v, 'red', 'bold') and similar produce shorter sequences than other
 	ways of combining several attributes.
 
 	You can also use colour(v, '#RRGGBB[bg]'), but terminal support is not
 	great.
+
+	The functions take force=True to return escape sequences even if colour
+	is disabled and reset=True to reset all attributes before (and after)
+	this sequence. (By default only the changed attributes are reset.)
 	"""
 
 	def __init__(self):
@@ -57,6 +62,8 @@ class Colour:
 			INVERT='7',
 			STRIKE='9',
 		)
+		self._all.update([('NOT' + k, '2' + v) for k, v in self._all.items()])
+		self._all['NOTBOLD'] = '22'
 		for num, name in enumerate([
 			'BLACK', 'RED', 'GREEN', 'YELLOW',
 			'BLUE', 'MAGENTA', 'CYAN', 'WHITE',
@@ -70,6 +77,7 @@ class Colour:
 			setattr(self, k.lower(), partial(self._single, k))
 		self._on = {k: '\x1b[%sm' % (v,) for k, v in self._all.items()}
 		self._on['RESET'] = '\x1b[m'
+		self._all['RESET'] = ''
 		if PY2:
 			self._on = {k.encode('ascii'): v.encode('ascii') for k, v in self._on.items()}
 			self._off = dict.fromkeys(self._on, b'')
@@ -86,15 +94,25 @@ class Colour:
 		self.__dict__.update(self._off)
 		self.enabled = False
 
-	def _single(self, attr, value):
-		return self(value, attr)
+	def _single(self, attr, value, reset=False, force=False):
+		return self(value, attr, reset=reset, force=force)
 
-	def __call__(self, value, *attrs):
-		pre = post = ''
-		if self.enabled and attrs:
-			stuff = []
+	# When we drop python 2 we can change this to use normal keywords
+	def __call__(self, value, *attrs, **kw):
+		bad_kw = set(kw) - {'force', 'reset'}
+		if bad_kw:
+			raise TypeError('Unknown keywords %r' % (bad_kw,))
+		if not attrs:
+			raise TypeError('specify at least one attr')
+		if (self.enabled or kw.get('force')):
+			if kw.get('reset'):
+				pre = ['0']
+			else:
+				pre = []
+			post = set()
 			for a in attrs:
 				want = a.upper()
+				default = self._all['DEFAULTBG' if want.endswith('BG') else 'DEFAULT']
 				if want.startswith('#'):
 					if want.endswith('BG'):
 						prefix = '48'
@@ -107,13 +125,19 @@ class Colour:
 						r, g, b = (str(int(w, 16)) for w in (want[1:3], want[3:5], want[5:7]))
 					except ValueError:
 						raise Exception('Bad colour spec %r' % (a,))
-					stuff.extend((prefix, '2', r, g, b))
+					pre.extend((prefix, '2', r, g, b))
+					post.add(default)
 				else:
 					if want not in self._all:
 						raise Exception('Unknown colour/attr %r' % (a,))
-					stuff.append(self._all[want])
-			pre = '\x1b[' + ';'.join(stuff) + 'm'
-			post = self.RESET
+					pre.append(self._all[want])
+					post.add(self._all.get('NOT' + want, default))
+			pre = '\x1b[' + ';'.join(pre) + 'm'
+			if kw.get('reset'):
+				post = ()
+			post = '\x1b[' + ';'.join(sorted(post)) + 'm'
+		else:
+			pre = post = ''
 		if isinstance(value, bytes):
 			return b'%s%s%s' % (pre.encode('utf-8'), value, post.encode('utf-8'),)
 		return '%s%s%s' % (pre, value, post,)

@@ -51,7 +51,7 @@ def grep_text(args, want, sep='\t', encoding='utf-8'):
 		if want != got:
 			raise Exception('%r gave wrong result on line %d:\nWant: %r\nGot:  %r' % (cmd, lineno, want, got,))
 
-def frame(pre, a, post='\x1b[m'):
+def frame(pre, a, post='\x1b[39m'):
 	return [pre + el + post for el in a]
 
 def grep_json(args, want):
@@ -108,8 +108,8 @@ def synthesis(job, slices):
 				dw.write(*line)
 		return dw.finish()
 	HDR_HI = '\x1b[34m'
-	COMMA_HI = '\x1b[36;4m,\x1b[m'
-	TAB_HI = '\x1b[36;4m\t\x1b[m'
+	COMMA_HI = '\x1b[36;4m,\x1b[24;39m'
+	TAB_HI = '\x1b[36;4m\t\x1b[24;39m'
 	os.unsetenv('NO_COLOR')
 	os.unsetenv('CLICOLOR')
 	os.unsetenv('CLICOLOR_FORCE')
@@ -142,7 +142,7 @@ def synthesis(job, slices):
 	grep_text(['--color=never', '0', b], [[1000], [1001]])
 	os.unsetenv('CLICOLOR_FORCE')
 	os.putenv('NO_COLOR', '')
-	grep_text(['-C', 'always', '0', b], [['1\x1b[31m0\x1b[m\x1b[31m0\x1b[m\x1b[31m0\x1b[m'], ['1\x1b[31m0\x1b[m\x1b[31m0\x1b[m1']], sep=TAB_HI)
+	grep_text(['-C', 'always', '0', b], [['1\x1b[31m0\x1b[39m\x1b[31m0\x1b[39m\x1b[31m0\x1b[39m'], ['1\x1b[31m0\x1b[39m\x1b[31m0\x1b[39m1']], sep=TAB_HI)
 	os.unsetenv('NO_COLOR')
 	if PY3: # no pickle type on PY2
 		pickle = mk_ds('pickle', ['pickle'], [TricksyObject()], [''], [{'foo'}])
