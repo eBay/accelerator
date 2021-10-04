@@ -86,11 +86,9 @@ def main(argv, cfg):
 		args.workdirs.extend(sorted(cfg.workdirs))
 
 	if not args.workdirs:
-		for wd in sorted(cfg.workdirs):
-			if args.full_path:
-				print('%s\t%s' % (wd, cfg.workdirs[wd]))
-			else:
-				print(wd)
+		template = '%%-%ds  %%s' % (max(len(wd) for wd in cfg.workdirs))
+		for wd, path in sorted(cfg.workdirs.items()):
+			print(template % (wd, path,))
 		return
 
 	for name in args.workdirs:
