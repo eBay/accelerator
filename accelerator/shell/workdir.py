@@ -83,7 +83,7 @@ def main(argv, cfg):
 	args = parser.parse_args(argv)
 
 	if args.all:
-		args.workdirs.extend(sorted(cfg.workdirs))
+		args.workdirs.extend(sorted(set(cfg.workdirs) - set(args.workdirs)))
 
 	if not args.workdirs:
 		template = '%%-%ds  %%s' % (max(len(wd) for wd in cfg.workdirs))
