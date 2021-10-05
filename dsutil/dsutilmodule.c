@@ -818,6 +818,7 @@ typedef struct write {
 	PyObject_HEAD
 	gzFile fh;
 	char *name;
+	char *error_extra;
 	default_u *default_value;
 	unsigned PY_LONG_LONG count;
 	PyObject *hashfilter;
@@ -834,6 +835,8 @@ typedef struct write {
 	int len;
 	char buf[Z];
 } Write;
+
+static char * const default_error_extra = "";
 
 static int Write_ensure_open(Write *self)
 {
@@ -877,6 +880,7 @@ static int Write_close_(Write *self)
 		self->default_value = 0;
 	}
 	FREE(self->name);
+	if (self->error_extra != default_error_extra) FREE(self->error_extra);
 	Py_CLEAR(self->hashfilter);
 	Py_CLEAR(self->default_obj);
 	Py_CLEAR(self->min_obj);
@@ -895,17 +899,23 @@ static int init_WriteBlob(PyObject *self_, PyObject *args, PyObject *kwds)
 	Write *self = (Write *)self_;
 	PyObject *compression = 0;
 	char *name = 0;
+	char *error_extra = default_error_extra;
 	PyObject *hashfilter = 0;
 	Write_close_(self);
-	static char *kwlist[] = {"name", "compression", "hashfilter", "none_support", 0};
+	static char *kwlist[] = {
+		"name", "compression", "hashfilter",
+		"error_extra", "none_support", 0
+	};
 	if (!PyArg_ParseTupleAndKeywords(
-		args, kwds, "et|OOi", kwlist,
+		args, kwds, "et|OOeti", kwlist,
 		Py_FileSystemDefaultEncoding, &name,
 		&compression,
 		&hashfilter,
+		Py_FileSystemDefaultEncoding, &error_extra,
 		&self->none_support
 	)) return -1;
 	self->name = name;
+	self->error_extra = error_extra;
 	err1(parse_hashfilter(hashfilter, &self->hashfilter, &self->sliceno, &self->slices, &self->spread_None));
 	self->closed = 0;
 	self->count = 0;
@@ -959,7 +969,10 @@ static PyObject *Write_write_(Write *self, const char *data, Py_ssize_t len)
 
 #define WRITE_NONE_SLICE_CHECK do {                                                   	\
 	if (!self->none_support) {                                                    	\
-		PyErr_SetString(PyExc_ValueError, "Refusing to write None value without none_support=True"); \
+		PyErr_Format(PyExc_ValueError,                                        	\
+			"Refusing to write None value without none_support=True%s",   	\
+			self->error_extra                                             	\
+		);                                                                    	\
 		return 0;                                                             	\
 	}                                                                             	\
 	if (self->spread_None) {                                                      	\
@@ -974,25 +987,25 @@ static PyObject *Write_write_(Write *self, const char *data, Py_ssize_t len)
 	if (!actually_write) Py_RETURN_TRUE;                                          	\
 } while (0)
 
-#define ASCIIVERIFY(cleanup) \
+#define ASCIIVERIFY(cleanup, error_extra) \
 	const unsigned char * const data_ = (unsigned char *)data;                    	\
 	for (Py_ssize_t i = 0; i < len; i++) {                                        	\
 		if (data_[i] > 127) {                                                 	\
 			cleanup;                                                      	\
 			if (len < 1000) {                                             	\
 				PyErr_Format(PyExc_ValueError,                        	\
-				             "Value contains %d at position %ld: %s", 	\
-				             data_[i], (long) i, data);               	\
+				             "Value contains %d at position %ld%s: %s",	\
+				             data_[i], (long) i, error_extra, data);  	\
 			} else {                                                      	\
 				PyErr_Format(PyExc_ValueError,                        	\
-				             "Value contains %d at position %ld.",    	\
-				             data_[i], (long) i);                     	\
+				             "Value contains %d at position %ld%s",   	\
+				             data_[i], (long) i, error_extra);        	\
 			}                                                             	\
 			return 0;                                                     	\
 		}                                                                     	\
 	}
 #define ASCIIHASHDO(cleanup) \
-	ASCIIVERIFY(cleanup);                                                         	\
+	ASCIIVERIFY(cleanup, "");                                                     	\
 	HASHBLOBDO(cleanup);
 
 #if PY_MAJOR_VERSION < 3
@@ -1059,7 +1072,8 @@ static PyObject *hash_WriteUnicode(PyObject *dummy, PyObject *obj)
 	if (checktype) {                                                              	\
 		PyErr_Format(PyExc_TypeError,                                         	\
 		             "For your protection, only " errname                     	\
-		             " objects are accepted (line %llu)",                     	\
+		             " objects are accepted%s (line %llu)",                   	\
+		             self->error_extra,                                       	\
 		             (unsigned long long) self->count + 1);                   	\
 		return 0;                                                             	\
 	}
@@ -1082,7 +1096,7 @@ static PyObject *hash_WriteUnicode(PyObject *dummy, PyObject *obj)
 	} else {                                                                      	\
 		if (len > 0x7fffffff) {                                               	\
 			cleanup;                                                      	\
-			PyErr_SetString(PyExc_ValueError, "Value too large");         	\
+			PyErr_Format(PyExc_ValueError, "Value too large%s", self->error_extra); \
 			return 0;                                                     	\
 		}                                                                     	\
 		uint32_t long_len = len;                                              	\
@@ -1103,7 +1117,7 @@ static PyObject *hash_WriteUnicode(PyObject *dummy, PyObject *obj)
 	return ret;
 
 #define ASCIIBLOBDO(cleanup) \
-	ASCIIVERIFY(cleanup);                                                         	\
+	ASCIIVERIFY(cleanup, self->error_extra);                                      	\
 	WRITEBLOBDO(cleanup);
 
 static PyObject *C_WriteBytes(Write *self, PyObject *obj, int actually_write)
@@ -1140,7 +1154,7 @@ static PyObject *C_WriteUnicode(Write *self, PyObject *obj, int actually_write)
 	static PyObject *hashcheck_Write ## name (Write *self, PyObject *obj)                       	\
 	{                                                                                           	\
 		if (!self->slices) {                                                                	\
-			PyErr_SetString(PyExc_ValueError, "No hashfilter set");                     	\
+			PyErr_Format(PyExc_ValueError, "No hashfilter set%s", self->error_extra);   	\
 			return 0;                                                                   	\
 		}                                                                                   	\
 		return C_Write ## name (self, obj, 0);                                              	\
@@ -1202,27 +1216,30 @@ MK_MINMAX_SET(Time    , unfmt_time((*(uint64_t *)cmp_value) >> 32, *(uint64_t *)
 	{                                                                                	\
 		static char *kwlist[] = {                                                	\
 			"name", "compression", "default", "hashfilter",                  	\
-			"none_support", 0                                                	\
+			"error_extra", "none_support", 0                                 	\
 		};                                                                       	\
 		Write *self = (Write *)self_;                                            	\
 		char *name = 0;                                                          	\
+		char *error_extra = default_error_extra;                                 	\
 		PyObject *compression = 0;                                               	\
 		PyObject *default_obj = 0;                                               	\
 		PyObject *hashfilter = 0;                                                	\
 		Write_close_(self);                                                      	\
 		if (!PyArg_ParseTupleAndKeywords(                                        	\
-			args, kwds, "et|OOOi", kwlist,                                   	\
+			args, kwds, "et|OOOeti", kwlist,                                 	\
 			Py_FileSystemDefaultEncoding, &name,                             	\
 			&compression,                                                    	\
 			&default_obj,                                                    	\
 			&hashfilter,                                                     	\
+			Py_FileSystemDefaultEncoding, &error_extra,                      	\
 			&self->none_support                                              	\
 		)) return -1;                                                            	\
 		if (!withnone && self->none_support) {                                   	\
-			PyErr_Format(PyExc_ValueError, "%s objects don't support None values", self_->ob_type->tp_name); \
+			PyErr_Format(PyExc_ValueError, "%s objects don't support None values%s", self_->ob_type->tp_name, error_extra); \
 			return -1;                                                       	\
 		}                                                                        	\
 		self->name = name;                                                       	\
+		self->error_extra = error_extra;                                         	\
 		if (default_obj) {                                                       	\
 			T value;                                                         	\
 			Py_INCREF(default_obj);                                          	\
@@ -1233,7 +1250,7 @@ MK_MINMAX_SET(Time    , unfmt_time((*(uint64_t *)cmp_value) >> 32, *(uint64_t *)
 				value = conv(self->default_obj);                         	\
 				if (PyErr_Occurred()) goto err;                          	\
 				if (withnone && !memcmp(&value, &noneval_ ## T, sizeof(T))) {	\
-					PyErr_SetString(PyExc_OverflowError, "Default value becomes None-marker"); \
+					PyErr_Format(PyExc_OverflowError, "Default value becomes None-marker%s", error_extra); \
 					goto err;                                        	\
 				}                                                        	\
 			}                                                                	\
@@ -1265,7 +1282,10 @@ is_none:                                                                        
 		if (withnone && !pyerr &&                                                	\
 		    !memcmp(&value, &noneval_ ## T, sizeof(T))                           	\
 		   ) {                                                                   	\
-			PyErr_SetString(PyExc_OverflowError, "Value becomes None-marker");	\
+			PyErr_Format(PyExc_OverflowError,                                	\
+				"Value becomes None-marker%s",                           	\
+				self->error_extra                                        	\
+			);                                                               	\
 			pyerr = PyErr_Occurred();                                        	\
 		}                                                                        	\
 		if (pyerr) {                                                             	\
@@ -1292,7 +1312,7 @@ is_none:                                                                        
 	static PyObject *hashcheck_ ## tname(Write *self, PyObject *obj)                 	\
 	{                                                                                	\
 		if (!self->slices) {                                                     	\
-			PyErr_SetString(PyExc_ValueError, "No hashfilter set");          	\
+			PyErr_Format(PyExc_ValueError, "No hashfilter set%s", self->error_extra); \
 			return 0;                                                        	\
 		}                                                                        	\
 		return C_ ## tname(self, obj, 0);                                        	\
@@ -1468,7 +1488,7 @@ MKWRITER(WriteDateTime, uint64_t, uint64_t, fmt_datetime, 1, minmax_value_dateti
 MKWRITER(WriteDate    , uint32_t, uint32_t, fmt_date,     1,                      , minmax_set_Date    , hash_32bits  );
 MKWRITER(WriteTime    , uint64_t, uint64_t, fmt_time,     1, minmax_value_datetime, minmax_set_Time    , hash_datetime);
 
-static int WriteNumber_serialize_Long(PyObject *obj, char *buf, const char *msg)
+static int WriteNumber_serialize_Long(PyObject *obj, char *buf, const char *msg, const char *error_extra)
 {
 	PyErr_Clear();
 	const size_t len_bits = _PyLong_NumBits(obj);
@@ -1476,8 +1496,8 @@ static int WriteNumber_serialize_Long(PyObject *obj, char *buf, const char *msg)
 	const size_t len_bytes = len_bits / 8 + 1;
 	if (len_bytes >= NUMBER_MAX_BYTES) {
 		PyErr_Format(PyExc_OverflowError,
-		             "%s does not fit in %d bytes",
-		             msg, NUMBER_MAX_BYTES
+		             "%s does not fit in %d bytes%s",
+		             msg, NUMBER_MAX_BYTES, error_extra
 		            );
 		return 1;
 	}
@@ -1491,23 +1511,26 @@ static int init_WriteNumber(PyObject *self_, PyObject *args, PyObject *kwds)
 {
 	static char *kwlist[] = {
 		"name", "compression", "default", "hashfilter",
-		"none_support", 0
+		"error_extra", "none_support", 0
 	};
 	Write *self = (Write *)self_;
 	char *name = 0;
+	char *error_extra = default_error_extra;
 	PyObject *compression = 0;
 	PyObject *default_obj = 0;
 	PyObject *hashfilter = 0;
 	Write_close_(self);
 	if (!PyArg_ParseTupleAndKeywords(
-		args, kwds, "et|OOOi", kwlist,
+		args, kwds, "et|OOOeti", kwlist,
 		Py_FileSystemDefaultEncoding, &name,
 		&compression,
 		&default_obj,
 		&hashfilter,
+		Py_FileSystemDefaultEncoding, &error_extra,
 		&self->none_support
 	)) return -1;
 	self->name = name;
+	self->error_extra = error_extra;
 	if (default_obj) {
 		Py_INCREF(default_obj);
 		self->default_obj = default_obj;
@@ -1520,12 +1543,12 @@ static int init_WriteNumber(PyObject *self_, PyObject *args, PyObject *kwds)
 #endif
 		if (self->default_obj != Py_None || !self->none_support) {
 			if (!PyLong_Check(self->default_obj) && !PyFloat_Check(self->default_obj)) {
-				PyErr_SetString(PyExc_ValueError, "Bad default value: Only integers/floats accepted");
+				PyErr_Format(PyExc_ValueError, "Bad default value: Only integers/floats accepted%s", error_extra);
 				goto err;
 			}
 			if (PyLong_Check(self->default_obj)) {
 				char buf[NUMBER_MAX_BYTES];
-				err1(WriteNumber_serialize_Long(self->default_obj, buf, "Bad default value:"));
+				err1(WriteNumber_serialize_Long(self->default_obj, buf, "Bad default value:", error_extra));
 			}
 		}
 	}
@@ -1586,7 +1609,7 @@ static PyObject *C_WriteNumber(Write *self, PyObject *obj, int actually_write, i
 		if (first && self->default_obj) {
 			return C_WriteNumber(self, self->default_obj, actually_write, 0);
 		}
-		PyErr_SetString(PyExc_ValueError, "Only integers/floats accepted");
+		PyErr_Format(PyExc_ValueError, "Only integers/floats accepted%s", self->error_extra);
 		return 0;
 	}
 	const int64_t value = pyLong_AsS64(obj);
@@ -1603,7 +1626,7 @@ static PyObject *C_WriteNumber(Write *self, PyObject *obj, int actually_write, i
 		self->count++;
 		return Write_write_(self, buf, 9);
 	}
-	if (WriteNumber_serialize_Long(obj, buf, "Value")) {
+	if (WriteNumber_serialize_Long(obj, buf, "Value", self->error_extra)) {
 		if (first && self->default_obj) {
 			PyErr_Clear();
 			return C_WriteNumber(self, self->default_obj, actually_write, 0);
@@ -1651,7 +1674,7 @@ static PyObject *hash_WriteNumber(PyObject *dummy, PyObject *obj)
 			h = hash_int64(&value);
 		} else {
 			char buf[NUMBER_MAX_BYTES];
-			if (WriteNumber_serialize_Long(obj, buf, "Value")) return 0;
+			if (WriteNumber_serialize_Long(obj, buf, "Value", "")) return 0;
 			h = hash(buf + 1, buf[0]);
 		}
 		return pyInt_FromU64(h);
@@ -1662,9 +1685,10 @@ static int init_WriteParsedNumber(PyObject *self_, PyObject *args, PyObject *kwd
 {
 	static char *kwlist[] = {
 		"name", "compression", "default", "hashfilter",
-		"none_support", 0
+		"error_extra", "none_support", 0
 	};
 	PyObject *name = 0;
+	PyObject *error_extra = 0;
 	PyObject *compression = 0;
 	PyObject *default_obj_ = 0;
 	PyObject *default_obj = 0;
@@ -1674,11 +1698,12 @@ static int init_WriteParsedNumber(PyObject *self_, PyObject *args, PyObject *kwd
 	PyObject *new_kwds = 0;
 	int res = -1;
 	err1(!PyArg_ParseTupleAndKeywords(
-		args, kwds, "O|OOOO", kwlist,
+		args, kwds, "O|OOOOO", kwlist,
 		&name,
 		&compression,
 		&default_obj_,
 		&hashfilter,
+		&error_extra,
 		&none_support
 	));
 	if (default_obj_) {
@@ -1700,6 +1725,7 @@ static int init_WriteParsedNumber(PyObject *self_, PyObject *args, PyObject *kwd
 	if (compression) err1(PyDict_SetItemString(new_kwds, "compression", compression));
 	if (default_obj) err1(PyDict_SetItemString(new_kwds, "default", default_obj));
 	if (hashfilter) err1(PyDict_SetItemString(new_kwds, "hashfilter", hashfilter));
+	if (error_extra) err1(PyDict_SetItemString(new_kwds, "error_extra", error_extra));
 	if (none_support) err1(PyDict_SetItemString(new_kwds, "none_support", none_support));
 	res = init_WriteNumber(self_, new_args, new_kwds);
 err:
