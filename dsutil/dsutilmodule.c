@@ -1506,9 +1506,9 @@ static uint64_t fmt_time(PyObject *dt)
 #endif
 	return r.res;
 }
-MKWRITER(WriteDateTime, uint64_t, uint64_t, fmt_datetime, 1, minmax_value_datetime, minmax_set_DateTime, hash_datetime);
-MKWRITER(WriteDate    , uint32_t, uint32_t, fmt_date,     1,                      , minmax_set_Date    , hash_32bits  );
-MKWRITER(WriteTime    , uint64_t, uint64_t, fmt_time,     1, minmax_value_datetime, minmax_set_Time    , hash_datetime);
+MKWRITER_C(WriteDateTime, uint64_t, uint64_t, fmt_datetime, 1, !value, MINMAX_STD, minmax_value_datetime, minmax_set_DateTime, hash_datetime);
+MKWRITER_C(WriteDate    , uint32_t, uint32_t, fmt_date,     1, !value, MINMAX_STD,                      , minmax_set_Date    , hash_32bits  );
+MKWRITER_C(WriteTime    , uint64_t, uint64_t, fmt_time,     1, !value, MINMAX_STD, minmax_value_datetime, minmax_set_Time    , hash_datetime);
 
 static int WriteNumber_serialize_Long(PyObject *obj, char *buf, const char *msg, const char *error_extra)
 {
