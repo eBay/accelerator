@@ -1216,11 +1216,15 @@ class DatasetWriter(object):
 		if self.meta_only:
 			return
 		writers = {}
+		from accelerator.g import job
 		for colname, (coltype, default, none_support) in self.columns.items():
 			if self._copy_mode:
 				coltype = _copy_mode_overrides.get(coltype, coltype)
 			wt = typed_writer(coltype)
-			kw = {'none_support': none_support} if default is _nodefault else {'default': default, 'none_support': none_support}
+			error_extra = ' (column %r (type %s) in %s/%s)' % (colname, coltype, job, self.name,)
+			kw = {'none_support': none_support, 'error_extra': error_extra}
+			if default is not _nodefault:
+				kw['default'] = default
 			fn = self.column_filename(colname, sliceno)
 			if filtered and colname == self.hashlabel:
 				from accelerator.g import slices
