@@ -66,6 +66,28 @@
 
 #define err1(v) if (v) goto err
 
+static inline void add_extra_to_exc_msg(const char *extra) {
+	if (*extra) {
+		PyObject *old_type, *old_value, *old_traceback;
+		PyErr_Fetch(&old_type, &old_value, &old_traceback);
+#if PY_MAJOR_VERSION < 3
+		PyObject *strobj = PyObject_Bytes(old_value);
+		if (!strobj) {
+			PyErr_Restore(old_type, old_value, old_traceback);
+			return;
+		}
+		const char *strdata = PyBytes_AS_STRING(strobj);
+		PyErr_Format(old_type, "%s%s", strdata, extra);
+		Py_DECREF(strobj);
+#else
+		PyErr_Format(old_type, "%S%s", old_value, extra);
+#endif
+		Py_DECREF(old_type);
+		Py_DECREF(old_value);
+		Py_XDECREF(old_traceback);
+	}
+}
+
 typedef struct read {
 	PyObject_HEAD
 	char *name;
@@ -1282,14 +1304,14 @@ is_none:                                                                        
 		if (withnone && !pyerr &&                                                	\
 		    !memcmp(&value, &noneval_ ## T, sizeof(T))                           	\
 		   ) {                                                                   	\
-			PyErr_Format(PyExc_OverflowError,                                	\
-				"Value becomes None-marker%s",                           	\
-				self->error_extra                                        	\
-			);                                                               	\
+			PyErr_SetString(PyExc_OverflowError, "Value becomes None-marker");	\
 			pyerr = PyErr_Occurred();                                        	\
 		}                                                                        	\
 		if (pyerr) {                                                             	\
-			if (!self->default_value) return 0;                              	\
+			if (!self->default_value) {                                      	\
+				add_extra_to_exc_msg(self->error_extra);                 	\
+				return 0;                                                	\
+			}                                                                	\
 			PyErr_Clear();                                                   	\
 			if (withnone && self->default_obj == Py_None) goto is_none;      	\
 			value = self->default_value->as_ ## T;                           	\
