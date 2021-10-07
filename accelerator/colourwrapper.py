@@ -83,6 +83,21 @@ class Colour:
 			self._off = dict.fromkeys(self._on, b'')
 		else:
 			self._off = dict.fromkeys(self._on, '')
+		self.__all__ = [k for k in dir(self) if not k.startswith('_')]
+		self.enable()
+
+	def configure_from_environ(self, environ=None, stdout=None):
+		# trying to support both https://no-color.org/ and https://bixense.com/clicolors/
+		if environ is None:
+			environ = os.environ
+		if environ.get('CLICOLOR_FORCE', '0') != '0':
+			self.enable()
+		elif environ.get('NO_COLOR') is not None:
+			self.disable()
+		elif environ.get('CLICOLOR', '1') != '0' and (stdout or sys.stdout).isatty():
+			self.enable()
+		else:
+			self.disable()
 
 	def enable(self):
 		"Turn colours on"
@@ -143,13 +158,4 @@ class Colour:
 		return '%s%s%s' % (pre, value, post,)
 
 colour = Colour()
-
-# trying to support both https://no-color.org/ and https://bixense.com/clicolors/
-if os.getenv('CLICOLOR_FORCE', '0') != '0':
-	colour.enable()
-elif os.getenv('NO_COLOR') is not None:
-	colour.disable()
-elif os.getenv('CLICOLOR', '1') != '0' and sys.stdout.isatty():
-	colour.enable()
-else:
-	colour.disable()
+colour.configure_from_environ()
