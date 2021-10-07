@@ -64,6 +64,11 @@ if not before_install:
 	__all__.extend((build,))
 	from .colourwrapper import colour
 	__all__.extend((colour,))
+	# hack to make "from accelerator.colour import bold" and similar work.
+	import sys
+	sys.modules['accelerator.colour'] = colour
+	del sys
+	colour.Colour = type(colour) # so you can import the class too.
 	__all__ = [k for k, v in locals().items() if v in __all__]
 
 del before_install
