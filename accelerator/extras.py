@@ -374,6 +374,9 @@ class _ListTypePreserver(list):
 	def __add__(self, other):
 		return self.__class__(list(self) + other)
 
+	def __radd__(self, other):
+		return self.__class__(list(other) + list(self))
+
 	def __repr__(self):
 		return '%s(%s)' % (self.__class__.__name__, list.__repr__(self))
 
