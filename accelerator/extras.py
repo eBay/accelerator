@@ -372,10 +372,14 @@ class _ListTypePreserver(list):
 			return list.__getitem__(self, item)
 
 	def __add__(self, other):
-		return self.__class__(list(self) + other)
+		if not isinstance(other, list):
+			return NotImplemented
+		return self.__class__(list.__add__(self, other))
 
 	def __radd__(self, other):
-		return self.__class__(list(other) + list(self))
+		if not isinstance(other, list):
+			return NotImplemented
+		return self.__class__(list.__add__(other, self))
 
 	def __repr__(self):
 		return '%s(%s)' % (self.__class__.__name__, list.__repr__(self))
