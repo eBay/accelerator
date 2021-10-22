@@ -93,5 +93,5 @@ def main(argv, cfg):
 		by_package.pop('accelerator.test_methods', None)
 		for package, names in sorted(by_package.items()):
 			print('%s:' % (package,))
-			for name in names:
-				printdesc(name, methods[name].description.text, columns)
+			items = [(name, methods[name].description.text) for name in names]
+			printdesc(items, columns)

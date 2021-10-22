@@ -47,9 +47,11 @@ def main(argv, cfg):
 		args.match = ['']
 		args.short = True
 
-	allscripts = []
+	packages = []
 	for package in cfg.method_directories:
 		path = dirname(import_module(package).__file__)
+		scripts = []
+		packages.append((package, path, scripts))
 		for item in sorted(glob(path + '/build.py') + glob(path + '/build_*.py')):
 			name = basename(item[:-3])
 			modname = '.'.join((package, name))
@@ -59,14 +61,12 @@ def main(argv, cfg):
 				except Exception as e:
 					print('%s%s: %s%s' % (colour.RED, item, e, colour.RESET), file=sys.stderr)
 					continue
-				allscripts.append((package, name, getattr(module, 'description', '').strip('\n'), path))
+				scripts.append((name, getattr(module, 'description', '')))
 
-	lastpack = None
-	for package, name, desc, path in sorted(allscripts):
-		if lastpack != package:
+	for package, path, scripts in sorted(packages):
+		if scripts:
 			if args.path:
 				print(path + '/')
 			else:
 				print(package)
-			lastpack = package
-		printdesc(name, desc, columns, full=not args.short)
+			printdesc(sorted(scripts), columns, full=not args.short)
