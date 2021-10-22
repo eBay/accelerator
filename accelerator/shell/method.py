@@ -1,6 +1,6 @@
 ############################################################################
 #                                                                          #
-# Copyright (c) 2020 Carl Drougge                                          #
+# Copyright (c) 2020-2021 Carl Drougge                                     #
 # Modifications copyright (c) 2021 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -94,4 +94,4 @@ def main(argv, cfg):
 		for package, names in sorted(by_package.items()):
 			print('%s:' % (package,))
 			for name in names:
-				printdesc(name, methods[name].description.text.split('\n')[0], columns)
+				printdesc(name, methods[name].description.text, columns)
