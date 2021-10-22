@@ -290,10 +290,29 @@ def printdesc(items, columns, full=False):
 					description = part
 			description += ddot
 		return description
+	items = [(name, description.strip('\n').split('\n')) for name, description in items]
+	if not full:
+		# make names the same length, within same-ish length groups
+		lens = set(len(name) for name, _ in items)
+		len2len = {}
+		group_size = 14
+		spaces = ' ' * group_size
+		while lens:
+			this = min(lens)
+			here = {l for l in lens if l < this + group_size}
+			m = max(here)
+			len2len.update({l: m for l in here})
+			lens -= here
+		items = [
+			(
+				(name + spaces)[:len2len[len(name)]],
+				description[0],
+			)
+			for name, description in items
+		]
 	for name, description in items:
 		max_len = columns - len(ddot) - len(name)
 		preamble = colour.bold('  ' + name)
-		description = description.strip('\n')
 		if description and max_len > 10:
 			lines = description.split('\n')
 			if full:
@@ -301,7 +320,7 @@ def printdesc(items, columns, full=False):
 				for line in lines:
 					print('    ' + line)
 			else:
-				print(preamble + ': ' + chopline(lines[0], max_len))
+				print(preamble + '  ' + chopline(lines[0], max_len))
 		else:
 			print(preamble)
 
