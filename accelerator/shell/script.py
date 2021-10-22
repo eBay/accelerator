@@ -37,6 +37,7 @@ def main(argv, cfg):
 		description=descr,
 	)
 	parser.add_argument('-s', '--short', action='store_true', help='short listing')
+	parser.add_argument('-p', '--path', action='store_true', help='show package paths')
 	parser.add_argument('match', nargs='*', default=[], help='substring used for matching')
 	args = parser.parse_intermixed_args(argv)
 	columns = terminal_size().columns
@@ -58,11 +59,14 @@ def main(argv, cfg):
 				except Exception as e:
 					print('%s%s: %s%s' % (colour.RED, item, e, colour.RESET), file=sys.stderr)
 					continue
-				allscripts.append((package, name, getattr(module, 'description', '').strip('\n')))
+				allscripts.append((package, name, getattr(module, 'description', '').strip('\n'), path))
 
 	lastpack = None
-	for package, name, desc in sorted(allscripts):
+	for package, name, desc, path in sorted(allscripts):
 		if lastpack != package:
-			print(package)
+			if args.path:
+				print(path + '/')
+			else:
+				print(package)
 			lastpack = package
 		printdesc(name, desc, columns, full=not args.short)
