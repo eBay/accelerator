@@ -288,7 +288,7 @@ def printdesc(items, columns, full=False):
 					description = '%s %s' % (description, part,)
 				else:
 					description = part
-			description += ddot
+			description += colour.faint(ddot)
 		return description
 	items = [(name, description.strip('\n').split('\n')) for name, description in items]
 	if not full:
