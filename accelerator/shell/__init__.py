@@ -364,7 +364,7 @@ def main():
 		epilog.append(template % (cmd, func.help,))
 	epilog.append('')
 	epilog.append('aliases:')
-	epilog.extend('%s = %s' % item for item in sorted(aliases.items()))
+	epilog.extend('  %s = %s' % item for item in sorted(aliases.items()))
 	epilog.append('')
 	epilog.append('use %(prog)s <command> --help for <command> usage')
 	parser = ArgumentParser(
