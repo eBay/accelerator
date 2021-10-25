@@ -79,6 +79,7 @@ target workdir: {name}
 
 method packages:
 	{name} auto-discover
+	{examples} auto-discover
 	accelerator.standard_methods
 	accelerator.test_methods
 
@@ -160,7 +161,7 @@ def git(method_dir):
 
 def main(argv):
 	from os import makedirs, listdir, chdir
-	from os.path import exists, join, realpath
+	from os.path import exists, join, realpath, dirname
 	from sys import version_info
 	from argparse import RawTextHelpFormatter
 	from accelerator.compat import ArgumentParser
@@ -184,6 +185,7 @@ def main(argv):
 	parser.add_argument('--force', action='store_true', help='go ahead even though directory is not empty, or workdir\nexists with incompatible slice count')
 	parser.add_argument('--tcp', default=False, metavar='HOST/PORT', nargs='?', help='listen on TCP instead of unix sockets.\nspecify HOST (can be IP) to listen on that host\nspecify PORT to use range(PORT, PORT + 3)\nspecify both as HOST:PORT')
 	parser.add_argument('--no-git', action='store_true', help='don\'t create git repository')
+	parser.add_argument('--examples', action='store_true', help='copy examples to project directory')
 	parser.add_argument('directory', default='.', help='project directory to create. default "."', metavar='DIR', nargs='?')
 	options = parser.parse_args(argv)
 
@@ -258,10 +260,18 @@ def main(argv):
 		fh.write(a_example)
 	with open(join(method_dir, 'build.py'), 'w') as fh:
 		fh.write(build_script)
+	if options.examples:
+		from shutil import copytree
+		from accelerator import examples
+		copytree(dirname(examples.__file__), 'examples')
+		examples = 'examples'
+	else:
+		examples = '# accelerator.examples'
 	with open('accelerator.conf', 'w') as fh:
 		fh.write(config_template.format(
 			name=quote(options.name),
 			slices=options.slices,
+			examples=examples,
 			input=options.input,
 			major=version_info.major,
 			minor=version_info.minor,
