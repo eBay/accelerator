@@ -212,6 +212,41 @@ def cmd_board_server(argv):
 	main(argv, cfg)
 cmd_board_server.help = '''runs a webserver for displaying results'''
 
+def cmd_intro(argv):
+	from accelerator import __version__ as ax_version
+	def cmd(txt, *a):
+		print('  ' + colour(txt, 'bold', *a))
+	def msg(txt='', *a):
+		if txt:
+			print(colour(txt, 'brightblue', *a))
+		else:
+			print()
+	msg('Welcome to exax ' + ax_version, 'bold')
+	msg()
+	msg('Run')
+	cmd('ax init --examples /tmp/axtest')
+	cmd('cd /tmp/axtest')
+	msg('to setup a project including example files.')
+	msg()
+	msg('To see example build scripts, run')
+	cmd('ax script')
+	msg()
+	msg('After starting the server:')
+	cmd('ax server')
+	msg('try for example the first tutorial script:')
+	cmd('ax run tutorial01')
+	msg('(The "build_"-prefix is not required.)')
+	msg()
+	msg('All example code should be in the "examples" directory.')
+	msg('All example build scripts will print where they are located.')
+	msg()
+	msg('To see available methods, run')
+	cmd('ax method')
+	msg()
+	msg('For a longer intro, see')
+	cmd('https://exax.org/documentation/2019/10/30/initialise.html', 'brightblue')
+cmd_intro.help = '''show introduction text'''
+
 def cmd_version(argv):
 	from accelerator import __version__ as ax_version
 	if len(argv) > 1:
@@ -232,6 +267,7 @@ COMMANDS = {
 	'ds': cmd_ds,
 	'grep': cmd_grep,
 	'init': cmd_init,
+	'intro': cmd_intro,
 	'job': cmd_job,
 	'method': cmd_method,
 	'run': cmd_run,
@@ -366,7 +402,8 @@ def main():
 	epilog.append('aliases:')
 	epilog.extend('  %s = %s' % item for item in sorted(aliases.items()))
 	epilog.append('')
-	epilog.append('use %(prog)s <command> --help for <command> usage')
+	epilog.append('use "%(prog)s <command> --help" for <command> usage')
+	epilog.append('try "%(prog)s intro" for an introduction')
 	parser = ArgumentParser(
 		usage='%(prog)s [--config CONFIG_FILE] command [args]',
 		epilog='\n'.join(epilog),
@@ -385,7 +422,7 @@ def main():
 			print('Unknown command "%s"' % (args.command,), file=sys.stderr)
 		sys.exit(2)
 	config_fn = args.config
-	if args.command in ('init', 'version',):
+	if args.command in ('init', 'intro', 'version',):
 		config_fn = False
 	cmd = COMMANDS[args.command]
 	debug_cmd = getattr(cmd, 'is_debug', False)
