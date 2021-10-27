@@ -121,21 +121,22 @@ def main(argv, cfg):
 	if separator is None and not sys.stdout.isatty():
 		separator = '\t'
 
+	wrap_null = unicode
 	if separator is None:
 		# special case where we try to be like a tab, but with spaces.
 		# this is useful because terminals typically don't style tabs.
-		def separate(items):
+		def separate(items, wrap_f=wrap_null):
 			things = []
 			for item in items:
-				things.append(item)
+				things.append(wrap_f(item))
 				spaces = 8 - (len(item) % 8)
 				things.append(colour(' ' * spaces, 'cyan', 'underline'))
 			return ''.join(things[:-1])
 		separator = '\t'
 	else:
 		separator_coloured = colour(separator, 'cyan', 'underline')
-		def separate(items):
-			return separator_coloured.join(items)
+		def separate(items, wrap_f=wrap_null):
+			return separator_coloured.join(map(wrap_f, items))
 
 	def json_default(obj):
 		if isinstance(obj, (datetime.datetime, datetime.date, datetime.time)):
@@ -284,7 +285,7 @@ def main(argv, cfg):
 				show_items = headers_prefix + headers
 				if escape_item:
 					show_items = map(escape_item, show_items)
-				print(separate(map(colour.blue, show_items)))
+				print(separate(show_items, colour.blue))
 		show_headers(current_headers)
 
 	queues = []
