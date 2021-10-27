@@ -380,8 +380,8 @@ def main():
 	args.command = argv.pop(0) if argv else None
 	if args.command not in COMMANDS:
 		parser.print_help(file=sys.stderr)
-		print(file=sys.stderr)
 		if args.command is not None:
+			print(file=sys.stderr)
 			print('Unknown command "%s"' % (args.command,), file=sys.stderr)
 		sys.exit(2)
 	config_fn = args.config
