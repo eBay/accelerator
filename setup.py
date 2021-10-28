@@ -141,7 +141,7 @@ setup(
 	ext_modules=[dsutilmodule, dataset_typemodule, csvimportmodule],
 
 	package_data={
-		'': ['*.txt', 'methods.conf', 'board/*.tpl'],
+		'': ['*.txt', 'methods.conf', 'board/*.tpl', 'examples/*.csv'],
 	},
 
 	author="Carl Drougge",
