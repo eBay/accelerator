@@ -77,7 +77,7 @@ def initialise_jobs(setup, target_WorkSpace, DataBase, Methods, verbose=False):
 	DepTree.propagate_make()
 	why_build = setup.get('why_build')
 	if why_build:
-		orig_tree = deepcopy(DepTree.tree)
+		orig_params = deepcopy(DepTree.params)
 	DepTree.fill_in_default_options()
 
 	# get list of jobs in execution order
@@ -87,7 +87,7 @@ def initialise_jobs(setup, target_WorkSpace, DataBase, Methods, verbose=False):
 
 	if why_build == True or (why_build and num_new_jobs):
 		res = OrderedDict()
-		DepTree.tree = orig_tree
+		DepTree.params = orig_params
 		joblist = DepTree.get_sorted_joblist()
 		for job in joblist:
 			if job['make']:
