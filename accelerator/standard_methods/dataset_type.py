@@ -1127,6 +1127,25 @@ err:
 			Py_DECREF(i);
 			return 0;
 		} else {
+			if (value <= 122 && value >= -5) {
+				*outptr = 0x80 | (value + 5);
+				*r_d = value;
+				return 1;
+			}
+			if (value <= INT16_MAX && value >= INT16_MIN) {
+				int16_t value16 = value;
+				*outptr = 2;
+				memcpy(outptr + 1, &value16, 2);
+				*r_d = value;
+				return 3;
+			}
+			if (value <= INT32_MAX && value >= INT32_MIN) {
+				int32_t value32 = value;
+				*outptr = 4;
+				memcpy(outptr + 1, &value32, 4);
+				*r_d = value;
+				return 5;
+			}
 			*outptr = 8;
 			memcpy(outptr + 1, &value, 8);
 			if (value <= ((int64_t)1 << 53) && value >= -((int64_t)1 << 53)) {
@@ -1214,6 +1233,7 @@ more_infiles:
 		char *ptr = buf;
 		double d_v = 0;
 		PyObject *o_v = 0;
+		int do_minmax = 1;
 		int len = convert_number_do(line, ptr, allow_float, &d_v, &o_v);
 		if (!len) {
 			if (record_bad && !deflen) {
@@ -1234,9 +1254,10 @@ more_infiles:
 				d_v = def_d;
 			}
 			default_count[chosen_slice] += 1;
+			do_minmax = !default_value_is_None;
 		}
 		// minmax tracking, not done for None-values
-		if (len > 1) {
+		if (do_minmax) {
 			if (!o_v && o_col_min) {
 				o_v = PyFloat_FromDouble(d_v);
 				err1(!o_v);
