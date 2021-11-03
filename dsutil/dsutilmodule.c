@@ -610,14 +610,19 @@ static PyObject *ReadNumber_iternext(Read *self)
 {
 	ITERPROLOGUE(Number);
 	int is_float = 0;
-	int len = self->buf[self->pos];
+	int len = ((uint8_t *)self->buf)[self->pos];
 	self->pos++;
 	if (!len) HC_RETURN_NONE;
+	if (len >= 0x80) {
+		int64_t v = (len & 0x7f) - 5;
+		HC_CHECK(hash_int64(&v));
+		return pyInt_FromS64(v);
+	}
 	if (len == 1) {
 		len = 8;
 		is_float = 1;
 	}
-	if (len >= NUMBER_MAX_BYTES || len < 8) {
+	if (len >= NUMBER_MAX_BYTES || (len < 8 && len != 2 && len != 4)) {
 		PyErr_SetString(PyExc_ValueError, "File format error");
 		return 0;
 	}
@@ -643,6 +648,22 @@ static PyObject *ReadNumber_iternext(Read *self)
 		memcpy(&v, buf, sizeof(v));
 		HC_CHECK(hash_double(&v));
 		return PyFloat_FromDouble(v);
+	}
+	if (len == 2) {
+		int16_t v16;
+		int64_t v64;
+		memcpy(&v16, buf, sizeof(v16));
+		v64 = v16;
+		HC_CHECK(hash_int64(&v64));
+		return pyInt_FromS32(v16);
+	}
+	if (len == 4) {
+		int32_t v32;
+		int64_t v64;
+		memcpy(&v32, buf, sizeof(v32));
+		v64 = v32;
+		HC_CHECK(hash_int64(&v64));
+		return pyInt_FromS32(v32);
 	}
 	if (len == 8) {
 		int64_t v;
@@ -1640,6 +1661,25 @@ static PyObject *C_WriteNumber(Write *self, PyObject *obj, int actually_write, i
 		}
 		if (!actually_write) Py_RETURN_TRUE;
 		Write_obj_minmax(self, obj);
+		if (value <= 122 && value >= -5) {
+			uint8_t u8 = 0x80 | (value + 5);
+			self->count++;
+			return Write_write_(self, (char *)&u8, 1);
+		}
+		if (value <= INT16_MAX && value >= INT16_MIN) {
+			buf[0] = 2;
+			int16_t value16 = value;
+			memcpy(buf + 1, &value16, 2);
+			self->count++;
+			return Write_write_(self, buf, 3);
+		}
+		if (value <= INT32_MAX && value >= INT32_MIN) {
+			buf[0] = 4;
+			int32_t value32 = value;
+			memcpy(buf + 1, &value32, 4);
+			self->count++;
+			return Write_write_(self, buf, 5);
+		}
 		buf[0] = 8;
 		memcpy(buf + 1, &value, 8);
 		self->count++;

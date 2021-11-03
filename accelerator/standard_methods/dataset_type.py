@@ -1526,6 +1526,7 @@ more_infiles:
 	for (; i < max_count && !read_fixed(&g, buf, 1); i++) {
 		int z = buf[0];
 		if (z == 1) z = 8;
+		if (z >= 0x80) z = 0;
 		if (z) {
 			err1(read_fixed(&g, buf + 1, z));
 		}
