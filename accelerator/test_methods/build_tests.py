@@ -223,6 +223,7 @@ def main(urd):
 	urd.build("test_dataset_slice")
 	urd.build("test_dataset_unroundrobin")
 	urd.build("test_dataset_unroundrobin_trigger")
+	urd.build("test_number")
 
 	print()
 	print("Test dataset_checksum")
