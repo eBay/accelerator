@@ -402,8 +402,8 @@ def main():
 	epilog.append('aliases:')
 	epilog.extend('  %s = %s' % item for item in sorted(aliases.items()))
 	epilog.append('')
-	epilog.append('use "%(prog)s <command> --help" for <command> usage')
-	epilog.append('try "%(prog)s intro" for an introduction')
+	epilog.append('use "' + colour.bold('%(prog)s <command> --help') + '" for <command> usage')
+	epilog.append('try "' + colour.bold('%(prog)s intro') + '" for an introduction')
 	parser = ArgumentParser(
 		usage='%(prog)s [--config CONFIG_FILE] command [args]',
 		epilog='\n'.join(epilog),
