@@ -454,9 +454,8 @@ def one_column(vars, colname, coltype, out_fns, for_hasher=False):
 		bad_count = cstuff.mk_uint64(c_slices)
 		default_count = cstuff.mk_uint64(c_slices)
 		gzip_mode = "wb%d" % (options.compression,)
-		safe_to_skip_write = vars.rehashing and not options.as_chain
 		if in_fns:
-			res = c(*cstuff.bytesargs(in_fns, len(in_fns), out_fns, gzip_mode, minmax_fn, default_value, default_len, default_value_is_None, fmt, fmt_b, record_bad, skip_bad, vars.badmap_fd, vars.badmap_size, c_slices, vars.slicemap_fd, vars.slicemap_size, bad_count, default_count, offsets, max_counts, safe_to_skip_write))
+			res = c(*cstuff.bytesargs(in_fns, len(in_fns), out_fns, gzip_mode, minmax_fn, default_value, default_len, default_value_is_None, fmt, fmt_b, record_bad, skip_bad, vars.badmap_fd, vars.badmap_size, c_slices, vars.slicemap_fd, vars.slicemap_size, bad_count, default_count, offsets, max_counts))
 			assert not res, 'Failed to convert ' + colname
 		vars.res_bad_count[colname] = list(bad_count)
 		vars.res_default_count[colname] = sum(default_count)
