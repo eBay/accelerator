@@ -1089,7 +1089,7 @@ class DatasetWriter(object):
 
 	_split = _split_dict = _split_list = _allwriters_ = None
 
-	def __new__(cls, columns={}, filename=None, hashlabel=None, hashlabel_override=False, caption=None, previous=None, name='default', parent=None, meta_only=False, for_single_slice=None, copy_mode=False):
+	def __new__(cls, columns={}, filename=None, hashlabel=None, hashlabel_override=False, caption=None, previous=None, name='default', parent=None, meta_only=False, for_single_slice=None, copy_mode=False, allow_missing_slices=False):
 		"""columns can be {'name': 'type'} or {'name': ('type', none_support)}.
 		It can also be {'name': DatasetColumn} to simplify basing your dataset on another."""
 		name = _namechk(name)
@@ -1120,6 +1120,7 @@ class DatasetWriter(object):
 			obj.meta_only = meta_only
 			obj._for_single_slice = for_single_slice
 			obj._copy_mode = copy_mode
+			obj._allow_missing_slices = allow_missing_slices
 			obj._filenames = {}
 			obj._fngen = _fngen()
 			discard_columns = {k for k, v in columns.items() if v is None}
@@ -1329,6 +1330,8 @@ class DatasetWriter(object):
 				raise DatasetUsageError("Only use a split writer in analysis together with for_single_slice")
 		if self._started == 1:
 			raise DatasetUsageError("Don't use both a split writer and set_slice")
+		if self._allow_missing_slices:
+			raise DatasetUsageError("Don't use a split writer with allow_missing_slices")
 		if self.parent and self.parent.hashlabel is not None and self.hashlabel is None:
 			raise DatasetUsageError("Can't use a split writer on hashed dataset when not writing the hash column.")
 		used_names = set()
@@ -1422,7 +1425,11 @@ class DatasetWriter(object):
 			raise DatasetUsageError("Finish where you started or in synthesis")
 		self.close()
 		if len(self._lens) != slices:
-			raise DatasetUsageError("Not all slices written, missing %r" % (set(range(slices)) - set(self._lens),))
+			if self._allow_missing_slices:
+				for sliceno in range(slices):
+					self._lens[sliceno] = self._lens.get(sliceno, 0)
+			else:
+				raise DatasetUsageError("Not all slices written, missing %r" % (set(range(slices)) - set(self._lens),))
 		args = dict(
 			columns={k: (v[0].split(':')[-1], v[2]) for k, v in self.columns.items()},
 			filenames=self._filenames,
