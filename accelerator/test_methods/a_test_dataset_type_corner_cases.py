@@ -305,7 +305,7 @@ def test_filter_bad_across_types():
 		[False, b'eleventh', b'11a', '1-', '"k",',  '1,',  b'elva',],       # float64, int32_10 and number:int bad
 		[True,  b'twelfth',  b'12',  '12', '"l"',   '12',  b'tolv',],
 	]
-	dw = DatasetWriter(name="filter bad across types", columns=columns)
+	dw = DatasetWriter(name="filter bad across types", columns=columns, allow_missing_slices=True)
 	cols_to_check = ['int32_10', 'bytes', 'json', 'unicode:utf-8']
 	if PY3:
 		# z so it sorts last.
@@ -324,8 +324,6 @@ def test_filter_bad_across_types():
 		if v[0]:
 			add_want(ix)
 		dw.write(*v[1:])
-	for sliceno in range(1, g.slices):
-		dw.set_slice(sliceno)
 	source_ds = dw.finish()
 	# Once with just filter_bad, once with some defaults too.
 	defaults = {}

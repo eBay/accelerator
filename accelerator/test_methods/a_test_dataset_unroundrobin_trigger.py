@@ -1,6 +1,6 @@
 ############################################################################
 #                                                                          #
-# Copyright (c) 2020 Carl Drougge                                          #
+# Copyright (c) 2020-2021 Carl Drougge                                     #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -45,20 +45,18 @@ def synthesis(job, slices):
 	]
 
 	# Use only slice 0 and 2, with 4 and 5 lines.
-	dw = job.datasetwriter(name='0 and 2', columns=dict(a='int32', b='ascii', c='ascii', d='int32'))
-	for sliceno in range(slices):
-		dw.set_slice(sliceno)
-		if sliceno == 0:
-			dw.write_list(unrr_values[0])
-			dw.write_list(unrr_values[2])
-			dw.write_list(unrr_values[4])
-			dw.write_list(unrr_values[6])
-		if sliceno == 2:
-			dw.write_list(unrr_values[1])
-			dw.write_list(unrr_values[3])
-			dw.write_list(unrr_values[5])
-			dw.write_list(unrr_values[7])
-			dw.write_list(unrr_values[8])
+	dw = job.datasetwriter(name='0 and 2', columns=dict(a='int32', b='ascii', c='ascii', d='int32'), allow_missing_slices=True)
+	dw.set_slice(0)
+	dw.write_list(unrr_values[0])
+	dw.write_list(unrr_values[2])
+	dw.write_list(unrr_values[4])
+	dw.write_list(unrr_values[6])
+	dw.set_slice(2)
+	dw.write_list(unrr_values[1])
+	dw.write_list(unrr_values[3])
+	dw.write_list(unrr_values[5])
+	dw.write_list(unrr_values[7])
+	dw.write_list(unrr_values[8])
 	src_ds = dw.finish()
 
 	for col, split_point in (

@@ -113,14 +113,11 @@ def synthesis(params):
 	ds = verify(params.slices, [], dw.finish(), hashlabel="date", as_chain=True)
 	assert len(ds.chain()) == 1, ds + ": dataset_hashpart on empty dataset with as_chain=True did not produce a single dataset"
 	# two populated slices with the same data, should end up in two datasets.
-	dw = DatasetWriter(columns=columns, name="0 and 2")
+	dw = DatasetWriter(columns=columns, name="0 and 2", allow_missing_slices=True)
 	dw.set_slice(0)
 	dw.write_dict(data[0])
-	dw.set_slice(1)
 	dw.set_slice(2)
 	dw.write_dict(data[0])
-	for s in range(3, params.slices):
-		dw.set_slice(s)
 	ds = verify(params.slices, [data[0]], dw.finish(), hashlabel="date", as_chain=True)
 	got_slices = len(ds.chain())
 	assert got_slices == 2, "%s (built with as_chain=True) has %d datasets in chain, expected 2." % (ds, got_slices,)

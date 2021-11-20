@@ -1,6 +1,6 @@
 ############################################################################
 #                                                                          #
-# Copyright (c) 2020 Carl Drougge                                          #
+# Copyright (c) 2020-2021 Carl Drougge                                     #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -27,17 +27,14 @@ Test dataset iteration slicing.
 from accelerator.error import DatasetError
 
 def synthesis(job, slices):
-	dw = job.datasetwriter({'a': 'int32'}, name='first')
+	dw = job.datasetwriter({'a': 'int32'}, name='first', allow_missing_slices=True)
 	dw.set_slice(0)
 	dw.write(0)
 	dw.write(1)
 	dw.write(2)
-	dw.set_slice(1)
 	dw.set_slice(2)
 	for ix in range(3, 100):
 		dw.write(ix)
-	for sliceno in range(3, slices):
-		dw.set_slice(sliceno)
 	ds = dw.finish()
 	expect = list(range(100))
 	def get(sliceno, slice, columns='a'):
