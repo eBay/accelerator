@@ -37,8 +37,10 @@ import json
 from accelerator.compat import PY2, PY3, izip_longest
 from accelerator.dsutil import _convfuncs
 
-def grep_text(args, want, sep='\t', encoding='utf-8'):
-	cmd = options.command_prefix + ['grep', '--ordered'] + args
+def grep_text(args, want, sep='\t', encoding='utf-8', unordered=False):
+	if not unordered:
+		args = ['--ordered'] + args
+	cmd = options.command_prefix + ['grep'] + args
 	res = check_output(cmd)
 	res = res.split(b'\n')[:-1]
 	if len(want) != len(res):
@@ -192,6 +194,51 @@ def synthesis(job, slices):
 		{'ascii': 'printable', 'bytes': mk_bytes(32, 128).decode('utf-8', 'surrogateescape' if PY3 else 'replace')},
 		{'ascii': 'not ascii', 'bytes': mk_bytes(128, 256).decode('utf-8', 'surrogateescape' if PY3 else 'replace')},
 	])
+
+	# header printing should happen between datasets only when columns change,
+	# and must wait for all slices for each switch.
+	# to make this predictable without -o, only one slice is used per column set.
+	columns = [
+		('int32', 'int64',),
+		('int64', 'int32',), # not actually a change
+		('int32', 'number',),
+		('int32',),
+		('int32',),
+		('int32',),
+		('int64',),
+	]
+	values_every_time = range(10)
+	previous = None
+	previous_cols = []
+	slice = 0
+	for ds_ix, cols in enumerate(columns):
+		dw = job.datasetwriter(name='header test %d' % (ds_ix,), previous=previous, allow_missing_slices=True)
+		for col in cols:
+			dw.add(col, col)
+		if sorted(cols) != previous_cols:
+			# columns changed, so switch slice to make failure more likely
+			previous_cols = sorted(cols)
+			slice = (slice + 1) % slices
+		dw.set_slice(slice)
+		for value in values_every_time:
+			args = (value,) * len(cols)
+			dw.write(*args)
+		previous = dw.finish()
+	grep_text(
+		['-H', '-c', '', previous],
+			[['int32', 'int64']] +
+			[(v, v,) for v in values_every_time] +
+			[(v, v,) for v in values_every_time] +
+			[['int32', 'number']] +
+			[(v, v,) for v in values_every_time] +
+			[['int32']] +
+			[(v,) for v in values_every_time] +
+			[(v,) for v in values_every_time] +
+			[(v,) for v in values_every_time] +
+			[['int64']] +
+			[(v,) for v in values_every_time],
+		unordered=True,
+	)
 
 	# more escaping
 	escapy = mk_ds('escapy',
