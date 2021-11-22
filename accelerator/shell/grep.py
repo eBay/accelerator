@@ -199,9 +199,8 @@ def main(argv, cfg):
 				if args.show_lineno:
 					prefix['lineno'] = lineno
 				if prefix:
-					dd = dict(prefix)
-					dd['data'] = d
-					d = dd
+					prefix['data'] = d
+					d = prefix
 				return dumps(d).encode('utf-8', 'surrogatepass')
 		else:
 			prefix = []
