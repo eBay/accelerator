@@ -93,10 +93,13 @@ def main(argv, cfg):
 	if args.chain:
 		datasets = list(chain.from_iterable(ds.chain() for ds in datasets))
 
-	if columns:
+	if columns or grep_columns:
 		bad = False
+		need_cols = set(columns)
+		if grep_columns:
+			need_cols.update(grep_columns)
 		for ds in datasets:
-			missing = set(columns) - set(ds.columns)
+			missing = need_cols - set(ds.columns)
 			if missing:
 				print('ERROR: %s does not have columns %r' % (ds, missing,), file=sys.stderr)
 				bad = True
