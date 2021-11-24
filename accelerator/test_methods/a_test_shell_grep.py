@@ -133,7 +133,7 @@ def synthesis(job, slices):
 	grep_text(['-t', '2', '-f', 'raw', '', a], [[100, 200], [101, 201]], sep='2') # but not in the raw format
 
 	# try some colour
-	grep_text(['-C', '-t', ',', '-D', '-S', '-H', '', a], [frame(HDR_HI, ['[DATASET]', '[SLICE]', 'int32', 'int64']), [a, 0, 100, 200], [a, 1, 101, 201]], sep=COMMA_HI)
+	grep_text(['--colour', '-t', ',', '-D', '-S', '-H', '', a], [frame(HDR_HI, ['[DATASET]', '[SLICE]', 'int32', 'int64']), [a, 0, 100, 200], [a, 1, 101, 201]], sep=COMMA_HI)
 	os.putenv('CLICOLOR_FORCE', '1')
 	grep_text(['-t', ',', '-L', '-S', '-H', '', a], [frame(HDR_HI, ['[SLICE]', '[LINE]', 'int32', 'int64']), [0, 0, 100, 200], [1, 0, 101, 201]], sep=COMMA_HI)
 	grep_text(['-t', ',', '-L', '-S', '-H', '--colour=never', '', a], [['[SLICE]', '[LINE]', 'int32', 'int64'], [0, 0, 100, 200], [1, 0, 101, 201]], sep=',')
@@ -144,7 +144,7 @@ def synthesis(job, slices):
 	grep_text(['--color=never', '0', b], [[1000], [1001]])
 	os.unsetenv('CLICOLOR_FORCE')
 	os.putenv('NO_COLOR', '')
-	grep_text(['-C', 'always', '0', b], [['1\x1b[31m0\x1b[39m\x1b[31m0\x1b[39m\x1b[31m0\x1b[39m'], ['1\x1b[31m0\x1b[39m\x1b[31m0\x1b[39m1']], sep=TAB_HI)
+	grep_text(['--colour', 'always', '0', b], [['1\x1b[31m0\x1b[39m\x1b[31m0\x1b[39m\x1b[31m0\x1b[39m'], ['1\x1b[31m0\x1b[39m\x1b[31m0\x1b[39m1']], sep=TAB_HI)
 	os.unsetenv('NO_COLOR')
 	if PY3: # no pickle type on PY2
 		pickle = mk_ds('pickle', ['pickle'], [TricksyObject()], [''], [{'foo'}])

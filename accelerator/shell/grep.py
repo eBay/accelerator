@@ -43,7 +43,7 @@ def main(argv, cfg):
 		prog=argv.pop(0),
 	)
 	parser.add_argument('-c', '--chain',        action='store_true', help="follow dataset chains", )
-	parser.add_argument('-C', '--colour', '--color', nargs='?', const='always', choices=['auto', 'never', 'always'], type=str.lower, help="colour matched text. can be auto, never or always", metavar='WHEN', )
+	parser.add_argument(      '--colour', '--color', nargs='?', const='always', choices=['auto', 'never', 'always'], type=str.lower, help="colour matched text. can be auto, never or always", metavar='WHEN', )
 	parser.add_argument('-i', '--ignore-case',  action='store_true', help="case insensitive pattern", )
 	parser.add_argument('-H', '--headers',      action='store_true', help="print column names before output (and on each change)", )
 	parser.add_argument('-o', '--ordered',      action='store_true', help="output in order (one slice at a time)", )
