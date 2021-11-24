@@ -39,7 +39,7 @@ ax init --slices 3 $BASEDIR
 cd $BASEDIR
 
 echo workdirs: >>accelerator.conf
-for V in v1 v2 v2b v3; do
+for V in ds30setup1 ds31setup2 ds31setup2b ds31setup3; do
 	echo "	$V $SRCDIR/$V" >>accelerator.conf
 done
 

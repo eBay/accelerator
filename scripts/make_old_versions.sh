@@ -80,7 +80,7 @@ setup() {
 	echo 3 > "workdirs/$1/$1-slices.conf"
 	"../py.$1/bin/$3" init --force --slices 3 --name "$1" $4
 	case "$1" in
-		v1|v2)
+		ds30setup1|ds31setup2)
 			HASHPART=rehash
 			;;
 		*)
@@ -97,10 +97,10 @@ setup() {
 	cd ..
 }
 
-setup v1 00feb8d8fc11bd24c59012b10ae90942e2abeb74 bd "--source .. --prefix ." daemon
-setup v2 1363e5d94e08bdc16c5d3f3a6a7cb49501272f1a bd "--input .. --prefix ." daemon
-setup v2b 2020.2.14.dev1 ax "--input .." server
-setup v3 2020.10.1.dev1 ax "--input .." server
+setup ds30setup1 00feb8d8fc11bd24c59012b10ae90942e2abeb74 bd "--source .. --prefix ." daemon
+setup ds31setup2 1363e5d94e08bdc16c5d3f3a6a7cb49501272f1a bd "--input .. --prefix ." daemon
+setup ds31setup2b 2020.2.14.dev1 ax "--input .." server
+setup ds31setup3 2020.10.1.dev1 ax "--input .." server
 
 sleep 0.2
 rm -rf $BASEDIR
