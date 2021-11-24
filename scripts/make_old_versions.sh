@@ -1,10 +1,7 @@
 #!/bin/sh
 #
 # Generate three jobs (csvimport, dataset_type, dataset_hashpart) each on
-# four older versions.
-#
-# There are only two different dataset versions, but they all use different
-# versions of setup.json.
+# five older versions, with increasing Dataset and setup.json versions.
 #
 # Doesn't work past Python 3.7 because of bugs in older accelerator versions.
 
@@ -101,6 +98,7 @@ setup ds30setup1 00feb8d8fc11bd24c59012b10ae90942e2abeb74 bd "--source .. --pref
 setup ds31setup2 1363e5d94e08bdc16c5d3f3a6a7cb49501272f1a bd "--input .. --prefix ." daemon
 setup ds31setup2b 2020.2.14.dev1 ax "--input .." server
 setup ds31setup3 2020.10.1.dev1 ax "--input .." server
+setup ds32setup3 2021.10.28.dev1 ax "--input .." server
 
 sleep 0.2
 rm -rf $BASEDIR

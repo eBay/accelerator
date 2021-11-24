@@ -29,7 +29,7 @@ if [ ! -e /opt/python/cp310-cp310/bin/python ]; then
 fi
 
 if [ -e /prepare/.done ]; then
-	if [ "$(cat /prepare/.done)" = "1" ]; then
+	if [ "$(cat /prepare/.done)" = "2" ]; then
 		exit 0
 	fi
 fi
@@ -83,7 +83,7 @@ for V in cp27-cp27mu cp37-cp37m; do
 	VE=""
 done
 
-echo 1 >/prepare/.done
+echo 2 >/prepare/.done
 
 set +x
 
