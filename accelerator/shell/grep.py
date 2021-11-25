@@ -46,7 +46,7 @@ def main(argv, cfg):
 	parser.add_argument(      '--colour', '--color', nargs='?', const='always', choices=['auto', 'never', 'always'], type=str.lower, help="colour matched text. can be auto, never or always", metavar='WHEN', )
 	parser.add_argument('-i', '--ignore-case',  action='store_true', help="case insensitive pattern", )
 	parser.add_argument('-H', '--headers',      action='store_true', help="print column names before output (and on each change)", )
-	parser.add_argument('-o', '--ordered',      action='store_true', help="output in order (one slice at a time)", )
+	parser.add_argument('-O', '--ordered',      action='store_true', help="output in order (one slice at a time)", )
 	parser.add_argument('-g', '--grep',         action='append',     help="grep this column only, can be specified multiple times", metavar='COLUMN')
 	parser.add_argument('-s', '--slice',        action='append',     help="grep this slice only, can be specified multiple times",  type=int)
 	parser.add_argument('-D', '--show-dataset', action='store_true', help="show dataset on matching lines", )

@@ -197,7 +197,7 @@ def synthesis(job, slices):
 
 	# header printing should happen between datasets only when columns change,
 	# and must wait for all slices for each switch.
-	# to make this predictable without -o, only one slice is used per column set.
+	# to make this predictable without -O, only one slice is used per column set.
 	columns = [
 		('int32', 'int64',),
 		('int64', 'int32',), # not actually a change
