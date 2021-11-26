@@ -124,22 +124,21 @@ def main(argv, cfg):
 	if separator is None and not sys.stdout.isatty():
 		separator = '\t'
 
-	wrap_null = unicode
 	if separator is None:
 		# special case where we try to be like a tab, but with spaces.
 		# this is useful because terminals typically don't style tabs.
-		def separate(items, wrap_f=wrap_null):
+		def separate(items, lens):
 			things = []
-			for item in items:
-				things.append(wrap_f(item))
-				spaces = 8 - (len(item) % 8)
+			for item, item_len in zip(items, lens):
+				things.append(item)
+				spaces = 8 - (item_len % 8)
 				things.append(colour(' ' * spaces, 'cyan', 'underline'))
 			return ''.join(things[:-1])
 		separator = '\t'
 	else:
 		separator_coloured = colour(separator, 'cyan', 'underline')
-		def separate(items, wrap_f=wrap_null):
-			return separator_coloured.join(map(wrap_f, items))
+		def separate(items, lens):
+			return separator_coloured.join(items)
 
 	def json_default(obj):
 		if isinstance(obj, (datetime.datetime, datetime.date, datetime.time)):
@@ -220,12 +219,17 @@ def main(argv, cfg):
 					show_items = (v if isinstance(v, unicode) else str(v).decode('utf-8', 'replace') for v in items)
 				else:
 					show_items = map(str, items)
+				show_items = list(show_items)
+				lens = (len(item) for item in data + show_items)
 				if highlight_matches:
-					show_items = map(colour_item, show_items)
+					show_items = list(map(colour_item, show_items))
 				if escape_item:
-					show_items = map(escape_item, show_items)
+					lens_unesc = (len(item) for item in data + show_items)
+					show_items = list(map(escape_item, show_items))
+					lens_esc = (len(item) for item in data + show_items)
+					lens = (l + esc - unesc for l, unesc, esc in zip(lens, lens_unesc, lens_esc))
 				data.extend(show_items)
-				return separate(data).encode('utf-8', errors)
+				return separate(data, lens).encode('utf-8', errors)
 		used_columns = columns or sorted(ds.columns)
 		if grep_columns and grep_columns != set(used_columns):
 			grep_iter = izip(*(mk_iter(col) for col in grep_columns))
@@ -286,8 +290,8 @@ def main(argv, cfg):
 			if args.format != 'json':
 				show_items = headers_prefix + headers
 				if escape_item:
-					show_items = map(escape_item, show_items)
-				print(separate(show_items, colour.blue))
+					show_items = list(map(escape_item, show_items))
+				print(separate(map(colour.blue, show_items), map(len, show_items)))
 		show_headers(current_headers)
 
 	queues = []
