@@ -47,6 +47,8 @@ def _cachedprop(meth):
 		return self._cache[meth.__name__]
 	return wrapper
 
+_cache = {}
+
 class Job(unicode):
 	"""
 	A string that is a jobid, but also has some extra properties:
@@ -70,6 +72,9 @@ class Job(unicode):
 	Decays to a (unicode) string when pickled.
 	"""
 	def __new__(cls, jobid, method=None):
+		k = (jobid, method)
+		if k in _cache:
+			return _cache[k]
 		obj = unicode.__new__(cls, jobid)
 		try:
 			obj.workdir, tmp = jobid.rsplit('-', 1)
@@ -79,6 +84,7 @@ class Job(unicode):
 		obj._cache = {}
 		if method:
 			obj._cache['method'] = method
+		_cache[k] = obj
 		return obj
 
 	@classmethod
