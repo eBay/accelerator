@@ -176,15 +176,34 @@ def _name2job(cfg, n):
 		return job
 	raise JobNotFound("Don't know what to do with %r." % (n,))
 
+def split_ds_dir(n):
+	"""try to split a path at the jid/ds boundary"""
+	orig_n = n
+	jid_cand, name = n.split('/', 1)
+	if re.match(r'.+-\d+(?:[~^][~^\d]*)?$', jid_cand):
+		# looks like a JID, so assume it is. start with ./ to avoid this.
+		return jid_cand, name
+	name_bits = []
+	while '/' in n and not exists(join(n, 'setup.json')):
+		n, bit = n.rsplit('/', 1)
+		name_bits.append(bit)
+	while n.endswith('/') or n.endswith('/.'):
+		n, bit = n.rsplit('/', 1)
+		name_bits.append(bit)
+	if not n:
+		raise JobNotFound('No setup.json found in %r' % (orig_n,))
+	if not name_bits:
+		name_bits = ['default']
+	return n, '/'.join(reversed(name_bits))
+
 def name2ds(cfg, n):
 	job = name = tildes = None
-	try:
+	if n.startswith(':'):
 		job = name2job(cfg, n)
-	except JobNotFound:
-		if '/' not in n:
-			raise
-	if not job:
-		n, name = n.rsplit('/', 1)
+	elif '/' not in n:
+		job = name2job(cfg, n)
+	else:
+		n, name = split_ds_dir(n)
 		job = name2job(cfg, n)
 		name, tildes = split_tildes(name, allow_empty=True)
 	ds = job.dataset(name)
