@@ -56,14 +56,14 @@ def _groups(tildes):
 	yield char_and_count(buf)
 
 # "foo~~^3" -> "foo", [("~", 2), ("^", 3)]
-def split_tildes(n):
+def split_tildes(n, allow_empty=False):
 	m = re.match(r'(.*?)([~^][~^\d]*)$', n)
 	if m:
 		n, tildes = m.groups()
 		lst = list(_groups(tildes))
 	else:
 		lst = []
-	assert n, "empty job id"
+	assert n or allow_empty, "empty job id"
 	return n, lst
 
 def method2job(cfg, method, count=0, start_from=None):
@@ -186,7 +186,7 @@ def name2ds(cfg, n):
 	if not job:
 		n, name = n.rsplit('/', 1)
 		job = name2job(cfg, n)
-		name, tildes = split_tildes(name)
+		name, tildes = split_tildes(name, allow_empty=True)
 	ds = job.dataset(name)
 	if tildes:
 		def follow(key, motion):
