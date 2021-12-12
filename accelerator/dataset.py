@@ -144,10 +144,7 @@ def _ds_load(obj):
 	return _ds_cache[n]
 
 def _namechk(name):
-	if not name:
-		raise DatasetUsageError("Dataset name can't be empty")
-	name = uni(name)
-	return name
+	return uni(name)
 
 _dummy_iter = iter(())
 
@@ -197,7 +194,7 @@ class Dataset(unicode):
 			if name:
 				raise DatasetUsageError("Don't pass both a separate name and jobid as jid/name")
 			jobid, name = jobid.split('/', 1)
-		name = _namechk(name or 'default')
+		name = _namechk('default' if name is None else name)
 		if jobid is _new_dataset_marker:
 			from accelerator.g import job
 		else:
@@ -735,9 +732,8 @@ class Dataset(unicode):
 		from accelerator.statmsg import status
 		def fmt_dsname(d, sliceno, rehash):
 			if rehash is not None:
-				return d + ':REHASH'
-			else:
-				return '%s:%s' % (d, sliceno)
+				sliceno = 'REHASH'
+			return '%s:%s' % (d.quoted, sliceno)
 		if len(to_iter) == 1:
 			msg_head = 'Iterating ' + fmt_dsname(*to_iter[0])
 			def update_status(ix, d, sliceno, rehash):
@@ -1243,7 +1239,7 @@ class DatasetWriter(object):
 			if self._copy_mode:
 				coltype = _copy_mode_overrides.get(coltype, coltype)
 			wt = typed_writer(coltype)
-			error_extra = ' (column %r (type %s) in %s/%s)' % (colname, coltype, job, self.name,)
+			error_extra = ' (column %s (type %s) in %s)' % (quote(colname), coltype, quote('%s/%s' % (job, self.name,)),)
 			kw = {'none_support': none_support, 'error_extra': error_extra, 'compression': 'gzip'}
 			if default is not _nodefault:
 				kw['default'] = default
