@@ -84,7 +84,8 @@ iskeyword = frozenset(kwlist).__contains__
 #         jid.filename(path % sliceno)
 # There is a ds.column_filename function to do this for you (not the seeking, obviously).
 #
-# The dataset pickle is jid/name/dataset.pickle, so jid/default/dataset.pickle for the default dataset.
+# The dataset pickle is jid/DS/name.p, so jid/DS/default.p for the default dataset.
+# It was jid/name/dataset.pickle in jobs version 3 and lower.
 
 def _clean_name(n, seen_n):
 	n = ''.join(c if c.isalnum() else '_' for c in n)
@@ -146,12 +147,18 @@ def _namechk(name):
 	if not name:
 		raise DatasetUsageError("Dataset name can't be empty")
 	name = uni(name)
-	for c in '/\n\0%':
-		if c in name:
-			raise DatasetUsageError("Dataset name can't contain " + repr(c))
 	return name
 
 _dummy_iter = iter(())
+
+_dir_name_blacklist = list(range(32)) + [37, 47] # unprintable and '%/'
+_dir_name_blacklist = {chr(c): '\\x%02x' % (c,) for c in _dir_name_blacklist}
+_dir_name_blacklist['\\'] = '\\\\' # make sure names can't collide
+
+def _fs_name(name, version=4):
+	if version < 4:
+		return name
+	return 'DS/' + ''.join(_dir_name_blacklist.get(c, c) for c in name)
 
 class Dataset(unicode):
 	"""
@@ -214,8 +221,10 @@ class Dataset(unicode):
 				'lines': [],
 			})
 			obj.job = None
+			obj.fs_name = _fs_name(obj.name)
 		else:
 			obj.job = Job(jobid)
+			obj.fs_name = _fs_name(obj.name, obj.job.params.version)
 			obj._data = DotDict(_ds_load(obj))
 			if obj._data.version[0] != 3:
 				raise DatasetError("%s/%s: Unsupported dataset pickle version %r" % (jobid, name, obj._data.version,))
@@ -315,6 +324,7 @@ class Dataset(unicode):
 			d._data.filename = filename or None
 		d.job = job
 		d.name = uni(name)
+		d.fs_name = _fs_name(d.name)
 		d._save()
 		_datasets_written.append(d.name)
 		return Dataset(d.job, d.name)
@@ -359,6 +369,7 @@ class Dataset(unicode):
 				raise DatasetUsageError("%s and %s have no common ancenstors, set allow_unrelated to allow this" % (self, other,))
 		new_ds.job = job
 		new_ds.name = name
+		new_ds.fs_name = _fs_name(name)
 		new_ds._data.previous = previous
 		new_ds._data.parent = (self, other)
 		new_ds._data.filename = None
@@ -899,6 +910,7 @@ class Dataset(unicode):
 			self._data.parent = '%s/%s' % (self.job, self.name,)
 		self.job = job
 		self.name = name
+		self.fs_name = _fs_name(name)
 		self._data.filename = uni(filename) or self._data.filename or None
 		self._data.caption  = uni(caption) or self._data.caption or uni(job)
 		self._data.previous = _dsid(previous)
@@ -920,7 +932,7 @@ class Dataset(unicode):
 			self._data.columns[n] = DatasetColumn(
 				type=t,
 				compression='gzip',
-				location='%s/%s/%%s.%s' % (job, self.name, filenames[n]),
+				location='%s/%s/%%s.%s' % (job, self._name('dir'), filenames[n]),
 				min=mm[0],
 				max=mm[1],
 				offsets=None,
@@ -984,12 +996,16 @@ class Dataset(unicode):
 		)
 
 	def _save(self):
-		if not os.path.exists(self.name):
-			os.mkdir(self.name)
+		if not os.path.exists('DS'):
+			os.mkdir('DS')
 		blob.save(self._data, self._name('pickle'), temp=False, _hidden=True)
 
 	def _name(self, thing):
-		return '%s/dataset.%s' % (self.name, thing,)
+		if self.job and self.job.params.version < 4:
+			assert thing == 'pickle'
+			return self.name + '/dataset.pickle'
+		else:
+			return '%s.%s' % (self.fs_name, thing[0])
 
 _datasetwriters = {}
 _datasets_written = []
@@ -1091,7 +1107,10 @@ class DatasetWriter(object):
 		else:
 			if name in _datasetwriters:
 				raise DatasetUsageError('Duplicate dataset name "%s"' % (name,))
-			os.mkdir(name)
+			fs_name = _fs_name(name) + '.d'
+			if not os.path.exists('DS'):
+				os.mkdir('DS')
+			os.mkdir(fs_name)
 			obj = object.__new__(cls)
 			obj._running = running
 			obj.filename = uni(filename)
@@ -1100,6 +1119,7 @@ class DatasetWriter(object):
 			obj.caption = uni(caption)
 			obj.previous = _dsid(previous)
 			obj.name = name
+			obj.fs_name = fs_name
 			obj.columns = {}
 			obj.meta_only = meta_only
 			obj._for_single_slice = for_single_slice
@@ -1198,7 +1218,7 @@ class DatasetWriter(object):
 	def column_filename(self, colname, sliceno=None):
 		if sliceno is None:
 			sliceno = self.sliceno
-		return '%s/%d.%s' % (self.name, sliceno, self._filenames[colname],)
+		return '%s/%d.%s' % (self.fs_name, sliceno, self._filenames[colname],)
 
 	def enable_hash_discard(self):
 		"""Make the write functions silently discard data that does not
@@ -1385,7 +1405,7 @@ class DatasetWriter(object):
 	def discard(self):
 		del _datasetwriters[self.name]
 		from shutil import rmtree
-		rmtree(self.name)
+		rmtree(self.fs_name)
 
 	def set_lines(self, sliceno, count):
 		if not self.meta_only:

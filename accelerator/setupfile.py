@@ -68,7 +68,10 @@ def load_setup(jobid):
 		if python_path:
 			d.versions.python_path = python_path
 		version = 3
-	if version != 3:
+	if version == 3:
+		# no changes here, it's only used to know how to find datasets
+		version = 4
+	if version != 4:
 		raise Exception("Don't know how to load setup.json version %d (in %s)" % (d.version, jobid,))
 	return d
 
@@ -162,6 +165,6 @@ def _encode_with_compact(data, compact_keys, extra_indent=0, separator='\n', spe
 
 def save_setup(jobid, data):
 	data = dict(data)
-	data['version'] = 3
+	data['version'] = 4
 	filename = Job(jobid).filename('setup.json')
 	json_save(data, filename, _encoder=encode_setup)
