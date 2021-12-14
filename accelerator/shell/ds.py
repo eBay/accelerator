@@ -32,15 +32,11 @@ from accelerator.compat import terminal_size
 from .parser import name2ds, name2job
 from accelerator.colourwrapper import colour
 from accelerator.error import NoSuchWhateverError
+from accelerator.extras import quote
 
 MINMAXWIDTH = 13 # minimum number of characters reserved for min/max values
 COLUMNS, LINES = terminal_size()
 
-def quote(x):
-	if not x or ({' ', '"', "'"} & set(x)):
-		return repr(x)
-	else:
-		return x
 
 def colwidth(rows):
 	# find max string len per column
@@ -116,22 +112,22 @@ def main(argv, cfg):
 			badinput.append((n, e))
 			continue
 
-		print(quote("%s/%s" % (ds.job, ds.name,)))
+		print(ds.quoted)
 		if ds.parent:
 			if isinstance(ds.parent, tuple):
 				print("    Parents:")
-				max_n = max(len(quote(x)) for x in ds.parent)
+				max_n = max(len(x.quoted) for x in ds.parent)
 				template = "{1:%d}" % (max_n,)
-				data = tuple((None, quote(x)) for ix, x in enumerate(ds.parent))
+				data = tuple((None, x.quoted) for ix, x in enumerate(ds.parent))
 				data = sorted(data, key = lambda x: x[1])
 				printcolwise(data, template, lambda x: x, minrows=8, indent=8)
 			else:
-				print("    Parent:", quote(ds.parent))
+				print("    Parent:", ds.parent.quoted)
 		print("    Method:", quote(ds.job.method))
 		if ds.filename:
 			print("    Filename:", quote(ds.filename))
 		if ds.previous:
-			print("    Previous:", quote(ds.previous))
+			print("    Previous:", ds.previous.quoted)
 		if ds.hashlabel is not None:
 			print("    Hashlabel:", quote(ds.hashlabel))
 

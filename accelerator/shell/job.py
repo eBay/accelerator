@@ -41,14 +41,11 @@ def show(url, job, show_output):
 	if 'endtime' in setup:
 		setup.endtime = str(datetime.fromtimestamp(setup.endtime))
 	print(encode_setup(setup, as_str=True))
-	try:
-		with job.open('datasets.txt') as fh:
-			print()
-			print('datasets:')
-			for line in fh:
-				print('    %s/%s' % (job, line[:-1],))
-	except IOError:
-		pass
+	if job.datasets:
+		print()
+		print('datasets:')
+		for ds in job.datasets:
+			print('   ', ds.quoted)
 	try:
 		post = job.json_load('post.json')
 	except FileNotFoundError:
