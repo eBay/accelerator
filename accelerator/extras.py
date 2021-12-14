@@ -165,6 +165,19 @@ def json_load(filename='result.json', jobid=None, sliceno=None, unicode_as_utf8b
 	return json_decode(data, unicode_as_utf8bytes)
 
 
+def quote(s):
+	"""Quote s unless it looks fine without"""
+	s = unicode(s)
+	r = repr(s)
+	if PY2:
+		# remove leading u
+		r = r[1:]
+	if s and len(s) + 2 == len(r) and not any(c.isspace() for c in s):
+		return s
+	else:
+		return r
+
+
 def debug_print_options(options, title=''):
 	print('-' * 53)
 	if title:

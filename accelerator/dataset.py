@@ -38,7 +38,7 @@ from accelerator.compat import builtins, open, getarglist, izip, izip_longest
 from accelerator.compat import str_types, int_types, FileNotFoundError
 
 from accelerator import blob
-from accelerator.extras import DotDict, job_params, _ListTypePreserver
+from accelerator.extras import DotDict, job_params, _ListTypePreserver, quote
 from accelerator.job import Job
 from accelerator.dsutil import typed_writer, _type2iter
 from accelerator.error import NoSuchDatasetError, DatasetUsageError, DatasetError
@@ -198,17 +198,17 @@ class Dataset(unicode):
 				raise DatasetUsageError("Don't pass both a separate name and jobid as jid/name")
 			jobid, name = jobid.split('/', 1)
 		name = _namechk(name or 'default')
-		if name == 'default':
-			suffix = ''
-		else:
-			suffix = '/' + name
 		if jobid is _new_dataset_marker:
 			from accelerator.g import job
-			fullname = job + suffix
 		else:
-			fullname = jobid + suffix
+			job = Job(jobid)
+		if name == 'default':
+			fullname = job
+		else:
+			fullname = '%s/%s' % (job, name,)
 		obj = unicode.__new__(cls, fullname)
-		obj.name = uni(name or 'default')
+		obj.name = name
+		obj.quoted = quote('%s/%s' % (job, name,))
 		if jobid is _new_dataset_marker:
 			obj._data = DotDict({
 				'version': (3, 3,),
@@ -223,7 +223,7 @@ class Dataset(unicode):
 			obj.job = None
 			obj.fs_name = _fs_name(obj.name)
 		else:
-			obj.job = Job(jobid)
+			obj.job = job
 			obj.fs_name = _fs_name(obj.name, obj.job.params.version)
 			obj._data = DotDict(_ds_load(obj))
 			if obj._data.version[0] != 3:
