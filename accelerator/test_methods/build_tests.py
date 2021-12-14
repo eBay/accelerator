@@ -160,6 +160,9 @@ def main(urd):
 
 	print()
 	print("Testing datasets more")
+	dsnamejob = urd.build("test_dataset_names")
+	# make sure .datasets works with these names (only possible after job finishes)
+	assert [ds.name for ds in dsnamejob.datasets] == dsnamejob.load()
 	urd.build("test_dataset_column_names")
 	urd.build("test_dataset_merge")
 	urd.build("test_dataset_filter_columns")
