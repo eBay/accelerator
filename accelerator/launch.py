@@ -372,10 +372,7 @@ def execute_process(workdir, jobid, slices, concurrency, result_directory, commo
 				for name in sorted(dataset._datasetwriters, key=dw_sortnum):
 					dataset._datasetwriters[name].finish()
 	if dataset._datasets_written:
-		with g.job.open('datasets.txt', 'w', encoding='utf-8') as fh:
-			for name in dataset._datasets_written:
-				fh.write(name)
-				fh.write(u'\n')
+		blob.save(dataset._datasets_written, 'DS/LIST', temp=False, _hidden=True)
 	c_fflush()
 	t = monotonic() - t
 	prof['synthesis'] = t
