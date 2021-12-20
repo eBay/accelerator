@@ -170,7 +170,7 @@ def main(argv, cfg):
 			name2typ = {n: c.type + '+None' if c.none_support else c.type for n, c in ds.columns.items()}
 			len_n, len_t = colwidth((quote(n), name2typ[n]) for n, c in ds.columns.items())
 			if args.location:
-				len_l = max(len(c.location) for c in ds.columns.values())
+				len_l = max(len(quote(c.location)) for c in ds.columns.values())
 				len_c = max(len(c.compression) for c in ds.columns.values())
 				template = '        {2} {0:%d}  {1:%d}  {4:%d} {5:%d}  {3}' % (len_n, len_t, len_l, len_c,)
 			else:
@@ -184,7 +184,7 @@ def main(argv, cfg):
 				else:
 					minval, maxval = c.min, c.max
 				hashdot = colour.bold("*") if n == ds.hashlabel else " "
-				print(template.format(quote(n), name2typ[n], hashdot, prettyminmax(minval, maxval), c.location, c.compression).rstrip())
+				print(template.format(quote(n), name2typ[n], hashdot, prettyminmax(minval, maxval), quote(c.location), c.compression).rstrip())
 			print("    {0:n} columns".format(len(ds.columns)))
 		print("    {0:n} lines".format(sum(ds.lines)))
 
