@@ -199,6 +199,12 @@ def split_ds_dir(n):
 def name2ds(cfg, n):
 	job = name = tildes = None
 	if n.startswith(':'):
+		colon2 = n.rfind(':', 1)
+		if colon2 > 0:
+			tailslash = n.find('/', colon2)
+			if tailslash > 0:
+				name = n[tailslash + 1:]
+				n = n[:tailslash]
 		job = name2job(cfg, n)
 	elif '/' not in n:
 		job = name2job(cfg, n)
