@@ -260,10 +260,10 @@ def main(urd):
 	b = urd.build('test_shell_data', force_build=True)
 	c = urd.build('test_shell_data', datasets={'previous': a})
 	urd.finish("tests_urd")
-	urd.begin("tests_urd", "2021-09-27")
+	urd.begin("tests_urd", "2021-09-27T03:14")
 	d = urd.build('test_shell_data', datasets={'previous': c, 'parent': a + '/j'}, jobs={'previous': b})
 	urd.finish("tests_urd")
-	urd.begin("tests_urd", "2021-09-27+1")
+	urd.begin("tests_urd", "2021-09-27T03:14+1")
 	e = urd.build('test_shell_data', jobs={'previous': d})
 	urd.finish("tests_urd")
 	# ~ finds earlier jobs with that method, ^ follows jobs.previous falling back to datasets.previous.
@@ -274,11 +274,11 @@ def main(urd):
 		'test_shell_data~2^': a, # ~~ goes to c, ^ follows .previous to a.
 		d + '^': b, # prefers jobs.previous to .datasets.previous
 		':tests_urd:': e,
-		':tests_urd/2021-09-27:': d,
+		':tests_urd/2021-09-27T03:14:': d,
 		':tests_urd/1:1': b, # 1 is the second entry
 		':tests_urd/1:-3': a, # third entry from the end
 		':tests_urd:^': d,
-		':tests_urd/2021-09-27+1^^:0': a, # ^ in :: goes to earlier entries
+		':tests_urd/2021-09-27T03:14+1^^:0': a, # ^ in :: goes to earlier entries
 		':tests_urd/1~:': d, # ~ in :: goes to later entries
 	}
 	urd.build('test_shell_job', command_prefix=command_prefix, want=want)
