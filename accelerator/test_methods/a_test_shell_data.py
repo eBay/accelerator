@@ -36,3 +36,5 @@ def synthesis(job):
 	previous = jobs.previous.dataset('j') if jobs.previous else None
 	dw = job.datasetwriter(name='j', columns={'b': 'bool'}, previous=previous, parent=datasets.parent)
 	dw.get_split_write()
+	dw = job.datasetwriter(name='name/with/slash', columns={'b': 'bool'})
+	dw.get_split_write()

@@ -289,6 +289,13 @@ def main(urd):
 		d + '/j~': b + '/default', # .previous
 		'test_shell_data~/j^': a + '/j', # both job and ds movement
 		e + '/j~^': a + '/j', # .previous.parent
+		# some urdlist ones with datasets on
+		':tests_urd:/j': e + '/j',
+		':tests_urd/1:1/j': b + '/j',
+		':tests_urd:^/j': d + '/j',
+		':tests_urd/2021-09-27T03:14:/j': d + '/j',
+		# finally one with : in the list and / in the ds name
+		':tests_urd/2021-09-27T03:14+1:0/name/with/slash': e + '/name/with/slash',
 	})
 	urd.build('test_shell_ds', command_prefix=command_prefix, want=want)
 	urd.truncate("tests_urd", 0)
