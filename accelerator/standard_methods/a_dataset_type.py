@@ -580,7 +580,9 @@ def synthesis(slices, analysis_res, prepare_res):
 					print('%14d   %s' % (cnt, colname,))
 			print()
 		for sliceno in range(slices):
-			unlink('badmap%d' % (sliceno,))
+			fn = 'badmap%d' % (sliceno,)
+			if exists(fn):
+				unlink(fn)
 	if options.defaults and sum(sum(data[2].values()) for data in analysis_res):
 		print('Defaulted values')
 		for colname in sorted(options.defaults):
