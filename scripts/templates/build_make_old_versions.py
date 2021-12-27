@@ -6,7 +6,7 @@ def main(urd):
 	jid = urd.build(
 		'dataset_type',
 		datasets=dict(source=jid),
-		options=dict(column2type={'a': 'int32_10', 'b': 'ascii'}),
+		options=dict(column2type={'a': 'number', 'b': 'ascii'}),
 	)
 	urd.build(
 		'dataset_$HASHPART',

@@ -48,9 +48,13 @@ mkdir $BASEDIR
 cd $BASEDIR
 
 cat >a.csv <<END
-a,b,c
-1,foo,bar
-2,Foo,Bar
+a,b
+111,fits in 1 byte
+-2,also fits in 1 byte
+333,needs 3 bytes
+44444,fits in 5 bytes
+55555555555,fits in 9 bytes
+666666666666666666666,fits in 10 bytes
 END
 
 setup() {
