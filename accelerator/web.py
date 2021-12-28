@@ -32,7 +32,6 @@ else:
 	from urllib import unquote_plus
 
 import cgi
-from traceback import print_exc
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
 	request_queue_size = 512
@@ -139,4 +138,4 @@ class BaseWebHandler(BaseHTTPRequestHandler):
 			if self.is_head: return
 			self.wfile.write(body)
 		except Exception:
-			print_exc()
+			pass
