@@ -116,6 +116,10 @@ static void *dsu_gz_read_open(int fd, Py_ssize_t size_hint)
 	} else {
 		gzbuffer(ctx->fh, 64 * 1024);
 	}
+	if (gzdirect(ctx->fh)) {
+		PyErr_SetString(PyExc_IOError, "not gzip compressed");
+		goto err;
+	}
 	return ctx;
 err:
 	if (ctx) free(ctx);
