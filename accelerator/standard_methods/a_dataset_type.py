@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2018-2021 Carl Drougge                       #
+# Modifications copyright (c) 2018-2022 Carl Drougge                       #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
 # you may not use this file except in compliance with the License.         #
@@ -259,7 +259,7 @@ def analysis(sliceno, slices, prepare_res):
 		dw = dws[sliceno]
 		if not dw:
 			dummy = [0] * slices
-			return {}, dummy, dummy, {}, dummy
+			return {}, dummy, {}, {}, dummy
 		rehashing = True
 	else:
 		rehashing = False
@@ -586,7 +586,7 @@ def synthesis(slices, analysis_res, prepare_res):
 	if options.defaults and sum(sum(data[2].values()) for data in analysis_res):
 		print('Defaulted values')
 		for colname in sorted(options.defaults):
-			defaulted = [data[2][colname] for data in analysis_res]
+			defaulted = [data[2].get(colname, 0) for data in analysis_res]
 			if sum(defaulted):
 				print('    %s:' % (colname,))
 				print('        Slice   Defaulted line count')
