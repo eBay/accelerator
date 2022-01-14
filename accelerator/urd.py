@@ -1,7 +1,7 @@
 ############################################################################
 #                                                                          #
 # Copyright (c) 2017 eBay Inc.                                             #
-# Modifications copyright (c) 2018-2021 Carl Drougge                       #
+# Modifications copyright (c) 2018-2022 Carl Drougge                       #
 # Modifications copyright (c) 2020 Anders Berkeman                         #
 #                                                                          #
 # Licensed under the Apache License, Version 2.0 (the "License");          #
@@ -258,6 +258,8 @@ class DB:
 	@locked
 	def add(self, data):
 		key = '%s/%s' % (data.user, data.build)
+		flags = data.pop('flags', [])
+		assert flags in ([], ['update']), 'Unknown flags: %r' % (flags,)
 		new = False
 		changed = False
 		ghosted = 0
@@ -278,8 +280,6 @@ class DB:
 				changed = (db[data.timestamp] != data)
 			else:
 				new = True
-		flags = data.get('flags', [])
-		assert flags in ([], ['update']), 'Unknown flags: %r' % (flags,)
 		if changed and 'update' not in flags:
 			assert self._initialised, 'Log updates without update flag: %r' % (data,)
 			bottle.response.status = 409
