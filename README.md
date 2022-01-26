@@ -13,9 +13,9 @@ Supported Environments
 ----------------------
 
 The Accelerator project has been built, tested, and runs on:
- - Ubuntu 16.04, 18.04, 20.04
- - Debian 9, 10
- - FreeBSD 11.3, 12.1
+ - Ubuntu 18.04, 20.04
+ - Debian 10, 11
+ - FreeBSD 13.0
 
 but is not limited to these systems or versions.
 
