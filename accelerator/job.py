@@ -125,6 +125,15 @@ class Job(unicode):
 		return job_params(self)
 
 	@_cachedprop
+	def version(self):
+		# this is self.params.version, but without fully loading the params
+		# (unless already loaded).
+		if 'params' in self._cache:
+			return self._cache['params'].version
+		from accelerator.setupfile import load_setup
+		return load_setup(self).version
+
+	@_cachedprop
 	def post(self):
 		from accelerator.extras import job_post
 		return job_post(self)

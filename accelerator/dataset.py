@@ -221,7 +221,7 @@ class Dataset(unicode):
 			obj.fs_name = _fs_name(obj.name)
 		else:
 			obj.job = job
-			obj.fs_name = _fs_name(obj.name, obj.job.params.version)
+			obj.fs_name = _fs_name(obj.name, obj.job.version)
 			obj._data = DotDict(_ds_load(obj))
 			if obj._data.version[0] != 3:
 				raise DatasetError("%s/%s: Unsupported dataset pickle version %r" % (jobid, name, obj._data.version,))
@@ -999,7 +999,7 @@ class Dataset(unicode):
 		blob.save(self._data, self._name('pickle'), temp=False, _hidden=True)
 
 	def _name(self, thing):
-		if self.job and self.job.params.version < 4:
+		if self.job and self.job.version < 4:
 			assert thing == 'pickle'
 			return self.name + '/dataset.pickle'
 		else:
@@ -1565,7 +1565,7 @@ def job_datasets(job):
 		job = job.job
 	else:
 		job = Job(job)
-	version = job.params.version
+	version = job.version
 	if version < 4:
 		fn = job.filename('datasets.txt')
 	else:
