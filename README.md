@@ -1,3 +1,7 @@
+[![Project Status: Moved to https://github.com/exaxorg/accelerator/ – The project has been moved to a new location, and the version at that location should be considered authoritative.](https://www.repostatus.org/badges/latest/moved.svg)](https://www.repostatus.org/#moved) to [exaxorg/accelerator](https://github.com/exaxorg/accelerator/)
+
+---
+
 The Accelerator is a tool for fast and reproducible processing of large amounts of data.
 Extensive documentation is available here:
 
